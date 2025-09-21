@@ -1,9 +1,11 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { CssBaseline, CircularProgress, Box } from '@mui/material';
 import { theme } from './theme/theme';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
+import AuthPage from './components/Auth/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Utilities from './pages/Utilities';
@@ -11,24 +13,74 @@ import Bills from './pages/Bills';
 import Analytics from './pages/Analytics';
 import Support from './pages/Support';
 import Settings from './pages/Settings';
+import LoanDashboard from './components/Loans/LoanDashboard';
+import LoanDetails from './components/Loans/LoanDetails';
+import NotificationCenter from './components/Notifications/NotificationCenter';
+import ReportsPage from './components/Reports/ReportsPage';
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+};
+
+const AppRoutes: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/auth" element={!isAuthenticated ? <AuthPage /> : <Navigate to="/" replace />} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<Dashboard />} />
+          <Route path="users" element={<Users />} />
+          <Route path="utilities" element={<Utilities />} />
+          <Route path="bills" element={<Bills />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="support" element={<Support />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="loans" element={<LoanDashboard />} />
+          <Route path="loans/:loanId" element={<LoanDetailsWrapper />} />
+          <Route path="notifications" element={<NotificationCenter />} />
+          <Route path="reports" element={<ReportsPage />} />
+        </Route>
+      </Routes>
+    </Router>
+  );
+};
+
+const LoanDetailsWrapper: React.FC = () => {
+  const loanId = window.location.pathname.split('/').pop() || '';
+  return <LoanDetails loanId={loanId} onBack={() => window.history.back()} />;
+};
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="users" element={<Users />} />
-            <Route path="utilities" element={<Utilities />} />
-            <Route path="bills" element={<Bills />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="support" element={<Support />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </Router>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

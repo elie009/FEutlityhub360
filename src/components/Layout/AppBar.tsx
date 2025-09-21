@@ -10,12 +10,15 @@ import {
   MenuItem,
   useMediaQuery,
   useTheme,
+  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
   AccountCircle,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AppBarProps {
   onMenuClick: () => void;
@@ -25,6 +28,8 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -32,6 +37,15 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleMenuClose();
+  };
+
+  const handleNotificationsClick = () => {
+    navigate('/notifications');
   };
 
   return (
@@ -52,8 +66,10 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton color="inherit">
-            <NotificationsIcon />
+          <IconButton color="inherit" onClick={handleNotificationsClick}>
+            <Badge badgeContent={0} color="error">
+              <NotificationsIcon />
+            </Badge>
           </IconButton>
           
           <IconButton
@@ -66,7 +82,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
             color="inherit"
           >
             <Avatar sx={{ width: 32, height: 32 }}>
-              <AccountCircle />
+              {user?.name?.charAt(0) || <AccountCircle />}
             </Avatar>
           </IconButton>
         </Box>
@@ -85,9 +101,22 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={handleMenuClose}>Profile</MenuItem>
-          <MenuItem onClick={handleMenuClose}>My account</MenuItem>
-          <MenuItem onClick={handleMenuClose}>Logout</MenuItem>
+          <MenuItem onClick={handleMenuClose}>
+            <Box>
+              <Typography variant="body2" color="text.secondary">
+                {user?.name}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {user?.email}
+              </Typography>
+            </Box>
+          </MenuItem>
+          <MenuItem onClick={() => { navigate('/settings'); handleMenuClose(); }}>
+            Settings
+          </MenuItem>
+          <MenuItem onClick={handleLogout}>
+            Logout
+          </MenuItem>
         </Menu>
       </Toolbar>
     </MuiAppBar>
