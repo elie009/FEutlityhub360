@@ -91,7 +91,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.applyForLoan(application);
     }
-    return this.request<Loan>('/loans/apply', {
+    return this.request<Loan>('/Loans/apply', {
       method: 'POST',
       body: JSON.stringify(application),
     });
@@ -101,14 +101,14 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getLoan(loanId);
     }
-    return this.request<Loan>(`/loans/${loanId}`);
+    return this.request<Loan>(`/Loans/${loanId}`);
   }
 
   async getUserLoans(userId: string): Promise<Loan[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
     }
-    return this.request<Loan[]>(`/users/${userId}/loans`);
+    return this.request<Loan[]>(`/Loans/${userId}`);
   }
 
   async getLoanStatus(loanId: string): Promise<{ status: string; outstandingBalance: number }> {
@@ -116,32 +116,32 @@ class ApiService {
       const loan = await mockDataService.getLoan(loanId);
       return { status: loan.status, outstandingBalance: loan.outstandingBalance };
     }
-    return this.request<{ status: string; outstandingBalance: number }>(`/loans/${loanId}/status`);
+    return this.request<{ status: string; outstandingBalance: number }>(`/Loans/${loanId}/status`);
   }
 
   async getLoanSchedule(loanId: string): Promise<RepaymentSchedule[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanSchedule(loanId);
     }
-    return this.request<RepaymentSchedule[]>(`/loans/${loanId}/schedule`);
+    return this.request<RepaymentSchedule[]>(`/Loans/${loanId}/schedule`);
   }
 
   async getLoanTransactions(loanId: string): Promise<Transaction[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanTransactions(loanId);
     }
-    return this.request<Transaction[]>(`/loans/${loanId}/transactions`);
+    return this.request<Transaction[]>(`/Loans/${loanId}/transactions`);
   }
 
   // Admin APIs
   async approveLoan(loanId: string): Promise<Loan> {
-    return this.request<Loan>(`/loans/${loanId}/approve`, {
+    return this.request<Loan>(`/Loans/${loanId}/approve`, {
       method: 'PUT',
     });
   }
 
   async rejectLoan(loanId: string, reason: string): Promise<Loan> {
-    return this.request<Loan>(`/loans/${loanId}/reject`, {
+    return this.request<Loan>(`/Loans/${loanId}/reject`, {
       method: 'PUT',
       body: JSON.stringify({ reason }),
     });
@@ -155,7 +155,7 @@ class ApiService {
   }
 
   async closeLoan(loanId: string): Promise<Loan> {
-    return this.request<Loan>(`/loans/${loanId}/close`, {
+    return this.request<Loan>(`/Loans/${loanId}/close`, {
       method: 'PUT',
     });
   }
@@ -184,7 +184,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getPayments(loanId);
     }
-    return this.request<Payment[]>(`/loans/${loanId}/payments`);
+    return this.request<Payment[]>(`/Loans/${loanId}/payments`);
   }
 
   // Notification APIs
