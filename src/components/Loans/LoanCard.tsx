@@ -14,6 +14,10 @@ import {
   Schedule,
   TrendingUp,
   Payment,
+  AttachMoney,
+  CalendarToday,
+  CheckCircle,
+  Pending,
 } from '@mui/icons-material';
 import { Loan, LoanStatus } from '../../types/loan';
 
@@ -54,8 +58,10 @@ const formatDate = (dateString: string): string => {
 };
 
 const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment }) => {
-  const monthlyPayment = loan.totalAmount / loan.term;
-  const remainingPayments = Math.ceil(loan.outstandingBalance / monthlyPayment);
+  // Use the actual monthlyPayment from the loan data, or calculate it if not available
+  const monthlyPayment = loan.monthlyPayment || (loan.totalAmount / loan.term);
+  const remainingBalance = loan.remainingBalance || loan.outstandingBalance;
+  const remainingPayments = Math.ceil(remainingBalance / monthlyPayment);
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -77,6 +83,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment 
 
         <Divider sx={{ my: 2 }} />
 
+        {/* Main Financial Information */}
         <Grid container spacing={2}>
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -116,27 +123,99 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment 
 
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Payment sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
+              <AttachMoney sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary">
-                Outstanding
+                Total Amount
               </Typography>
             </Box>
-            <Typography variant="h6" color={loan.outstandingBalance > 0 ? 'error.main' : 'success.main'}>
-              {formatCurrency(loan.outstandingBalance)}
+            <Typography variant="h6">
+              {formatCurrency(loan.totalAmount)}
             </Typography>
           </Grid>
         </Grid>
 
-        {loan.status === LoanStatus.ACTIVE && remainingPayments > 0 && (
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Monthly Payment: {formatCurrency(monthlyPayment)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
+        {/* Payment Information */}
+        <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Payment sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Monthly Payment
+                </Typography>
+              </Box>
+              <Typography variant="body1" fontWeight="medium">
+                {formatCurrency(monthlyPayment)}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <AccountBalance sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Remaining Balance
+                </Typography>
+              </Box>
+              <Typography 
+                variant="body1" 
+                fontWeight="medium"
+                color={remainingBalance > 0 ? 'error.main' : 'success.main'}
+              >
+                {formatCurrency(remainingBalance)}
+              </Typography>
+            </Grid>
+          </Grid>
+
+          {loan.status === LoanStatus.ACTIVE && remainingPayments > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Remaining Payments: {remainingPayments}
             </Typography>
+          )}
+        </Box>
+
+        {/* Timeline Information */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            <CalendarToday sx={{ mr: 1, fontSize: 16, verticalAlign: 'middle' }} />
+            Timeline
+          </Typography>
+          
+          <Box sx={{ ml: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              <Pending sx={{ mr: 1, fontSize: 14, color: 'warning.main' }} />
+              <Typography variant="caption" color="text.secondary">
+                Applied: {formatDate(loan.appliedAt || loan.createdAt)}
+              </Typography>
+            </Box>
+            
+            {loan.approvedAt && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <CheckCircle sx={{ mr: 1, fontSize: 14, color: 'success.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  Approved: {formatDate(loan.approvedAt)}
+                </Typography>
+              </Box>
+            )}
+            
+            {loan.disbursedAt && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <CheckCircle sx={{ mr: 1, fontSize: 14, color: 'info.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  Disbursed: {formatDate(loan.disbursedAt)}
+                </Typography>
+              </Box>
+            )}
+            
+            {loan.completedAt && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <CheckCircle sx={{ mr: 1, fontSize: 14, color: 'success.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  Completed: {formatDate(loan.completedAt)}
+                </Typography>
+              </Box>
+            )}
           </Box>
-        )}
+        </Box>
 
         <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
           <Button
@@ -147,7 +226,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment 
           >
             View Details
           </Button>
-          {loan.status === LoanStatus.ACTIVE && loan.outstandingBalance > 0 && onMakePayment && (
+          {loan.status === LoanStatus.ACTIVE && remainingBalance > 0 && onMakePayment && (
             <Button
               variant="contained"
               size="small"
@@ -158,10 +237,6 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment 
             </Button>
           )}
         </Box>
-
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Created: {formatDate(loan.createdAt)}
-        </Typography>
       </CardContent>
     </Card>
   );

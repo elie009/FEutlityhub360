@@ -17,12 +17,16 @@ export interface Loan {
   term: number; // in months
   status: LoanStatus;
   purpose: string;
+  monthlyPayment: number;
+  totalAmount: number;
+  remainingBalance: number;
+  appliedAt: string;
+  approvedAt?: string;
+  disbursedAt?: string;
+  completedAt?: string;
   createdAt: string;
   updatedAt: string;
-  disbursedAt?: string;
-  closedAt?: string;
-  outstandingBalance: number;
-  totalAmount: number;
+  outstandingBalance: number; // Keep for backward compatibility
 }
 
 export enum LoanStatus {
