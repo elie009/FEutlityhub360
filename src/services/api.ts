@@ -12,8 +12,9 @@ import {
   PaymentMethod 
 } from '../types/loan';
 import { mockDataService } from './mockData';
+import { config, isMockDataEnabled } from '../config/environment';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = config.apiBaseUrl;
 
 class ApiService {
   private getAuthHeaders() {
@@ -26,7 +27,7 @@ class ApiService {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
-    const config: RequestInit = {
+    const requestConfig: RequestInit = {
       ...options,
       headers: {
         ...this.getAuthHeaders(),
@@ -34,8 +35,14 @@ class ApiService {
       },
     };
 
+    // Add timeout using AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), config.apiTimeout);
+    requestConfig.signal = controller.signal;
+
     try {
-      const response = await fetch(url, config);
+      const response = await fetch(url, requestConfig);
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -44,6 +51,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('API request failed:', error);
       throw error;
     }
@@ -78,46 +86,51 @@ class ApiService {
     return this.request<User>(`/users/${userId}`);
   }
 
-  // Loan APIs - Using mock data for demonstration
+  // Loan APIs
   async applyForLoan(application: LoanApplication): Promise<Loan> {
-    // For demo purposes, use mock data instead of real API call
-    return mockDataService.applyForLoan(application);
-    // Uncomment below for real API integration:
-    // return this.request<Loan>('/loans/apply', {
-    //   method: 'POST',
-    //   body: JSON.stringify(application),
-    // });
+    if (isMockDataEnabled()) {
+      return mockDataService.applyForLoan(application);
+    }
+    return this.request<Loan>('/loans/apply', {
+      method: 'POST',
+      body: JSON.stringify(application),
+    });
   }
 
   async getLoan(loanId: string): Promise<Loan> {
-    return mockDataService.getLoan(loanId);
-    // Uncomment below for real API integration:
-    // return this.request<Loan>(`/loans/${loanId}`);
+    if (isMockDataEnabled()) {
+      return mockDataService.getLoan(loanId);
+    }
+    return this.request<Loan>(`/loans/${loanId}`);
   }
 
   async getUserLoans(userId: string): Promise<Loan[]> {
-    return mockDataService.getUserLoans(userId);
-    // Uncomment below for real API integration:
-    // return this.request<Loan[]>(`/users/${userId}/loans`);
+    if (isMockDataEnabled()) {
+      return mockDataService.getUserLoans(userId);
+    }
+    return this.request<Loan[]>(`/users/${userId}/loans`);
   }
 
   async getLoanStatus(loanId: string): Promise<{ status: string; outstandingBalance: number }> {
-    const loan = await mockDataService.getLoan(loanId);
-    return { status: loan.status, outstandingBalance: loan.outstandingBalance };
-    // Uncomment below for real API integration:
-    // return this.request<{ status: string; outstandingBalance: number }>(`/loans/${loanId}/status`);
+    if (isMockDataEnabled()) {
+      const loan = await mockDataService.getLoan(loanId);
+      return { status: loan.status, outstandingBalance: loan.outstandingBalance };
+    }
+    return this.request<{ status: string; outstandingBalance: number }>(`/loans/${loanId}/status`);
   }
 
   async getLoanSchedule(loanId: string): Promise<RepaymentSchedule[]> {
-    return mockDataService.getLoanSchedule(loanId);
-    // Uncomment below for real API integration:
-    // return this.request<RepaymentSchedule[]>(`/loans/${loanId}/schedule`);
+    if (isMockDataEnabled()) {
+      return mockDataService.getLoanSchedule(loanId);
+    }
+    return this.request<RepaymentSchedule[]>(`/loans/${loanId}/schedule`);
   }
 
   async getLoanTransactions(loanId: string): Promise<Transaction[]> {
-    return mockDataService.getLoanTransactions(loanId);
-    // Uncomment below for real API integration:
-    // return this.request<Transaction[]>(`/loans/${loanId}/transactions`);
+    if (isMockDataEnabled()) {
+      return mockDataService.getLoanTransactions(loanId);
+    }
+    return this.request<Transaction[]>(`/loans/${loanId}/transactions`);
   }
 
   // Admin APIs
@@ -147,19 +160,20 @@ class ApiService {
     });
   }
 
-  // Payment APIs - Using mock data for demonstration
+  // Payment APIs
   async makePayment(loanId: string, amount: number, method: PaymentMethod, reference: string): Promise<Payment> {
-    return mockDataService.makePayment(loanId, amount, method, reference);
-    // Uncomment below for real API integration:
-    // return this.request<Payment>('/payments', {
-    //   method: 'POST',
-    //   body: JSON.stringify({
-    //     loanId,
-    //     amount,
-    //     method,
-    //     reference,
-    //   }),
-    // });
+    if (isMockDataEnabled()) {
+      return mockDataService.makePayment(loanId, amount, method, reference);
+    }
+    return this.request<Payment>('/payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        loanId,
+        amount,
+        method,
+        reference,
+      }),
+    });
   }
 
   async getPayment(paymentId: string): Promise<Payment> {
@@ -167,16 +181,18 @@ class ApiService {
   }
 
   async getPayments(loanId: string): Promise<Payment[]> {
-    return mockDataService.getPayments(loanId);
-    // Uncomment below for real API integration:
-    // return this.request<Payment[]>(`/loans/${loanId}/payments`);
+    if (isMockDataEnabled()) {
+      return mockDataService.getPayments(loanId);
+    }
+    return this.request<Payment[]>(`/loans/${loanId}/payments`);
   }
 
-  // Notification APIs - Using mock data for demonstration
+  // Notification APIs
   async getNotifications(userId: string): Promise<Notification[]> {
-    return mockDataService.getNotifications(userId);
-    // Uncomment below for real API integration:
-    // return this.request<Notification[]>(`/notifications/${userId}`);
+    if (isMockDataEnabled()) {
+      return mockDataService.getNotifications(userId);
+    }
+    return this.request<Notification[]>(`/notifications/${userId}`);
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
