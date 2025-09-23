@@ -93,7 +93,11 @@ const LoanDashboard: React.FC = () => {
       console.error('Loans is not an array:', loans);
       return 0;
     }
-    return loans.reduce((total, loan) => total + loan.outstandingBalance, 0);
+    return loans.reduce((total, loan) => {
+      // Use remainingBalance if available, fallback to outstandingBalance for backward compatibility
+      const balance = loan.remainingBalance !== undefined ? loan.remainingBalance : loan.outstandingBalance;
+      return total + balance;
+    }, 0);
   };
 
   const getActiveLoansCount = (): number => {
