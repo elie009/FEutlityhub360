@@ -1,33 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService } from '../../services/api';
-import { Box, Typography, Button, Alert, Card, CardContent } from '@mui/material';
+import { Box, Typography, Card, CardContent, Button, Alert } from '@mui/material';
 
-const UserDebug: React.FC = () => {
+const UserDataTest: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [testResult, setTestResult] = useState<string>('');
 
-  const testGetUserLoans = async () => {
-    if (!user) {
-      console.log('❌ No user available for testing');
-      return;
+  useEffect(() => {
+    if (user) {
+      setTestResult(`✅ User data loaded successfully! ID: ${user.id}`);
+    } else {
+      setTestResult('❌ No user data available');
     }
+  }, [user]);
 
-    try {
-      console.log('🧪 Testing getUserLoans with user:', user);
+  const testUserData = () => {
+    if (user) {
+      console.log('🧪 Testing user data:', user);
       console.log('🧪 User ID:', user.id);
-      console.log('🧪 User ID type:', typeof user.id);
-      debugger
-      const loans = await apiService.getUserLoans(user.id);
-      console.log('🧪 getUserLoans result:', loans);
-    } catch (error) {
-      console.error('🧪 getUserLoans error:', error);
+      console.log('🧪 User Name:', user.name);
+      console.log('🧪 User Email:', user.email);
+      setTestResult(`✅ User data test passed! ID: ${user.id}, Name: ${user.name}`);
+    } else {
+      setTestResult('❌ No user data to test');
     }
   };
 
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h5" gutterBottom>
-        User Debug Information
+        User Data Test
       </Typography>
       
       <Card sx={{ mb: 2 }}>
@@ -45,7 +47,7 @@ const UserDebug: React.FC = () => {
         <Card sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              User Object Details
+              User Data from useAuth()
             </Typography>
             <Typography>ID: {user.id}</Typography>
             <Typography>Name: {user.name}</Typography>
@@ -53,33 +55,26 @@ const UserDebug: React.FC = () => {
             <Typography>Phone: {user.phone}</Typography>
             <Typography>isActive: {user.isActive?.toString()}</Typography>
             <Typography>kycVerified: {user.kycVerified?.toString()}</Typography>
-            <Typography>Created: {user.createdAt}</Typography>
-            <Typography>Updated: {user.updatedAt}</Typography>
           </CardContent>
         </Card>
       )}
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Raw User Object
-          </Typography>
-          <pre style={{ fontSize: '12px', overflow: 'auto' }}>
-            {JSON.stringify(user, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
-
       <Button 
         variant="contained" 
-        onClick={testGetUserLoans}
+        onClick={testUserData}
         disabled={!user}
         sx={{ mb: 2 }}
       >
-        Test getUserLoans API Call
+        Test User Data
       </Button>
 
-      {!user && (
+      {testResult && (
+        <Alert severity={testResult.includes('✅') ? 'success' : 'error'}>
+          {testResult}
+        </Alert>
+      )}
+
+      {!user && !isLoading && (
         <Alert severity="warning">
           No user data available. Please log in first.
         </Alert>
@@ -88,4 +83,4 @@ const UserDebug: React.FC = () => {
   );
 };
 
-export default UserDebug;
+export default UserDataTest;

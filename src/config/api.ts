@@ -218,7 +218,7 @@ export class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.applyForLoan(loanData);
     }
-    return this.request('/loans/apply', {
+    return this.request('/Loans/apply', {
       method: 'POST',
       body: JSON.stringify(loanData),
     });
@@ -228,10 +228,11 @@ export class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getLoan(loanId);
     }
-    return this.request(`/loans/${loanId}`);
+    return this.request(`/Loans/${loanId}`);
   }
 
   async getUserLoans(userId: string, params?: { status?: string; page?: number; limit?: number }) {
+    debugger
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
     }
@@ -252,33 +253,33 @@ export class ApiService {
       const loan = await mockDataService.getLoan(loanId);
       return { status: loan.status, outstandingBalance: loan.outstandingBalance };
     }
-    return this.request(`/loans/${loanId}/status`);
+    return this.request(`/Loans/${loanId}/status`);
   }
 
   async getLoanSchedule(loanId: string) {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanSchedule(loanId);
     }
-    return this.request(`/loans/${loanId}/schedule`);
+    return this.request(`/Loans/${loanId}/schedule`);
   }
 
   async getLoanTransactions(loanId: string) {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanTransactions(loanId);
     }
-    return this.request(`/loans/${loanId}/transactions`);
+    return this.request(`/Loans/${loanId}/transactions`);
   }
 
   // Admin endpoints
   async approveLoan(loanId: string, data: { approvedBy: string; notes?: string }) {
-    return this.request(`/loans/${loanId}/approve`, {
+    return this.request(`/Loans/${loanId}/approve`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async rejectLoan(loanId: string, data: { reason: string; rejectedBy: string; notes?: string }) {
-    return this.request(`/loans/${loanId}/reject`, {
+    return this.request(`/Loans/${loanId}/reject`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -297,7 +298,7 @@ export class ApiService {
   }
 
   async closeLoan(loanId: string, data: { closedBy: string; notes?: string }) {
-    return this.request(`/loans/${loanId}/close`, {
+    return this.request(`/Loans/${loanId}/close`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -342,7 +343,7 @@ export class ApiService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const queryString = queryParams.toString();
-    const endpoint = `/loans/${loanId}/payments${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/Loans/${loanId}/payments${queryString ? `?${queryString}` : ''}`;
     
     return this.request(endpoint);
   }

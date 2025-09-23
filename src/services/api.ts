@@ -41,39 +41,55 @@ class ApiService {
     requestConfig.signal = controller.signal;
 
     try {
+      console.log('API Service: Making fetch request to:', url);
       const response = await fetch(url, requestConfig);
       clearTimeout(timeoutId);
       
+      console.log('API Service: Response status:', response.status);
+      console.log('API Service: Response ok:', response.ok);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('API Service: Error response:', errorData);
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const jsonResponse = await response.json();
+      console.log('API Service: JSON response:', jsonResponse);
+      return jsonResponse;
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error('API request failed:', error);
+      console.error('API Service: Request failed:', error);
       throw error;
     }
   }
 
   // Authentication APIs
   async register(data: RegisterData): Promise<AuthUser> {
-    return this.request<AuthUser>('/auth/register', {
+    return this.request<AuthUser>('/Auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async login(credentials: LoginCredentials): Promise<AuthUser> {
-    return this.request<AuthUser>('/auth/login', {
+    console.log('API Service: Making login request to /Auth/login');
+    console.log('API Service: Credentials:', credentials);
+    
+    const response = await this.request<AuthUser>('/Auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    
+    console.log('API Service: Raw response received:', response);
+    console.log('API Service: Response type:', typeof response);
+    console.log('API Service: Response keys:', Object.keys(response || {}));
+    
+    return response;
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.request<User>('/auth/me');
+    return this.request<User>('/Auth/me');
   }
 
   async logout(): Promise<void> {
@@ -105,6 +121,7 @@ class ApiService {
   }
 
   async getUserLoans(userId: string): Promise<Loan[]> {
+    debugger
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
     }

@@ -48,6 +48,7 @@ const LoanDashboard: React.FC = () => {
     if (!user) return;
 
     try {
+      debugger
       setIsLoading(true);
       const userLoans = await apiService.getUserLoans(user.id);
       setLoans(userLoans);
