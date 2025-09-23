@@ -239,8 +239,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         console.log('AuthContext: userFromLogin has all fields defined!');
       }
-      debugger
-      
       setUser(userFromLogin);
       console.log('AuthContext: User data set from login response');
       

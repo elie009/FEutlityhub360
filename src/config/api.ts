@@ -218,7 +218,7 @@ export class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.applyForLoan(loanData);
     }
-    return this.request('/Loans/apply', {
+    return this.request('/Loans/user/apply', {
       method: 'POST',
       body: JSON.stringify(loanData),
     });
@@ -228,11 +228,10 @@ export class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getLoan(loanId);
     }
-    return this.request(`/Loans/${loanId}`);
+    return this.request(`/Loans/user/${loanId}`);
   }
 
   async getUserLoans(userId: string, params?: { status?: string; page?: number; limit?: number }) {
-    debugger
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
     }
@@ -243,9 +242,20 @@ export class ApiService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const queryString = queryParams.toString();
-    const endpoint = `/users/${userId}/loans${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/Loans/user/${userId}${queryString ? `?${queryString}` : ''}`;
     
-    return this.request(endpoint);
+    const response = await this.request(endpoint);
+    console.log('getUserLoans API response:', response);
+    
+    // Handle paginated response structure
+    if (response && response.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected response structure:', response);
+      return [];
+    }
   }
 
   async getLoanStatus(loanId: string) {
@@ -253,33 +263,33 @@ export class ApiService {
       const loan = await mockDataService.getLoan(loanId);
       return { status: loan.status, outstandingBalance: loan.outstandingBalance };
     }
-    return this.request(`/Loans/${loanId}/status`);
+    return this.request(`/Loans/user/${loanId}/status`);
   }
 
   async getLoanSchedule(loanId: string) {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanSchedule(loanId);
     }
-    return this.request(`/Loans/${loanId}/schedule`);
+    return this.request(`/Loans/user/${loanId}/schedule`);
   }
 
   async getLoanTransactions(loanId: string) {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanTransactions(loanId);
     }
-    return this.request(`/Loans/${loanId}/transactions`);
+    return this.request(`/Loans/user/${loanId}/transactions`);
   }
 
   // Admin endpoints
   async approveLoan(loanId: string, data: { approvedBy: string; notes?: string }) {
-    return this.request(`/Loans/${loanId}/approve`, {
+    return this.request(`/Loans/user/${loanId}/approve`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async rejectLoan(loanId: string, data: { reason: string; rejectedBy: string; notes?: string }) {
-    return this.request(`/Loans/${loanId}/reject`, {
+    return this.request(`/Loans/user/${loanId}/reject`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -298,7 +308,7 @@ export class ApiService {
   }
 
   async closeLoan(loanId: string, data: { closedBy: string; notes?: string }) {
-    return this.request(`/Loans/${loanId}/close`, {
+    return this.request(`/Loans/user/${loanId}/close`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -343,7 +353,7 @@ export class ApiService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const queryString = queryParams.toString();
-    const endpoint = `/Loans/${loanId}/payments${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/Loans/user/${loanId}/payments${queryString ? `?${queryString}` : ''}`;
     
     return this.request(endpoint);
   }

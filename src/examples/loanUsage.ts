@@ -11,8 +11,7 @@ export const LoanExample = () => {
     if (user) {
       try {
         console.log('Fetching loans for user ID:', user.id);
-        debugger
-        // This will call: GET /api/Loans/{userId}
+        // This will call: GET /api/Loans/user/{userId}
         const loans = await apiService.getUserLoans(user.id);
         
         console.log('User loans:', loans);

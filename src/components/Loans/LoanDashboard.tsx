@@ -46,14 +46,22 @@ const LoanDashboard: React.FC = () => {
 
   const loadLoans = async () => {
     if (!user) return;
-
     try {
-      debugger
       setIsLoading(true);
       const userLoans = await apiService.getUserLoans(user.id);
-      setLoans(userLoans);
+      
+      // Ensure we always set an array
+      if (Array.isArray(userLoans)) {
+        setLoans(userLoans);
+      } else {
+        console.error('API returned non-array response:', userLoans);
+        setLoans([]);
+        setError('Invalid response format from server');
+      }
     } catch (err: unknown) {
+      console.error('Error loading loans:', err);
       setError(getErrorMessage(err, 'Failed to load loans'));
+      setLoans([]); // Ensure we always have an array
     } finally {
       setIsLoading(false);
     }
@@ -81,14 +89,26 @@ const LoanDashboard: React.FC = () => {
   };
 
   const getTotalOutstanding = (): number => {
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
     return loans.reduce((total, loan) => total + loan.outstandingBalance, 0);
   };
 
   const getActiveLoansCount = (): number => {
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
     return loans.filter(loan => loan.status === 'ACTIVE').length;
   };
 
   const getOverdueLoansCount = (): number => {
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
     return loans.filter(loan => loan.status === 'OVERDUE').length;
   };
 
@@ -197,7 +217,7 @@ const LoanDashboard: React.FC = () => {
       </Grid>
 
       {/* Loans Grid */}
-      {loans.length === 0 ? (
+      {!Array.isArray(loans) || loans.length === 0 ? (
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
             <AccountBalance sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -218,7 +238,7 @@ const LoanDashboard: React.FC = () => {
         </Card>
       ) : (
         <Grid container spacing={3}>
-          {loans.map((loan) => (
+          {Array.isArray(loans) && loans.map((loan) => (
             <Grid item xs={12} sm={6} md={4} key={loan.id}>
               <LoanCard
                 loan={loan}

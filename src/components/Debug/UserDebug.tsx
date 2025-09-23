@@ -16,7 +16,6 @@ const UserDebug: React.FC = () => {
       console.log('🧪 Testing getUserLoans with user:', user);
       console.log('🧪 User ID:', user.id);
       console.log('🧪 User ID type:', typeof user.id);
-      debugger
       const loans = await apiService.getUserLoans(user.id);
       console.log('🧪 getUserLoans result:', loans);
     } catch (error) {
