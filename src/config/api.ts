@@ -1,5 +1,4 @@
 import { config, isMockDataEnabled } from './environment';
-import { mockAuthService } from '../services/mockAuth';
 import { mockDataService } from '../services/mockData';
 
 // Backend response interfaces
@@ -34,6 +33,7 @@ export class ApiService {
   constructor() {
     this.baseUrl = config.apiBaseUrl;
     this.timeout = config.apiTimeout;
+    console.log('API Service: Initialized with baseUrl:', this.baseUrl);
   }
 
   // Generic request method
@@ -42,6 +42,7 @@ export class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    console.log('Making request to:', url);
     
     const defaultOptions: RequestInit = {
       headers: {
@@ -62,13 +63,47 @@ export class ApiService {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to extract error message from response
+        try {
+          const errorData = await response.json();
+          if (errorData.message) {
+            throw new Error(errorData.message);
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based messages
+          if (response.status === 401) {
+            throw new Error('Invalid email or password');
+          } else if (response.status === 404) {
+            throw new Error('User not found');
+          } else if (response.status === 400) {
+            throw new Error('Invalid request data');
+          } else if (response.status >= 500) {
+            throw new Error('Server error. Please try again later.');
+          } else {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+        }
       }
 
       return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
       console.error('API request failed:', error);
+      console.error('Request URL:', url);
+      console.error('Request options:', mergedOptions);
+      
+      // Handle network errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('Network fetch error detected');
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      
+      // Handle timeout errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Request timeout detected');
+        throw new Error('Request timeout. Please try again.');
+      }
+      
       throw error;
     }
   }
@@ -76,30 +111,39 @@ export class ApiService {
   // Get authentication headers
   private getAuthHeaders(): Record<string, string> {
     const token = localStorage.getItem('authToken');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (token) {
+      console.log('API Service: Using token for Authorization header:', token.substring(0, 20) + '...');
+      return { Authorization: `Bearer ${token}` };
+    } else {
+      console.log('API Service: No token found in localStorage');
+      return {};
+    }
   }
 
   // Authentication endpoints
   async login(credentials: { email: string; password: string }) {
-    if (isMockDataEnabled()) {
-      return mockAuthService.login(credentials);
-    }
-    
+    console.log('API Service: Making login request to /Auth/login');
     const response = await this.request<BackendResponse<AuthResponseData>>('/Auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    console.log('API Service: Login response received:', response);
     
     // Handle the actual backend response format
     if (response.success && response.data) {
-      return {
+      const authData = {
         token: response.data.token,
-        user: response.data.user,
         refreshToken: response.data.refreshToken,
-        expiresAt: response.data.expiresAt
+        expiresAt: response.data.expiresAt,
+        data: {
+          user: response.data.user
+        }
       };
+      console.log('API Service: Returning auth data:', authData);
+      return authData;
     }
     
+    console.error('API Service: Login failed with response:', response);
     throw new Error(response.message || 'Login failed');
   }
 
@@ -110,10 +154,6 @@ export class ApiService {
     password: string;
     confirmPassword: string;
   }) {
-    if (isMockDataEnabled()) {
-      return mockAuthService.register(userData);
-    }
-    
     const response = await this.request<BackendResponse<AuthResponseData>>('/Auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
@@ -123,9 +163,11 @@ export class ApiService {
     if (response.success && response.data) {
       return {
         token: response.data.token,
-        user: response.data.user,
         refreshToken: response.data.refreshToken,
-        expiresAt: response.data.expiresAt
+        expiresAt: response.data.expiresAt,
+        data: {
+          user: response.data.user
+        }
       };
     }
     
@@ -133,17 +175,29 @@ export class ApiService {
   }
 
   async getCurrentUser() {
-    if (isMockDataEnabled()) {
-      return mockAuthService.getCurrentUser();
-    }
+    console.log('API Service: Making getCurrentUser request to /Auth/me');
+    console.log('API Service: Full URL will be:', `${this.baseUrl}/Auth/me`);
     
-    const response = await this.request<BackendResponse<AuthResponseData['user']>>('/Auth/me');
+    const response = await this.request<BackendResponse<{
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>>('/Auth/me');
+    
+    console.log('API Service: getCurrentUser response received:', response);
     
     // Handle the actual backend response format
     if (response.success && response.data) {
+      console.log('API Service: Returning user data:', response.data);
       return response.data;
     }
     
+    console.error('API Service: getCurrentUser failed with response:', response);
     throw new Error(response.message || 'Failed to get current user');
   }
 

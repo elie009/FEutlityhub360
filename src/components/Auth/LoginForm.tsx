@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -14,6 +15,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginCredentials } from '../../types/loan';
 import { validateEmail, validateRequired, getErrorMessage } from '../../utils/validation';
+import { config } from '../../config/environment';
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
@@ -27,6 +29,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,9 +51,40 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
     setIsLoading(true);
 
     try {
+      console.log('Attempting login with credentials:', { email: credentials.email });
+      console.log('API Base URL:', config.apiBaseUrl);
+      console.log('Complete Login URL:', `${config.apiBaseUrl}/Auth/login`);
       await login(credentials);
+      console.log('Login successful');
+      
+      // Redirect to home page after successful login
+      console.log('LoginForm: Redirecting to home page...');
+      navigate('/', { replace: true });
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Login failed'));
+      console.error('Login error:', err);
+      // Handle specific error messages from the backend
+      const errorMessage = getErrorMessage(err, 'Login failed');
+      console.log('Error message:', errorMessage);
+      
+      // Check for specific error patterns and provide user-friendly messages
+      if (errorMessage.toLowerCase().includes('invalid') || 
+          errorMessage.toLowerCase().includes('incorrect') ||
+          errorMessage.toLowerCase().includes('wrong')) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (errorMessage.toLowerCase().includes('not found') ||
+                 errorMessage.toLowerCase().includes('user not found')) {
+        setError('No account found with this email address. Please check your email or create a new account.');
+      } else if (errorMessage.toLowerCase().includes('password')) {
+        setError('Incorrect password. Please try again.');
+      } else if (errorMessage.toLowerCase().includes('email')) {
+        setError('Invalid email address. Please check your email and try again.');
+      } else if (errorMessage.toLowerCase().includes('network') ||
+                 errorMessage.toLowerCase().includes('connection') ||
+                 errorMessage.toLowerCase().includes('timeout')) {
+        setError('Unable to connect to the server. Please check your internet connection and try again.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -86,8 +120,18 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
             </Alert>
 
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 2,
+                  '& .MuiAlert-message': {
+                    width: '100%'
+                  }
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {error}
+                </Typography>
               </Alert>
             )}
 

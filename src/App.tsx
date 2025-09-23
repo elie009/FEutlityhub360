@@ -21,7 +21,10 @@ import ReportsPage from './components/Reports/ReportsPage';
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
+  console.log('ProtectedRoute: State check:', { isAuthenticated, isLoading });
+
   if (isLoading) {
+    console.log('ProtectedRoute: Still loading, showing spinner');
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress />
@@ -29,24 +32,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
 
+  console.log('ProtectedRoute: Loading complete, isAuthenticated:', isAuthenticated);
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
 const AppRoutes: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <Router>
       <Routes>
-        <Route path="/auth" element={!isAuthenticated ? <AuthPage /> : <Navigate to="/" replace />} />
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/" element={
           <ProtectedRoute>
             <Layout />

@@ -4,6 +4,7 @@ export interface User {
   email: string;
   phone: string;
   kycVerified: boolean;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -128,8 +129,21 @@ export interface AuthUser {
   name: string;
   email: string;
   phone: string;
-  token: string;
-  refreshToken: string;
+  data: {
+    token: string;
+    refreshToken: string;
+    expiresAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    };
+  };
 }
 
 export interface LoginCredentials {

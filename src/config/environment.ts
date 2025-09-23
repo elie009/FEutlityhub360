@@ -1,3 +1,5 @@
+import { getApiBaseUrl as envGetApiBaseUrl, isMockDataEnabled as envIsMockDataEnabled, getApiTimeout, currentEnvConfig } from './envLoader';
+
 export interface EnvironmentConfig {
   apiBaseUrl: string;
   environment: 'development' | 'production';
@@ -5,12 +7,24 @@ export interface EnvironmentConfig {
   apiTimeout: number;
 }
 
-// Get configuration from environment variables with fallbacks
+// Get configuration from the correct environment file
 const getConfig = (): EnvironmentConfig => {
-  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'https://localhost:7019/api';
-  const enableMockData = process.env.REACT_APP_ENABLE_MOCK_DATA === 'true';
-  const apiTimeout = parseInt(process.env.REACT_APP_API_TIMEOUT || '10000', 10);
-  const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  // Use environment variables if set (for override), otherwise use env files
+  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || envGetApiBaseUrl();
+  const enableMockData = process.env.REACT_APP_ENABLE_MOCK_DATA 
+    ? process.env.REACT_APP_ENABLE_MOCK_DATA === 'true' 
+    : envIsMockDataEnabled();
+  const apiTimeout = process.env.REACT_APP_API_TIMEOUT 
+    ? parseInt(process.env.REACT_APP_API_TIMEOUT, 10)
+    : getApiTimeout();
+  const environment = currentEnvConfig.NODE_ENV as 'development' | 'production';
+
+  console.log('Environment config loaded:', {
+    apiBaseUrl,
+    environment,
+    enableMockData,
+    apiTimeout
+  });
 
   return {
     apiBaseUrl,
