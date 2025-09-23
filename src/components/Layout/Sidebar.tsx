@@ -18,6 +18,9 @@ import {
   AccountBalance as AccountBalanceIcon,
   Receipt as ReceiptIcon,
   Support as SupportIcon,
+  CreditCard as CreditCardIcon,
+  Notifications as NotificationsIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -26,8 +29,11 @@ const drawerWidth = 240;
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { text: 'Users', icon: <PeopleIcon />, path: '/users' },
+  { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
   { text: 'Utilities', icon: <AccountBalanceIcon />, path: '/utilities' },
   { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
+  { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
+  { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Support', icon: <SupportIcon />, path: '/support' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
