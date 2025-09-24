@@ -345,6 +345,36 @@ export const mockDataService = {
     return newLoan;
   },
 
+  async updateLoan(loanId: string, updateData: {
+    purpose?: string;
+    additionalInfo?: string;
+    status?: string;
+    interestRate?: number;
+    monthlyPayment?: number;
+    remainingBalance?: number;
+  }): Promise<Loan> {
+    await delay(1000);
+    
+    // Find the loan to update
+    const loanIndex = mockLoans.findIndex(loan => loan.id === loanId);
+    if (loanIndex === -1) {
+      throw new Error('Loan not found');
+    }
+    
+    // Update the loan with new data, ensuring status is properly typed
+    const updatedLoan: Loan = {
+      ...mockLoans[loanIndex],
+      ...updateData,
+      status: updateData.status as LoanStatus || mockLoans[loanIndex].status,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Update the mock data
+    mockLoans[loanIndex] = updatedLoan;
+    
+    return updatedLoan;
+  },
+
   async makePayment(loanId: string, amount: number, method: PaymentMethod, reference: string): Promise<Payment> {
     await delay(1500);
     const payment: Payment = {

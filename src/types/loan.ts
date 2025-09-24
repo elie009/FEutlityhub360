@@ -24,6 +24,7 @@ export interface Loan {
   approvedAt?: string;
   disbursedAt?: string;
   completedAt?: string;
+  additionalInfo?: string;
   createdAt: string;
   updatedAt: string;
   outstandingBalance: number; // Keep for backward compatibility

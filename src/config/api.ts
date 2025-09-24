@@ -231,6 +231,29 @@ export class ApiService {
     return this.request(`/Loans/user/${loanId}`);
   }
 
+  async updateLoan(loanId: string, updateData: {
+    purpose?: string;
+    additionalInfo?: string;
+    status?: string;
+    interestRate?: number;
+    monthlyPayment?: number;
+    remainingBalance?: number;
+  }) {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateLoan(loanId, updateData);
+    }
+    const response = await this.request(`/Loans/${loanId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+    
+    // Handle the response structure
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
   async getUserLoans(userId: string, params?: { status?: string; page?: number; limit?: number }) {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);

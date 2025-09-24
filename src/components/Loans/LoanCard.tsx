@@ -23,7 +23,7 @@ import { Loan, LoanStatus } from '../../types/loan';
 
 interface LoanCardProps {
   loan: Loan;
-  onViewDetails: (loanId: string) => void;
+  onUpdate: (loan: Loan) => void;
   onMakePayment?: (loanId: string) => void;
 }
 
@@ -57,7 +57,7 @@ const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
-const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment }) => {
+const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment }) => {
   // Use the actual monthlyPayment from the loan data, or calculate it if not available
   const monthlyPayment = loan.monthlyPayment || (loan.totalAmount / loan.term);
   const remainingBalance = loan.remainingBalance || loan.outstandingBalance;
@@ -221,10 +221,10 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onViewDetails, onMakePayment 
           <Button
             variant="outlined"
             size="small"
-            onClick={() => onViewDetails(loan.id)}
+            onClick={() => onUpdate(loan)}
             fullWidth
           >
-            View Details
+            Update
           </Button>
           {loan.status === LoanStatus.ACTIVE && remainingBalance > 0 && onMakePayment && (
             <Button

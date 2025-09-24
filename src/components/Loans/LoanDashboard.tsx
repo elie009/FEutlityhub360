@@ -28,6 +28,7 @@ import { getErrorMessage } from '../../utils/validation';
 import LoanCard from './LoanCard';
 import LoanApplicationForm from './LoanApplicationForm';
 import PaymentForm from './PaymentForm';
+import LoanUpdateForm from './LoanUpdateForm';
 
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -36,7 +37,9 @@ const LoanDashboard: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -83,9 +86,20 @@ const LoanDashboard: React.FC = () => {
     loadLoans(); // Refresh the loans list
   };
 
-  const handleViewDetails = (loanId: string) => {
-    // This would navigate to a detailed loan view
-    console.log('View details for loan:', loanId);
+  const handleUpdateLoan = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setShowUpdateForm(true);
+  };
+
+  const handleUpdateSuccess = (updatedLoan: Loan) => {
+    // Update the loan in the loans array
+    setLoans(prevLoans => 
+      prevLoans.map(loan => 
+        loan.id === updatedLoan.id ? updatedLoan : loan
+      )
+    );
+    setShowUpdateForm(false);
+    setSelectedLoan(null);
   };
 
   const getTotalOutstanding = (): number => {
@@ -246,7 +260,7 @@ const LoanDashboard: React.FC = () => {
             <Grid item xs={12} sm={6} md={4} key={loan.id}>
               <LoanCard
                 loan={loan}
-                onViewDetails={handleViewDetails}
+                onUpdate={handleUpdateLoan}
                 onMakePayment={handleMakePayment}
               />
             </Grid>
@@ -302,6 +316,17 @@ const LoanDashboard: React.FC = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Update Form Dialog */}
+      <LoanUpdateForm
+        open={showUpdateForm}
+        onClose={() => {
+          setShowUpdateForm(false);
+          setSelectedLoan(null);
+        }}
+        loan={selectedLoan}
+        onSuccess={handleUpdateSuccess}
+      />
     </Box>
   );
 };
