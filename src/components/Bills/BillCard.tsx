@@ -61,13 +61,19 @@ const getStatusIcon = (status: BillStatus) => {
 const getBillTypeColor = (billType: BillType): string => {
   switch (billType) {
     case BillType.UTILITY:
-      return '#1976d2';
+      return '#1976d2'; // Blue
+    case BillType.INSURANCE:
+      return '#388e3c'; // Green
     case BillType.SUBSCRIPTION:
-      return '#388e3c';
-    case BillType.LOAN:
-      return '#f57c00';
-    case BillType.OTHERS:
-      return '#7b1fa2';
+      return '#f57c00'; // Orange
+    case BillType.SCHOOL_TUITION:
+      return '#7b1fa2'; // Purple
+    case BillType.CREDIT_CARD:
+      return '#d32f2f'; // Red
+    case BillType.MEDICAL:
+      return '#0288d1'; // Light Blue
+    case BillType.OTHER:
+      return '#757575'; // Gray
     default:
       return '#757575';
   }

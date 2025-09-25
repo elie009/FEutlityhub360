@@ -29,6 +29,7 @@ import LoanCard from './LoanCard';
 import LoanApplicationForm from './LoanApplicationForm';
 import PaymentForm from './PaymentForm';
 import LoanUpdateForm from './LoanUpdateForm';
+import LoanTransactionHistory from './LoanTransactionHistory';
 
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -38,8 +39,12 @@ const LoanDashboard: React.FC = () => {
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
+  const [loanForHistory, setLoanForHistory] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -100,6 +105,51 @@ const LoanDashboard: React.FC = () => {
     );
     setShowUpdateForm(false);
     setSelectedLoan(null);
+  };
+
+  const handleDeleteLoan = (loanId: string) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      setLoanToDelete(loan);
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const confirmDeleteLoan = async () => {
+    if (!loanToDelete) return;
+
+    try {
+      setIsLoading(true);
+      await apiService.deleteLoan(loanToDelete.id);
+      
+      // Remove the loan from the local state
+      setLoans(prevLoans => prevLoans.filter(loan => loan.id !== loanToDelete.id));
+      
+      setShowDeleteDialog(false);
+      setLoanToDelete(null);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete loan'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancelDeleteLoan = () => {
+    setShowDeleteDialog(false);
+    setLoanToDelete(null);
+  };
+
+  const handleViewHistory = (loanId: string) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      setLoanForHistory(loan);
+      setShowHistoryDialog(true);
+    }
+  };
+
+  const closeHistoryDialog = () => {
+    setShowHistoryDialog(false);
+    setLoanForHistory(null);
   };
 
   const getTotalOutstanding = (): number => {
@@ -262,6 +312,8 @@ const LoanDashboard: React.FC = () => {
                 loan={loan}
                 onUpdate={handleUpdateLoan}
                 onMakePayment={handleMakePayment}
+                onDelete={handleDeleteLoan}
+                onViewHistory={handleViewHistory}
               />
             </Grid>
           ))}
@@ -326,6 +378,38 @@ const LoanDashboard: React.FC = () => {
         }}
         loan={selectedLoan}
         onSuccess={handleUpdateSuccess}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onClose={cancelDeleteLoan}>
+        <DialogTitle>Delete Loan</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the loan "{loanToDelete?.purpose}"? 
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDeleteLoan} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmDeleteLoan} 
+            color="error" 
+            variant="contained"
+            disabled={isLoading}
+          >
+            {isLoading ? <CircularProgress size={20} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Transaction History Dialog */}
+      <LoanTransactionHistory
+        open={showHistoryDialog}
+        onClose={closeHistoryDialog}
+        loanId={loanForHistory?.id || ''}
+        loanPurpose={loanForHistory?.purpose}
       />
     </Box>
   );

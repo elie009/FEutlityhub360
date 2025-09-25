@@ -6,8 +6,6 @@ import {
   DialogActions,
   TextField,
   Button,
-  Box,
-  Typography,
   Alert,
   CircularProgress,
   FormControl,
@@ -192,10 +190,13 @@ const BillForm: React.FC<BillFormProps> = ({
                     onChange={handleSelectChange('billType')}
                     label="Bill Type"
                   >
-                    <MenuItem value={BillType.UTILITY}>Utility</MenuItem>
-                    <MenuItem value={BillType.SUBSCRIPTION}>Subscription</MenuItem>
-                    <MenuItem value={BillType.LOAN}>Loan</MenuItem>
-                    <MenuItem value={BillType.OTHERS}>Others</MenuItem>
+                    <MenuItem value={BillType.UTILITY}>Utility (Water, Electricity, Gas)</MenuItem>
+                    <MenuItem value={BillType.INSURANCE}>Insurance (Health, Car, Life)</MenuItem>
+                    <MenuItem value={BillType.SUBSCRIPTION}>Subscriptions (Netflix, Spotify, Adobe)</MenuItem>
+                    <MenuItem value={BillType.SCHOOL_TUITION}>School Tuition</MenuItem>
+                    <MenuItem value={BillType.CREDIT_CARD}>Credit Card Bill</MenuItem>
+                    <MenuItem value={BillType.MEDICAL}>Medical Bill</MenuItem>
+                    <MenuItem value={BillType.OTHER}>Other</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

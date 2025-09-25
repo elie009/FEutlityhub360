@@ -302,10 +302,6 @@ export const mockDataService = {
     return mockRepaymentSchedules.filter(schedule => schedule.loanId === loanId);
   },
 
-  async getLoanTransactions(loanId: string): Promise<Transaction[]> {
-    await delay(400);
-    return mockTransactions.filter(transaction => transaction.loanId === loanId);
-  },
 
   async getPayments(loanId: string): Promise<Payment[]> {
     await delay(400);
@@ -373,6 +369,65 @@ export const mockDataService = {
     mockLoans[loanIndex] = updatedLoan;
     
     return updatedLoan;
+  },
+
+  async deleteLoan(loanId: string): Promise<boolean> {
+    await delay(800);
+    
+    // Find the loan to delete
+    const loanIndex = mockLoans.findIndex(loan => loan.id === loanId);
+    if (loanIndex === -1) {
+      throw new Error('Loan not found');
+    }
+    
+    // Remove the loan from the mock data
+    mockLoans.splice(loanIndex, 1);
+    
+    return true;
+  },
+
+  async getLoanTransactions(loanId: string): Promise<any[]> {
+    await delay(800);
+    
+    // Find the loan to get transactions for
+    const loan = mockLoans.find(l => l.id === loanId);
+    if (!loan) {
+      throw new Error('Loan not found');
+    }
+    
+    // Generate mock transactions based on loan data
+    const transactions = [
+      {
+        id: `transaction-${loanId}-1`,
+        loanId: loanId,
+        type: 'DISBURSEMENT',
+        amount: loan.principal,
+        description: 'Loan disbursement via bank transfer',
+        reference: `DISB-${loanId.slice(-3)}`,
+        createdAt: loan.appliedAt || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+    
+    // Add monthly payments if loan is active
+    if (loan.status === 'ACTIVE' && loan.monthlyPayment) {
+      const monthlyPayment = loan.monthlyPayment;
+      const monthsSinceDisbursement = Math.floor((Date.now() - new Date(transactions[0].createdAt).getTime()) / (30 * 24 * 60 * 60 * 1000));
+      
+      for (let i = 1; i <= Math.min(monthsSinceDisbursement, 6); i++) {
+        transactions.push({
+          id: `transaction-${loanId}-${i + 1}`,
+          loanId: loanId,
+          type: 'PAYMENT',
+          amount: monthlyPayment,
+          description: 'Monthly payment',
+          reference: `PAY-${String(i).padStart(3, '0')}`,
+          createdAt: new Date(Date.now() - (monthsSinceDisbursement - i) * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      }
+    }
+    
+    // Sort by creation date (newest first)
+    return transactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   async makePayment(loanId: string, amount: number, method: PaymentMethod, reference: string): Promise<Payment> {

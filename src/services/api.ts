@@ -149,6 +149,38 @@ class ApiService {
     return response;
   }
 
+  async deleteLoan(loanId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      return mockDataService.deleteLoan(loanId);
+    }
+    const response = await this.request<any>(`/Loans/${loanId}`, {
+      method: 'DELETE',
+    });
+    
+    // Handle the response structure
+    if (response && response.data !== undefined) {
+      return response.data;
+    }
+    return response || true;
+  }
+
+  async getLoanTransactions(loanId: string): Promise<any[]> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getLoanTransactions(loanId);
+    }
+    const response = await this.request<any>(`/loans/${loanId}/transactions`);
+    
+    // Handle the response structure
+    if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected loan transactions response structure:', response);
+      return [];
+    }
+  }
+
   async getUserLoans(userId: string): Promise<Loan[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
@@ -182,12 +214,6 @@ class ApiService {
     return this.request<RepaymentSchedule[]>(`/Loans/user/${loanId}/schedule`);
   }
 
-  async getLoanTransactions(loanId: string): Promise<Transaction[]> {
-    if (isMockDataEnabled()) {
-      return mockDataService.getLoanTransactions(loanId);
-    }
-    return this.request<Transaction[]>(`/Loans/user/${loanId}/transactions`);
-  }
 
   // Admin APIs
   async approveLoan(loanId: string): Promise<Loan> {

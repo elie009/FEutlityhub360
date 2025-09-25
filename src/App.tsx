@@ -8,7 +8,6 @@ import Layout from './components/Layout/Layout';
 import AuthPage from './components/Auth/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
-import Utilities from './pages/Utilities';
 import Bills from './pages/Bills';
 import Analytics from './pages/Analytics';
 import Support from './pages/Support';
@@ -49,7 +48,6 @@ const AppRoutes: React.FC = () => {
         }>
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
-          <Route path="utilities" element={<Utilities />} />
           <Route path="bills" element={<Bills />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="support" element={<Support />} />

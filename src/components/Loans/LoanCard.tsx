@@ -18,6 +18,8 @@ import {
   CalendarToday,
   CheckCircle,
   Pending,
+  Delete,
+  History,
 } from '@mui/icons-material';
 import { Loan, LoanStatus } from '../../types/loan';
 
@@ -25,6 +27,8 @@ interface LoanCardProps {
   loan: Loan;
   onUpdate: (loan: Loan) => void;
   onMakePayment?: (loanId: string) => void;
+  onDelete?: (loanId: string) => void;
+  onViewHistory?: (loanId: string) => void;
 }
 
 const getStatusColor = (status: LoanStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -57,7 +61,7 @@ const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
-const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment }) => {
+const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDelete, onViewHistory }) => {
   // Use the actual monthlyPayment from the loan data, or calculate it if not available
   const monthlyPayment = loan.monthlyPayment || (loan.totalAmount / loan.term);
   const remainingBalance = loan.remainingBalance || loan.outstandingBalance;
@@ -217,23 +221,46 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment }) =>
           </Box>
         </Box>
 
-        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
             size="small"
             onClick={() => onUpdate(loan)}
-            fullWidth
+            sx={{ flex: 1, minWidth: '80px' }}
           >
             Update
           </Button>
+          {onViewHistory && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => onViewHistory(loan.id)}
+              startIcon={<History />}
+              sx={{ flex: 1, minWidth: '80px' }}
+            >
+              History
+            </Button>
+          )}
           {loan.status === LoanStatus.ACTIVE && remainingBalance > 0 && onMakePayment && (
             <Button
               variant="contained"
               size="small"
               onClick={() => onMakePayment(loan.id)}
-              fullWidth
+              sx={{ flex: 1, minWidth: '80px' }}
             >
               Make Payment
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              onClick={() => onDelete(loan.id)}
+              startIcon={<Delete />}
+              sx={{ minWidth: 'auto', px: 1 }}
+            >
+              Delete
             </Button>
           )}
         </Box>
