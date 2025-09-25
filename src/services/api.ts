@@ -14,6 +14,8 @@ import {
 import { Bill, CreateBillRequest, UpdateBillRequest, BillFilters, BillAnalytics, TotalPaidAnalytics, PaginatedBillsResponse } from '../types/bill';
 import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
+import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAccountFilters, BankAccountAnalytics, PaginatedBankAccountsResponse } from '../types/bankAccount';
+import { mockBankAccountDataService } from './mockBankAccountData';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -535,6 +537,146 @@ class ApiService {
     } catch (error) {
       return null;
     }
+  }
+
+  // ==================== BANK ACCOUNT MANAGEMENT APIs ====================
+
+  async getUserBankAccounts(filters?: BankAccountFilters): Promise<BankAccount[]> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      const response = await mockBankAccountDataService.getUserBankAccounts(user?.id || 'demo-user-123', filters);
+      return response.data;
+    }
+    const queryParams = new URLSearchParams();
+    if (filters?.accountType) queryParams.append('accountType', filters.accountType);
+    if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString());
+    if (filters?.isConnected !== undefined) queryParams.append('isConnected', filters.isConnected.toString());
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    const queryString = queryParams.toString();
+    const endpoint = `/bankaccounts${queryString ? `?${queryString}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    
+    // Handle the new response format: { success: true, data: BankAccount[], errors: [] }
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected response structure:', response);
+      return [];
+    }
+  }
+
+  async getBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.getBankAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async createBankAccount(accountData: CreateBankAccountRequest): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockBankAccountDataService.createBankAccount(user?.id || 'demo-user-123', accountData);
+    }
+    const response = await this.request<any>('/bankaccounts', { method: 'POST', body: JSON.stringify(accountData) });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async updateBankAccount(accountId: string, updateData: UpdateBankAccountRequest): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.updateBankAccount(accountId, updateData);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'PUT', body: JSON.stringify(updateData) });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async deleteBankAccount(accountId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.deleteBankAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'DELETE' });
+    return response?.data || response || true;
+  }
+
+  async getBankAccountAnalyticsSummary(): Promise<BankAccountAnalytics> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockBankAccountDataService.getAnalyticsSummary(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/BankAccounts/analytics');
+    
+    // Handle the new response format: { success: true, data: BankAccountAnalytics, errors: [] }
+    if (response && response.success && response.data) {
+      return response.data;
+    } else if (response && response.data) {
+      return response.data;
+    } else {
+      console.error('Unexpected analytics response structure:', response);
+      return {
+        totalBalance: 0,
+        totalAccounts: 0,
+        activeAccounts: 0,
+        connectedAccounts: 0,
+        totalIncoming: 0,
+        totalOutgoing: 0,
+        accounts: []
+      };
+    }
+  }
+
+  async connectBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.connectAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}/connect`, { method: 'PUT' });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async disconnectBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.disconnectAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}/disconnect`, { method: 'PUT' });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async syncBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.syncAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}/sync`, { method: 'POST' });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  // Utility method for formatting currency
+  formatCurrency(amount: number, currency: string = 'USD'): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
   }
 }
 
