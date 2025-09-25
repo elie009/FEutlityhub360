@@ -21,6 +21,7 @@ import {
   CreditCard as CreditCardIcon,
   Notifications as NotificationsIcon,
   Assessment as AssessmentIcon,
+  AccountBalanceWallet as TransactionsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -32,6 +33,7 @@ const menuItems = [
   { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
   { text: 'Utilities', icon: <AccountBalanceIcon />, path: '/utilities' },
   { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
+  { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
   { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },

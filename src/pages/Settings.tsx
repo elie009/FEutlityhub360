@@ -35,16 +35,10 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
-  AccountBalance,
-  TrendingUp,
-  TrendingDown,
-  Link,
-  Sync,
-  AttachMoney,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
-import { BankAccount, BankAccountFilters, BankAccountAnalytics } from '../types/bankAccount';
+import { BankAccount, BankAccountFilters } from '../types/bankAccount';
 import { getErrorMessage } from '../utils/validation';
 import BankAccountCard from '../components/BankAccounts/BankAccountCard';
 import BankAccountForm from '../components/BankAccounts/BankAccountForm';
@@ -66,7 +60,6 @@ const Settings: React.FC = () => {
 
   // Bank Account Management State
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [analytics, setAnalytics] = useState<BankAccountAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showBankAccountForm, setShowBankAccountForm] = useState(false);
@@ -96,27 +89,23 @@ const Settings: React.FC = () => {
   };
 
   // Bank Account Management Functions
-  const loadBankAccountsAndAnalytics = useCallback(async () => {
+  const loadBankAccounts = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     setError('');
     try {
-      const [accountsData, analyticsResponse] = await Promise.all([
-        apiService.getUserBankAccounts(filters),
-        apiService.getBankAccountAnalyticsSummary(),
-      ]);
+      const accountsData = await apiService.getUserBankAccounts(filters);
       setBankAccounts(accountsData);
-      setAnalytics(analyticsResponse);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to load bank accounts or analytics'));
+      setError(getErrorMessage(err, 'Failed to load bank accounts'));
     } finally {
       setIsLoading(false);
     }
   }, [user, filters]);
 
   useEffect(() => {
-    loadBankAccountsAndAnalytics();
-  }, [loadBankAccountsAndAnalytics]);
+    loadBankAccounts();
+  }, [loadBankAccounts]);
 
   const handleCreateBankAccount = () => {
     setSelectedAccount(undefined);
@@ -134,7 +123,7 @@ const Settings: React.FC = () => {
     setError('');
     try {
       await apiService.deleteBankAccount(accountId);
-      loadBankAccountsAndAnalytics();
+      loadBankAccounts();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to delete bank account'));
     } finally {
@@ -147,7 +136,7 @@ const Settings: React.FC = () => {
     setError('');
     try {
       await apiService.connectBankAccount(accountId);
-      loadBankAccountsAndAnalytics();
+      loadBankAccounts();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to connect bank account'));
     } finally {
@@ -160,7 +149,7 @@ const Settings: React.FC = () => {
     setError('');
     try {
       await apiService.disconnectBankAccount(accountId);
-      loadBankAccountsAndAnalytics();
+      loadBankAccounts();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to disconnect bank account'));
     } finally {
@@ -173,7 +162,7 @@ const Settings: React.FC = () => {
     setError('');
     try {
       await apiService.syncBankAccount(accountId);
-      loadBankAccountsAndAnalytics();
+      loadBankAccounts();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to sync bank account'));
     } finally {
@@ -183,7 +172,7 @@ const Settings: React.FC = () => {
 
   const handleBankAccountFormSuccess = () => {
     setShowBankAccountForm(false);
-    loadBankAccountsAndAnalytics();
+    loadBankAccounts();
   };
 
   const handleFilterChange = (event: SelectChangeEvent<string>) => {
@@ -420,132 +409,6 @@ const Settings: React.FC = () => {
               </Alert>
             )}
 
-            {/* Analytics Summary Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={6} md={2.4}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.totalAccounts || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Total Accounts
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.4}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <TrendingUp sx={{ mr: 2, color: 'success.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.totalBalance !== undefined ? apiService.formatCurrency(analytics.totalBalance) : 'N/A'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Total Balance
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.4}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Link sx={{ mr: 2, color: 'info.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.connectedAccounts || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Connected Accounts
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.4}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Sync sx={{ mr: 2, color: 'warning.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.activeAccounts || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Active Accounts
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.4}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <AttachMoney sx={{ mr: 2, color: 'success.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.totalIncoming !== undefined ? apiService.formatCurrency(analytics.totalIncoming) : 'N/A'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Total Incoming
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-
-            {/* Additional Analytics Row */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={6} md={6}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <TrendingDown sx={{ mr: 2, color: 'error.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.totalOutgoing !== undefined ? apiService.formatCurrency(analytics.totalOutgoing) : 'N/A'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Total Outgoing
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={6}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
-                      <Box>
-                        <Typography variant="h6">
-                          {analytics?.accounts?.length || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Accounts in Analytics
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
 
             {/* Filters */}
             <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
@@ -608,7 +471,7 @@ const Settings: React.FC = () => {
               </Box>
             ) : !Array.isArray(bankAccounts) || bankAccounts.length === 0 ? (
               <Card sx={{ p: 4, textAlign: 'center' }}>
-                <AccountBalance sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <AddIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary" gutterBottom>
                   No Bank Accounts Found
                 </Typography>

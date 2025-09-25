@@ -16,6 +16,8 @@ import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAccountFilters, BankAccountAnalytics, PaginatedBankAccountsResponse } from '../types/bankAccount';
 import { mockBankAccountDataService } from './mockBankAccountData';
+import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsResponse, TransactionAnalytics } from '../types/transaction';
+import { mockTransactionDataService } from './mockTransactionData';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -677,6 +679,78 @@ class ApiService {
       style: 'currency',
       currency: currency,
     }).format(amount);
+  }
+
+  // ==================== TRANSACTION MANAGEMENT APIs ====================
+
+  async getRecentTransactions(limit: number = 10): Promise<BankAccountTransaction[]> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.getRecentTransactions(user?.id || 'demo-user-123', limit);
+    }
+    const response = await this.request<any>(`/bankaccounts/transactions/recent?limit=${limit}`);
+    
+    // Handle the new response format: { success: true, data: BankAccountTransaction[], errors: [] }
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected recent transactions response structure:', response);
+      return [];
+    }
+  }
+
+  async getTransactions(filters?: TransactionFilters): Promise<PaginatedTransactionsResponse> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.getTransactions(user?.id || 'demo-user-123', filters);
+    }
+    const queryParams = new URLSearchParams();
+    if (filters?.bankAccountId) queryParams.append('bankAccountId', filters.bankAccountId);
+    if (filters?.transactionType) queryParams.append('transactionType', filters.transactionType);
+    if (filters?.category) queryParams.append('category', filters.category);
+    if (filters?.startDate) queryParams.append('startDate', filters.startDate);
+    if (filters?.endDate) queryParams.append('endDate', filters.endDate);
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    const queryString = queryParams.toString();
+    const endpoint = `/bankaccounts/transactions${queryString ? `?${queryString}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.data && Array.isArray(response.data.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return { data: response, page: 1, limit: response.length, totalCount: response.length };
+    } else {
+      console.error('Unexpected transactions response structure:', response);
+      return { data: [], page: 1, limit: 10, totalCount: 0 };
+    }
+  }
+
+  async getTransaction(transactionId: string): Promise<BankAccountTransaction> {
+    if (isMockDataEnabled()) {
+      return mockTransactionDataService.getTransaction(transactionId);
+    }
+    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getTransactionAnalytics(): Promise<TransactionAnalytics> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.getTransactionAnalytics(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/bankaccounts/transactions/analytics');
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
   }
 }
 
