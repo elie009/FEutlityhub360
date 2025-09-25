@@ -94,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
       <React.Fragment key={item.text}>
         <ListItem disablePadding>
           <ListItemButton
-            selected={isActive || hasActiveChild}
+            selected={false}
             onClick={() => {
               if (hasChildren) {
                 handleSectionToggle(item.text);
@@ -104,21 +104,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
             }}
             sx={{
               pl: 2 + level * 2,
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-                '& .MuiListItemIcon-root': {
-                  color: 'white',
-                },
+              backgroundColor: (isActive || hasActiveChild) ? 'rgba(177, 229, 153, 0.1)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(177, 229, 153, 0.15)',
+              },
+              '& .MuiListItemIcon-root': {
+                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+              },
+              '& .MuiListItemText-primary': {
+                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+                fontWeight: (isActive || hasActiveChild) ? 600 : 400,
               },
             }}
           >
             <ListItemIcon
               sx={{
-                color: (isActive || hasActiveChild) ? 'white' : 'inherit',
                 minWidth: 40,
               }}
             >
