@@ -189,9 +189,14 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.makeLoanPayment(loanId, paymentData);
     }
-    const response = await this.request<any>(`/loans/${loanId}/payment`, {
+    const response = await this.request<any>('/Payments', {
       method: 'POST',
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify({
+        loanId,
+        amount: paymentData.amount,
+        method: paymentData.method,
+        reference: paymentData.reference,
+      }),
     });
     
     // Handle the response structure

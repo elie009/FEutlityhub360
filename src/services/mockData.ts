@@ -460,7 +460,7 @@ export const mockDataService = {
     
     const loan = mockLoans[loanIndex];
     
-    // Create payment response
+    // Create payment response matching the new API structure
     const paymentResponse = {
       id: `payment-${Date.now()}`,
       loanId: loanId,

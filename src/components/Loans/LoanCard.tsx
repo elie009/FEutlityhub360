@@ -241,7 +241,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
               History
             </Button>
           )}
-          {loan.status === LoanStatus.ACTIVE && remainingBalance > 0 && onMakePayment && (
+          {onMakePayment && (
             <Button
               variant="contained"
               size="small"
