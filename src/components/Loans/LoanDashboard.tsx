@@ -28,6 +28,7 @@ import { getErrorMessage } from '../../utils/validation';
 import LoanCard from './LoanCard';
 import LoanApplicationForm from './LoanApplicationForm';
 import PaymentForm from './PaymentForm';
+import LoanUpdateForm from './LoanUpdateForm';
 
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -36,7 +37,9 @@ const LoanDashboard: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -46,13 +49,22 @@ const LoanDashboard: React.FC = () => {
 
   const loadLoans = async () => {
     if (!user) return;
-
     try {
       setIsLoading(true);
       const userLoans = await apiService.getUserLoans(user.id);
-      setLoans(userLoans);
+      
+      // Ensure we always set an array
+      if (Array.isArray(userLoans)) {
+        setLoans(userLoans);
+      } else {
+        console.error('API returned non-array response:', userLoans);
+        setLoans([]);
+        setError('Invalid response format from server');
+      }
     } catch (err: unknown) {
+      console.error('Error loading loans:', err);
       setError(getErrorMessage(err, 'Failed to load loans'));
+      setLoans([]); // Ensure we always have an array
     } finally {
       setIsLoading(false);
     }
@@ -74,20 +86,47 @@ const LoanDashboard: React.FC = () => {
     loadLoans(); // Refresh the loans list
   };
 
-  const handleViewDetails = (loanId: string) => {
-    // This would navigate to a detailed loan view
-    console.log('View details for loan:', loanId);
+  const handleUpdateLoan = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setShowUpdateForm(true);
+  };
+
+  const handleUpdateSuccess = (updatedLoan: Loan) => {
+    // Update the loan in the loans array
+    setLoans(prevLoans => 
+      prevLoans.map(loan => 
+        loan.id === updatedLoan.id ? updatedLoan : loan
+      )
+    );
+    setShowUpdateForm(false);
+    setSelectedLoan(null);
   };
 
   const getTotalOutstanding = (): number => {
-    return loans.reduce((total, loan) => total + loan.outstandingBalance, 0);
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
+    return loans.reduce((total, loan) => {
+      // Use remainingBalance if available, fallback to outstandingBalance for backward compatibility
+      const balance = loan.remainingBalance !== undefined ? loan.remainingBalance : loan.outstandingBalance;
+      return total + balance;
+    }, 0);
   };
 
   const getActiveLoansCount = (): number => {
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
     return loans.filter(loan => loan.status === 'ACTIVE').length;
   };
 
   const getOverdueLoansCount = (): number => {
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
     return loans.filter(loan => loan.status === 'OVERDUE').length;
   };
 
@@ -196,7 +235,7 @@ const LoanDashboard: React.FC = () => {
       </Grid>
 
       {/* Loans Grid */}
-      {loans.length === 0 ? (
+      {!Array.isArray(loans) || loans.length === 0 ? (
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
             <AccountBalance sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -217,11 +256,11 @@ const LoanDashboard: React.FC = () => {
         </Card>
       ) : (
         <Grid container spacing={3}>
-          {loans.map((loan) => (
+          {Array.isArray(loans) && loans.map((loan) => (
             <Grid item xs={12} sm={6} md={4} key={loan.id}>
               <LoanCard
                 loan={loan}
-                onViewDetails={handleViewDetails}
+                onUpdate={handleUpdateLoan}
                 onMakePayment={handleMakePayment}
               />
             </Grid>
@@ -277,6 +316,17 @@ const LoanDashboard: React.FC = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Update Form Dialog */}
+      <LoanUpdateForm
+        open={showUpdateForm}
+        onClose={() => {
+          setShowUpdateForm(false);
+          setSelectedLoan(null);
+        }}
+        loan={selectedLoan}
+        onSuccess={handleUpdateSuccess}
+      />
     </Box>
   );
 };

@@ -12,6 +12,12 @@ A comprehensive loan management system built with React, TypeScript, and Materia
 
 ### 💰 Loan Management
 - **Loan Application**: Multi-step loan application form with validation
+  - Loan amount (principal)
+  - Purpose of loan
+  - Loan term (6, 12, 24, 36, 48, or 60 months)
+  - Monthly income
+  - Employment status (employed, self-employed, unemployed, retired, student)
+  - Additional information (optional)
 - **Loan Dashboard**: Overview of all user loans with status indicators
 - **Loan Details**: Detailed view with repayment schedule and transaction history
 - **Loan Status Tracking**: Pending, Approved, Active, Closed, Rejected, Overdue
@@ -84,16 +90,16 @@ The system is designed to work with a RESTful backend API with the following end
 - `GET /api/auth/me` - Get current user
 
 #### Loans
-- `POST /api/loans/apply` - Apply for loan
-- `GET /api/loans/{id}` - Get loan details
-- `GET /api/users/{id}/loans` - Get user loans
-- `PUT /api/loans/{id}/approve` - Approve loan (admin)
-- `PUT /api/loans/{id}/close` - Close loan
+- `POST /api/loans/user/apply` - Apply for loan
+- `GET /api/loans/user/{id}` - Get loan details
+- `GET /api/loans/user/{id}` - Get user loans
+- `PUT /api/loans/user/{id}/approve` - Approve loan (admin)
+- `PUT /api/loans/user/{id}/close` - Close loan
 
 #### Payments
 - `POST /api/payments` - Make payment
 - `GET /api/payments/{id}` - Get payment details
-- `GET /api/loans/{id}/payments` - Get loan payments
+- `GET /api/loans/user/{id}/payments` - Get loan payments
 
 #### Notifications
 - `GET /api/notifications/{userId}` - Get user notifications
@@ -203,6 +209,18 @@ interface Loan {
   updatedAt: string;
   outstandingBalance: number;
   totalAmount: number;
+}
+```
+
+### LoanApplication
+```typescript
+interface LoanApplication {
+  principal: number;        // Loan amount (double)
+  purpose: string;          // Purpose of the loan
+  term: number;            // Loan term in months (int)
+  monthlyIncome: number;   // Monthly income (int)
+  employmentStatus: string; // Employment status
+  additionalInfo?: string;  // Optional additional information
 }
 ```
 

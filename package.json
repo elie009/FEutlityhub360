@@ -27,7 +27,12 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:dev": "cross-env NODE_ENV=development react-scripts start",
+    "start:mock": "cross-env NODE_ENV=development REACT_APP_ENABLE_MOCK_DATA=true react-scripts start",
+    "start:prod": "cross-env NODE_ENV=production react-scripts start",
     "build": "react-scripts build",
+    "build:dev": "cross-env NODE_ENV=development react-scripts build",
+    "build:prod": "cross-env NODE_ENV=production react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -48,5 +53,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0"
   }
 }

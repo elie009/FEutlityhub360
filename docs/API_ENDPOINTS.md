@@ -46,7 +46,7 @@
 
 ## 3. Loan Management Endpoints
 
-### POST /loans/apply
+### POST /loans/user/apply
 **Description:** Apply for a new loan
 **Headers:** Authorization: Bearer <token>
 **Request Body:**
@@ -62,18 +62,18 @@
 `
 **Response:** Loan object
 
-### GET /loans/{loanId}
+### GET /loans/user/{loanId}
 **Description:** Get loan details
 **Headers:** Authorization: Bearer <token>
 **Response:** Loan object
 
-### GET /users/{userId}/loans
+### GET /loans/user/{userId}
 **Description:** Get all loans for a user
 **Headers:** Authorization: Bearer <token>
 **Query Parameters:** ?status=PENDING&page=1&limit=10
 **Response:** Array of loan objects with pagination
 
-### GET /loans/{loanId}/status
+### GET /loans/user/{loanId}/status
 **Description:** Get loan status and outstanding balance
 **Headers:** Authorization: Bearer <token>
 **Response:**
@@ -84,19 +84,19 @@
 }
 `
 
-### GET /loans/{loanId}/schedule
+### GET /loans/user/{loanId}/schedule
 **Description:** Get repayment schedule for a loan
 **Headers:** Authorization: Bearer <token>
 **Response:** Array of repayment schedule objects
 
-### GET /loans/{loanId}/transactions
+### GET /loans/user/{loanId}/transactions
 **Description:** Get transaction history for a loan
 **Headers:** Authorization: Bearer <token>
 **Response:** Array of transaction objects
 
 ## 4. Admin Endpoints
 
-### PUT /loans/{loanId}/approve
+### PUT /loans/user/{loanId}/approve
 **Description:** Approve a loan (Admin only)
 **Headers:** Authorization: Bearer <token>
 **Request Body:**
@@ -107,7 +107,7 @@
 }
 `
 
-### PUT /loans/{loanId}/reject
+### PUT /loans/user/{loanId}/reject
 **Description:** Reject a loan (Admin only)
 **Headers:** Authorization: Bearer <token>
 **Request Body:**
@@ -132,7 +132,7 @@
 }
 `
 
-### PUT /loans/{loanId}/close
+### PUT /loans/user/{loanId}/close
 **Description:** Close a loan (Admin only)
 **Headers:** Authorization: Bearer <token>
 **Request Body:**
@@ -164,7 +164,7 @@
 **Headers:** Authorization: Bearer <token>
 **Response:** Payment object
 
-### GET /loans/{loanId}/payments
+### GET /loans/user/{loanId}/payments
 **Description:** Get all payments for a loan
 **Headers:** Authorization: Bearer <token>
 **Query Parameters:** ?page=1&limit=10

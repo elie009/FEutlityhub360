@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
-  Button,
+  Grid,
   Card,
   CardContent,
-  Grid,
-  Chip,
-  IconButton,
+  Button,
+  Alert,
+  CircularProgress,
+  Fab,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -18,317 +18,388 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Chip,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Receipt as ReceiptIcon,
-  Download as DownloadIcon,
-  Visibility as ViewIcon,
+  Receipt,
+  TrendingUp,
+  Warning,
+  CheckCircle,
+  FilterList,
+  Refresh,
 } from '@mui/icons-material';
-import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
-
-interface Bill {
-  id: number;
-  utilityName: string;
-  amount: number;
-  dueDate: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
-  billDate: string;
-  accountNumber: string;
-}
+import { useAuth } from '../contexts/AuthContext';
+import { apiService } from '../services/api';
+import { Bill, BillStatus, BillType, BillFilters, BillAnalytics } from '../types/bill';
+import { getErrorMessage } from '../utils/validation';
+import BillCard from '../components/Bills/BillCard';
+import BillForm from '../components/Bills/BillForm';
 
 const Bills: React.FC = () => {
-  const [open, setOpen] = useState(false);
-  const [bills, setBills] = useState<Bill[]>([
-    {
-      id: 1,
-      utilityName: 'Main Electricity',
-      amount: 120.50,
-      dueDate: '2024-02-15',
-      status: 'Pending',
-      billDate: '2024-01-15',
-      accountNumber: 'ELC-001',
-    },
-    {
-      id: 2,
-      utilityName: 'Water Supply',
-      amount: 45.75,
-      dueDate: '2024-02-10',
-      status: 'Paid',
-      billDate: '2024-01-10',
-      accountNumber: 'WTR-002',
-    },
-    {
-      id: 3,
-      utilityName: 'Natural Gas',
-      amount: 89.25,
-      dueDate: '2024-01-25',
-      status: 'Overdue',
-      billDate: '2024-01-01',
-      accountNumber: 'GAS-003',
-    },
-    {
-      id: 4,
-      utilityName: 'Internet Service',
-      amount: 65.00,
-      dueDate: '2024-02-20',
-      status: 'Pending',
-      billDate: '2024-01-20',
-      accountNumber: 'INT-004',
-    },
-  ]);
+  const { user } = useAuth();
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [analytics, setAnalytics] = useState<BillAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [showBillForm, setShowBillForm] = useState(false);
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+  const [filters, setFilters] = useState<BillFilters>({
+    page: 1,
+    limit: 12,
+  });
+  const [showFilters, setShowFilters] = useState(false);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return 'success';
-      case 'Pending':
-        return 'warning';
-      case 'Overdue':
-        return 'error';
-      default:
-        return 'default';
+  useEffect(() => {
+    if (user) {
+      loadBills();
+      loadAnalytics();
+    }
+  }, [user, filters]);
+
+  const loadBills = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiService.getUserBills(filters);
+      setBills(response.data);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load bills'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleEdit = (id: number) => {
-    console.log('Edit bill:', id);
+  const loadAnalytics = async () => {
+    try {
+      const analyticsData = await apiService.getBillAnalyticsSummary();
+      setAnalytics(analyticsData);
+    } catch (err: unknown) {
+      console.error('Failed to load analytics:', err);
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setBills(bills.filter(bill => bill.id !== id));
+  const handleCreateBill = () => {
+    setSelectedBill(null);
+    setShowBillForm(true);
   };
 
-  const handleView = (id: number) => {
-    console.log('View bill:', id);
+  const handleEditBill = (bill: Bill) => {
+    setSelectedBill(bill);
+    setShowBillForm(true);
   };
 
-  const handleDownload = (id: number) => {
-    console.log('Download bill:', id);
+  const handleBillSuccess = (bill: Bill) => {
+    setShowBillForm(false);
+    setSelectedBill(null);
+    loadBills();
+    loadAnalytics();
   };
 
-  const handleAddBill = () => {
-    setOpen(true);
+  const handleDeleteBill = async (billId: string) => {
+    if (window.confirm('Are you sure you want to delete this bill?')) {
+      try {
+        await apiService.deleteBill(billId);
+        loadBills();
+        loadAnalytics();
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to delete bill'));
+      }
+    }
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const handleMarkAsPaid = async (billId: string) => {
+    try {
+      await apiService.markBillAsPaid(billId, 'Marked as paid from dashboard');
+      loadBills();
+      loadAnalytics();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to mark bill as paid'));
+    }
   };
 
-  const columns: GridColDef[] = [
-    {
-      field: 'utilityName',
-      headerName: 'Utility',
-      width: 200,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <ReceiptIcon sx={{ mr: 1, color: 'primary.main' }} />
-          {params.value}
-        </Box>
-      ),
-    },
-    { field: 'accountNumber', headerName: 'Account #', width: 120 },
-    {
-      field: 'amount',
-      headerName: 'Amount',
-      width: 120,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight="bold">
-          ${params.value.toFixed(2)}
-        </Typography>
-      ),
-    },
-    { field: 'billDate', headerName: 'Bill Date', width: 120 },
-    { field: 'dueDate', headerName: 'Due Date', width: 120 },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 120,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color={getStatusColor(params.value) as any}
-          size="small"
-        />
-      ),
-    },
-    {
-      field: 'actions',
-      type: 'actions',
-      headerName: 'Actions',
-      width: 150,
-      getActions: (params) => [
-        <GridActionsCellItem
-          icon={<ViewIcon />}
-          label="View"
-          onClick={() => handleView(params.row.id)}
-        />,
-        <GridActionsCellItem
-          icon={<DownloadIcon />}
-          label="Download"
-          onClick={() => handleDownload(params.row.id)}
-        />,
-        <GridActionsCellItem
-          icon={<EditIcon />}
-          label="Edit"
-          onClick={() => handleEdit(params.row.id)}
-        />,
-        <GridActionsCellItem
-          icon={<DeleteIcon />}
-          label="Delete"
-          onClick={() => handleDelete(params.row.id)}
-        />,
-      ],
-    },
-  ];
+  const handleFilterChange = (field: keyof BillFilters, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value,
+      page: 1, // Reset to first page when filters change
+    }));
+  };
 
-  const totalAmount = bills.reduce((sum, bill) => sum + bill.amount, 0);
-  const paidAmount = bills.filter(bill => bill.status === 'Paid').reduce((sum, bill) => sum + bill.amount, 0);
-  const pendingAmount = bills.filter(bill => bill.status === 'Pending').reduce((sum, bill) => sum + bill.amount, 0);
-  const overdueAmount = bills.filter(bill => bill.status === 'Overdue').reduce((sum, bill) => sum + bill.amount, 0);
+  const clearFilters = () => {
+    setFilters({
+      page: 1,
+      limit: 12,
+    });
+  };
+
+  const refreshData = () => {
+    loadBills();
+    loadAnalytics();
+  };
+
+  if (isLoading && bills.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
+        <Typography variant="h4" component="h1">
           Bills Management
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAddBill}
-        >
-          Add Bill
-        </Button>
-      </Box>
-
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Amount
-              </Typography>
-              <Typography variant="h4">
-                ${totalAmount.toFixed(2)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Paid Amount
-              </Typography>
-              <Typography variant="h4" color="success.main">
-                ${paidAmount.toFixed(2)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Pending Amount
-              </Typography>
-              <Typography variant="h4" color="warning.main">
-                ${pendingAmount.toFixed(2)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Overdue Amount
-              </Typography>
-              <Typography variant="h4" color="error.main">
-                ${overdueAmount.toFixed(2)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ height: 400, width: '100%' }}>
-        <DataGrid
-          rows={bills}
-          columns={columns}
-          pageSizeOptions={[5, 10, 25]}
-          initialState={{
-            pagination: {
-              paginationModel: { page: 0, pageSize: 5 },
-            },
-          }}
-          checkboxSelection
-          disableRowSelectionOnClick
-        />
-      </Paper>
-
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Bill</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Utility</InputLabel>
-                <Select
-                  label="Utility"
-                >
-                  <MenuItem value="Main Electricity">Main Electricity</MenuItem>
-                  <MenuItem value="Water Supply">Water Supply</MenuItem>
-                  <MenuItem value="Natural Gas">Natural Gas</MenuItem>
-                  <MenuItem value="Internet Service">Internet Service</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Account Number"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Amount"
-                type="number"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Bill Date"
-                type="date"
-                variant="outlined"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Due Date"
-                type="date"
-                variant="outlined"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleClose} variant="contained">
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Refresh">
+            <IconButton onClick={refreshData} disabled={isLoading}>
+              <Refresh />
+            </IconButton>
+          </Tooltip>
+          <Button
+            variant="outlined"
+            startIcon={<FilterList />}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            Filters
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateBill}
+          >
             Add Bill
           </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Analytics Cards */}
+      {analytics && (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Receipt sx={{ mr: 2, color: 'warning.main' }} />
+                  <Box>
+                    <Typography variant="h6">
+                      ${analytics.totalPendingAmount.toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Pending Bills ({analytics.totalPendingBills})
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CheckCircle sx={{ mr: 2, color: 'success.main' }} />
+                  <Box>
+                    <Typography variant="h6">
+                      ${analytics.totalPaidAmount.toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Paid Bills ({analytics.totalPaidBills})
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Warning sx={{ mr: 2, color: 'error.main' }} />
+                  <Box>
+                    <Typography variant="h6">
+                      ${analytics.totalOverdueAmount.toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Overdue Bills ({analytics.totalOverdueBills})
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <TrendingUp sx={{ mr: 2, color: 'primary.main' }} />
+                  <Box>
+                    <Typography variant="h6">
+                      {bills.length}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Bills
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Filters */}
+      {showFilters && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Filters
+            </Typography>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={filters.status || ''}
+                    onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
+                    label="Status"
+                  >
+                    <MenuItem value="">All Statuses</MenuItem>
+                    <MenuItem value={BillStatus.PENDING}>Pending</MenuItem>
+                    <MenuItem value={BillStatus.PAID}>Paid</MenuItem>
+                    <MenuItem value={BillStatus.OVERDUE}>Overdue</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Bill Type</InputLabel>
+                  <Select
+                    value={filters.billType || ''}
+                    onChange={(e) => handleFilterChange('billType', e.target.value || undefined)}
+                    label="Bill Type"
+                  >
+                    <MenuItem value="">All Types</MenuItem>
+                    <MenuItem value={BillType.UTILITY}>Utility</MenuItem>
+                    <MenuItem value={BillType.SUBSCRIPTION}>Subscription</MenuItem>
+                    <MenuItem value={BillType.LOAN}>Loan</MenuItem>
+                    <MenuItem value={BillType.OTHERS}>Others</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="outlined" onClick={clearFilters}>
+                    Clear
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+
+            {/* Active Filters */}
+            {(filters.status || filters.billType) && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Active Filters:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {filters.status && (
+                    <Chip
+                      label={`Status: ${filters.status}`}
+                      onDelete={() => handleFilterChange('status', undefined)}
+                      size="small"
+                    />
+                  )}
+                  {filters.billType && (
+                    <Chip
+                      label={`Type: ${filters.billType}`}
+                      onDelete={() => handleFilterChange('billType', undefined)}
+                      size="small"
+                    />
+                  )}
+                </Box>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bills Grid */}
+      {bills.length === 0 ? (
+        <Card>
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <Receipt sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              No bills found
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {filters.status || filters.billType 
+                ? 'No bills match your current filters. Try adjusting your filters or create a new bill.'
+                : 'You haven\'t created any bills yet. Start by adding your first bill.'
+              }
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateBill}
+            >
+              Add Bill
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Grid container spacing={3}>
+          {bills.map((bill) => (
+            <Grid item xs={12} sm={6} md={4} key={bill.id}>
+              <BillCard
+                bill={bill}
+                onEdit={handleEditBill}
+                onDelete={handleDeleteBill}
+                onMarkAsPaid={handleMarkAsPaid}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* Floating Action Button for Mobile */}
+      <Fab
+        color="primary"
+        aria-label="add bill"
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+          display: { xs: 'flex', sm: 'none' },
+        }}
+        onClick={handleCreateBill}
+      >
+        <AddIcon />
+      </Fab>
+
+      {/* Bill Form Dialog */}
+      <BillForm
+        open={showBillForm}
+        onClose={() => {
+          setShowBillForm(false);
+          setSelectedBill(null);
+        }}
+        bill={selectedBill}
+        onSuccess={handleBillSuccess}
+      />
     </Box>
   );
 };

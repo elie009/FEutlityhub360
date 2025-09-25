@@ -13,11 +13,16 @@ export const mockLoans: Loan[] = [
     term: 24,
     status: LoanStatus.ACTIVE,
     purpose: 'Home renovation project',
+    monthlyPayment: 680.00,
+    totalAmount: 16320,
+    remainingBalance: 12500,
+    appliedAt: '2024-01-15T10:30:00Z',
+    approvedAt: '2024-01-18T14:00:00Z',
+    disbursedAt: '2024-01-20T14:00:00Z',
+    completedAt: undefined,
     createdAt: '2024-01-15T10:30:00Z',
     updatedAt: '2024-01-15T10:30:00Z',
-    disbursedAt: '2024-01-20T14:00:00Z',
     outstandingBalance: 12500,
-    totalAmount: 16320,
   },
   {
     id: 'loan-002',
@@ -27,11 +32,16 @@ export const mockLoans: Loan[] = [
     term: 12,
     status: LoanStatus.ACTIVE,
     purpose: 'Emergency medical expenses',
+    monthlyPayment: 444.25,
+    totalAmount: 5330,
+    remainingBalance: 3200,
+    appliedAt: '2024-02-10T09:15:00Z',
+    approvedAt: '2024-02-11T10:00:00Z',
+    disbursedAt: '2024-02-12T11:30:00Z',
+    completedAt: undefined,
     createdAt: '2024-02-10T09:15:00Z',
     updatedAt: '2024-02-10T09:15:00Z',
-    disbursedAt: '2024-02-12T11:30:00Z',
     outstandingBalance: 3200,
-    totalAmount: 5330,
   },
   {
     id: 'loan-003',
@@ -41,12 +51,16 @@ export const mockLoans: Loan[] = [
     term: 36,
     status: LoanStatus.CLOSED,
     purpose: 'Vehicle purchase',
+    monthlyPayment: 776.39,
+    totalAmount: 27950,
+    remainingBalance: 0,
+    appliedAt: '2023-06-01T08:00:00Z',
+    approvedAt: '2023-06-03T12:00:00Z',
+    disbursedAt: '2023-06-05T10:00:00Z',
+    completedAt: '2023-12-15T16:45:00Z',
     createdAt: '2023-06-01T08:00:00Z',
     updatedAt: '2023-12-15T16:45:00Z',
-    disbursedAt: '2023-06-05T10:00:00Z',
-    closedAt: '2023-12-15T16:45:00Z',
     outstandingBalance: 0,
-    totalAmount: 27950,
   },
   {
     id: 'loan-004',
@@ -56,11 +70,16 @@ export const mockLoans: Loan[] = [
     term: 6,
     status: LoanStatus.OVERDUE,
     purpose: 'Business equipment',
+    monthlyPayment: 1433.33,
+    totalAmount: 8600,
+    remainingBalance: 6500,
+    appliedAt: '2024-03-01T14:20:00Z',
+    approvedAt: '2024-03-02T10:00:00Z',
+    disbursedAt: '2024-03-03T09:00:00Z',
+    completedAt: undefined,
     createdAt: '2024-03-01T14:20:00Z',
     updatedAt: '2024-03-01T14:20:00Z',
-    disbursedAt: '2024-03-03T09:00:00Z',
     outstandingBalance: 6500,
-    totalAmount: 8600,
   },
 ];
 
@@ -300,20 +319,60 @@ export const mockDataService = {
 
   async applyForLoan(application: any): Promise<Loan> {
     await delay(2000);
+    const interestRate = 10.0; // Default rate
+    const totalAmount = application.principal * (1 + (interestRate / 100) * (application.term / 12));
+    const monthlyPayment = totalAmount / application.term;
+    
     const newLoan: Loan = {
       id: 'loan-' + Date.now(),
       userId: 'demo-user-123',
       principal: application.principal,
-      interestRate: 10.0, // Default rate
+      interestRate: interestRate,
       term: application.term,
       status: LoanStatus.PENDING,
       purpose: application.purpose,
+      monthlyPayment: monthlyPayment,
+      totalAmount: totalAmount,
+      remainingBalance: totalAmount,
+      appliedAt: new Date().toISOString(),
+      approvedAt: undefined,
+      disbursedAt: undefined,
+      completedAt: undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      outstandingBalance: application.principal,
-      totalAmount: application.principal * 1.1, // Simple calculation
+      outstandingBalance: totalAmount,
     };
     return newLoan;
+  },
+
+  async updateLoan(loanId: string, updateData: {
+    purpose?: string;
+    additionalInfo?: string;
+    status?: string;
+    interestRate?: number;
+    monthlyPayment?: number;
+    remainingBalance?: number;
+  }): Promise<Loan> {
+    await delay(1000);
+    
+    // Find the loan to update
+    const loanIndex = mockLoans.findIndex(loan => loan.id === loanId);
+    if (loanIndex === -1) {
+      throw new Error('Loan not found');
+    }
+    
+    // Update the loan with new data, ensuring status is properly typed
+    const updatedLoan: Loan = {
+      ...mockLoans[loanIndex],
+      ...updateData,
+      status: updateData.status as LoanStatus || mockLoans[loanIndex].status,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Update the mock data
+    mockLoans[loanIndex] = updatedLoan;
+    
+    return updatedLoan;
   },
 
   async makePayment(loanId: string, amount: number, method: PaymentMethod, reference: string): Promise<Payment> {

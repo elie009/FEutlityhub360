@@ -4,6 +4,7 @@ export interface User {
   email: string;
   phone: string;
   kycVerified: boolean;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,12 +17,17 @@ export interface Loan {
   term: number; // in months
   status: LoanStatus;
   purpose: string;
+  monthlyPayment: number;
+  totalAmount: number;
+  remainingBalance: number;
+  appliedAt: string;
+  approvedAt?: string;
+  disbursedAt?: string;
+  completedAt?: string;
+  additionalInfo?: string;
   createdAt: string;
   updatedAt: string;
-  disbursedAt?: string;
-  closedAt?: string;
-  outstandingBalance: number;
-  totalAmount: number;
+  outstandingBalance: number; // Keep for backward compatibility
 }
 
 export enum LoanStatus {
@@ -128,8 +134,21 @@ export interface AuthUser {
   name: string;
   email: string;
   phone: string;
-  token: string;
-  refreshToken: string;
+  data: {
+    token: string;
+    refreshToken: string;
+    expiresAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    };
+  };
 }
 
 export interface LoginCredentials {
