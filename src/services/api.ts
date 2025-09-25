@@ -206,6 +206,19 @@ class ApiService {
     return response;
   }
 
+  async getOutstandingAmount(): Promise<number> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getOutstandingAmount();
+    }
+    const response = await this.request<any>('/Loans/outstanding-amount');
+    
+    // Handle the response structure
+    if (response && response.data !== undefined) {
+      return response.data;
+    }
+    return 0;
+  }
+
   async getUserLoans(userId: string): Promise<Loan[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);

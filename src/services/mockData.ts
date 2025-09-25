@@ -486,4 +486,18 @@ export const mockDataService = {
     
     return paymentResponse;
   },
+
+  async getOutstandingAmount(): Promise<number> {
+    await delay(500);
+    
+    // Calculate total outstanding amount from all active loans
+    const totalOutstanding = mockLoans
+      .filter(loan => loan.status === LoanStatus.ACTIVE)
+      .reduce((total, loan) => {
+        const balance = loan.remainingBalance || loan.outstandingBalance;
+        return total + balance;
+      }, 0);
+    
+    return totalOutstanding;
+  },
 };

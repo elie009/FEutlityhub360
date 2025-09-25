@@ -34,6 +34,7 @@ import LoanTransactionHistory from './LoanTransactionHistory';
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
@@ -52,6 +53,17 @@ const LoanDashboard: React.FC = () => {
     }
   }, [user]);
 
+  const loadOutstandingAmount = async () => {
+    try {
+      const amount = await apiService.getOutstandingAmount();
+      setOutstandingAmount(amount);
+    } catch (err: unknown) {
+      console.error('Error loading outstanding amount:', err);
+      // Fallback to calculating from loans if API fails
+      setOutstandingAmount(getTotalOutstanding());
+    }
+  };
+
   const loadLoans = async () => {
     if (!user) return;
     try {
@@ -66,6 +78,9 @@ const LoanDashboard: React.FC = () => {
         setLoans([]);
         setError('Invalid response format from server');
       }
+      
+      // Load outstanding amount after loading loans
+      await loadOutstandingAmount();
     } catch (err: unknown) {
       console.error('Error loading loans:', err);
       setError(getErrorMessage(err, 'Failed to load loans'));
@@ -75,9 +90,11 @@ const LoanDashboard: React.FC = () => {
     }
   };
 
-  const handleApplicationSuccess = (loanId: string) => {
+  const handleApplicationSuccess = async (loanId: string) => {
     setShowApplicationForm(false);
-    loadLoans(); // Refresh the loans list
+    // Refresh the loans list and outstanding amount
+    await loadLoans();
+    await loadOutstandingAmount();
   };
 
   const handleMakePayment = (loanId: string) => {
@@ -85,10 +102,13 @@ const LoanDashboard: React.FC = () => {
     setShowPaymentForm(true);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
     setShowPaymentForm(false);
     setSelectedLoanId('');
-    loadLoans(); // Refresh the loans list
+    // Refresh the loans list to get updated balances
+    await loadLoans();
+    // Also explicitly refresh the outstanding amount from the API
+    await loadOutstandingAmount();
   };
 
   const handleUpdateLoan = (loan: Loan) => {
@@ -96,7 +116,7 @@ const LoanDashboard: React.FC = () => {
     setShowUpdateForm(true);
   };
 
-  const handleUpdateSuccess = (updatedLoan: Loan) => {
+  const handleUpdateSuccess = async (updatedLoan: Loan) => {
     // Update the loan in the loans array
     setLoans(prevLoans => 
       prevLoans.map(loan => 
@@ -105,6 +125,8 @@ const LoanDashboard: React.FC = () => {
     );
     setShowUpdateForm(false);
     setSelectedLoan(null);
+    // Refresh the outstanding amount after updating loan
+    await loadOutstandingAmount();
   };
 
   const handleDeleteLoan = (loanId: string) => {
@@ -127,6 +149,9 @@ const LoanDashboard: React.FC = () => {
       
       setShowDeleteDialog(false);
       setLoanToDelete(null);
+      
+      // Refresh the outstanding amount after deleting loan
+      await loadOutstandingAmount();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to delete loan'));
     } finally {
@@ -218,7 +243,7 @@ const LoanDashboard: React.FC = () => {
                 <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    ${getTotalOutstanding().toLocaleString()}
+                    ${outstandingAmount.toLocaleString()}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Total Outstanding
@@ -404,13 +429,14 @@ const LoanDashboard: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Transaction History Dialog */}
-      <LoanTransactionHistory
-        open={showHistoryDialog}
-        onClose={closeHistoryDialog}
-        loanId={loanForHistory?.id || ''}
-        loanPurpose={loanForHistory?.purpose}
-      />
+        {/* Transaction History Dialog */}
+        <LoanTransactionHistory
+          open={showHistoryDialog}
+          onClose={closeHistoryDialog}
+          loanId={loanForHistory?.id || ''}
+          loanPurpose={loanForHistory?.purpose}
+          loanData={loanForHistory || undefined} // Add this line to pass loan data
+        />
     </Box>
   );
 };

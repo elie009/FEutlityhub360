@@ -16,6 +16,7 @@ import {
   Alert,
   Divider,
   Grid,
+  Tooltip,
 } from '@mui/material';
 import {
   Payment as PaymentIcon,
@@ -24,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import { Loan } from '../../types/loan';
 
 interface LoanTransaction {
   id: string;
@@ -40,6 +42,7 @@ interface LoanTransactionHistoryProps {
   onClose: () => void;
   loanId: string;
   loanPurpose?: string;
+  loanData?: Loan; // Add loan data for fallback calculation
 }
 
 const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
@@ -47,6 +50,7 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
   onClose,
   loanId,
   loanPurpose,
+  loanData,
 }) => {
   const [transactions, setTransactions] = useState<LoanTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,6 +68,7 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
     
     try {
       const data = await apiService.getLoanTransactions(loanId);
+      console.log('🔍 Loan Transaction History - Raw API Response:', data);
       setTransactions(data);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to load transaction history'));
@@ -112,16 +117,44 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
   };
 
   const getTotalPayments = (): number => {
-    return transactions
-      .filter(t => t.type === 'PAYMENT')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const payments = transactions.filter(t => t.type === 'PAYMENT');
+    const total = payments.reduce((sum, t) => sum + t.amount, 0);
+    console.log('💰 Total Payments Calculation:', { payments, total });
+    return total;
   };
 
   const getTotalDisbursements = (): number => {
-    return transactions
-      .filter(t => t.type === 'DISBURSEMENT')
-      .reduce((sum, t) => sum + t.amount, 0);
+    // First, try to calculate from transaction data
+    const disbursements = transactions.filter(t => t.type === 'DISBURSEMENT');
+    const totalFromTransactions = disbursements.reduce((sum, t) => sum + t.amount, 0);
+    
+    console.log('💸 Total Disbursements Calculation:', { 
+      disbursements, 
+      totalFromTransactions,
+      loanData: loanData ? { principal: loanData.principal, totalAmount: loanData.totalAmount } : 'No loan data'
+    });
+    
+    // If no disbursement transactions found, use loan principal as fallback
+    if (totalFromTransactions === 0 && loanData) {
+      console.log('⚠️ No disbursement transactions found, using loan principal as fallback:', loanData.principal);
+      return loanData.principal;
+    }
+    
+    return totalFromTransactions;
   };
+
+  const getTransactionBreakdown = () => {
+    const payments = transactions.filter(t => t.type === 'PAYMENT');
+    const disbursements = transactions.filter(t => t.type === 'DISBURSEMENT');
+    
+    return {
+      payments: payments.length,
+      disbursements: disbursements.length,
+      totalTransactions: transactions.length,
+    };
+  };
+
+  const breakdown = getTransactionBreakdown();
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -152,17 +185,42 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
           </Box>
         ) : (
           <>
+
             {/* Summary Cards */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={6}>
-                <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 1, textAlign: 'center' }}>
-                  <Typography variant="h6" color="primary.contrastText">
-                    {formatCurrency(getTotalDisbursements())}
-                  </Typography>
-                  <Typography variant="body2" color="primary.contrastText">
-                    Total Disbursed
-                  </Typography>
-                </Box>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        What is "Total Disbursed"?
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • It's the loan principal - The actual amount you received
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • It's a one-time event - Money is disbursed only once when loan is approved
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • It doesn't change - No matter how many payments you make, the disbursed amount stays the same
+                      </Typography>
+                      <Typography variant="body2">
+                        • It's separate from interest - Interest is calculated on top of the disbursed amount
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 1, textAlign: 'center', cursor: 'help' }}>
+                    <Typography variant="h6" color="primary.contrastText">
+                      {formatCurrency(getTotalDisbursements())}
+                    </Typography>
+                    <Typography variant="body2" color="primary.contrastText">
+                      Total Disbursed
+                    </Typography>
+                  </Box>
+                </Tooltip>
               </Grid>
               <Grid item xs={6}>
                 <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 1, textAlign: 'center' }}>
@@ -180,9 +238,19 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
 
             {/* Transaction List */}
             {transactions.length === 0 ? (
-              <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No transactions found for this loan.
-              </Typography>
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                  No transactions found for this loan.
+                </Typography>
+                {loanData && (
+                  <Alert severity="info">
+                    <Typography variant="body2">
+                      This loan has a principal amount of {formatCurrency(loanData.principal)}.
+                      The "Total Disbursed" above shows this amount as a fallback.
+                    </Typography>
+                  </Alert>
+                )}
+              </Box>
             ) : (
               <List>
                 {transactions.map((transaction, index) => (
