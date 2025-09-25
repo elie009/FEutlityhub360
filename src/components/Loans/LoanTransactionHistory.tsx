@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import {
   Payment as PaymentIcon,
-  AccountBalance as DisbursementIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
 } from '@mui/icons-material';

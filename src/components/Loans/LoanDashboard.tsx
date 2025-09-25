@@ -359,7 +359,7 @@ const LoanDashboard: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Make Payment</DialogTitle>
+        <DialogTitle>Payment</DialogTitle>
         <DialogContent>
           <PaymentForm
             loanId={selectedLoanId}

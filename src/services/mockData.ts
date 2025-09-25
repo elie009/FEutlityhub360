@@ -444,4 +444,46 @@ export const mockDataService = {
     };
     return payment;
   },
+
+  async makeLoanPayment(loanId: string, paymentData: {
+    amount: number;
+    method: string;
+    reference: string;
+  }): Promise<any> {
+    await delay(1200);
+    
+    // Find the loan to update
+    const loanIndex = mockLoans.findIndex(loan => loan.id === loanId);
+    if (loanIndex === -1) {
+      throw new Error('Loan not found');
+    }
+    
+    const loan = mockLoans[loanIndex];
+    
+    // Create payment response
+    const paymentResponse = {
+      id: `payment-${Date.now()}`,
+      loanId: loanId,
+      userId: loan.userId,
+      amount: paymentData.amount,
+      method: paymentData.method,
+      reference: paymentData.reference,
+      status: 'COMPLETED',
+      processedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Update loan remaining balance
+    const currentBalance = loan.remainingBalance || loan.outstandingBalance;
+    const newBalance = Math.max(0, currentBalance - paymentData.amount);
+    
+    mockLoans[loanIndex] = {
+      ...loan,
+      remainingBalance: newBalance,
+      outstandingBalance: newBalance,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    return paymentResponse;
+  },
 };

@@ -41,7 +41,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ loanId, onSuccess, onCancel }
     try {
       const loan = await apiService.getLoan(loanId);
       setLoanDetails(loan);
-      setAmount(loan.outstandingBalance); // Default to full outstanding balance
+      // Default to full outstanding balance (use remainingBalance if available, fallback to outstandingBalance)
+      const balance = loan.remainingBalance || loan.outstandingBalance;
+      setAmount(balance);
     } catch (err) {
       setError('Failed to load loan details');
     }
@@ -51,7 +53,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ loanId, onSuccess, onCancel }
     e.preventDefault();
     setError('');
 
-    const amountValidation = validatePaymentAmount(amount, loanDetails?.outstandingBalance || 0);
+    const balance = loanDetails?.remainingBalance || loanDetails?.outstandingBalance || 0;
+    const amountValidation = validatePaymentAmount(amount, balance);
     if (!amountValidation.isValid) {
       setError(amountValidation.error || 'Invalid payment amount');
       return;
@@ -66,7 +69,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ loanId, onSuccess, onCancel }
     setIsLoading(true);
 
     try {
-      await apiService.makePayment(loanId, amount, method, reference);
+      await apiService.makeLoanPayment(loanId, {
+        amount,
+        method: method.toString(),
+        reference,
+      });
       onSuccess();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Payment failed'));
@@ -118,7 +125,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ loanId, onSuccess, onCancel }
                 Outstanding Balance
               </Typography>
               <Typography variant="h6" color="error.main">
-                ${loanDetails.outstandingBalance.toLocaleString()}
+                ${(loanDetails.remainingBalance || loanDetails.outstandingBalance).toLocaleString()}
               </Typography>
             </Grid>
             <Grid item xs={6}>

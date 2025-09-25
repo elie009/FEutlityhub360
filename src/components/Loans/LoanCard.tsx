@@ -248,7 +248,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
               onClick={() => onMakePayment(loan.id)}
               sx={{ flex: 1, minWidth: '80px' }}
             >
-              Make Payment
+              Payment
             </Button>
           )}
           {onDelete && (

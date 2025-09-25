@@ -181,6 +181,26 @@ class ApiService {
     }
   }
 
+  async makeLoanPayment(loanId: string, paymentData: {
+    amount: number;
+    method: string;
+    reference: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.makeLoanPayment(loanId, paymentData);
+    }
+    const response = await this.request<any>(`/loans/${loanId}/payment`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+    
+    // Handle the response structure
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
   async getUserLoans(userId: string): Promise<Loan[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
