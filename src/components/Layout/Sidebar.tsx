@@ -24,6 +24,7 @@ import {
   ExpandLess,
   ExpandMore,
   AttachMoney as FinanceIcon,
+  TrendingUp as ApportionerIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -47,6 +48,7 @@ const menuItems: MenuItem[] = [
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
     ],
   },
+  { text: 'Apportioner', icon: <ApportionerIcon />, path: '/apportioner' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
   { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
