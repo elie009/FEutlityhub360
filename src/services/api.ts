@@ -354,7 +354,7 @@ class ApiService {
       return mockBillDataService.updateBill(billId, updateData);
     }
     
-    const response = await this.request<any>(`/bills/${billId}`, {
+    const response = await this.request<any>(`/Bills/${billId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
     });

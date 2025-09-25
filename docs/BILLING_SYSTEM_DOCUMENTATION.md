@@ -238,7 +238,7 @@ async getUpcomingBills(days: number): Promise<Bill[]>
 | `GET` | `/api/bills` | Get user bills with filters |
 | `GET` | `/api/bills/{id}` | Get specific bill |
 | `POST` | `/api/bills` | Create new bill |
-| `PUT` | `/api/bills/{id}` | Update bill |
+| `PUT` | `/api/Bills/{id}` | Update bill |
 | `DELETE` | `/api/bills/{id}` | Delete bill |
 | `PUT` | `/api/bills/{id}/mark-paid` | Mark as paid |
 | `PUT` | `/api/bills/{id}/status` | Update status |
@@ -248,6 +248,50 @@ async getUpcomingBills(days: number): Promise<Bill[]>
 | `GET` | `/api/bills/analytics/total-overdue` | Total overdue amount |
 | `GET` | `/api/bills/overdue` | Get overdue bills |
 | `GET` | `/api/bills/upcoming` | Get upcoming bills |
+
+### Update Bill API Details
+
+**Endpoint**: `PUT /api/Bills/{billId}`
+
+**Request Body**:
+```json
+{
+  "billName": "string",
+  "billType": "string", 
+  "amount": 0.01,
+  "dueDate": "2025-09-25T16:02:34.831Z",
+  "frequency": "string",
+  "status": "string",
+  "notes": "string",
+  "provider": "string",
+  "referenceNumber": "string"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "string",
+  "data": {
+    "id": "string",
+    "userId": "string",
+    "billName": "string",
+    "billType": "string",
+    "amount": 0,
+    "dueDate": "2025-09-25T16:02:34.840Z",
+    "frequency": "string",
+    "status": "string",
+    "createdAt": "2025-09-25T16:02:34.840Z",
+    "updatedAt": "2025-09-25T16:02:34.840Z",
+    "paidAt": "2025-09-25T16:02:34.840Z",
+    "notes": "string",
+    "provider": "string",
+    "referenceNumber": "string"
+  },
+  "errors": ["string"]
+}
+```
 
 ## 🎯 User Workflows
 
