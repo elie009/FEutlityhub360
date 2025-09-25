@@ -257,6 +257,31 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
             </Typography>
           </Box>
         )}
+
+        {/* Action Buttons */}
+        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleEdit}
+            startIcon={<Edit />}
+            fullWidth
+          >
+            Update
+          </Button>
+          {bill.status === BillStatus.PENDING && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleMarkAsPaid}
+              startIcon={<CheckCircle />}
+              color="success"
+              fullWidth
+            >
+              Mark Paid
+            </Button>
+          )}
+        </Box>
       </CardContent>
 
       {/* Action Menu */}
@@ -273,10 +298,6 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           horizontal: 'right',
         }}
       >
-        <MenuItem onClick={handleEdit}>
-          <Edit sx={{ mr: 1, fontSize: 16 }} />
-          Edit Bill
-        </MenuItem>
         {bill.status === BillStatus.PENDING && (
           <MenuItem onClick={handleMarkAsPaid}>
             <CheckCircle sx={{ mr: 1, fontSize: 16 }} />
