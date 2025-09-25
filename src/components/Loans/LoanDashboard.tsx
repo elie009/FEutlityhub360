@@ -29,23 +29,40 @@ import LoanCard from './LoanCard';
 import LoanApplicationForm from './LoanApplicationForm';
 import PaymentForm from './PaymentForm';
 import LoanUpdateForm from './LoanUpdateForm';
+import LoanTransactionHistory from './LoanTransactionHistory';
 
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
+  const [loanForHistory, setLoanForHistory] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (user) {
       loadLoans();
     }
   }, [user]);
+
+  const loadOutstandingAmount = async () => {
+    try {
+      const amount = await apiService.getOutstandingAmount();
+      setOutstandingAmount(amount);
+    } catch (err: unknown) {
+      console.error('Error loading outstanding amount:', err);
+      // Fallback to calculating from loans if API fails
+      setOutstandingAmount(getTotalOutstanding());
+    }
+  };
 
   const loadLoans = async () => {
     if (!user) return;
@@ -61,6 +78,9 @@ const LoanDashboard: React.FC = () => {
         setLoans([]);
         setError('Invalid response format from server');
       }
+      
+      // Load outstanding amount after loading loans
+      await loadOutstandingAmount();
     } catch (err: unknown) {
       console.error('Error loading loans:', err);
       setError(getErrorMessage(err, 'Failed to load loans'));
@@ -70,9 +90,11 @@ const LoanDashboard: React.FC = () => {
     }
   };
 
-  const handleApplicationSuccess = (loanId: string) => {
+  const handleApplicationSuccess = async (loanId: string) => {
     setShowApplicationForm(false);
-    loadLoans(); // Refresh the loans list
+    // Refresh the loans list and outstanding amount
+    await loadLoans();
+    await loadOutstandingAmount();
   };
 
   const handleMakePayment = (loanId: string) => {
@@ -80,10 +102,13 @@ const LoanDashboard: React.FC = () => {
     setShowPaymentForm(true);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
     setShowPaymentForm(false);
     setSelectedLoanId('');
-    loadLoans(); // Refresh the loans list
+    // Refresh the loans list to get updated balances
+    await loadLoans();
+    // Also explicitly refresh the outstanding amount from the API
+    await loadOutstandingAmount();
   };
 
   const handleUpdateLoan = (loan: Loan) => {
@@ -91,7 +116,7 @@ const LoanDashboard: React.FC = () => {
     setShowUpdateForm(true);
   };
 
-  const handleUpdateSuccess = (updatedLoan: Loan) => {
+  const handleUpdateSuccess = async (updatedLoan: Loan) => {
     // Update the loan in the loans array
     setLoans(prevLoans => 
       prevLoans.map(loan => 
@@ -100,6 +125,56 @@ const LoanDashboard: React.FC = () => {
     );
     setShowUpdateForm(false);
     setSelectedLoan(null);
+    // Refresh the outstanding amount after updating loan
+    await loadOutstandingAmount();
+  };
+
+  const handleDeleteLoan = (loanId: string) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      setLoanToDelete(loan);
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const confirmDeleteLoan = async () => {
+    if (!loanToDelete) return;
+
+    try {
+      setIsLoading(true);
+      await apiService.deleteLoan(loanToDelete.id);
+      
+      // Remove the loan from the local state
+      setLoans(prevLoans => prevLoans.filter(loan => loan.id !== loanToDelete.id));
+      
+      setShowDeleteDialog(false);
+      setLoanToDelete(null);
+      
+      // Refresh the outstanding amount after deleting loan
+      await loadOutstandingAmount();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete loan'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancelDeleteLoan = () => {
+    setShowDeleteDialog(false);
+    setLoanToDelete(null);
+  };
+
+  const handleViewHistory = (loanId: string) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      setLoanForHistory(loan);
+      setShowHistoryDialog(true);
+    }
+  };
+
+  const closeHistoryDialog = () => {
+    setShowHistoryDialog(false);
+    setLoanForHistory(null);
   };
 
   const getTotalOutstanding = (): number => {
@@ -168,7 +243,7 @@ const LoanDashboard: React.FC = () => {
                 <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    ${getTotalOutstanding().toLocaleString()}
+                    ${outstandingAmount.toLocaleString()}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Total Outstanding
@@ -262,6 +337,8 @@ const LoanDashboard: React.FC = () => {
                 loan={loan}
                 onUpdate={handleUpdateLoan}
                 onMakePayment={handleMakePayment}
+                onDelete={handleDeleteLoan}
+                onViewHistory={handleViewHistory}
               />
             </Grid>
           ))}
@@ -307,7 +384,7 @@ const LoanDashboard: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Make Payment</DialogTitle>
+        <DialogTitle>Payment</DialogTitle>
         <DialogContent>
           <PaymentForm
             loanId={selectedLoanId}
@@ -327,6 +404,39 @@ const LoanDashboard: React.FC = () => {
         loan={selectedLoan}
         onSuccess={handleUpdateSuccess}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onClose={cancelDeleteLoan}>
+        <DialogTitle>Delete Loan</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the loan "{loanToDelete?.purpose}"? 
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDeleteLoan} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmDeleteLoan} 
+            color="error" 
+            variant="contained"
+            disabled={isLoading}
+          >
+            {isLoading ? <CircularProgress size={20} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+        {/* Transaction History Dialog */}
+        <LoanTransactionHistory
+          open={showHistoryDialog}
+          onClose={closeHistoryDialog}
+          loanId={loanForHistory?.id || ''}
+          loanPurpose={loanForHistory?.purpose}
+          loanData={loanForHistory || undefined} // Add this line to pass loan data
+        />
     </Box>
   );
 };

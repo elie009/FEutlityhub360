@@ -14,6 +14,10 @@ import {
 import { Bill, CreateBillRequest, UpdateBillRequest, BillFilters, BillAnalytics, TotalPaidAnalytics, PaginatedBillsResponse } from '../types/bill';
 import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
+import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAccountFilters, BankAccountAnalytics, PaginatedBankAccountsResponse } from '../types/bankAccount';
+import { mockBankAccountDataService } from './mockBankAccountData';
+import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsResponse, TransactionAnalytics } from '../types/transaction';
+import { mockTransactionDataService } from './mockTransactionData';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -145,6 +149,76 @@ class ApiService {
     return response;
   }
 
+  async deleteLoan(loanId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      return mockDataService.deleteLoan(loanId);
+    }
+    const response = await this.request<any>(`/Loans/${loanId}`, {
+      method: 'DELETE',
+    });
+    
+    // Handle the response structure
+    if (response && response.data !== undefined) {
+      return response.data;
+    }
+    return response || true;
+  }
+
+  async getLoanTransactions(loanId: string): Promise<any[]> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getLoanTransactions(loanId);
+    }
+    const response = await this.request<any>(`/loans/${loanId}/transactions`);
+    
+    // Handle the response structure
+    if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected loan transactions response structure:', response);
+      return [];
+    }
+  }
+
+  async makeLoanPayment(loanId: string, paymentData: {
+    amount: number;
+    method: string;
+    reference: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.makeLoanPayment(loanId, paymentData);
+    }
+    const response = await this.request<any>('/Payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        loanId,
+        amount: paymentData.amount,
+        method: paymentData.method,
+        reference: paymentData.reference,
+      }),
+    });
+    
+    // Handle the response structure
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getOutstandingAmount(): Promise<number> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getOutstandingAmount();
+    }
+    const response = await this.request<any>('/Loans/outstanding-amount');
+    
+    // Handle the response structure
+    if (response && response.data !== undefined) {
+      return response.data;
+    }
+    return 0;
+  }
+
   async getUserLoans(userId: string): Promise<Loan[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
@@ -178,12 +252,6 @@ class ApiService {
     return this.request<RepaymentSchedule[]>(`/Loans/user/${loanId}/schedule`);
   }
 
-  async getLoanTransactions(loanId: string): Promise<Transaction[]> {
-    if (isMockDataEnabled()) {
-      return mockDataService.getLoanTransactions(loanId);
-    }
-    return this.request<Transaction[]>(`/Loans/user/${loanId}/transactions`);
-  }
 
   // Admin APIs
   async approveLoan(loanId: string): Promise<Loan> {
@@ -535,6 +603,218 @@ class ApiService {
     } catch (error) {
       return null;
     }
+  }
+
+  // ==================== BANK ACCOUNT MANAGEMENT APIs ====================
+
+  async getUserBankAccounts(filters?: BankAccountFilters): Promise<BankAccount[]> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      const response = await mockBankAccountDataService.getUserBankAccounts(user?.id || 'demo-user-123', filters);
+      return response.data;
+    }
+    const queryParams = new URLSearchParams();
+    if (filters?.accountType) queryParams.append('accountType', filters.accountType);
+    if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString());
+    if (filters?.isConnected !== undefined) queryParams.append('isConnected', filters.isConnected.toString());
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    const queryString = queryParams.toString();
+    const endpoint = `/bankaccounts${queryString ? `?${queryString}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    
+    // Handle the new response format: { success: true, data: BankAccount[], errors: [] }
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected response structure:', response);
+      return [];
+    }
+  }
+
+  async getBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.getBankAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async createBankAccount(accountData: CreateBankAccountRequest): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockBankAccountDataService.createBankAccount(user?.id || 'demo-user-123', accountData);
+    }
+    const response = await this.request<any>('/bankaccounts', { method: 'POST', body: JSON.stringify(accountData) });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async updateBankAccount(accountId: string, updateData: UpdateBankAccountRequest): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.updateBankAccount(accountId, updateData);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'PUT', body: JSON.stringify(updateData) });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async deleteBankAccount(accountId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.deleteBankAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'DELETE' });
+    return response?.data || response || true;
+  }
+
+  async getBankAccountAnalyticsSummary(): Promise<BankAccountAnalytics> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockBankAccountDataService.getAnalyticsSummary(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/BankAccounts/analytics');
+    
+    // Handle the new response format: { success: true, data: BankAccountAnalytics, errors: [] }
+    if (response && response.success && response.data) {
+      return response.data;
+    } else if (response && response.data) {
+      return response.data;
+    } else {
+      console.error('Unexpected analytics response structure:', response);
+      return {
+        totalBalance: 0,
+        totalAccounts: 0,
+        activeAccounts: 0,
+        connectedAccounts: 0,
+        totalIncoming: 0,
+        totalOutgoing: 0,
+        accounts: []
+      };
+    }
+  }
+
+  async connectBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.connectAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}/connect`, { method: 'PUT' });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async disconnectBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.disconnectAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}/disconnect`, { method: 'PUT' });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async syncBankAccount(accountId: string): Promise<BankAccount> {
+    if (isMockDataEnabled()) {
+      return mockBankAccountDataService.syncAccount(accountId);
+    }
+    const response = await this.request<any>(`/bankaccounts/${accountId}/sync`, { method: 'POST' });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  // Utility method for formatting currency
+  formatCurrency(amount: number, currency: string = 'USD'): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  }
+
+  // ==================== TRANSACTION MANAGEMENT APIs ====================
+
+  async getRecentTransactions(limit: number = 10): Promise<BankAccountTransaction[]> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.getRecentTransactions(user?.id || 'demo-user-123', limit);
+    }
+    const response = await this.request<any>(`/bankaccounts/transactions/recent?limit=${limit}`);
+    
+    // Handle the new response format: { success: true, data: BankAccountTransaction[], errors: [] }
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected recent transactions response structure:', response);
+      return [];
+    }
+  }
+
+  async getTransactions(filters?: TransactionFilters): Promise<PaginatedTransactionsResponse> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.getTransactions(user?.id || 'demo-user-123', filters);
+    }
+    const queryParams = new URLSearchParams();
+    if (filters?.bankAccountId) queryParams.append('bankAccountId', filters.bankAccountId);
+    if (filters?.transactionType) queryParams.append('transactionType', filters.transactionType);
+    if (filters?.category) queryParams.append('category', filters.category);
+    if (filters?.startDate) queryParams.append('startDate', filters.startDate);
+    if (filters?.endDate) queryParams.append('endDate', filters.endDate);
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    const queryString = queryParams.toString();
+    const endpoint = `/bankaccounts/transactions${queryString ? `?${queryString}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.data && Array.isArray(response.data.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return { data: response, page: 1, limit: response.length, totalCount: response.length };
+    } else {
+      console.error('Unexpected transactions response structure:', response);
+      return { data: [], page: 1, limit: 10, totalCount: 0 };
+    }
+  }
+
+  async getTransaction(transactionId: string): Promise<BankAccountTransaction> {
+    if (isMockDataEnabled()) {
+      return mockTransactionDataService.getTransaction(transactionId);
+    }
+    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getTransactionAnalytics(): Promise<TransactionAnalytics> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.getTransactionAnalytics(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/bankaccounts/transactions/analytics');
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
   }
 }
 

@@ -2,9 +2,12 @@
 
 export enum BillType {
   UTILITY = 'utility',
+  INSURANCE = 'insurance',
   SUBSCRIPTION = 'subscription',
-  LOAN = 'loan',
-  OTHERS = 'others',
+  SCHOOL_TUITION = 'school_tuition',
+  CREDIT_CARD = 'credit_card',
+  MEDICAL = 'medical',
+  OTHER = 'other',
 }
 
 export enum BillStatus {

@@ -302,10 +302,6 @@ export const mockDataService = {
     return mockRepaymentSchedules.filter(schedule => schedule.loanId === loanId);
   },
 
-  async getLoanTransactions(loanId: string): Promise<Transaction[]> {
-    await delay(400);
-    return mockTransactions.filter(transaction => transaction.loanId === loanId);
-  },
 
   async getPayments(loanId: string): Promise<Payment[]> {
     await delay(400);
@@ -375,6 +371,65 @@ export const mockDataService = {
     return updatedLoan;
   },
 
+  async deleteLoan(loanId: string): Promise<boolean> {
+    await delay(800);
+    
+    // Find the loan to delete
+    const loanIndex = mockLoans.findIndex(loan => loan.id === loanId);
+    if (loanIndex === -1) {
+      throw new Error('Loan not found');
+    }
+    
+    // Remove the loan from the mock data
+    mockLoans.splice(loanIndex, 1);
+    
+    return true;
+  },
+
+  async getLoanTransactions(loanId: string): Promise<any[]> {
+    await delay(800);
+    
+    // Find the loan to get transactions for
+    const loan = mockLoans.find(l => l.id === loanId);
+    if (!loan) {
+      throw new Error('Loan not found');
+    }
+    
+    // Generate mock transactions based on loan data
+    const transactions = [
+      {
+        id: `transaction-${loanId}-1`,
+        loanId: loanId,
+        type: 'DISBURSEMENT',
+        amount: loan.principal,
+        description: 'Loan disbursement via bank transfer',
+        reference: `DISB-${loanId.slice(-3)}`,
+        createdAt: loan.appliedAt || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+    
+    // Add monthly payments if loan is active
+    if (loan.status === 'ACTIVE' && loan.monthlyPayment) {
+      const monthlyPayment = loan.monthlyPayment;
+      const monthsSinceDisbursement = Math.floor((Date.now() - new Date(transactions[0].createdAt).getTime()) / (30 * 24 * 60 * 60 * 1000));
+      
+      for (let i = 1; i <= Math.min(monthsSinceDisbursement, 6); i++) {
+        transactions.push({
+          id: `transaction-${loanId}-${i + 1}`,
+          loanId: loanId,
+          type: 'PAYMENT',
+          amount: monthlyPayment,
+          description: 'Monthly payment',
+          reference: `PAY-${String(i).padStart(3, '0')}`,
+          createdAt: new Date(Date.now() - (monthsSinceDisbursement - i) * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      }
+    }
+    
+    // Sort by creation date (newest first)
+    return transactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
   async makePayment(loanId: string, amount: number, method: PaymentMethod, reference: string): Promise<Payment> {
     await delay(1500);
     const payment: Payment = {
@@ -388,5 +443,61 @@ export const mockDataService = {
       createdAt: new Date().toISOString(),
     };
     return payment;
+  },
+
+  async makeLoanPayment(loanId: string, paymentData: {
+    amount: number;
+    method: string;
+    reference: string;
+  }): Promise<any> {
+    await delay(1200);
+    
+    // Find the loan to update
+    const loanIndex = mockLoans.findIndex(loan => loan.id === loanId);
+    if (loanIndex === -1) {
+      throw new Error('Loan not found');
+    }
+    
+    const loan = mockLoans[loanIndex];
+    
+    // Create payment response matching the new API structure
+    const paymentResponse = {
+      id: `payment-${Date.now()}`,
+      loanId: loanId,
+      userId: loan.userId,
+      amount: paymentData.amount,
+      method: paymentData.method,
+      reference: paymentData.reference,
+      status: 'COMPLETED',
+      processedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Update loan remaining balance
+    const currentBalance = loan.remainingBalance || loan.outstandingBalance;
+    const newBalance = Math.max(0, currentBalance - paymentData.amount);
+    
+    mockLoans[loanIndex] = {
+      ...loan,
+      remainingBalance: newBalance,
+      outstandingBalance: newBalance,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    return paymentResponse;
+  },
+
+  async getOutstandingAmount(): Promise<number> {
+    await delay(500);
+    
+    // Calculate total outstanding amount from all active loans
+    const totalOutstanding = mockLoans
+      .filter(loan => loan.status === LoanStatus.ACTIVE)
+      .reduce((total, loan) => {
+        const balance = loan.remainingBalance || loan.outstandingBalance;
+        return total + balance;
+      }, 0);
+    
+    return totalOutstanding;
   },
 };

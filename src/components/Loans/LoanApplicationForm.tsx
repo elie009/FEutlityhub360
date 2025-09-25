@@ -17,10 +17,11 @@ import {
   Step,
   StepLabel,
   Paper,
+  SelectChangeEvent,
 } from '@mui/material';
 import { LoanApplication } from '../../types/loan';
 import { apiService } from '../../services/api';
-import { validateLoanAmount, validateRequired, validateLoanTerm, validateEmploymentStatus, getErrorMessage } from '../../utils/validation';
+import { validateLoanAmount, validateRequired, validateEmploymentStatus, getErrorMessage } from '../../utils/validation';
 
 interface LoanApplicationFormProps {
   onSuccess: (loanId: string) => void;
@@ -50,10 +51,20 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     setActiveStep(prev => prev - 1);
   };
 
-  const handleChange = (field: keyof LoanApplication) => (
-    e: React.ChangeEvent<HTMLInputElement> | any
+  const handleInputChange = (field: keyof LoanApplication) => (
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const value = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSelectChange = (field: keyof LoanApplication) => (
+    e: SelectChangeEvent<string | number>
+  ) => {
+    const value = e.target.value;
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -102,27 +113,35 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 label="Loan Amount"
                 type="number"
                 value={formData.principal}
-                onChange={handleChange('principal')}
+                onChange={handleInputChange('principal')}
                 helperText="Enter the amount you wish to borrow"
                 required
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Purpose of Loan"
-                value={formData.purpose}
-                onChange={handleChange('purpose')}
-                helperText="Describe what you plan to use the loan for"
-                required
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Purpose of Loan</InputLabel>
+                <Select
+                  value={formData.purpose}
+                  onChange={handleSelectChange('purpose')}
+                  label="Purpose of Loan"
+                >
+                  <MenuItem value="car loan">Car Loan</MenuItem>
+                  <MenuItem value="housing loan">Housing Loan</MenuItem>
+                  <MenuItem value="medical">Medical</MenuItem>
+                  <MenuItem value="education">Education</MenuItem>
+                  <MenuItem value="vacation">Vacation</MenuItem>
+                  <MenuItem value="personal">Personal</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Loan Term</InputLabel>
                 <Select
                   value={formData.term}
-                  onChange={handleChange('term')}
+                  onChange={handleSelectChange('term')}
                   label="Loan Term"
                 >
                   <MenuItem value={6}>6 months</MenuItem>
@@ -146,7 +165,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 label="Monthly Income"
                 type="number"
                 value={formData.monthlyIncome}
-                onChange={handleChange('monthlyIncome')}
+                onChange={handleInputChange('monthlyIncome')}
                 helperText="Your gross monthly income"
                 required
               />
@@ -156,7 +175,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 <InputLabel>Employment Status</InputLabel>
                 <Select
                   value={formData.employmentStatus}
-                  onChange={handleChange('employmentStatus')}
+                  onChange={handleSelectChange('employmentStatus')}
                   label="Employment Status"
                   required
                 >
@@ -175,7 +194,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 multiline
                 rows={4}
                 value={formData.additionalInfo}
-                onChange={handleChange('additionalInfo')}
+                onChange={handleInputChange('additionalInfo')}
                 helperText="Any additional information that might help with your application"
               />
             </Grid>
