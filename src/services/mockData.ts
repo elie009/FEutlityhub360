@@ -511,4 +511,219 @@ export const mockDataService = {
     
     return totalOutstanding;
   },
+
+  async register(registerData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+  }): Promise<{
+    token: string;
+    refreshToken: string;
+    expiresAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    };
+  }> {
+    await delay(1000);
+    
+    // Simulate registration
+    const userId = 'user-' + Date.now();
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    
+    return {
+      token: 'mock-jwt-token-' + Date.now(),
+      refreshToken: 'mock-refresh-token-' + Date.now(),
+      expiresAt,
+      user: {
+        id: userId,
+        name: registerData.name,
+        email: registerData.email,
+        phone: registerData.phone,
+        role: 'user',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    };
+  },
+
+  async createUserProfile(profileData: any): Promise<any> {
+    await delay(1500);
+    
+    const now = new Date().toISOString();
+    const profileId = 'profile-' + Date.now();
+    
+    // Calculate monthly amounts for income sources
+    const incomeSources = profileData.incomeSources.map((source: any) => {
+      let monthlyAmount = source.amount;
+      switch (source.frequency) {
+        case 'daily':
+          monthlyAmount = source.amount * 30;
+          break;
+        case 'weekly':
+          monthlyAmount = source.amount * 4.33;
+          break;
+        case 'monthly':
+          monthlyAmount = source.amount;
+          break;
+        case 'quarterly':
+          monthlyAmount = source.amount / 3;
+          break;
+        case 'yearly':
+          monthlyAmount = source.amount / 12;
+          break;
+        default:
+          monthlyAmount = source.amount;
+      }
+      
+      return {
+        id: 'income-' + Date.now() + Math.random(),
+        userId: 'demo-user-123',
+        name: source.name,
+        amount: source.amount,
+        frequency: source.frequency,
+        category: source.category,
+        currency: source.currency,
+        isActive: true,
+        description: source.description,
+        company: source.company,
+        createdAt: now,
+        updatedAt: now,
+        monthlyAmount: Math.round(monthlyAmount * 100) / 100,
+      };
+    });
+    
+    const totalMonthlyIncome = incomeSources.reduce((sum: number, source: any) => sum + source.monthlyAmount, 0);
+    const totalMonthlyGoals = profileData.monthlySavingsGoal + profileData.monthlyInvestmentGoal + profileData.monthlyEmergencyFundGoal;
+    const netMonthlyIncome = totalMonthlyIncome - (totalMonthlyIncome * profileData.taxRate / 100) - profileData.monthlyTaxDeductions;
+    const disposableIncome = netMonthlyIncome - totalMonthlyGoals;
+    
+    return {
+      id: profileId,
+      userId: 'demo-user-123',
+      jobTitle: profileData.jobTitle,
+      company: profileData.company,
+      employmentType: profileData.employmentType,
+      monthlySavingsGoal: profileData.monthlySavingsGoal,
+      monthlyInvestmentGoal: profileData.monthlyInvestmentGoal,
+      monthlyEmergencyFundGoal: profileData.monthlyEmergencyFundGoal,
+      taxRate: profileData.taxRate,
+      monthlyTaxDeductions: profileData.monthlyTaxDeductions,
+      industry: profileData.industry,
+      location: profileData.location,
+      notes: profileData.notes,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      totalMonthlyIncome: Math.round(totalMonthlyIncome * 100) / 100,
+      netMonthlyIncome: Math.round(netMonthlyIncome * 100) / 100,
+      totalMonthlyGoals: Math.round(totalMonthlyGoals * 100) / 100,
+      disposableIncome: Math.round(disposableIncome * 100) / 100,
+      incomeSources,
+    };
+  },
+
+  async getUserProfile(): Promise<any> {
+    await delay(800);
+    
+    // Return profile data with isActive: true to test the logic
+    console.log('MockData: getUserProfile - returning profile data with isActive: true');
+    return {
+      "id": "string",
+      "userId": "string",
+      "jobTitle": "string",
+      "company": "string",
+      "employmentType": "string",
+      "monthlySavingsGoal": 0,
+      "monthlyInvestmentGoal": 0,
+      "monthlyEmergencyFundGoal": 0,
+      "taxRate": 0,
+      "monthlyTaxDeductions": 0,
+      "industry": "string",
+      "location": "string",
+      "notes": "string",
+      "isActive": true,
+      "createdAt": "2025-09-26T16:10:24.398Z",
+      "updatedAt": "2025-09-26T16:10:24.398Z",
+      "totalMonthlyIncome": 0,
+      "netMonthlyIncome": 0,
+      "totalMonthlyGoals": 0,
+      "disposableIncome": 0,
+      "incomeSources": [
+        {
+          "id": "string",
+          "userId": "string",
+          "name": "string",
+          "amount": 0,
+          "frequency": "string",
+          "category": "string",
+          "currency": "string",
+          "isActive": true,
+          "description": "string",
+          "company": "string",
+          "createdAt": "2025-09-26T16:10:24.398Z",
+          "updatedAt": "2025-09-26T16:10:24.398Z",
+          "monthlyAmount": 0
+        }
+      ]
+    };
+  },
+
+  async updateUserProfile(profileData: any): Promise<any> {
+    await delay(1000);
+    
+    const now = new Date().toISOString();
+    
+    // Simulate updating the profile with new data
+    return {
+      id: 'profile-123',
+      userId: 'demo-user-123',
+      jobTitle: profileData.jobTitle,
+      company: profileData.company,
+      employmentType: profileData.employmentType,
+      monthlySavingsGoal: profileData.monthlySavingsGoal,
+      monthlyInvestmentGoal: profileData.monthlyInvestmentGoal,
+      monthlyEmergencyFundGoal: profileData.monthlyEmergencyFundGoal,
+      taxRate: profileData.taxRate,
+      monthlyTaxDeductions: profileData.monthlyTaxDeductions,
+      industry: profileData.industry,
+      location: profileData.location,
+      notes: profileData.notes,
+      isActive: true,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: now,
+      totalMonthlyIncome: 5000,
+      netMonthlyIncome: 3450,
+      totalMonthlyGoals: profileData.monthlySavingsGoal + profileData.monthlyInvestmentGoal + profileData.monthlyEmergencyFundGoal,
+      disposableIncome: 1750,
+      incomeSources: [
+        {
+          id: 'income-123',
+          userId: 'demo-user-123',
+          name: 'Company salary',
+          amount: 5000,
+          frequency: 'monthly',
+          category: 'Primary',
+          currency: 'USD',
+          isActive: true,
+          description: 'Monthly salary from full-time employment',
+          company: profileData.company,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: now,
+          monthlyAmount: 5000,
+        },
+      ],
+    };
+  },
+
 };

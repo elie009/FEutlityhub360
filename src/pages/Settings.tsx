@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -16,17 +16,65 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  Work as WorkIcon,
+  AttachMoney as MoneyIcon,
+  Visibility as ViewIcon,
+  Refresh as RefreshIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { apiService } from '../services/api';
+
+interface IncomeSource {
+  name: string;
+  amount: number;
+  frequency: string;
+  category: string;
+  currency: string;
+  description: string;
+  company: string;
+}
+
+interface ProfileFormData {
+  jobTitle: string;
+  company: string;
+  employmentType: string;
+  monthlySavingsGoal: number;
+  monthlyInvestmentGoal: number;
+  monthlyEmergencyFundGoal: number;
+  taxRate: number;
+  monthlyTaxDeductions: number;
+  industry: string;
+  location: string;
+  notes: string;
+  incomeSources: IncomeSource[];
+}
 
 const Settings: React.FC = () => {
-  const { user } = useAuth();
+  const { user, hasProfile, userProfile: contextUserProfile, updateUserProfile, logout } = useAuth();
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
@@ -39,6 +87,60 @@ const Settings: React.FC = () => {
     email: 'john.doe@example.com',
     phone: '+1 234 567 8900',
   });
+
+  // Profile form state
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [profileFormData, setProfileFormData] = useState<ProfileFormData>({
+    jobTitle: '',
+    company: '',
+    employmentType: '',
+    monthlySavingsGoal: 0,
+    monthlyInvestmentGoal: 0,
+    monthlyEmergencyFundGoal: 0,
+    taxRate: 0,
+    monthlyTaxDeductions: 0,
+    industry: '',
+    location: '',
+    notes: '',
+    incomeSources: [
+      {
+        name: '',
+        amount: 0,
+        frequency: 'monthly',
+        category: 'Primary',
+        currency: 'USD',
+        description: '',
+        company: '',
+      },
+    ],
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+
+  // Use userProfile from context instead of local state
+  const userProfile = contextUserProfile;
+  const [profileDataLoading, setProfileDataLoading] = useState(false);
+  const [profileDataError, setProfileDataError] = useState<string | null>(null);
+
+  // Edit profile state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    jobTitle: '',
+    company: '',
+    employmentType: '',
+    monthlySavingsGoal: 0,
+    monthlyInvestmentGoal: 0,
+    monthlyEmergencyFundGoal: 0,
+    taxRate: 0,
+    monthlyTaxDeductions: 0,
+    industry: '',
+    location: '',
+    notes: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSuccess, setEditSuccess] = useState<string | null>(null);
 
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
@@ -63,9 +165,246 @@ const Settings: React.FC = () => {
     console.log('Saving notifications:', notifications);
   };
 
+  // Profile form constants
+  const frequencyOptions = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'quarterly', label: 'Quarterly' },
+    { value: 'yearly', label: 'Yearly' },
+    { value: 'others', label: 'Others' },
+  ];
+
+  const categoryOptions = [
+    { value: 'Primary', label: 'Primary' },
+    { value: 'Passive', label: 'Passive' },
+    { value: 'Business', label: 'Business' },
+    { value: 'Side hustle', label: 'Side hustle' },
+    { value: 'Investment', label: 'Investment' },
+    { value: 'Dividend', label: 'Dividend' },
+    { value: 'Interest', label: 'Interest' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const employmentTypes = [
+    { value: 'full-time', label: 'Full-time' },
+    { value: 'part-time', label: 'Part-time' },
+    { value: 'contract', label: 'Contract' },
+    { value: 'freelance', label: 'Freelance' },
+    { value: 'self-employed', label: 'Self-employed' },
+  ];
+
+  // Profile form handlers
+  const handleProfileFormInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setProfileFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (profileError) setProfileError(null);
+  };
+
+  const handleProfileFormSelectChange = (e: any) => {
+    const { name, value } = e.target;
+    setProfileFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (profileError) setProfileError(null);
+  };
+
+  const handleIncomeSourceChange = (index: number, field: keyof IncomeSource, value: any) => {
+    setProfileFormData(prev => ({
+      ...prev,
+      incomeSources: prev.incomeSources.map((source, i) =>
+        i === index ? { ...source, [field]: value } : source
+      ),
+    }));
+  };
+
+  const addIncomeSource = () => {
+    setProfileFormData(prev => ({
+      ...prev,
+      incomeSources: [
+        ...prev.incomeSources,
+        {
+          name: '',
+          amount: 0,
+          frequency: 'monthly',
+          category: 'Primary',
+          currency: 'USD',
+          description: '',
+          company: '',
+        },
+      ],
+    }));
+  };
+
+  const removeIncomeSource = (index: number) => {
+    if (profileFormData.incomeSources.length > 1) {
+      setProfileFormData(prev => ({
+        ...prev,
+        incomeSources: prev.incomeSources.filter((_, i) => i !== index),
+      }));
+    }
+  };
+
+  const validateProfileForm = (): string | null => {
+    if (!profileFormData.jobTitle.trim()) {
+      return 'Job title is required';
+    }
+    if (!profileFormData.company.trim()) {
+      return 'Company is required';
+    }
+    if (!profileFormData.employmentType) {
+      return 'Employment type is required';
+    }
+    if (profileFormData.incomeSources.some(source => !source.name.trim())) {
+      return 'All income sources must have a name';
+    }
+    if (profileFormData.incomeSources.some(source => source.amount <= 0)) {
+      return 'All income sources must have a positive amount';
+    }
+    return null;
+  };
+
+  const handleCreateProfile = async () => {
+    const validationError = validateProfileForm();
+    if (validationError) {
+      setProfileError(validationError);
+      return;
+    }
+
+    setProfileLoading(true);
+    setProfileError(null);
+
+    try {
+      const newProfile = await apiService.createUserProfile(profileFormData);
+      setProfileSuccess('Profile created successfully!');
+      setShowProfileForm(false);
+      // Update context with new profile
+      updateUserProfile(newProfile);
+    } catch (err: any) {
+      setProfileError(err.message || 'Failed to create profile. Please try again.');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // No need for loadUserProfile since we're using context
+
+  // Edit profile handlers
+  const handleEditProfile = () => {
+    if (userProfile) {
+      setEditFormData({
+        jobTitle: userProfile.jobTitle || '',
+        company: userProfile.company || '',
+        employmentType: userProfile.employmentType || '',
+        monthlySavingsGoal: userProfile.monthlySavingsGoal || 0,
+        monthlyInvestmentGoal: userProfile.monthlyInvestmentGoal || 0,
+        monthlyEmergencyFundGoal: userProfile.monthlyEmergencyFundGoal || 0,
+        taxRate: userProfile.taxRate || 0,
+        monthlyTaxDeductions: userProfile.monthlyTaxDeductions || 0,
+        industry: userProfile.industry || '',
+        location: userProfile.location || '',
+        notes: userProfile.notes || '',
+      });
+      setShowEditDialog(true);
+      setEditError(null);
+      setEditSuccess(null);
+    }
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (editError) setEditError(null);
+  };
+
+  const handleEditSelectChange = (e: any) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (editError) setEditError(null);
+  };
+
+  const validateEditForm = (): string | null => {
+    if (!editFormData.jobTitle.trim()) {
+      return 'Job title is required';
+    }
+    if (!editFormData.company.trim()) {
+      return 'Company is required';
+    }
+    if (!editFormData.employmentType) {
+      return 'Employment type is required';
+    }
+    return null;
+  };
+
+  const handleUpdateProfile = async () => {
+    const validationError = validateEditForm();
+    if (validationError) {
+      setEditError(validationError);
+      return;
+    }
+
+    setEditLoading(true);
+    setEditError(null);
+
+    try {
+      const updatedProfile = await apiService.updateUserProfile(editFormData);
+      updateUserProfile(updatedProfile);
+      setEditSuccess('Profile updated successfully!');
+      setShowEditDialog(false);
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Check if user needs to complete profile
+  useEffect(() => {
+    console.log('=== Settings: Profile check useEffect ===');
+    console.log('Settings: user:', !!user, 'userProfile:', !!userProfile, 'hasProfile:', hasProfile);
+    console.log('Settings: showProfileForm current state:', showProfileForm);
+    console.log('Settings: userProfile type:', typeof userProfile);
+    console.log('Settings: userProfile value:', userProfile);
+    debugger
+    if (userProfile && userProfile.id) {
+      console.log('Settings: userProfile details:', {
+        id: userProfile.id,
+        isActive: userProfile.isActive,
+        incomeSources: userProfile.incomeSources?.length || 0,
+        hasIncomeSources: userProfile.incomeSources && userProfile.incomeSources.length > 0,
+        incomeSourcesArray: userProfile.incomeSources
+      });
+      
+      // FORCE HIDE modal if userProfile exists
+      console.log('Settings: ✅ FORCE HIDING profile form - userProfile exists');
+      setShowProfileForm(false);
+    } else if (user && !userProfile) {
+      // User is logged in but no profile data - show form
+      console.log('Settings: ❌ Showing profile form - no userProfile');
+      console.log('Settings: userProfile exists:', !!userProfile);
+      setShowProfileForm(true);
+    } else {
+      console.log('Settings: ⚠️ No action taken - user:', !!user, 'userProfile:', !!userProfile);
+    }
+    console.log('=== Settings: Profile check useEffect completed ===');
+  }, [user, userProfile, hasProfile]);
+
 
   return (
     <Box>
+      {/* DEBUG INFO - Remove this later */}
+      
+      
       <Typography variant="h4" gutterBottom>
         Settings
       </Typography>
@@ -327,6 +666,763 @@ const Settings: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Profile Completion Status */}
+      {userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0 && (
+        <Grid item xs={12} sx={{ mt: 3 }}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'success.main' }}>
+                ✅ Profile Complete
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Your financial profile has been successfully set up with {userProfile.incomeSources.length} income source{userProfile.incomeSources.length > 1 ? 's' : ''}.
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      )}
+
+      {/* Income Sources Table */}
+      {userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0 && (
+        <Grid item xs={12} sx={{ mt: 3 }}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MoneyIcon />
+                Income Sources
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={() => window.location.reload()}
+                  disabled={profileDataLoading}
+                >
+                  Refresh
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    // If user has profile data, open edit dialog
+                    if (userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0) {
+                      handleEditProfile();
+                    } else {
+                      setShowProfileForm(true);
+                    }
+                  }}
+                >
+                  {userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0 ? 'Edit Profile' : 'Add Income Source'}
+                </Button>
+              </Box>
+            </Box>
+            
+            {profileDataError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {profileDataError}
+              </Alert>
+            )}
+
+            {profileDataLoading ? (
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Amount</TableCell>
+                      <TableCell>Frequency</TableCell>
+                      <TableCell>Category</TableCell>
+                      <TableCell>Company</TableCell>
+                      <TableCell>Monthly Amount</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {userProfile.incomeSources.map((source: any) => (
+                      <TableRow key={source.id}>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" fontWeight="medium">
+                              {source.name}
+                            </Typography>
+                            {source.description && (
+                              <Typography variant="caption" color="text.secondary">
+                                {source.description}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {source.currency} {source.amount.toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={source.frequency} 
+                            size="small" 
+                            variant="outlined"
+                            color="primary"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={source.category} 
+                            size="small" 
+                            color={
+                              source.category === 'Primary' ? 'success' :
+                              source.category === 'Passive' ? 'info' :
+                              source.category === 'Business' ? 'warning' :
+                              'default'
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {source.company || '-'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium" color="success.main">
+                            {source.currency} {source.monthlyAmount.toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={source.isActive ? 'Active' : 'Inactive'} 
+                            size="small" 
+                            color={source.isActive ? 'success' : 'default'}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton size="small" color="primary" title="View Details">
+                              <ViewIcon />
+                            </IconButton>
+                            <IconButton size="small" color="primary" title="Edit">
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton size="small" color="error" title="Delete">
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            {/* Summary Cards */}
+            <Grid container spacing={2} sx={{ mt: 3 }}>
+              <Grid item xs={12} sm={3}>
+                <Card variant="outlined">
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" color="primary">
+                      {userProfile.currency || 'USD'} {userProfile.totalMonthlyIncome?.toLocaleString() || '0'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Monthly Income
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Card variant="outlined">
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" color="success.main">
+                      {userProfile.currency || 'USD'} {userProfile.netMonthlyIncome?.toLocaleString() || '0'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Net Monthly Income
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Card variant="outlined">
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" color="warning.main">
+                      {userProfile.currency || 'USD'} {userProfile.totalMonthlyGoals?.toLocaleString() || '0'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Monthly Goals
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Card variant="outlined">
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" color="info.main">
+                      {userProfile.currency || 'USD'} {userProfile.disposableIncome?.toLocaleString() || '0'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Disposable Income
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      )}
+
+      {/* Profile Setup Dialog - Only show if user doesn't have active profile data */}
+      <Dialog 
+        open={(() => {
+          const shouldShow = showProfileForm && !userProfile;
+          console.log('Settings: Dialog open condition:', {
+            showProfileForm,
+            userProfile: !!userProfile,
+            shouldShow
+          });
+          return shouldShow;
+        })()} 
+        onClose={() => {}} 
+        maxWidth="md" 
+        fullWidth
+        disableEscapeKeyDown
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Complete Your Profile
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Please complete your financial profile to access all features
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {profileSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {profileSuccess}
+            </Alert>
+          )}
+
+          {profileError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {profileError}
+            </Alert>
+          )}
+
+          {/* Employment Information */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WorkIcon />
+                Employment Information
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    fullWidth
+                    id="jobTitle"
+                    label="Job Title"
+                    name="jobTitle"
+                    value={profileFormData.jobTitle}
+                    onChange={handleProfileFormInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    fullWidth
+                    id="company"
+                    label="Company"
+                    name="company"
+                    value={profileFormData.company}
+                    onChange={handleProfileFormInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Employment Type</InputLabel>
+                    <Select
+                      name="employmentType"
+                      value={profileFormData.employmentType}
+                      label="Employment Type"
+                      onChange={handleProfileFormSelectChange}
+                    >
+                      {employmentTypes.map((type) => (
+                        <MenuItem key={type.value} value={type.value}>
+                          {type.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="industry"
+                    label="Industry"
+                    name="industry"
+                    value={profileFormData.industry}
+                    onChange={handleProfileFormInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    id="location"
+                    label="Location"
+                    name="location"
+                    value={profileFormData.location}
+                    onChange={handleProfileFormInputChange}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* Financial Goals */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MoneyIcon />
+                Financial Goals (Monthly)
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="monthlySavingsGoal"
+                    label="Savings Goal"
+                    name="monthlySavingsGoal"
+                    type="number"
+                    value={profileFormData.monthlySavingsGoal}
+                    onChange={handleProfileFormInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="monthlyInvestmentGoal"
+                    label="Investment Goal"
+                    name="monthlyInvestmentGoal"
+                    type="number"
+                    value={profileFormData.monthlyInvestmentGoal}
+                    onChange={handleProfileFormInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="monthlyEmergencyFundGoal"
+                    label="Emergency Fund Goal"
+                    name="monthlyEmergencyFundGoal"
+                    type="number"
+                    value={profileFormData.monthlyEmergencyFundGoal}
+                    onChange={handleProfileFormInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="taxRate"
+                    label="Tax Rate (%)"
+                    name="taxRate"
+                    type="number"
+                    value={profileFormData.taxRate}
+                    onChange={handleProfileFormInputChange}
+                    inputProps={{ min: 0, max: 100, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="monthlyTaxDeductions"
+                    label="Monthly Tax Deductions"
+                    name="monthlyTaxDeductions"
+                    type="number"
+                    value={profileFormData.monthlyTaxDeductions}
+                    onChange={handleProfileFormInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* Income Sources */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <MoneyIcon />
+                  Income Sources
+                </Typography>
+                <Button
+                  startIcon={<AddIcon />}
+                  onClick={addIncomeSource}
+                  variant="outlined"
+                  size="small"
+                >
+                  Add Income Source
+                </Button>
+              </Box>
+              
+              {profileFormData.incomeSources.map((source, index) => (
+                <Box key={index}>
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        required
+                        fullWidth
+                        label="Income Name"
+                        placeholder="Company salary"
+                        value={source.name}
+                        onChange={(e) => handleIncomeSourceChange(index, 'name', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        required
+                        fullWidth
+                        label="Amount"
+                        type="number"
+                        value={source.amount}
+                        onChange={(e) => handleIncomeSourceChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                        inputProps={{ min: 0, step: 0.01 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Frequency</InputLabel>
+                        <Select
+                          value={source.frequency}
+                          label="Frequency"
+                          onChange={(e) => handleIncomeSourceChange(index, 'frequency', e.target.value)}
+                        >
+                          {frequencyOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Category</InputLabel>
+                        <Select
+                          value={source.category}
+                          label="Category"
+                          onChange={(e) => handleIncomeSourceChange(index, 'category', e.target.value)}
+                        >
+                          {categoryOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Company"
+                        value={source.company}
+                        onChange={(e) => handleIncomeSourceChange(index, 'company', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Currency"
+                        value={source.currency}
+                        onChange={(e) => handleIncomeSourceChange(index, 'currency', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Description"
+                        multiline
+                        rows={2}
+                        value={source.description}
+                        onChange={(e) => handleIncomeSourceChange(index, 'description', e.target.value)}
+                      />
+                    </Grid>
+                    {profileFormData.incomeSources.length > 1 && (
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <IconButton
+                            color="error"
+                            onClick={() => removeIncomeSource(index)}
+                            size="small"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </Grid>
+                    )}
+                  </Grid>
+                  {index < profileFormData.incomeSources.length - 1 && <Divider sx={{ my: 2 }} />}
+                </Box>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Additional Notes */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Additional Notes
+              </Typography>
+              <TextField
+                fullWidth
+                id="notes"
+                label="Notes"
+                name="notes"
+                multiline
+                rows={4}
+                value={profileFormData.notes}
+                onChange={handleProfileFormInputChange}
+                placeholder="Any additional information about your financial situation..."
+              />
+            </CardContent>
+          </Card>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={logout}
+            color="error"
+            disabled={profileLoading}
+            startIcon={<LogoutIcon />}
+          >
+            Logout
+          </Button>
+          <Button
+            onClick={handleCreateProfile}
+            variant="contained"
+            disabled={profileLoading}
+            startIcon={profileLoading ? <CircularProgress size={20} /> : <SaveIcon />}
+          >
+            {profileLoading ? 'Creating Profile...' : 'Complete Profile Setup'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog 
+        open={showEditDialog} 
+        onClose={() => setShowEditDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Edit Profile
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Update your employment and financial information
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {editSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {editSuccess}
+            </Alert>
+          )}
+
+          {editError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {editError}
+            </Alert>
+          )}
+
+          {/* Employment Information */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WorkIcon />
+                Employment Information
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    fullWidth
+                    id="edit-jobTitle"
+                    label="Job Title"
+                    name="jobTitle"
+                    value={editFormData.jobTitle}
+                    onChange={handleEditInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    fullWidth
+                    id="edit-company"
+                    label="Company"
+                    name="company"
+                    value={editFormData.company}
+                    onChange={handleEditInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Employment Type</InputLabel>
+                    <Select
+                      name="employmentType"
+                      value={editFormData.employmentType}
+                      label="Employment Type"
+                      onChange={handleEditSelectChange}
+                    >
+                      {employmentTypes.map((type) => (
+                        <MenuItem key={type.value} value={type.value}>
+                          {type.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="edit-industry"
+                    label="Industry"
+                    name="industry"
+                    value={editFormData.industry}
+                    onChange={handleEditInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    id="edit-location"
+                    label="Location"
+                    name="location"
+                    value={editFormData.location}
+                    onChange={handleEditInputChange}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* Financial Goals */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MoneyIcon />
+                Financial Goals (Monthly)
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="edit-monthlySavingsGoal"
+                    label="Savings Goal"
+                    name="monthlySavingsGoal"
+                    type="number"
+                    value={editFormData.monthlySavingsGoal}
+                    onChange={handleEditInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="edit-monthlyInvestmentGoal"
+                    label="Investment Goal"
+                    name="monthlyInvestmentGoal"
+                    type="number"
+                    value={editFormData.monthlyInvestmentGoal}
+                    onChange={handleEditInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    id="edit-monthlyEmergencyFundGoal"
+                    label="Emergency Fund Goal"
+                    name="monthlyEmergencyFundGoal"
+                    type="number"
+                    value={editFormData.monthlyEmergencyFundGoal}
+                    onChange={handleEditInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="edit-taxRate"
+                    label="Tax Rate (%)"
+                    name="taxRate"
+                    type="number"
+                    value={editFormData.taxRate}
+                    onChange={handleEditInputChange}
+                    inputProps={{ min: 0, max: 100, step: 0.01 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="edit-monthlyTaxDeductions"
+                    label="Monthly Tax Deductions"
+                    name="monthlyTaxDeductions"
+                    type="number"
+                    value={editFormData.monthlyTaxDeductions}
+                    onChange={handleEditInputChange}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* Additional Notes */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Additional Notes
+              </Typography>
+              <TextField
+                fullWidth
+                id="edit-notes"
+                label="Notes"
+                name="notes"
+                multiline
+                rows={4}
+                value={editFormData.notes}
+                onChange={handleEditInputChange}
+                placeholder="Any additional information about your financial situation..."
+              />
+            </CardContent>
+          </Card>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowEditDialog(false)}
+            disabled={editLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdateProfile}
+            variant="contained"
+            disabled={editLoading}
+            startIcon={editLoading ? <CircularProgress size={20} /> : <SaveIcon />}
+          >
+            {editLoading ? 'Updating Profile...' : 'Update Profile'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );

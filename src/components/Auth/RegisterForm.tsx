@@ -12,6 +12,7 @@ import {
   Container,
   Grid,
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterData } from '../../types/loan';
 import { validateEmail, validatePhone, validatePassword, validateRequired, getErrorMessage } from '../../utils/validation';
@@ -21,6 +22,7 @@ interface RegisterFormProps {
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<RegisterData>({
     name: '',
     email: '',
@@ -72,6 +74,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
     try {
       await register(formData);
+      // Redirect to profile setup after successful registration
+      navigate('/profile-setup', { 
+        state: { 
+          message: 'Registration successful! Please complete your profile setup.' 
+        }
+      });
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Registration failed'));
     } finally {

@@ -70,13 +70,6 @@ class ApiService {
     }
   }
 
-  // Authentication APIs
-  async register(data: RegisterData): Promise<AuthUser> {
-    return this.request<AuthUser>('/Auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
 
   async login(credentials: LoginCredentials): Promise<AuthUser> {
     console.log('API Service: Making login request to /Auth/login');
@@ -94,6 +87,40 @@ class ApiService {
     return response;
   }
 
+  async register(registerData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+  }): Promise<{
+    token: string;
+    refreshToken: string;
+    expiresAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    };
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.register(registerData);
+    }
+    const response = await this.request<any>('/Auth/register', {
+      method: 'POST',
+      body: JSON.stringify(registerData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Registration failed');
+  }
+
   async getCurrentUser(): Promise<User> {
     return this.request<User>('/Auth/me');
   }
@@ -106,6 +133,221 @@ class ApiService {
   // User APIs
   async getUser(userId: string): Promise<User> {
     return this.request<User>(`/users/${userId}`);
+  }
+
+  // User Profile APIs
+  async createUserProfile(profileData: {
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    incomeSources: Array<{
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      description: string;
+      company: string;
+    }>;
+  }): Promise<{
+    id: string;
+    userId: string;
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    totalMonthlyIncome: number;
+    netMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableIncome: number;
+    incomeSources: Array<{
+      id: string;
+      userId: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      isActive: boolean;
+      description: string;
+      company: string;
+      createdAt: string;
+      updatedAt: string;
+      monthlyAmount: number;
+    }>;
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.createUserProfile(profileData);
+    }
+    const response = await this.request<any>('/UserProfile', {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create user profile');
+  }
+
+  async getUserProfile(): Promise<{
+    id: string;
+    userId: string;
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    totalMonthlyIncome: number;
+    netMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableIncome: number;
+    incomeSources: Array<{
+      id: string;
+      userId: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      isActive: boolean;
+      description: string;
+      company: string;
+      createdAt: string;
+      updatedAt: string;
+      monthlyAmount: number;
+    }>;
+  } | null> {
+
+    debugger;
+    if (isMockDataEnabled()) {
+      return mockDataService.getUserProfile();
+    }
+    
+    const response = await this.request<any>('/UserProfile');
+    console.log('=== API: getUserProfile FULL RESPONSE ===');
+    console.log('API: Raw response:', JSON.stringify(response, null, 2));
+    console.log('API: Response type:', typeof response);
+    console.log('API: Response success:', response?.success);
+    console.log('API: Response data:', response?.data);
+    console.log('API: Response data type:', typeof response?.data);
+    console.log('API: Response data id:', response?.data?.id);
+    console.log('API: Response data isActive:', response?.data?.isActive);
+    console.log('API: Response data isActive type:', typeof response?.data?.isActive);
+    console.log('API: Response data incomeSources:', response?.data?.incomeSources);
+    console.log('API: Response data incomeSources length:', response?.data?.incomeSources?.length);
+    console.log('=== END API RESPONSE ===');
+    debugger
+    if (response && response.success === true && response.data !== null && response.data.id) {
+      // Profile found - response.data contains the profile
+      console.log('API: ✅ Profile found - returning data');
+      console.log('API: Profile ID:', response.data.id);
+      console.log('API: Profile isActive:', response.data.isActive);
+      console.log('API: Income Sources count:', response.data.incomeSources?.length || 0);
+      return response.data;
+    } else if (response && response.success === true && response.data === null) {
+      // Profile not found - data is null
+      console.log('API: ❌ Profile not found - data is null');
+      return null;
+    } else if (response && response.success === false && response.data === null) {
+      // Profile not found - this is a valid response
+      console.log('API: ❌ Profile not found - returning null');
+      return null;
+    } else {
+      // Other error or unexpected response format
+      console.log('API: ⚠️ Error or unexpected response format');
+      console.log('API: Response success:', response?.success);
+      console.log('API: Response data:', response?.data);
+      throw new Error(response?.message || 'Failed to get user profile');
+    }
+  }
+
+  async updateUserProfile(profileData: {
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+  }): Promise<{
+    id: string;
+    userId: string;
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    totalMonthlyIncome: number;
+    netMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableIncome: number;
+    incomeSources: Array<{
+      id: string;
+      userId: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      isActive: boolean;
+      description: string;
+      company: string;
+      createdAt: string;
+      updatedAt: string;
+      monthlyAmount: number;
+    }>;
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateUserProfile(profileData);
+    }
+    const response = await this.request<any>('/UserProfile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update user profile');
   }
 
   // Loan APIs
