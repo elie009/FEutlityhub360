@@ -14,6 +14,7 @@ import { apiService } from '../services/api';
 import { getErrorMessage } from '../utils/validation';
 import { Bill, BillStatus } from '../types/bill';
 import { Loan, LoanStatus } from '../types/loan';
+import { useNavigate } from 'react-router-dom';
 
 interface FinancialData {
   currentBalance: number;
@@ -36,6 +37,7 @@ interface GoalPlan {
 
 const Apportioner: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [financialData, setFinancialData] = useState<FinancialData>({
     currentBalance: 0,
     monthlyIncome: 0,
@@ -181,6 +183,10 @@ const Apportioner: React.FC = () => {
       
       return newValues;
     });
+  };
+
+  const handleCardClick = (page: string) => {
+    navigate(page);
   };
 
   const formatCurrency = (amount: number): string => {
@@ -677,34 +683,187 @@ const Apportioner: React.FC = () => {
             
             <Grid container spacing={2}>
               <Grid item xs={12} sm={4}>
-                <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-                  <Typography variant="h6" color="error.contrastText">
-                    {formatCurrency(financialData.monthlyBills)}
-                  </Typography>
-                  <Typography variant="body2" color="error.contrastText">
-                    Bills & Utilities
-                  </Typography>
-                </Box>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        What are "Bills & Utilities"?
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Essential monthly bills you must pay
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Includes: electricity, water, gas, internet, phone
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Insurance: health, car, home, life insurance
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Subscriptions: Netflix, Spotify, Adobe, gym memberships
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • School tuition and credit card bills
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        • These are recurring, predictable expenses
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                        Click to manage your bills →
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 2, 
+                      bgcolor: 'error.light', 
+                      borderRadius: 1, 
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: 'error.main',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 8px rgba(244, 67, 54, 0.3)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0px)',
+                      }
+                    }}
+                    onClick={() => handleCardClick('/bills')}
+                  >
+                    <Typography variant="h6" color="error.contrastText">
+                      {formatCurrency(financialData.monthlyBills)}
+                    </Typography>
+                    <Typography variant="body2" color="error.contrastText">
+                      Bills & Utilities
+                    </Typography>
+                  </Box>
+                </Tooltip>
               </Grid>
               <Grid item xs={12} sm={4}>
-                <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-                  <Typography variant="h6" color="warning.contrastText">
-                    {formatCurrency(financialData.monthlyLoans)}
-                  </Typography>
-                  <Typography variant="body2" color="warning.contrastText">
-                    Loan Payments
-                  </Typography>
-                </Box>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        What are "Loan Payments"?
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Monthly payments for borrowed money
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Includes: personal loans, car loans, student loans
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Home loans: mortgage payments and refinancing
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Credit card minimum payments
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Business loans and equipment financing
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        • Fixed monthly amounts with interest included
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                        Click to manage your loans →
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 2, 
+                      bgcolor: 'warning.light', 
+                      borderRadius: 1, 
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: 'warning.main',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 8px rgba(255, 152, 0, 0.3)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0px)',
+                      }
+                    }}
+                    onClick={() => handleCardClick('/loans')}
+                  >
+                    <Typography variant="h6" color="warning.contrastText">
+                      {formatCurrency(financialData.monthlyLoans)}
+                    </Typography>
+                    <Typography variant="body2" color="warning.contrastText">
+                      Loan Payments
+                    </Typography>
+                  </Box>
+                </Tooltip>
               </Grid>
               <Grid item xs={12} sm={4}>
-                <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
-                  <Typography variant="h6" color="info.contrastText">
-                    {formatCurrency(financialData.otherExpenses)}
-                  </Typography>
-                  <Typography variant="body2" color="info.contrastText">
-                    Other Expenses
-                  </Typography>
-                </Box>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        What are "Other Expenses"?
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Variable and discretionary spending
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Food & dining: groceries, restaurants, takeout
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Transportation: gas, public transit, rideshare
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Entertainment: movies, hobbies, sports
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Shopping: clothes, electronics, personal items
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        • These expenses can often be reduced or optimized
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                        Click to view transactions →
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center', 
+                      p: 2, 
+                      bgcolor: 'info.light', 
+                      borderRadius: 1, 
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: 'info.main',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 8px rgba(33, 150, 243, 0.3)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0px)',
+                      }
+                    }}
+                    onClick={() => handleCardClick('/transactions')}
+                  >
+                    <Typography variant="h6" color="info.contrastText">
+                      {formatCurrency(financialData.otherExpenses)}
+                    </Typography>
+                    <Typography variant="body2" color="info.contrastText">
+                      Other Expenses
+                    </Typography>
+                  </Box>
+                </Tooltip>
               </Grid>
             </Grid>
           </CardContent>
