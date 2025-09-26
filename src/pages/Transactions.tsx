@@ -3,17 +3,18 @@ import {
   Container, Typography, Box, Grid, Card, CardContent, Alert,
   CircularProgress, Button, FormControl, InputLabel, Select, MenuItem,
   TextField, Chip, SelectChangeEvent, Dialog, DialogTitle,
-  DialogContent, DialogActions, Divider,
+  DialogContent, DialogActions, Divider, Tooltip, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Receipt, AttachMoney,
   Refresh, Clear, Category, AccountBalance, Link, Sync,
+  HelpOutline, Visibility,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { BankAccountTransaction, TransactionFilters, TransactionAnalytics } from '../types/transaction';
 import { BankAccountAnalytics } from '../types/bankAccount';
-import TransactionCard from '../components/Transactions/TransactionCard';
 import { getErrorMessage } from '../utils/validation';
 
 const TransactionsPage: React.FC = () => {
@@ -21,12 +22,21 @@ const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<BankAccountTransaction[]>([]);
   const [analytics, setAnalytics] = useState<TransactionAnalytics | null>(null);
   const [bankAccountAnalytics, setBankAccountAnalytics] = useState<BankAccountAnalytics | null>(null);
+  const [bankAccountSummary, setBankAccountSummary] = useState<{
+    totalBalance: number;
+    totalAccounts: number;
+    activeAccounts: number;
+    connectedAccounts: number;
+    totalIncoming: number;
+    totalOutgoing: number;
+    accounts: any[];
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<BankAccountTransaction | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
-    limit: 10,
+    limit: 50,
     page: 1,
   });
 
@@ -43,15 +53,17 @@ const TransactionsPage: React.FC = () => {
     setError(null);
 
     try {
-      const [transactionsData, analyticsData, bankAccountAnalyticsData] = await Promise.all([
-        apiService.getRecentTransactions(filters.limit || 10),
+      const [transactionsResponse, analyticsData, bankAccountAnalyticsData, bankAccountSummaryData] = await Promise.all([
+        apiService.getTransactions(filters),
         apiService.getTransactionAnalytics(),
         apiService.getBankAccountAnalyticsSummary(),
+        apiService.getBankAccountSummary(),
       ]);
 
-      setTransactions(transactionsData);
+      setTransactions(transactionsResponse.data);
       setAnalytics(analyticsData);
       setBankAccountAnalytics(bankAccountAnalyticsData);
+      setBankAccountSummary(bankAccountSummaryData);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -87,7 +99,7 @@ const TransactionsPage: React.FC = () => {
 
   const handleClearFilters = () => {
     setFilters({
-      limit: 10,
+      limit: 50,
       page: 1,
     });
   };
@@ -100,6 +112,20 @@ const TransactionsPage: React.FC = () => {
   const handleCloseDetails = () => {
     setSelectedTransaction(null);
     setShowDetailsDialog(false);
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
+      try {
+        await apiService.deleteTransaction(transactionId);
+        // Close the details dialog
+        handleCloseDetails();
+        // Reload transactions and analytics
+        loadTransactionsAndAnalytics();
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to delete transaction'));
+      }
+    }
   };
 
   const formatCurrency = (amount: number, currency: string = 'USD'): string => {
@@ -121,7 +147,7 @@ const TransactionsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
           <CircularProgress />
         </Box>
@@ -130,7 +156,7 @@ const TransactionsPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Recent Transactions
@@ -151,227 +177,337 @@ const TransactionsPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Bank Account Analytics Summary Cards */}
-      {bankAccountAnalytics && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.totalAccounts || 0}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Accounts
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <TrendingUp sx={{ mr: 2, color: 'success.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.totalBalance !== undefined ? formatCurrency(bankAccountAnalytics.totalBalance) : 'N/A'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Balance
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Link sx={{ mr: 2, color: 'info.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.connectedAccounts || 0}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Connected Accounts
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Sync sx={{ mr: 2, color: 'warning.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.activeAccounts || 0}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Active Accounts
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AttachMoney sx={{ mr: 2, color: 'success.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.totalIncoming !== undefined ? formatCurrency(bankAccountAnalytics.totalIncoming) : 'N/A'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Incoming
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
+      {/* Bank Account Transaction Analytics */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
+          Bank Account Transaction
+        </Typography>
 
-      {/* Additional Bank Account Analytics Row */}
-      {bankAccountAnalytics && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={6}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <TrendingDown sx={{ mr: 2, color: 'error.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.totalOutgoing !== undefined ? formatCurrency(bankAccountAnalytics.totalOutgoing) : 'N/A'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Outgoing
-                    </Typography>
+        {/* 1st Row: Account Overview */}
+        {(bankAccountSummary || bankAccountAnalytics) && (
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AttachMoney sx={{ mr: 2, color: 'success.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {bankAccountSummary ? formatCurrency(bankAccountSummary.totalBalance) : 
+                         bankAccountAnalytics?.totalBalance !== undefined ? formatCurrency(bankAccountAnalytics.totalBalance) : 'N/A'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Balance
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={6}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
-                  <Box>
-                    <Typography variant="h6">
-                      {bankAccountAnalytics.accounts?.length || 0}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Accounts in Analytics
-                    </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AccountBalance sx={{ mr: 2, color: 'info.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {bankAccountSummary ? bankAccountSummary.totalAccounts : 
+                         bankAccountAnalytics?.totalAccounts || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Accounts
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Link sx={{ mr: 2, color: 'success.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {bankAccountSummary ? bankAccountSummary.activeAccounts : 
+                         bankAccountAnalytics?.activeAccounts || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Active Accounts
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Sync sx={{ mr: 2, color: 'warning.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {bankAccountSummary ? bankAccountSummary.connectedAccounts : 
+                         bankAccountAnalytics?.connectedAccounts || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Connected Accounts
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {bankAccountAnalytics?.accounts?.length || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Accounts in Analytics
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
-      )}
+        )}
 
-      {/* Transaction Analytics Summary Cards */}
-      {analytics && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Receipt sx={{ mr: 2, color: 'primary.main' }} />
+        {/* 2nd Row: Money Flow */}
+        {(bankAccountSummary || bankAccountAnalytics) && (
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={6}>
+              <Tooltip
+                title={
                   <Box>
-                    <Typography variant="h6">
-                      {analytics.totalTransactions}
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      What is "Total Incoming"?
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Transactions
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Total money flowing INTO all your bank accounts
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Includes: deposits, transfers in, income, refunds
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Shows your total money received across all accounts
+                    </Typography>
+                    <Typography variant="body2">
+                      • Helps you understand your overall cash inflow
                     </Typography>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <TrendingUp sx={{ mr: 2, color: 'success.main' }} />
+                }
+                arrow
+                placement="top"
+              >
+                <Card sx={{ height: '100%', cursor: 'help' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <TrendingUp sx={{ mr: 2, color: 'success.main' }} />
+                      <Box>
+                        <Typography variant="h6">
+                          {bankAccountSummary ? formatCurrency(bankAccountSummary.totalIncoming) :
+                           bankAccountAnalytics?.totalIncoming !== undefined ? formatCurrency(bankAccountAnalytics.totalIncoming) : 'N/A'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Incoming
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Tooltip>
+            </Grid>
+            <Grid item xs={12} sm={6} md={6}>
+              <Tooltip
+                title={
                   <Box>
-                    <Typography variant="h6">
-                      {formatCurrency(analytics.totalIncoming)}
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      What is "Total Outgoing"?
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Transaction Incoming
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Total money flowing OUT of all your bank accounts
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Includes: all debits, payments, transfers, withdrawals
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Shows your total spending across all accounts
+                    </Typography>
+                    <Typography variant="body2">
+                      • Helps you understand your overall cash outflow
                     </Typography>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
+                }
+                arrow
+                placement="top"
+              >
+                <Card sx={{ height: '100%', cursor: 'help' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <TrendingDown sx={{ mr: 2, color: 'error.main' }} />
+                      <Box>
+                        <Typography variant="h6">
+                          {bankAccountSummary ? formatCurrency(bankAccountSummary.totalOutgoing) :
+                           bankAccountAnalytics?.totalOutgoing !== undefined ? formatCurrency(bankAccountAnalytics.totalOutgoing) : 'N/A'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Outgoing
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Tooltip>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <TrendingDown sx={{ mr: 2, color: 'error.main' }} />
+        )}
+
+        {/* 3rd Row: Transaction Analytics */}
+        {analytics && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Receipt sx={{ mr: 2, color: 'primary.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {analytics.totalTransactions}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Total Transactions
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Tooltip
+                title={
                   <Box>
-                    <Typography variant="h6">
-                      {formatCurrency(analytics.totalOutgoing)}
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      What is "Transaction Incoming"?
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Transaction Outgoing
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Money flowing INTO your accounts
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Includes: deposits, transfers in, income, refunds
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Shows total amount received/earned
+                    </Typography>
+                    <Typography variant="body2">
+                      • Helps track your income and money received
                     </Typography>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <AttachMoney sx={{ mr: 2, color: 'info.main' }} />
+                }
+                arrow
+                placement="top"
+              >
+                <Card sx={{ height: '100%', cursor: 'help' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <TrendingUp sx={{ mr: 2, color: 'success.main' }} />
+                      <Box>
+                        <Typography variant="h6">
+                          {formatCurrency(analytics.totalIncoming)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Transaction Incoming
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Tooltip>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Tooltip
+                title={
                   <Box>
-                    <Typography variant="h6">
-                      {formatCurrency(analytics.averageTransactionAmount)}
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      What is "Transaction Outgoing"?
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Average Amount
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Money flowing OUT of your accounts
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Includes: purchases, payments, transfers out, withdrawals
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Shows total amount spent/paid out
+                    </Typography>
+                    <Typography variant="body2">
+                      • Helps track your spending patterns
                     </Typography>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Category sx={{ mr: 2, color: 'warning.main' }} />
-                  <Box>
-                    <Typography variant="h6" sx={{ textTransform: 'capitalize' }}>
-                      {analytics.mostActiveCategory}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Top Category
-                    </Typography>
+                }
+                arrow
+                placement="top"
+              >
+                <Card sx={{ height: '100%', cursor: 'help' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <TrendingDown sx={{ mr: 2, color: 'error.main' }} />
+                      <Box>
+                        <Typography variant="h6">
+                          {formatCurrency(analytics.totalOutgoing)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Transaction Outgoing
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Tooltip>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AttachMoney sx={{ mr: 2, color: 'info.main' }} />
+                    <Box>
+                      <Typography variant="h6">
+                        {formatCurrency(analytics.averageTransactionAmount)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Average Amount
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Category sx={{ mr: 2, color: 'warning.main' }} />
+                    <Box>
+                      <Typography variant="h6" sx={{ textTransform: 'capitalize' }}>
+                        {analytics.mostActiveCategory}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Top Category
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
-      )}
+        )}
+      </Box>
 
       {/* Filters */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -428,9 +564,9 @@ const TransactionsPage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Transactions Grid */}
+      {/* Transactions Table */}
       {transactions.length === 0 ? (
-        <Card>
+        <Card sx={{ height: '100%' }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
             <Receipt sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -445,16 +581,85 @@ const TransactionsPage: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <Grid container spacing={3}>
-          {transactions.map((transaction) => (
-            <Grid item xs={12} sm={6} md={4} key={transaction.id}>
-              <TransactionCard
-                transaction={transaction}
-                onViewDetails={handleViewDetails}
-              />
-            </Grid>
-          ))}
-        </Grid>
+        <TableContainer component={Paper} sx={{ mt: 2 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell align="right">Amount</TableCell>
+                <TableCell align="right">Balance After</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {transactions.map((transaction) => (
+                <TableRow key={transaction.id} hover>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatDate(transaction.transactionDate)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                        {transaction.description}
+                      </Typography>
+                      {transaction.merchant && (
+                        <Typography variant="caption" color="text.secondary">
+                          {transaction.merchant}
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={transaction.category} 
+                      color="primary"
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={transaction.transactionType} 
+                      color={transaction.transactionType === 'credit' ? 'success' : 'error'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: 'bold',
+                        color: transaction.transactionType === 'credit' ? 'success.main' : 'error.main'
+                      }}
+                    >
+                      {transaction.transactionType === 'credit' ? '+' : '-'}
+                      {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      {formatCurrency(transaction.balanceAfterTransaction, transaction.currency)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleViewDetails(transaction)}
+                      sx={{ color: 'primary.main' }}
+                    >
+                      <Visibility />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {/* Transaction Details Dialog */}
@@ -572,6 +777,13 @@ const TransactionsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDetails}>Close</Button>
+          <Button 
+            onClick={() => selectedTransaction && handleDeleteTransaction(selectedTransaction.id)}
+            color="error"
+            variant="outlined"
+          >
+            Delete Transaction
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>

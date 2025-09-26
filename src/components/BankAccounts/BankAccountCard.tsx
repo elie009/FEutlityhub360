@@ -230,7 +230,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
         </Grid>
 
         {/* Transaction Summary */}
-        <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+        <Box sx={{ mt: 2, p: 1, bgcolor: 'darkslategray', borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Transaction Summary:
           </Typography>
@@ -261,7 +261,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
 
         {/* International Information */}
         {(account.iban || account.swiftCode) && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Box sx={{ mt: 2, p: 1, bgcolor: 'darkslategray', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               International:
             </Typography>

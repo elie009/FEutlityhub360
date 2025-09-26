@@ -24,6 +24,8 @@ import {
   ExpandLess,
   ExpandMore,
   AttachMoney as FinanceIcon,
+  TrendingUp as ApportionerIcon,
+  AccountBalance as BankAccountIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -44,9 +46,11 @@ const menuItems: MenuItem[] = [
     children: [
       { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
       { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
+      { text: 'Bank Accounts', icon: <BankAccountIcon />, path: '/bank-accounts' },
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
     ],
   },
+  { text: 'Apportioner', icon: <ApportionerIcon />, path: '/apportioner' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
   { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
@@ -94,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
       <React.Fragment key={item.text}>
         <ListItem disablePadding>
           <ListItemButton
-            selected={isActive || hasActiveChild}
+            selected={false}
             onClick={() => {
               if (hasChildren) {
                 handleSectionToggle(item.text);
@@ -104,21 +108,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
             }}
             sx={{
               pl: 2 + level * 2,
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-                '& .MuiListItemIcon-root': {
-                  color: 'white',
-                },
+              backgroundColor: (isActive || hasActiveChild) ? 'rgba(177, 229, 153, 0.1)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(177, 229, 153, 0.15)',
+              },
+              '& .MuiListItemIcon-root': {
+                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+              },
+              '& .MuiListItemText-primary': {
+                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+                fontWeight: (isActive || hasActiveChild) ? 600 : 400,
               },
             }}
           >
             <ListItemIcon
               sx={{
-                color: (isActive || hasActiveChild) ? 'white' : 'inherit',
                 minWidth: 40,
               }}
             >

@@ -1,4 +1,6 @@
 import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsResponse, TransactionAnalytics } from '../types/transaction';
+import { mockBankAccounts } from './mockBankAccountData';
+import { BankAccount } from '../types/bankAccount';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -273,6 +275,37 @@ export const mockTransactionDataService = {
     return transaction;
   },
 
+  async deleteTransaction(transactionId: string): Promise<boolean> {
+    await delay(500);
+    
+    const transactionIndex = mockTransactions.findIndex(t => t.id === transactionId);
+    if (transactionIndex === -1) {
+      throw new Error('Transaction not found');
+    }
+    
+    // Get the transaction before removing it
+    const transaction = mockTransactions[transactionIndex];
+    
+    // Remove the transaction from the mock data
+    mockTransactions.splice(transactionIndex, 1);
+    
+    // Update the bank account balance (reverse the transaction effect)
+    if (transaction) {
+      const bankAccount = mockBankAccounts.find(acc => acc.id === transaction.bankAccountId);
+      if (bankAccount) {
+        // Reverse the transaction effect on the balance
+        if (transaction.transactionType === 'credit') {
+          bankAccount.currentBalance -= transaction.amount;
+        } else {
+          bankAccount.currentBalance += transaction.amount;
+        }
+        bankAccount.updatedAt = new Date().toISOString();
+      }
+    }
+    
+    return true;
+  },
+
   async getTransactionAnalytics(userId: string): Promise<TransactionAnalytics> {
     await delay(600);
     const userTransactions = mockTransactions.filter(transaction => transaction.userId === userId);
@@ -318,5 +351,71 @@ export const mockTransactionDataService = {
       mostActiveMerchant,
       generatedAt: new Date().toISOString(),
     };
+  },
+
+  async createBankTransaction(userId: string, transactionData: {
+    bankAccountId: string;
+    amount: number;
+    transactionType: 'DEBIT' | 'CREDIT';
+    description: string;
+    category: string;
+    merchant?: string;
+    location?: string;
+    transactionDate: string;
+    notes?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+  }): Promise<BankAccountTransaction> {
+    await delay(500);
+    
+    // Generate new transaction ID
+    const newId = `txn-${Date.now()}`;
+    
+    // Get the bank account to calculate balance
+    const bankAccount = mockBankAccounts.find((acc: BankAccount) => acc.id === transactionData.bankAccountId);
+    if (!bankAccount) {
+      throw new Error('Bank account not found');
+    }
+
+    // Calculate new balance
+    const amount = transactionData.transactionType === 'DEBIT' 
+      ? -Math.abs(transactionData.amount) 
+      : Math.abs(transactionData.amount);
+    const balanceAfterTransaction = bankAccount.currentBalance + amount;
+
+    // Create new transaction
+    const newTransaction: BankAccountTransaction = {
+      id: newId,
+      bankAccountId: transactionData.bankAccountId,
+      userId: userId,
+      amount: amount,
+      transactionType: transactionData.transactionType.toLowerCase() as 'debit' | 'credit',
+      description: transactionData.description,
+      category: transactionData.category.toLowerCase(),
+      referenceNumber: `REF-${Date.now()}`,
+      externalTransactionId: `EXT-${Date.now()}`,
+      transactionDate: transactionData.transactionDate,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: transactionData.notes || '',
+      merchant: transactionData.merchant || '',
+      location: transactionData.location || '',
+      isRecurring: transactionData.isRecurring || false,
+      recurringFrequency: transactionData.recurringFrequency || '',
+      currency: 'USD',
+      balanceAfterTransaction: balanceAfterTransaction,
+    };
+
+    // Add to mock data
+    mockTransactions.push(newTransaction);
+
+    // Update bank account balance
+    const accountIndex = mockBankAccounts.findIndex((acc: BankAccount) => acc.id === transactionData.bankAccountId);
+    if (accountIndex !== -1) {
+      mockBankAccounts[accountIndex].currentBalance = balanceAfterTransaction;
+      mockBankAccounts[accountIndex].updatedAt = new Date().toISOString();
+    }
+
+    return newTransaction;
   },
 };

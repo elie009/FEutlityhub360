@@ -13,6 +13,8 @@ import Analytics from './pages/Analytics';
 import Support from './pages/Support';
 import Settings from './pages/Settings';
 import Transactions from './pages/Transactions';
+import Apportioner from './pages/Apportioner';
+import BankAccounts from './pages/BankAccounts';
 import LoanDashboard from './components/Loans/LoanDashboard';
 import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
@@ -53,6 +55,8 @@ const AppRoutes: React.FC = () => {
           <Route path="support" element={<Support />} />
           <Route path="settings" element={<Settings />} />
           <Route path="transactions" element={<Transactions />} />
+          <Route path="apportioner" element={<Apportioner />} />
+          <Route path="bank-accounts" element={<BankAccounts />} />
           <Route path="loans" element={<LoanDashboard />} />
           <Route path="loans/:loanId" element={<LoanDetailsWrapper />} />
           <Route path="notifications" element={<NotificationCenter />} />
