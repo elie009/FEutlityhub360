@@ -9,7 +9,7 @@ import {
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-let mockBankAccounts: BankAccount[] = [
+export let mockBankAccounts: BankAccount[] = [
   {
     id: 'bank-001',
     userId: 'demo-user-123',
@@ -274,5 +274,36 @@ export const mockBankAccountDataService = {
     };
     mockBankAccounts[index] = updatedAccount;
     return updatedAccount;
+  },
+
+  async getBankAccountSummary(userId: string): Promise<{
+    totalBalance: number;
+    totalAccounts: number;
+    activeAccounts: number;
+    connectedAccounts: number;
+    totalIncoming: number;
+    totalOutgoing: number;
+    accounts: BankAccount[];
+  }> {
+    await delay(500);
+    
+    const userAccounts = mockBankAccounts.filter(account => account.userId === userId);
+    
+    const totalBalance = userAccounts.reduce((sum, account) => sum + account.currentBalance, 0);
+    const totalAccounts = userAccounts.length;
+    const activeAccounts = userAccounts.filter(account => account.isActive).length;
+    const connectedAccounts = userAccounts.filter(account => account.isConnected).length;
+    const totalIncoming = userAccounts.reduce((sum, account) => sum + (account.totalIncoming || 0), 0);
+    const totalOutgoing = userAccounts.reduce((sum, account) => sum + (account.totalOutgoing || 0), 0);
+    
+    return {
+      totalBalance,
+      totalAccounts,
+      activeAccounts,
+      connectedAccounts,
+      totalIncoming,
+      totalOutgoing,
+      accounts: userAccounts,
+    };
   },
 };

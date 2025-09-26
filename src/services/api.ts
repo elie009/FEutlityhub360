@@ -816,6 +816,53 @@ class ApiService {
     }
     return response;
   }
+
+  async createBankTransaction(transactionData: {
+    bankAccountId: string;
+    amount: number;
+    transactionType: 'DEBIT' | 'CREDIT';
+    description: string;
+    category: string;
+    merchant?: string;
+    location?: string;
+    transactionDate: string;
+    notes?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+  }): Promise<BankAccountTransaction> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockTransactionDataService.createBankTransaction(user?.id || 'demo-user-123', transactionData);
+    }
+    const response = await this.request<any>('/bankaccounts/transactions', {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getBankAccountSummary(): Promise<{
+    totalBalance: number;
+    totalAccounts: number;
+    activeAccounts: number;
+    connectedAccounts: number;
+    totalIncoming: number;
+    totalOutgoing: number;
+    accounts: any[];
+  }> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockBankAccountDataService.getBankAccountSummary(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/BankAccounts/summary');
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
 }
 
 export const apiService = new ApiService();
