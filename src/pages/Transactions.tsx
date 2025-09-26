@@ -36,7 +36,7 @@ const TransactionsPage: React.FC = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<BankAccountTransaction | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
-    limit: 10,
+    limit: 50,
     page: 1,
   });
 
@@ -53,14 +53,14 @@ const TransactionsPage: React.FC = () => {
     setError(null);
 
     try {
-      const [transactionsData, analyticsData, bankAccountAnalyticsData, bankAccountSummaryData] = await Promise.all([
-        apiService.getRecentTransactions(filters.limit || 10),
+      const [transactionsResponse, analyticsData, bankAccountAnalyticsData, bankAccountSummaryData] = await Promise.all([
+        apiService.getTransactions(filters),
         apiService.getTransactionAnalytics(),
         apiService.getBankAccountAnalyticsSummary(),
         apiService.getBankAccountSummary(),
       ]);
 
-      setTransactions(transactionsData);
+      setTransactions(transactionsResponse.data);
       setAnalytics(analyticsData);
       setBankAccountAnalytics(bankAccountAnalyticsData);
       setBankAccountSummary(bankAccountSummaryData);
@@ -99,7 +99,7 @@ const TransactionsPage: React.FC = () => {
 
   const handleClearFilters = () => {
     setFilters({
-      limit: 10,
+      limit: 50,
       page: 1,
     });
   };
@@ -112,6 +112,20 @@ const TransactionsPage: React.FC = () => {
   const handleCloseDetails = () => {
     setSelectedTransaction(null);
     setShowDetailsDialog(false);
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
+      try {
+        await apiService.deleteTransaction(transactionId);
+        // Close the details dialog
+        handleCloseDetails();
+        // Reload transactions and analytics
+        loadTransactionsAndAnalytics();
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to delete transaction'));
+      }
+    }
   };
 
   const formatCurrency = (amount: number, currency: string = 'USD'): string => {
@@ -763,6 +777,13 @@ const TransactionsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDetails}>Close</Button>
+          <Button 
+            onClick={() => selectedTransaction && handleDeleteTransaction(selectedTransaction.id)}
+            color="error"
+            variant="outlined"
+          >
+            Delete Transaction
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>

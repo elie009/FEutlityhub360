@@ -287,6 +287,16 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
               Mark Paid
             </Button>
           )}
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleDelete}
+            startIcon={<Delete />}
+            color="error"
+            fullWidth
+          >
+            Delete
+          </Button>
         </Box>
       </CardContent>
 

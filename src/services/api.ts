@@ -206,6 +206,18 @@ class ApiService {
     return response;
   }
 
+  async deletePayment(paymentId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      return mockDataService.deletePayment(paymentId);
+    }
+    
+    const response = await this.request<any>(`/Payments/${paymentId}`, {
+      method: 'DELETE',
+    });
+    
+    return response?.data || response || true;
+  }
+
   async getOutstandingAmount(): Promise<number> {
     if (isMockDataEnabled()) {
       return mockDataService.getOutstandingAmount();
@@ -440,7 +452,7 @@ class ApiService {
       return mockBillDataService.deleteBill(billId);
     }
     
-    const response = await this.request<any>(`/bills/${billId}`, {
+    const response = await this.request<any>(`/Bills/${billId}`, {
       method: 'DELETE',
     });
     
@@ -752,7 +764,7 @@ class ApiService {
       const user = this.getCurrentUserFromToken();
       return mockTransactionDataService.getRecentTransactions(user?.id || 'demo-user-123', limit);
     }
-    const response = await this.request<any>(`/bankaccounts/transactions/recent?limit=${limit}`);
+    const response = await this.request<any>(`/BankAccounts/transactions?limit=${limit}`);
     
     // Handle the new response format: { success: true, data: BankAccountTransaction[], errors: [] }
     if (response && response.success && Array.isArray(response.data)) {
@@ -781,10 +793,18 @@ class ApiService {
     if (filters?.page) queryParams.append('page', filters.page.toString());
     if (filters?.limit) queryParams.append('limit', filters.limit.toString());
     const queryString = queryParams.toString();
-    const endpoint = `/bankaccounts/transactions${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/BankAccounts/transactions${queryString ? `?${queryString}` : ''}`;
     const response = await this.request<any>(endpoint);
     
-    if (response && response.data && Array.isArray(response.data.data)) {
+    // Handle the new response format: { success: true, data: BankAccountTransaction[], errors: [] }
+    if (response && response.success && Array.isArray(response.data)) {
+      return { 
+        data: response.data, 
+        page: 1, 
+        limit: response.data.length, 
+        totalCount: response.data.length 
+      };
+    } else if (response && response.data && Array.isArray(response.data.data)) {
       return response.data;
     } else if (Array.isArray(response)) {
       return { data: response, page: 1, limit: response.length, totalCount: response.length };
@@ -798,11 +818,28 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockTransactionDataService.getTransaction(transactionId);
     }
-    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}`);
+    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}`);
     if (response && response.data) {
       return response.data;
     }
     return response;
+  }
+
+  async deleteTransaction(transactionId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      return mockTransactionDataService.deleteTransaction(transactionId);
+    }
+    
+    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}`, {
+      method: 'DELETE',
+    });
+    
+    // Handle the new response format: { success: true, message: "string", data: true, errors: [] }
+    if (response && response.success) {
+      return response.data || true;
+    }
+    
+    return response?.data || response || true;
   }
 
   async getTransactionAnalytics(): Promise<TransactionAnalytics> {

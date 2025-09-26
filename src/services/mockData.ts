@@ -487,6 +487,17 @@ export const mockDataService = {
     return paymentResponse;
   },
 
+  async deletePayment(paymentId: string): Promise<boolean> {
+    await delay(500);
+    
+    // In a real implementation, this would delete from a payments table
+    // For mock purposes, we'll just return success
+    // The payment transactions are generated dynamically, so we can't actually delete them
+    // This simulates the API behavior
+    console.log(`Mock: Deleting payment ${paymentId}`);
+    return true;
+  },
+
   async getOutstandingAmount(): Promise<number> {
     await delay(500);
     

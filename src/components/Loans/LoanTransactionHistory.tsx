@@ -17,11 +17,13 @@ import {
   Divider,
   Grid,
   Tooltip,
+  IconButton,
 } from '@mui/material';
 import {
   Payment as PaymentIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
@@ -74,6 +76,18 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
       setError(getErrorMessage(err, 'Failed to load transaction history'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (window.confirm('Are you sure you want to delete this payment? This action cannot be undone.')) {
+      try {
+        await apiService.deletePayment(paymentId);
+        // Reload transactions after successful deletion
+        loadTransactions();
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to delete payment'));
+      }
     }
   };
 
@@ -265,12 +279,25 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
                             <Typography variant="subtitle1">
                               {transaction.description}
                             </Typography>
-                            <Typography 
-                              variant="h6" 
-                              color={transaction.type === 'PAYMENT' ? 'success.main' : 'primary.main'}
-                            >
-                              {transaction.type === 'PAYMENT' ? '-' : '+'}{formatCurrency(transaction.amount)}
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography 
+                                variant="h6" 
+                                color={transaction.type === 'PAYMENT' ? 'success.main' : 'primary.main'}
+                              >
+                                {transaction.type === 'PAYMENT' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                              </Typography>
+                              {transaction.type === 'PAYMENT' && (
+                                <Tooltip title="Delete Payment">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeletePayment(transaction.id)}
+                                    sx={{ color: 'error.main' }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
                           </Box>
                         }
                         secondary={

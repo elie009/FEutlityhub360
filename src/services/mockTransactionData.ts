@@ -275,6 +275,37 @@ export const mockTransactionDataService = {
     return transaction;
   },
 
+  async deleteTransaction(transactionId: string): Promise<boolean> {
+    await delay(500);
+    
+    const transactionIndex = mockTransactions.findIndex(t => t.id === transactionId);
+    if (transactionIndex === -1) {
+      throw new Error('Transaction not found');
+    }
+    
+    // Get the transaction before removing it
+    const transaction = mockTransactions[transactionIndex];
+    
+    // Remove the transaction from the mock data
+    mockTransactions.splice(transactionIndex, 1);
+    
+    // Update the bank account balance (reverse the transaction effect)
+    if (transaction) {
+      const bankAccount = mockBankAccounts.find(acc => acc.id === transaction.bankAccountId);
+      if (bankAccount) {
+        // Reverse the transaction effect on the balance
+        if (transaction.transactionType === 'credit') {
+          bankAccount.currentBalance -= transaction.amount;
+        } else {
+          bankAccount.currentBalance += transaction.amount;
+        }
+        bankAccount.updatedAt = new Date().toISOString();
+      }
+    }
+    
+    return true;
+  },
+
   async getTransactionAnalytics(userId: string): Promise<TransactionAnalytics> {
     await delay(600);
     const userTransactions = mockTransactions.filter(transaction => transaction.userId === userId);
