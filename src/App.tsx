@@ -57,11 +57,8 @@ const AppRoutes: React.FC = () => {
             <Layout />
           </ProtectedRoute>
         }>
-          <Route index element={
-            <ProfileProtectedRoute>
-              <Dashboard />
-            </ProfileProtectedRoute>
-          } />
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={
             <ProfileProtectedRoute>
               <Users />

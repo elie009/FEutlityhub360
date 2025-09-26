@@ -43,8 +43,16 @@ const ProfileProtectedRoute: React.FC<ProfileProtectedRouteProps> = ({ children 
     currentPath: location.pathname
   });
   
+  // If user is authenticated but doesn't have a profile, redirect to dashboard
+  if (isAuthenticated && !userHasProfile && !profileLoading) {
+    // Don't redirect if already on dashboard to avoid infinite loop
+    if (location.pathname !== '/dashboard') {
+      console.log('ProfileProtectedRoute: Redirecting to dashboard - no profile found');
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
 
-  // If user has profile or is on settings page, render children
+  // If user has profile or is on dashboard page, render children
   return <>{children}</>;
 };
 
