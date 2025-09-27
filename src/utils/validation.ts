@@ -138,6 +138,18 @@ export const validateEmploymentStatus = (status: string): { isValid: boolean; er
   return { isValid: true };
 };
 
+export const validateInterestRate = (rate: number, minRate: number = 0, maxRate: number = 50): { isValid: boolean; error?: string } => {
+  if (rate < minRate) {
+    return { isValid: false, error: `Interest rate must be at least ${minRate}%` };
+  }
+  
+  if (rate > maxRate) {
+    return { isValid: false, error: `Interest rate cannot exceed ${maxRate}%` };
+  }
+  
+  return { isValid: true };
+};
+
 // Error handling utility
 export const getErrorMessage = (err: unknown, fallback: string = 'An unknown error occurred'): string => {
   if (err instanceof Error) {
@@ -147,4 +159,45 @@ export const getErrorMessage = (err: unknown, fallback: string = 'An unknown err
     return err;
   }
   return fallback;
+};
+
+// Enhanced error handling for API responses with errors array
+export const getApiErrorMessage = (err: unknown, fallback: string = 'An unknown error occurred'): { message: string; fieldErrors: Record<string, string> } => {
+  const fieldErrors: Record<string, string> = {};
+  let message = fallback;
+  
+  if (err instanceof Error) {
+    // Try to parse the error message as JSON to extract field-specific errors
+    try {
+      const errorData = JSON.parse(err.message);
+      if (errorData.errors && Array.isArray(errorData.errors)) {
+        // Parse field-specific errors from the errors array
+        errorData.errors.forEach((error: string) => {
+          // Look for field-specific error patterns like "Purpose: Invalid purpose"
+          const fieldMatch = error.match(/^(\w+):\s*(.+)$/i);
+          if (fieldMatch) {
+            const [, field, errorMsg] = fieldMatch;
+            fieldErrors[field.toLowerCase()] = errorMsg;
+          } else {
+            // If no field pattern, add to general message
+            message = error;
+          }
+        });
+        
+        // If we have field errors but no general message, create one
+        if (Object.keys(fieldErrors).length > 0 && message === fallback) {
+          message = 'Please fix the following errors:';
+        }
+      } else if (errorData.message) {
+        message = errorData.message;
+      }
+    } catch {
+      // If parsing fails, use the error message as is
+      message = err.message;
+    }
+  } else if (typeof err === 'string') {
+    message = err;
+  }
+  
+  return { message, fieldErrors };
 };

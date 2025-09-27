@@ -122,6 +122,7 @@ export enum NotificationStatus {
 
 export interface LoanApplication {
   principal: number;
+  interestRate: number;
   purpose: string;
   term: number;
   monthlyIncome: number;

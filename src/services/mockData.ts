@@ -315,7 +315,7 @@ export const mockDataService = {
 
   async applyForLoan(application: any): Promise<Loan> {
     await delay(2000);
-    const interestRate = 10.0; // Default rate
+    const interestRate = application.interestRate || 10.0; // Use provided rate or default
     const totalAmount = application.principal * (1 + (interestRate / 100) * (application.term / 12));
     const monthlyPayment = totalAmount / application.term;
     
@@ -449,6 +449,7 @@ export const mockDataService = {
     amount: number;
     method: string;
     reference: string;
+    bankAccountId?: string;
   }): Promise<any> {
     await delay(1200);
     
@@ -468,10 +469,12 @@ export const mockDataService = {
       amount: paymentData.amount,
       method: paymentData.method,
       reference: paymentData.reference,
+      bankAccountId: paymentData.bankAccountId,
       status: 'COMPLETED',
       processedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
+
     
     // Update loan remaining balance
     const currentBalance = loan.remainingBalance || loan.outstandingBalance;

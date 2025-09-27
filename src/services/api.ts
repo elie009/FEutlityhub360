@@ -48,6 +48,11 @@ class ApiService {
 
     try {
       console.log('API Service: Making fetch request to:', url);
+      console.log('API Service: Request config:', {
+        method: requestConfig.method,
+        headers: requestConfig.headers,
+        body: requestConfig.body
+      });
       const response = await fetch(url, requestConfig);
       clearTimeout(timeoutId);
       
@@ -355,10 +360,26 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.applyForLoan(application);
     }
-    return this.request<Loan>('/Loans/user/apply', {
+    
+    console.log('API: applyForLoan - Request data:', JSON.stringify(application, null, 2));
+    
+    const response = await this.request<{ success: boolean; message: string; data: Loan; errors: string[] }>('/Loans/apply', {
       method: 'POST',
       body: JSON.stringify(application),
     });
+    
+    console.log('API: applyForLoan - Response:', JSON.stringify(response, null, 2));
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      // Create error message that includes both message and errors array
+      const errorMessage = JSON.stringify({
+        message: response.message || 'Failed to apply for loan',
+        errors: response.errors || []
+      });
+      throw new Error(errorMessage);
+    }
   }
 
   async getLoan(loanId: string): Promise<Loan> {
@@ -427,18 +448,26 @@ class ApiService {
     amount: number;
     method: string;
     reference: string;
+    bankAccountId?: string;
   }): Promise<any> {
     if (isMockDataEnabled()) {
       return mockDataService.makeLoanPayment(loanId, paymentData);
     }
+    const requestBody: any = {
+      loanId,
+      amount: paymentData.amount,
+      method: paymentData.method,
+      reference: paymentData.reference,
+    };
+
+    // Only include bankAccountId if provided (for bank-related payments)
+    if (paymentData.bankAccountId) {
+      requestBody.bankAccountId = paymentData.bankAccountId;
+    }
+
     const response = await this.request<any>('/Payments', {
       method: 'POST',
-      body: JSON.stringify({
-        loanId,
-        amount: paymentData.amount,
-        method: paymentData.method,
-        reference: paymentData.reference,
-      }),
+      body: JSON.stringify(requestBody),
     });
     
     // Handle the response structure
