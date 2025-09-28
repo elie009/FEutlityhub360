@@ -85,7 +85,6 @@ const ReportsPage: React.FC = () => {
 
     try {
       setIsLoading(true);
-      debugger
       const userLoans = await apiService.getUserLoans(user.id);
       setLoans(userLoans);
     } catch (err: unknown) {

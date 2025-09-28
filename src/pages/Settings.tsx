@@ -375,7 +375,6 @@ const Settings: React.FC = () => {
     console.log('Settings: showProfileForm current state:', showProfileForm);
     console.log('Settings: userProfile type:', typeof userProfile);
     console.log('Settings: userProfile value:', userProfile);
-    debugger
     if (userProfile && userProfile.id) {
       console.log('Settings: userProfile details:', {
         id: userProfile.id,

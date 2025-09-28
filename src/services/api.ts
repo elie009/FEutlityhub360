@@ -250,7 +250,6 @@ class ApiService {
     }>;
   } | null> {
 
-    debugger;
     if (isMockDataEnabled()) {
       return mockDataService.getUserProfile();
     }
@@ -268,7 +267,6 @@ class ApiService {
     console.log('API: Response data incomeSources:', response?.data?.incomeSources);
     console.log('API: Response data incomeSources length:', response?.data?.incomeSources?.length);
     console.log('=== END API RESPONSE ===');
-    debugger
     if (response && response.success === true && response.data !== null && response.data.id) {
       // Profile found - response.data contains the profile
       console.log('API: ✅ Profile found - returning data');
