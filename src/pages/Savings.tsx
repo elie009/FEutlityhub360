@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Grid,
@@ -24,6 +23,12 @@ import {
   Select,
   Divider,
   Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -84,16 +89,27 @@ const Savings: React.FC = () => {
       setLoading(true);
       setError('');
 
+      console.log('🔄 Loading savings data...');
       const [accountsResponse, bankAccountsResponse, summaryResponse] = await Promise.all([
         apiService.getSavingsAccounts(),
         apiService.getUserBankAccounts(),
         apiService.getSavingsSummary(),
       ]);
 
-      setSavingsAccounts(accountsResponse.data || []);
+      console.log('📊 Accounts response:', accountsResponse);
+      console.log('🏦 Bank accounts response:', bankAccountsResponse);
+      console.log('📈 Summary response:', summaryResponse);
+
+      // Handle the API response structure: { success: true, data: [...], errors: [] }
+      // The API service already extracts the data array, so accountsResponse is the array directly
+      const accountsData = Array.isArray(accountsResponse) ? accountsResponse : (accountsResponse?.data || []);
+      console.log('💾 Accounts data to set:', accountsData);
+      console.log('💾 Accounts data length:', accountsData.length);
+      setSavingsAccounts(accountsData);
       setBankAccounts(Array.isArray(bankAccountsResponse) ? bankAccountsResponse : ((bankAccountsResponse as any)?.data || []));
       setSavingsSummary(summaryResponse);
     } catch (err: any) {
+      console.error('❌ Error loading savings data:', err);
       setError(err.message || 'Failed to load savings data');
     } finally {
       setLoading(false);
@@ -103,6 +119,12 @@ const Savings: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Debug: Log savingsAccounts state changes
+  useEffect(() => {
+    console.log('📊 Savings accounts state updated:', savingsAccounts);
+    console.log('📊 Savings accounts length:', savingsAccounts.length);
+  }, [savingsAccounts]);
 
   // Handle create account
   const handleCreateAccount = async () => {
@@ -310,16 +332,16 @@ const Savings: React.FC = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mt: 4, mb: 4, px: 2 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
           <CircularProgress />
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Box sx={{ mt: 4, mb: 4, px: 2 }}>
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
@@ -426,18 +448,37 @@ const Savings: React.FC = () => {
         </Grid>
       )}
 
-      {/* Savings Accounts Grid */}
-      <Grid container spacing={3}>
-        {savingsAccounts.map((account) => (
-          <Grid item xs={12} sm={6} md={4} key={account.id}>
-            <Card sx={{ height: '100%', position: 'relative' }}>
-              <CardContent>
-                {/* Account Header */}
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                  <Box>
-                    <Typography variant="h6" component="h3" gutterBottom>
+      {/* Savings Accounts Table */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          Savings Accounts
+        </Typography>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Account Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Current Balance</TableCell>
+                <TableCell>Target Amount</TableCell>
+                <TableCell>Progress</TableCell>
+                <TableCell>Goal</TableCell>
+                <TableCell>Target Date</TableCell>
+                <TableCell>Days Left</TableCell>
+                <TableCell>Monthly Target</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {savingsAccounts.map((account) => (
+                <TableRow key={account.id} hover>
+                  <TableCell>
+                    <Typography variant="subtitle2" fontWeight="bold">
                       {account.accountName}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
                     <Chip
                       label={account.savingsType.replace('_', ' ')}
                       size="small"
@@ -447,94 +488,95 @@ const Savings: React.FC = () => {
                         fontWeight: 'bold',
                       }}
                     />
-                  </Box>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => handleMenuOpen(e, account)}
-                  >
-                    <MoreVertIcon />
-                  </IconButton>
-                </Box>
-
-                {/* Progress Section */}
-                <Box mb={2}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="subtitle2" color="primary" fontWeight="bold">
+                      {formatCurrency(account.currentBalance)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatCurrency(account.targetAmount)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ minWidth: 100 }}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                        <Typography variant="caption" color="text.secondary">
+                          {account.progressPercentage.toFixed(1)}%
+                        </Typography>
+                      </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(account.progressPercentage, 100)}
+                        sx={{
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: '#e0e0e0',
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor: getProgressColor(account.progressPercentage),
+                          },
+                        }}
+                      />
+                    </Box>
+                  </TableCell>
+                  <TableCell>
                     <Typography variant="body2" color="text.secondary">
-                      Progress
+                      {account.goal || '-'}
                     </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {account.progressPercentage.toFixed(1)}%
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {new Date(account.targetDate).toLocaleDateString()}
                     </Typography>
-                  </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.min(account.progressPercentage, 100)}
-                    sx={{
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: '#e0e0e0',
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: getProgressColor(account.progressPercentage),
-                      },
-                    }}
-                  />
-                </Box>
-
-                {/* Balance and Target */}
-                <Box mb={2}>
-                  <Typography variant="h5" color="primary" fontWeight="bold">
-                    {formatCurrency(account.currentBalance)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    of {formatCurrency(account.targetAmount)} target
-                  </Typography>
-                </Box>
-
-                {/* Goal Info */}
-                {account.goal && (
-                  <Typography variant="body2" color="text.secondary" mb={2}>
-                    {account.goal}
-                  </Typography>
-                )}
-
-                {/* Time and Monthly Target */}
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" alignItems="center">
-                    <ScheduleIcon sx={{ mr: 0.5, fontSize: 16, color: 'text.secondary' }} />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color={account.daysRemaining < 30 ? 'warning.main' : 'text.secondary'}>
+                      {account.daysRemaining} days
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
                     <Typography variant="body2" color="text.secondary">
-                      {account.daysRemaining} days left
+                      {formatCurrency(account.monthlyTarget)}
                     </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {formatCurrency(account.monthlyTarget)}/month
-                  </Typography>
-                </Box>
-
-                {/* Completion Badge */}
-                {account.progressPercentage >= 100 && (
-                  <Box
-                    position="absolute"
-                    top={16}
-                    right={16}
-                    sx={{
-                      backgroundColor: '#4caf50',
-                      color: 'white',
-                      borderRadius: '50%',
-                      width: 32,
-                      height: 32,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <CheckCircleIcon sx={{ fontSize: 20 }} />
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  </TableCell>
+                  <TableCell>
+                    {account.progressPercentage >= 100 ? (
+                      <Chip
+                        icon={<CheckCircleIcon />}
+                        label="Completed"
+                        color="success"
+                        size="small"
+                      />
+                    ) : account.daysRemaining < 30 ? (
+                      <Chip
+                        icon={<ScheduleIcon />}
+                        label="Urgent"
+                        color="warning"
+                        size="small"
+                      />
+                    ) : (
+                      <Chip
+                        label="In Progress"
+                        color="info"
+                        size="small"
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuOpen(e, account)}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
 
       {/* Empty State */}
       {savingsAccounts.length === 0 && (
@@ -807,7 +849,7 @@ const Savings: React.FC = () => {
           Delete Account
         </MenuItem>
       </Menu>
-    </Container>
+    </Box>
   );
 };
 

@@ -1193,7 +1193,7 @@ class ApiService {
       const user = this.getCurrentUserFromToken();
       return mockDataService.createSavingsAccount(user?.id || 'demo-user-123', accountData);
     }
-    const response = await this.request<any>('/savings/accounts', {
+    const response = await this.request<any>('/Savings/accounts', {
       method: 'POST',
       body: JSON.stringify(accountData),
     });
@@ -1207,9 +1207,15 @@ class ApiService {
     page?: number;
     limit?: number;
   }): Promise<any> {
+    console.log('🔍 getSavingsAccounts called with filters:', filters);
+    console.log('🔍 Mock data enabled:', isMockDataEnabled());
+    
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
-      return mockDataService.getSavingsAccounts(user?.id || 'demo-user-123', filters);
+      console.log('🔍 Using mock data for user:', user?.id);
+      const result = await mockDataService.getSavingsAccounts(user?.id || 'demo-user-123', filters);
+      console.log('🔍 Mock data result:', result);
+      return result;
     }
     
     const queryParams = new URLSearchParams();
@@ -1218,9 +1224,20 @@ class ApiService {
     if (filters?.page) queryParams.append('page', filters.page.toString());
     if (filters?.limit) queryParams.append('limit', filters.limit.toString());
     
-    const endpoint = `/savings/accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.request<any>(endpoint);
-    return response.data;
+    const endpoint = `/Savings/accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    console.log('🔍 Making API request to:', endpoint);
+    
+    try {
+      const response = await this.request<any>(endpoint);
+      console.log('🔍 API response received:', response);
+      console.log('🔍 Response data:', response.data);
+      // The API returns { success: true, data: [...], errors: [] }
+      // So we need to return the nested data array
+      return response.data;
+    } catch (error) {
+      console.error('🔍 API request failed:', error);
+      throw error;
+    }
   }
 
   // Get a specific savings account
@@ -1228,7 +1245,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getSavingsAccount(accountId);
     }
-    const response = await this.request<any>(`/savings/accounts/${accountId}`);
+    const response = await this.request<any>(`/Savings/accounts/${accountId}`);
     return response.data;
   }
 
@@ -1245,7 +1262,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateSavingsAccount(accountId, accountData);
     }
-    const response = await this.request<any>(`/savings/accounts/${accountId}`, {
+    const response = await this.request<any>(`/Savings/accounts/${accountId}`, {
       method: 'PUT',
       body: JSON.stringify(accountData),
     });
@@ -1257,7 +1274,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.deleteSavingsAccount(accountId);
     }
-    await this.request<void>(`/savings/accounts/${accountId}`, {
+    await this.request<void>(`/Savings/accounts/${accountId}`, {
       method: 'DELETE',
     });
   }
