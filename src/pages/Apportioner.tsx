@@ -79,10 +79,11 @@ const Apportioner: React.FC = () => {
 
     try {
       // Load bank account analytics for current balance and income/expense data
-      const [bankAnalytics, bills, loans] = await Promise.all([
+      const [bankAnalytics, bills, loans, totalMonthlyIncome] = await Promise.all([
         apiService.getBankAccountAnalyticsSummary(),
         apiService.getUserBills(),
         apiService.getUserLoans(user.id),
+        apiService.getTotalMonthlyIncome(),
       ]);
 
       // Calculate monthly expenses from bills and loans
@@ -94,7 +95,7 @@ const Apportioner: React.FC = () => {
         .filter((loan: Loan) => loan.status === LoanStatus.ACTIVE)
         .reduce((total: number, loan: Loan) => total + (loan.monthlyPayment || 0), 0);
 
-      const monthlyIncome = bankAnalytics?.totalIncoming || 0;
+      const monthlyIncome = totalMonthlyIncome || bankAnalytics?.totalIncoming || 0;
       const currentBalance = bankAnalytics?.totalBalance || 0;
       const otherExpenses = Math.max(0, monthlyIncome - monthlyBills - monthlyLoans - 500); // Estimate other expenses
 

@@ -1399,6 +1399,99 @@ class ApiService {
     });
     return response.data;
   }
+
+  // Get total monthly income
+  async getTotalMonthlyIncome(): Promise<number> {
+    if (isMockDataEnabled()) {
+      // Return mock monthly income
+      return 5000.00;
+    }
+    const response = await this.request<{ success: boolean; data: number; message: string | null; errors: string[] }>('/IncomeSource/total-monthly-income');
+    return response.data;
+  }
+
+  // Get all income sources
+  async getIncomeSources(): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response with sample income sources matching the real API format
+      return {
+        success: true,
+        message: 'Success',
+        data: [
+          {
+            id: '0cb9d9b1-8ad3-47ea-9ebb-97bd7d888c03',
+            userId: '34e5ee71-d06f-4b45-80e2-80dd9e5668f8',
+            name: 'Rental my house',
+            amount: 480.00,
+            frequency: 'MONTHLY',
+            category: 'PASSIVE',
+            currency: 'USD',
+            isActive: true,
+            description: 'passive income',
+            company: 'Own passive',
+            createdAt: '2025-09-29T20:39:07.2149178',
+            updatedAt: '2025-09-29T20:39:07.2149634',
+            monthlyAmount: 480.00
+          },
+          {
+            id: '88073e74-2151-4021-9f5c-0f9b8e079dea',
+            userId: '34e5ee71-d06f-4b45-80e2-80dd9e5668f8',
+            name: 'Company Salary',
+            amount: 10500.00,
+            frequency: 'MONTHLY',
+            category: 'PRIMARY',
+            currency: 'USD',
+            isActive: true,
+            description: '',
+            company: '',
+            createdAt: '2025-09-26T15:06:05.3077854',
+            updatedAt: '2025-09-26T15:06:05.3078278',
+            monthlyAmount: 10500.00
+          }
+        ],
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any[]; errors: string[] }>('/IncomeSource');
+    return response;
+  }
+
+  // Create income source
+  async createIncomeSource(incomeSourceData: {
+    name: string;
+    amount: number;
+    frequency: string;
+    category: string;
+    currency: string;
+    description: string;
+    company: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source created successfully',
+        data: {
+          id: `income-${Date.now()}`,
+          userId: 'demo-user-123',
+          ...incomeSourceData,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          monthlyAmount: incomeSourceData.frequency === 'monthly' ? incomeSourceData.amount : 
+                        incomeSourceData.frequency === 'weekly' ? incomeSourceData.amount * 4.33 :
+                        incomeSourceData.frequency === 'yearly' ? incomeSourceData.amount / 12 :
+                        incomeSourceData.amount
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>('/IncomeSource', {
+      method: 'POST',
+      body: JSON.stringify(incomeSourceData),
+    });
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

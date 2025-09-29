@@ -142,6 +142,26 @@ const Settings: React.FC = () => {
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
 
+  // Add Income Source Dialog state
+  const [showAddIncomeDialog, setShowAddIncomeDialog] = useState(false);
+  const [incomeSourceFormData, setIncomeSourceFormData] = useState({
+    name: '',
+    amount: 0,
+    frequency: 'monthly',
+    category: 'Primary',
+    currency: 'USD',
+    description: '',
+    company: '',
+  });
+  const [incomeSourceLoading, setIncomeSourceLoading] = useState(false);
+  const [incomeSourceError, setIncomeSourceError] = useState<string | null>(null);
+  const [incomeSourceSuccess, setIncomeSourceSuccess] = useState<string | null>(null);
+
+  // Income Sources data state
+  const [incomeSources, setIncomeSources] = useState<any[]>([]);
+  const [incomeSourcesLoading, setIncomeSourcesLoading] = useState(false);
+  const [incomeSourcesError, setIncomeSourcesError] = useState<string | null>(null);
+
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
     setNotifications(prev => ({
@@ -368,6 +388,116 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Income Source Dialog handlers
+  const handleIncomeSourceInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setIncomeSourceFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (incomeSourceError) setIncomeSourceError(null);
+  };
+
+  const handleIncomeSourceSelectChange = (e: any) => {
+    const { name, value } = e.target;
+    setIncomeSourceFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (incomeSourceError) setIncomeSourceError(null);
+  };
+
+  const validateIncomeSourceForm = (): string | null => {
+    if (!incomeSourceFormData.name.trim()) {
+      return 'Income source name is required';
+    }
+    if (incomeSourceFormData.amount <= 0) {
+      return 'Amount must be greater than 0';
+    }
+    if (!incomeSourceFormData.frequency) {
+      return 'Frequency is required';
+    }
+    if (!incomeSourceFormData.category) {
+      return 'Category is required';
+    }
+    return null;
+  };
+
+  const handleCreateIncomeSource = async () => {
+    const validationError = validateIncomeSourceForm();
+    if (validationError) {
+      setIncomeSourceError(validationError);
+      return;
+    }
+
+    setIncomeSourceLoading(true);
+    setIncomeSourceError(null);
+
+    try {
+      const response = await apiService.createIncomeSource(incomeSourceFormData);
+      setIncomeSourceSuccess('Income source created successfully!');
+      
+      // Reset form
+      setIncomeSourceFormData({
+        name: '',
+        amount: 0,
+        frequency: 'monthly',
+        category: 'Primary',
+        currency: 'USD',
+        description: '',
+        company: '',
+      });
+      
+      // Close dialog after a short delay
+      setTimeout(() => {
+        setShowAddIncomeDialog(false);
+        setIncomeSourceSuccess(null);
+        // Reload income sources to show updated data
+        loadIncomeSources();
+      }, 1500);
+    } catch (err: any) {
+      setIncomeSourceError(err.message || 'Failed to create income source. Please try again.');
+    } finally {
+      setIncomeSourceLoading(false);
+    }
+  };
+
+  const resetIncomeSourceForm = () => {
+    setIncomeSourceFormData({
+      name: '',
+      amount: 0,
+      frequency: 'monthly',
+      category: 'Primary',
+      currency: 'USD',
+      description: '',
+      company: '',
+    });
+    setIncomeSourceError(null);
+    setIncomeSourceSuccess(null);
+  };
+
+  // Load income sources
+  const loadIncomeSources = useCallback(async () => {
+    setIncomeSourcesLoading(true);
+    setIncomeSourcesError(null);
+
+    try {
+      const response = await apiService.getIncomeSources();
+      setIncomeSources(response.data || []);
+    } catch (err: any) {
+      setIncomeSourcesError(err.message || 'Failed to load income sources');
+    } finally {
+      setIncomeSourcesLoading(false);
+    }
+  }, []);
+
+  // Load income sources when component mounts
+  useEffect(() => {
+    if (user?.id) {
+      loadIncomeSources();
+    }
+  }, [user?.id, loadIncomeSources]);
+
   // Check if user needs to complete profile
   useEffect(() => {
     console.log('=== Settings: Profile check useEffect ===');
@@ -401,8 +531,6 @@ const Settings: React.FC = () => {
 
   return (
     <Box>
-      {/* DEBUG INFO - Remove this later */}
-      
       
       <Typography variant="h4" gutterBottom>
         Settings
@@ -682,8 +810,7 @@ const Settings: React.FC = () => {
         </Grid>
       )}
 
-      {/* Income Sources Table */}
-      {userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0 && (
+        {/* Income Sources Table */}
         <Grid item xs={12} sx={{ mt: 3 }}>
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -691,188 +818,199 @@ const Settings: React.FC = () => {
                 <MoneyIcon />
                 Income Sources
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<RefreshIcon />}
-                  onClick={() => window.location.reload()}
-                  disabled={profileDataLoading}
-                >
-                  Refresh
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    // If user has profile data, open edit dialog
-                    if (userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0) {
-                      handleEditProfile();
-                    } else {
-                      setShowProfileForm(true);
-                    }
-                  }}
-                >
-                  {userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0 ? 'Edit Profile' : 'Add Income Source'}
-                </Button>
-              </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={loadIncomeSources}
+                disabled={incomeSourcesLoading}
+              >
+                Refresh
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setShowAddIncomeDialog(true)}
+              >
+                Add Income Source
+              </Button>
+            </Box>
             </Box>
             
-            {profileDataError && (
+            {incomeSourcesError && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {profileDataError}
+                {incomeSourcesError}
               </Alert>
             )}
 
-            {profileDataLoading ? (
+            {incomeSourcesLoading ? (
               <Box display="flex" justifyContent="center" p={3}>
                 <CircularProgress />
               </Box>
+            ) : incomeSources.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <MoneyIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No Income Sources Found
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Add your first income source to get started with financial planning
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setShowAddIncomeDialog(true)}
+                >
+                  Add Income Source
+                </Button>
+              </Box>
             ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Frequency</TableCell>
-                      <TableCell>Category</TableCell>
-                      <TableCell>Company</TableCell>
-                      <TableCell>Monthly Amount</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {userProfile.incomeSources.map((source: any) => (
-                      <TableRow key={source.id}>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="body2" fontWeight="medium">
-                              {source.name}
-                            </Typography>
-                            {source.description && (
-                              <Typography variant="caption" color="text.secondary">
-                                {source.description}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {source.currency} {source.amount.toLocaleString()}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={source.frequency} 
-                            size="small" 
-                            variant="outlined"
-                            color="primary"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={source.category} 
-                            size="small" 
-                            color={
-                              source.category === 'Primary' ? 'success' :
-                              source.category === 'Passive' ? 'info' :
-                              source.category === 'Business' ? 'warning' :
-                              'default'
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {source.company || '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium" color="success.main">
-                            {source.currency} {source.monthlyAmount.toLocaleString()}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={source.isActive ? 'Active' : 'Inactive'} 
-                            size="small" 
-                            color={source.isActive ? 'success' : 'default'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <IconButton size="small" color="primary" title="View Details">
-                              <ViewIcon />
-                            </IconButton>
-                            <IconButton size="small" color="primary" title="Edit">
-                              <EditIcon />
-                            </IconButton>
-                            <IconButton size="small" color="error" title="Delete">
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
+              <>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Frequency</TableCell>
+                        <TableCell>Category</TableCell>
+                        <TableCell>Company</TableCell>
+                        <TableCell>Monthly Amount</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Actions</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
+                    </TableHead>
+                    <TableBody>
+                      {incomeSources.map((source: any) => (
+                        <TableRow key={source.id}>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {source.name}
+                              </Typography>
+                              {source.description && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {source.description}
+                                </Typography>
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {source.currency} {source.amount.toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={source.frequency} 
+                              size="small" 
+                              variant="outlined"
+                              color="primary"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={source.category} 
+                              size="small" 
+                              color={
+                                source.category?.toLowerCase() === 'primary' ? 'success' :
+                                source.category?.toLowerCase() === 'passive' ? 'info' :
+                                source.category?.toLowerCase() === 'business' ? 'warning' :
+                                'default'
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {source.company || '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium" color="success.main">
+                              {source.currency} {source.monthlyAmount.toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={source.isActive ? 'Active' : 'Inactive'} 
+                              size="small" 
+                              color={source.isActive ? 'success' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <IconButton size="small" color="primary" title="View Details">
+                                <ViewIcon />
+                              </IconButton>
+                              <IconButton size="small" color="primary" title="Edit">
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton size="small" color="error" title="Delete">
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
 
-            {/* Summary Cards */}
-            <Grid container spacing={2} sx={{ mt: 3 }}>
-              <Grid item xs={12} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="primary">
-                      {userProfile.currency || 'USD'} {userProfile.totalMonthlyIncome?.toLocaleString() || '0'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Monthly Income
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="success.main">
-                      {userProfile.currency || 'USD'} {userProfile.netMonthlyIncome?.toLocaleString() || '0'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Net Monthly Income
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="warning.main">
-                      {userProfile.currency || 'USD'} {userProfile.totalMonthlyGoals?.toLocaleString() || '0'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Monthly Goals
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="info.main">
-                      {userProfile.currency || 'USD'} {userProfile.disposableIncome?.toLocaleString() || '0'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Disposable Income
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+                {/* Summary Cards */}
+                <Grid container spacing={2} sx={{ mt: 3 }}>
+                  <Grid item xs={12} sm={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" color="primary">
+                          USD {incomeSources.reduce((total, source) => total + (source.monthlyAmount || 0), 0).toLocaleString()}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Monthly Income
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" color="success.main">
+                          {incomeSources.filter(source => source.isActive).length}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Active Sources
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" color="warning.main">
+                          {incomeSources.filter(source => source.category?.toLowerCase() === 'primary').length}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Primary Sources
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h6" color="info.main">
+                          {incomeSources.length}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Sources
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+              </>
+            )}
           </Paper>
         </Grid>
-      )}
 
       {/* Profile Setup Dialog - Only show if user doesn't have active profile data */}
       <Dialog 
@@ -1419,6 +1557,156 @@ const Settings: React.FC = () => {
             startIcon={editLoading ? <CircularProgress size={20} /> : <SaveIcon />}
           >
             {editLoading ? 'Updating Profile...' : 'Update Profile'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Income Source Dialog */}
+      <Dialog 
+        open={showAddIncomeDialog} 
+        onClose={() => {
+          setShowAddIncomeDialog(false);
+          resetIncomeSourceForm();
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Add Income Source
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Add a new income source to your financial profile
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {incomeSourceSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {incomeSourceSuccess}
+            </Alert>
+          )}
+
+          {incomeSourceError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {incomeSourceError}
+            </Alert>
+          )}
+
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                id="income-name"
+                label="Income Source Name"
+                name="name"
+                value={incomeSourceFormData.name}
+                onChange={handleIncomeSourceInputChange}
+                placeholder="e.g., Company Salary, Freelance Work"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                required
+                fullWidth
+                id="income-amount"
+                label="Amount"
+                name="amount"
+                type="number"
+                value={incomeSourceFormData.amount}
+                onChange={handleIncomeSourceInputChange}
+                inputProps={{ min: 0, step: 0.01 }}
+                placeholder="0.00"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Frequency</InputLabel>
+                <Select
+                  name="frequency"
+                  value={incomeSourceFormData.frequency}
+                  label="Frequency"
+                  onChange={handleIncomeSourceSelectChange}
+                >
+                  {frequencyOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  name="category"
+                  value={incomeSourceFormData.category}
+                  label="Category"
+                  onChange={handleIncomeSourceSelectChange}
+                >
+                  {categoryOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="income-company"
+                label="Company"
+                name="company"
+                value={incomeSourceFormData.company}
+                onChange={handleIncomeSourceInputChange}
+                placeholder="Company or organization name"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="income-currency"
+                label="Currency"
+                name="currency"
+                value={incomeSourceFormData.currency}
+                onChange={handleIncomeSourceInputChange}
+                placeholder="USD"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                id="income-description"
+                label="Description"
+                name="description"
+                multiline
+                rows={3}
+                value={incomeSourceFormData.description}
+                onChange={handleIncomeSourceInputChange}
+                placeholder="Additional details about this income source..."
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowAddIncomeDialog(false);
+              resetIncomeSourceForm();
+            }}
+            disabled={incomeSourceLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateIncomeSource}
+            variant="contained"
+            disabled={incomeSourceLoading}
+            startIcon={incomeSourceLoading ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            {incomeSourceLoading ? 'Creating...' : 'Add Income Source'}
           </Button>
         </DialogActions>
       </Dialog>

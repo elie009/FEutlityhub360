@@ -625,7 +625,7 @@ const TransactionsPage: React.FC = () => {
                   <TableCell>
                     <Chip 
                       label={transaction.transactionType} 
-                      color={transaction.transactionType === 'credit' ? 'success' : 'error'}
+                      color={(transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? 'success' : 'error'}
                       size="small"
                     />
                   </TableCell>
@@ -634,10 +634,10 @@ const TransactionsPage: React.FC = () => {
                       variant="body2" 
                       sx={{ 
                         fontWeight: 'bold',
-                        color: transaction.transactionType === 'credit' ? 'success.main' : 'error.main'
+                        color: (transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? 'success.main' : 'error.main'
                       }}
                     >
-                      {transaction.transactionType === 'credit' ? '+' : '-'}
+                      {(transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? '+' : '-'}
                       {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
                     </Typography>
                   </TableCell>
