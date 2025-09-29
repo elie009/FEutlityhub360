@@ -260,12 +260,12 @@ export const mockSavingsDataService = {
     mockSavingsTransactions = mockSavingsTransactions.filter(txn => txn.savingsAccountId !== accountId);
   },
 
-  // Create a savings transaction
+  // Create a savings transaction (simulates creating both SavingsTransaction and Payment records)
   async createSavingsTransaction(transactionData: {
     savingsAccountId: string;
-    sourceBankAccountId: string;
+    sourceBankAccountId?: string;
     amount: number;
-    transactionType: string;
+    transactionType: 'DEPOSIT' | 'WITHDRAWAL';
     description: string;
     category?: string;
     notes?: string;
@@ -273,8 +273,47 @@ export const mockSavingsDataService = {
     currency?: string;
     isRecurring?: boolean;
     recurringFrequency?: string;
+    method?: string;
   }): Promise<SavingsTransaction> {
     await delay(500);
+    
+    // Validate transaction
+    if (transactionData.amount < 0.01) {
+      throw new Error('Amount must be at least 0.01');
+    }
+    
+    // Validate payment method
+    const validMethods = ['bank transaction', 'cash'];
+    if (transactionData.method && !validMethods.includes(transactionData.method.toLowerCase())) {
+      throw new Error('Invalid payment method. Must be "bank transaction" or "cash"');
+    }
+    
+    // Check if accounts exist
+    const savingsAccount = mockSavingsAccounts.find(acc => acc.id === transactionData.savingsAccountId);
+    if (!savingsAccount) {
+      throw new Error('Savings account not found');
+    }
+    
+    // For bank transactions, validate bank account and balance
+    if (transactionData.method === 'bank transaction') {
+      // Validate that sourceBankAccountId is provided for bank transactions
+      if (!transactionData.sourceBankAccountId) {
+        throw new Error('Bank account ID is required for bank transactions');
+      }
+      
+      // Simulate bank account validation (in real implementation, this would check actual bank accounts)
+      // For now, we'll assume the bank account exists and has sufficient balance
+      
+      // Check sufficient balance for withdrawals
+      if (transactionData.transactionType === 'WITHDRAWAL' && savingsAccount.currentBalance < transactionData.amount) {
+        throw new Error('Insufficient balance in savings account');
+      }
+    }
+    
+    // For cash transactions, only check savings account balance for withdrawals
+    if (transactionData.method === 'cash' && transactionData.transactionType === 'WITHDRAWAL' && savingsAccount.currentBalance < transactionData.amount) {
+      throw new Error('Insufficient balance in savings account');
+    }
     
     const newTransaction: SavingsTransaction = {
       id: `savings-txn-${Date.now()}`,
@@ -311,6 +350,10 @@ export const mockSavingsDataService = {
       account.monthlyTarget = account.remainingAmount / Math.max(1, Math.ceil(account.daysRemaining / 30));
       account.updatedAt = new Date().toISOString();
     }
+    
+    // In a real implementation, this would also create a Payment record
+    // For now, we'll just return the savings transaction
+    // The Payment record would be created automatically by the backend
     
     return newTransaction;
   },

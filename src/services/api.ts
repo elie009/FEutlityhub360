@@ -1128,7 +1128,7 @@ class ApiService {
     amount: number;
     transactionType: 'DEBIT' | 'CREDIT';
     description: string;
-    category: string;
+    category?: string;
     merchant?: string;
     location?: string;
     transactionDate: string;
@@ -1279,12 +1279,12 @@ class ApiService {
     });
   }
 
-  // Create a savings transaction
+  // Create a savings transaction (creates both SavingsTransaction and Payment records)
   async createSavingsTransaction(transactionData: {
     savingsAccountId: string;
-    sourceBankAccountId: string;
+    sourceBankAccountId?: string;
     amount: number;
-    transactionType: string;
+    transactionType: 'DEPOSIT' | 'WITHDRAWAL';
     description: string;
     category?: string;
     notes?: string;
@@ -1292,11 +1292,12 @@ class ApiService {
     currency?: string;
     isRecurring?: boolean;
     recurringFrequency?: string;
+    method?: string;
   }): Promise<any> {
     if (isMockDataEnabled()) {
       return mockDataService.createSavingsTransaction(transactionData);
     }
-    const response = await this.request<any>('/savings/transactions', {
+    const response = await this.request<any>('/Savings/transactions', {
       method: 'POST',
       body: JSON.stringify(transactionData),
     });

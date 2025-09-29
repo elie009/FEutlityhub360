@@ -102,6 +102,7 @@ export const validateTransactionForm = (formData: {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  transactionType?: 'DEBIT' | 'CREDIT';
 }): string[] => {
   const errors: string[] = [];
   
@@ -109,19 +110,25 @@ export const validateTransactionForm = (formData: {
   if (!formData.bankAccountId) errors.push('Bank account is required');
   if (!formData.amount || formData.amount <= 0) errors.push('Amount must be greater than 0');
   if (!formData.description) errors.push('Description is required');
-  if (!formData.category) errors.push('Category is required');
   
-  // Category-specific validation
-  if (isBillCategory(formData.category) && !formData.billId) {
-    errors.push('Bill selection is required for bill-related transactions');
+  // Category is only required for DEBIT transactions
+  if (formData.transactionType !== 'CREDIT' && !formData.category) {
+    errors.push('Category is required for debit transactions');
   }
   
-  if (isSavingsCategory(formData.category) && !formData.savingsAccountId) {
-    errors.push('Savings account selection is required for savings-related transactions');
-  }
-  
-  if (isLoanCategory(formData.category) && !formData.loanId) {
-    errors.push('Loan selection is required for loan-related transactions');
+  // Category-specific validation (only for DEBIT transactions with category)
+  if (formData.transactionType !== 'CREDIT' && formData.category) {
+    if (isBillCategory(formData.category) && !formData.billId) {
+      errors.push('Bill selection is required for bill-related transactions');
+    }
+    
+    if (isSavingsCategory(formData.category) && !formData.savingsAccountId) {
+      errors.push('Savings account selection is required for savings-related transactions');
+    }
+    
+    if (isLoanCategory(formData.category) && !formData.loanId) {
+      errors.push('Loan selection is required for loan-related transactions');
+    }
   }
   
   return errors;

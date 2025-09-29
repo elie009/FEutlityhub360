@@ -82,6 +82,7 @@ const Savings: React.FC = () => {
     amount: '',
     description: '',
     transferType: 'deposit' as 'deposit' | 'withdrawal',
+    method: 'bank transaction' as 'bank transaction' | 'cash',
   });
 
   const [formLoading, setFormLoading] = useState(false);
@@ -202,7 +203,7 @@ const Savings: React.FC = () => {
     }
   };
 
-  // Handle transfer
+  // Handle transfer using the new unified savings transaction API
   const handleTransfer = async () => {
     if (!selectedAccount) return;
 
@@ -210,21 +211,24 @@ const Savings: React.FC = () => {
       setFormLoading(true);
       setError('');
 
-      if (transferData.transferType === 'deposit') {
-        await apiService.transferBankToSavings({
-          bankAccountId: transferData.bankAccountId,
-          savingsAccountId: selectedAccount.id,
-          amount: parseFloat(transferData.amount),
-          description: transferData.description,
-        });
-      } else {
-        await apiService.transferSavingsToBank({
-          savingsAccountId: selectedAccount.id,
-          bankAccountId: transferData.bankAccountId,
-          amount: parseFloat(transferData.amount),
-          description: transferData.description,
-        });
+      // Use the new unified savings transaction API
+      const transactionData: any = {
+        savingsAccountId: selectedAccount.id,
+        amount: parseFloat(transferData.amount),
+        transactionType: transferData.transferType === 'deposit' ? 'DEPOSIT' : 'WITHDRAWAL',
+        description: transferData.description,
+        category: 'TRANSFER',
+        currency: 'USD',
+        method: transferData.method,
+        notes: `${transferData.transferType === 'deposit' ? 'Deposit to' : 'Withdrawal from'} savings account via ${transferData.method}`
+      };
+
+      // Only include sourceBankAccountId for bank transactions
+      if (transferData.method === 'bank transaction') {
+        transactionData.sourceBankAccountId = transferData.bankAccountId;
       }
+
+      await apiService.createSavingsTransaction(transactionData);
 
       setSuccess(`Transfer ${transferData.transferType} completed successfully!`);
       setShowTransferDialog(false);
@@ -232,7 +236,14 @@ const Savings: React.FC = () => {
       resetTransferForm();
       await loadData();
     } catch (err: any) {
-      setError(err.message || 'Failed to process transfer');
+      // Handle specific error messages
+      if (err.message.includes('Insufficient balance')) {
+        setError('Not enough funds available for this transaction');
+      } else if (err.message.includes('not found')) {
+        setError('Account not found. Please refresh and try again.');
+      } else {
+        setError(err.message || 'Failed to process transfer');
+      }
     } finally {
       setFormLoading(false);
     }
@@ -256,6 +267,7 @@ const Savings: React.FC = () => {
       amount: '',
       description: '',
       transferType: 'deposit',
+      method: 'bank transaction',
     });
   };
 
@@ -319,6 +331,7 @@ const Savings: React.FC = () => {
       amount: '',
       description: '',
       transferType: 'deposit',
+      method: 'bank transaction',
     });
     setShowTransferDialog(true);
     handleMenuClose();
@@ -809,20 +822,35 @@ const Savings: React.FC = () => {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <FormControl fullWidth required>
-                <InputLabel>Bank Account</InputLabel>
+                <InputLabel>Payment Method</InputLabel>
                 <Select
-                  value={transferData.bankAccountId}
-                  onChange={(e) => setTransferData({ ...transferData, bankAccountId: e.target.value })}
-                  label="Bank Account"
+                  value={transferData.method}
+                  onChange={(e) => setTransferData({ ...transferData, method: e.target.value as 'bank transaction' | 'cash' })}
+                  label="Payment Method"
                 >
-                  {bankAccounts.map((account) => (
-                    <MenuItem key={account.id} value={account.id}>
-                      {account.accountName} - {formatCurrency(account.currentBalance)}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="bank transaction">Bank Transaction</MenuItem>
+                  <MenuItem value="cash">Cash</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
+            {transferData.method === 'bank transaction' && (
+              <Grid item xs={12}>
+                <FormControl fullWidth required>
+                  <InputLabel>Bank Account</InputLabel>
+                  <Select
+                    value={transferData.bankAccountId}
+                    onChange={(e) => setTransferData({ ...transferData, bankAccountId: e.target.value })}
+                    label="Bank Account"
+                  >
+                    {bankAccounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.accountName} - {formatCurrency(account.currentBalance)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
             <Grid item xs={12}>
               <TextField
                 fullWidth

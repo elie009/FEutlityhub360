@@ -786,9 +786,9 @@ export const mockDataService = {
   // Create a savings transaction
   async createSavingsTransaction(transactionData: {
     savingsAccountId: string;
-    sourceBankAccountId: string;
+    sourceBankAccountId?: string;
     amount: number;
-    transactionType: string;
+    transactionType: 'DEPOSIT' | 'WITHDRAWAL';
     description: string;
     category?: string;
     notes?: string;
@@ -796,6 +796,7 @@ export const mockDataService = {
     currency?: string;
     isRecurring?: boolean;
     recurringFrequency?: string;
+    method?: string;
   }): Promise<any> {
     const { mockSavingsDataService } = await import('./mockSavingsData');
     return mockSavingsDataService.createSavingsTransaction(transactionData);

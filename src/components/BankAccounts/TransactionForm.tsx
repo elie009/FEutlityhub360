@@ -188,10 +188,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleSelectChange = (field: string) => (event: SelectChangeEvent<string>) => {
+    const value = event.target.value;
     setFormData(prev => ({
       ...prev,
-      [field]: event.target.value,
+      [field]: value,
     }));
+
+    // If transaction type changes to CREDIT, clear category and hide selectors
+    if (field === 'transactionType' && value === 'CREDIT') {
+      setFormData(prev => ({
+        ...prev,
+        category: '',
+        billId: '',
+        savingsAccountId: '',
+        loanId: '',
+      }));
+      setShowBillSelector(false);
+      setShowSavingsSelector(false);
+      setShowLoanSelector(false);
+    }
   };
 
   const handleCategoryChange = (category: string) => {
@@ -228,6 +243,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       billId: formData.billId,
       savingsAccountId: formData.savingsAccountId,
       loanId: formData.loanId,
+      transactionType: formData.transactionType,
     });
 
     if (validationErrors.length > 0) {
@@ -239,10 +255,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
     try {
       // Generate enhanced description based on category and reference
-      const categoryType = getCategoryType(formData.category);
+      const categoryType = formData.category ? getCategoryType(formData.category) : 'other';
       const enhancedDescription = generateEnhancedDescription(
         formData.description.trim(),
-        formData.category,
+        formData.category || '',
         categoryType === 'other' ? undefined : categoryType,
         undefined // We could pass reference names here if needed
       );
@@ -252,7 +268,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
         description: enhancedDescription,
-        category: formData.category,
+        category: formData.transactionType === 'CREDIT' ? undefined : formData.category,
         merchant: formData.merchant.trim() || undefined,
         location: formData.location.trim() || undefined,
         transactionDate: new Date(formData.transactionDate).toISOString(),
@@ -341,37 +357,39 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                freeSolo
-                options={ALL_CATEGORIES}
-                value={formData.category}
-                onInputChange={(event, newValue) => {
-                  if (newValue) {
-                    handleCategoryChange(newValue);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Category"
-                    required
-                    placeholder="Type or select a category"
-                    helperText="Categories like 'utility', 'savings', 'loan payment' will show additional options"
-                  />
-                )}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip
-                      variant="outlined"
-                      label={option}
-                      {...getTagProps({ index })}
-                      key={option}
+            {formData.transactionType !== 'CREDIT' && (
+              <Grid item xs={12} sm={6}>
+                <Autocomplete
+                  freeSolo
+                  options={ALL_CATEGORIES}
+                  value={formData.category}
+                  onInputChange={(event, newValue) => {
+                    if (newValue) {
+                      handleCategoryChange(newValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Category"
+                      required
+                      placeholder="Type or select a category"
+                      helperText="Categories like 'utility', 'savings', 'loan payment' will show additional options"
                     />
-                  ))
-                }
-              />
-            </Grid>
+                  )}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        variant="outlined"
+                        label={option}
+                        {...getTagProps({ index })}
+                        key={option}
+                      />
+                    ))
+                  }
+                />
+              </Grid>
+            )}
 
             {/* Reference Number Field */}
             <Grid item xs={12} sm={6}>

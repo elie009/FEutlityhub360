@@ -61,7 +61,7 @@ export interface SavingsAccount {
 export interface SavingsTransaction {
   id: string;
   savingsAccountId: string;
-  sourceBankAccountId: string;
+  sourceBankAccountId?: string;
   amount: number;
   transactionType: SavingsTransactionType;
   description: string;
@@ -96,7 +96,7 @@ export interface UpdateSavingsAccountRequest {
 
 export interface CreateSavingsTransactionRequest {
   savingsAccountId: string;
-  sourceBankAccountId: string;
+  sourceBankAccountId?: string;
   amount: number;
   transactionType: SavingsTransactionType;
   description: string;
@@ -106,6 +106,7 @@ export interface CreateSavingsTransactionRequest {
   currency?: string;
   isRecurring?: boolean;
   recurringFrequency?: string;
+  method?: string;
 }
 
 export interface SavingsSummary {
