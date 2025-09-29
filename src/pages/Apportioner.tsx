@@ -441,11 +441,15 @@ const Apportioner: React.FC = () => {
             
             {/* X-axis labels */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, px: 1 }}>
-              {[0, 2000, 4000, 6000, 8000, 10000].map((value) => (
-                <Typography key={value} variant="caption" color="text.secondary">
-                  {formatCurrency(value)}
-                </Typography>
-              ))}
+              {(() => {
+                const maxValue = Math.max(adjustableValues.monthlyIncome, 1000);
+                const step = maxValue / 5;
+                return [0, step, step * 2, step * 3, step * 4, maxValue].map((value) => (
+                  <Typography key={value} variant="caption" color="text.secondary">
+                    {formatCurrency(Math.round(value))}
+                  </Typography>
+                ));
+              })()}
             </Box>
             
             {/* Interactive Bar Chart */}
@@ -462,7 +466,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlyIncome / 10000) * 100, 100)}%`,
+                        width: `${Math.min((adjustableValues.monthlyIncome / Math.max(adjustableValues.monthlyIncome, 1000)) * 100, 100)}%`,
                         bgcolor: 'success.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -480,8 +484,8 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyIncome}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyIncome', value as number)}
                       min={0}
-                      max={10000}
-                      step={100}
+                      max={Math.max(adjustableValues.monthlyIncome, 1000)}
+                      step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -519,7 +523,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlyExpenses / 10000) * 100, 100)}%`,
+                        width: `${Math.min((adjustableValues.monthlyExpenses / Math.max(adjustableValues.monthlyIncome, 1000)) * 100, 100)}%`,
                         bgcolor: 'error.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -537,8 +541,8 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyExpenses}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyExpenses', value as number)}
                       min={0}
-                      max={10000}
-                      step={100}
+                      max={Math.max(adjustableValues.monthlyIncome, 1000)}
+                      step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -570,14 +574,15 @@ const Apportioner: React.FC = () => {
                   <Typography variant="body2" sx={{ minWidth: 120, fontWeight: 'bold' }}>
                     Monthly Savings
                   </Typography>
+              
                   <Box sx={{ flex: 1, position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
                     <Box
                       sx={{
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlySavings / 10000) * 100, 100)}%`,
-                        bgcolor: 'primary.main',
+                        width: `${Math.min((Math.abs(adjustableValues.monthlySavings) / Math.max(adjustableValues.monthlyIncome, 1000)) * 100, 100)}%`,
+                        bgcolor: adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main',
                         borderRadius: '10px',
                         display: 'flex',
                         alignItems: 'center',
@@ -591,11 +596,14 @@ const Apportioner: React.FC = () => {
                       </Typography>
                     </Box>
                     <Slider
-                      value={adjustableValues.monthlySavings}
-                      onChange={(_, value) => handleAdjustableValueChange('monthlySavings', value as number)}
+                      value={Math.abs(adjustableValues.monthlySavings)}
+                      onChange={(_, value) => {
+                        const newValue = adjustableValues.monthlySavings >= 0 ? value as number : -(value as number);
+                        handleAdjustableValueChange('monthlySavings', newValue);
+                      }}
                       min={0}
-                      max={10000}
-                      step={100}
+                      max={Math.max(adjustableValues.monthlyIncome, 1000)}
+                      step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -603,10 +611,12 @@ const Apportioner: React.FC = () => {
                         '& .MuiSlider-thumb': {
                           width: 20,
                           height: 20,
-                          bgcolor: 'primary.main',
+                          bgcolor: adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main',
                           border: '2px solid white',
                           '&:hover': {
-                            boxShadow: '0 0 0 8px rgba(177, 229, 153, 0.16)',
+                            boxShadow: adjustableValues.monthlySavings >= 0 
+                              ? '0 0 0 8px rgba(25, 118, 210, 0.16)' 
+                              : '0 0 0 8px rgba(244, 67, 54, 0.16)',
                           },
                         },
                         '& .MuiSlider-track': {
