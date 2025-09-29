@@ -41,6 +41,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   Savings as SavingsIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 import { SavingsAccount, SavingsType, SavingsSummary } from '../types/savings';
@@ -58,7 +59,9 @@ const Savings: React.FC = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [showTransactionHistoryDialog, setShowTransactionHistoryDialog] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<SavingsAccount | null>(null);
+  const [accountWithTransactions, setAccountWithTransactions] = useState<any>(null);
 
   // Menu states
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -265,6 +268,34 @@ const Savings: React.FC = () => {
   const handleMenuClose = () => {
     setAnchorEl(null);
     setMenuAccount(null);
+  };
+
+  // Handle view transaction history
+  const handleViewTransactions = async (account: SavingsAccount) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Get account details and transactions separately
+      const [accountData, transactionsData] = await Promise.all([
+        apiService.getSavingsAccount(account.id),
+        apiService.getSavingsTransactions(account.id)
+      ]);
+      
+      // Combine account data with transactions
+      const accountWithTransactions = {
+        ...accountData,
+        transactions: transactionsData
+      };
+      
+      setAccountWithTransactions(accountWithTransactions);
+      setShowTransactionHistoryDialog(true);
+      handleMenuClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to load transaction history');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditClick = (account: SavingsAccount) => {
@@ -836,6 +867,10 @@ const Savings: React.FC = () => {
           <EditIcon sx={{ mr: 1 }} />
           Edit Account
         </MenuItem>
+        <MenuItem onClick={() => menuAccount && handleViewTransactions(menuAccount)}>
+          <HistoryIcon sx={{ mr: 1 }} />
+          View Transactions
+        </MenuItem>
         <MenuItem onClick={() => menuAccount && handleTransferClick(menuAccount)}>
           <AttachMoneyIcon sx={{ mr: 1 }} />
           Transfer Money
@@ -849,6 +884,136 @@ const Savings: React.FC = () => {
           Delete Account
         </MenuItem>
       </Menu>
+
+      {/* Transaction History Dialog */}
+      <Dialog 
+        open={showTransactionHistoryDialog} 
+        onClose={() => setShowTransactionHistoryDialog(false)} 
+        maxWidth="lg" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <HistoryIcon sx={{ mr: 1 }} />
+            Transaction History - {accountWithTransactions?.accountName}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {accountWithTransactions && (
+            <Box>
+              {/* Account Summary */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="h6" gutterBottom>
+                        Account Details
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Type:</strong> {accountWithTransactions.savingsType?.replace('_', ' ')}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Current Balance:</strong> ${accountWithTransactions.currentBalance?.toFixed(2)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Target Amount:</strong> ${accountWithTransactions.targetAmount?.toFixed(2)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="h6" gutterBottom>
+                        Progress
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Progress:</strong> {accountWithTransactions.progressPercentage?.toFixed(1)}%
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Remaining:</strong> ${accountWithTransactions.remainingAmount?.toFixed(2)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Days Left:</strong> {accountWithTransactions.daysRemaining}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+
+              {/* Transactions Table */}
+              <Typography variant="h6" gutterBottom>
+                Transaction History
+              </Typography>
+              {accountWithTransactions.transactions && Array.isArray(accountWithTransactions.transactions) && accountWithTransactions.transactions.length > 0 ? (
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell>Category</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Currency</TableCell>
+                        <TableCell>Notes</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {accountWithTransactions.transactions.map((transaction: any) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell>
+                            {new Date(transaction.transactionDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={transaction.transactionType}
+                              size="small"
+                              color={transaction.transactionType === 'DEPOSIT' ? 'success' : 'error'}
+                            />
+                          </TableCell>
+                          <TableCell>{transaction.description}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={transaction.category?.replace('_', ' ')}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              color={transaction.transactionType === 'DEPOSIT' ? 'success.main' : 'error.main'}
+                              fontWeight="bold"
+                            >
+                              {transaction.transactionType === 'DEPOSIT' ? '+' : '-'}${transaction.amount?.toFixed(2)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={transaction.currency}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>{transaction.notes || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Box textAlign="center" py={4}>
+                  <Typography variant="body1" color="text.secondary">
+                    No transactions found for this account.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowTransactionHistoryDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

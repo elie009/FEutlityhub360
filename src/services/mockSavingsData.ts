@@ -155,8 +155,8 @@ export const mockSavingsDataService = {
     };
   },
 
-  // Get a specific savings account
-  async getSavingsAccount(accountId: string): Promise<SavingsAccount> {
+  // Get a specific savings account with transactions
+  async getSavingsAccount(accountId: string): Promise<SavingsAccount & { transactions?: SavingsTransaction[] }> {
     await delay(300);
     
     const account = mockSavingsAccounts.find(acc => acc.id === accountId);
@@ -164,7 +164,13 @@ export const mockSavingsDataService = {
       throw new Error('Savings account not found');
     }
     
-    return account;
+    // Get transactions for this account
+    const transactions = mockSavingsTransactions.filter(txn => txn.savingsAccountId === accountId);
+    
+    return {
+      ...account,
+      transactions: transactions
+    };
   },
 
   // Create a new savings account

@@ -1240,7 +1240,7 @@ class ApiService {
     }
   }
 
-  // Get a specific savings account
+  // Get a specific savings account with transactions
   async getSavingsAccount(accountId: string): Promise<any> {
     if (isMockDataEnabled()) {
       return mockDataService.getSavingsAccount(accountId);
@@ -1320,7 +1320,7 @@ class ApiService {
     if (filters?.startDate) queryParams.append('startDate', filters.startDate);
     if (filters?.endDate) queryParams.append('endDate', filters.endDate);
     
-    const endpoint = `/savings/accounts/${accountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/Savings/accounts/${accountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await this.request<any>(endpoint);
     return response.data;
   }
