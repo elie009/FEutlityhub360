@@ -18,6 +18,10 @@ export interface BankAccountTransaction {
   recurringFrequency?: string;
   currency: string;
   balanceAfterTransaction: number;
+  // NEW: Reference Fields for Smart Linking
+  billId?: string;           // For bill-related transactions
+  savingsAccountId?: string; // For savings-related transactions
+  loanId?: string;           // For loan-related transactions
 }
 
 export interface TransactionFilters {

@@ -1135,6 +1135,13 @@ class ApiService {
     notes?: string;
     isRecurring?: boolean;
     recurringFrequency?: string;
+    referenceNumber?: string;
+    externalTransactionId?: string;
+    currency?: string;
+    // NEW: Reference Fields for Smart Linking
+    billId?: string;           // For bill-related transactions
+    savingsAccountId?: string; // For savings-related transactions
+    loanId?: string;           // For loan-related transactions
   }): Promise<BankAccountTransaction> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
