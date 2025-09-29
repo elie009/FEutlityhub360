@@ -398,7 +398,7 @@ export const mockTransactionDataService = {
       amount: amount,
       transactionType: transactionData.transactionType.toLowerCase() as 'debit' | 'credit',
       description: transactionData.description,
-      category: transactionData.category?.toLowerCase() || 'other',
+      category: transactionData.transactionType === 'CREDIT' ? 'credit' : (transactionData.category?.toLowerCase() || 'other'),
       referenceNumber: transactionData.referenceNumber || `REF-${Date.now()}`,
       externalTransactionId: transactionData.externalTransactionId || `EXT-${Date.now()}`,
       transactionDate: transactionData.transactionDate,

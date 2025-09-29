@@ -268,7 +268,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
         description: enhancedDescription,
-        category: formData.transactionType === 'CREDIT' ? undefined : formData.category,
+        category: formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category,
         merchant: formData.merchant.trim() || undefined,
         location: formData.location.trim() || undefined,
         transactionDate: new Date(formData.transactionDate).toISOString(),

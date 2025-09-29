@@ -111,7 +111,7 @@ export const validateTransactionForm = (formData: {
   if (!formData.amount || formData.amount <= 0) errors.push('Amount must be greater than 0');
   if (!formData.description) errors.push('Description is required');
   
-  // Category is only required for DEBIT transactions
+  // Category is only required for DEBIT transactions (CREDIT transactions get category automatically set)
   if (formData.transactionType !== 'CREDIT' && !formData.category) {
     errors.push('Category is required for debit transactions');
   }
