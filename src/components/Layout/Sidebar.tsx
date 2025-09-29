@@ -26,6 +26,7 @@ import {
   AttachMoney as FinanceIcon,
   TrendingUp as ApportionerIcon,
   AccountBalance as BankAccountIcon,
+  Savings as SavingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -47,6 +48,7 @@ const menuItems: MenuItem[] = [
       { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
       { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
       { text: 'Bank Accounts', icon: <BankAccountIcon />, path: '/bank-accounts' },
+      { text: 'Savings', icon: <SavingsIcon />, path: '/savings' },
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
     ],
   },

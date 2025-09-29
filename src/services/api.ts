@@ -1176,6 +1176,211 @@ class ApiService {
     }
     return response;
   }
+
+  // ==================== SAVINGS MANAGEMENT APIs ====================
+
+  // Create a new savings account
+  async createSavingsAccount(accountData: {
+    accountName: string;
+    savingsType: string;
+    targetAmount: number;
+    description?: string;
+    goal?: string;
+    targetDate: string;
+    currency?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.createSavingsAccount(user?.id || 'demo-user-123', accountData);
+    }
+    const response = await this.request<any>('/savings/accounts', {
+      method: 'POST',
+      body: JSON.stringify(accountData),
+    });
+    return response.data;
+  }
+
+  // Get all savings accounts for the authenticated user
+  async getSavingsAccounts(filters?: {
+    savingsType?: string;
+    isActive?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.getSavingsAccounts(user?.id || 'demo-user-123', filters);
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (filters?.savingsType) queryParams.append('savingsType', filters.savingsType);
+    if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString());
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    
+    const endpoint = `/savings/accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    return response.data;
+  }
+
+  // Get a specific savings account
+  async getSavingsAccount(accountId: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getSavingsAccount(accountId);
+    }
+    const response = await this.request<any>(`/savings/accounts/${accountId}`);
+    return response.data;
+  }
+
+  // Update a savings account
+  async updateSavingsAccount(accountId: string, accountData: {
+    accountName?: string;
+    savingsType?: string;
+    targetAmount?: number;
+    description?: string;
+    goal?: string;
+    targetDate?: string;
+    currency?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateSavingsAccount(accountId, accountData);
+    }
+    const response = await this.request<any>(`/savings/accounts/${accountId}`, {
+      method: 'PUT',
+      body: JSON.stringify(accountData),
+    });
+    return response.data;
+  }
+
+  // Delete a savings account
+  async deleteSavingsAccount(accountId: string): Promise<void> {
+    if (isMockDataEnabled()) {
+      return mockDataService.deleteSavingsAccount(accountId);
+    }
+    await this.request<void>(`/savings/accounts/${accountId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Create a savings transaction
+  async createSavingsTransaction(transactionData: {
+    savingsAccountId: string;
+    sourceBankAccountId: string;
+    amount: number;
+    transactionType: string;
+    description: string;
+    category?: string;
+    notes?: string;
+    transactionDate?: string;
+    currency?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.createSavingsTransaction(transactionData);
+    }
+    const response = await this.request<any>('/savings/transactions', {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+    return response.data;
+  }
+
+  // Get savings transactions for an account
+  async getSavingsTransactions(accountId: string, filters?: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getSavingsTransactions(accountId, filters);
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    if (filters?.startDate) queryParams.append('startDate', filters.startDate);
+    if (filters?.endDate) queryParams.append('endDate', filters.endDate);
+    
+    const endpoint = `/savings/accounts/${accountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    return response.data;
+  }
+
+  // Get savings summary
+  async getSavingsSummary(): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.getSavingsSummary(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/savings/summary');
+    return response.data;
+  }
+
+  // Get savings analytics
+  async getSavingsAnalytics(period?: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.getSavingsAnalytics(user?.id || 'demo-user-123', period);
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (period) queryParams.append('period', period);
+    
+    const endpoint = `/savings/analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    return response.data;
+  }
+
+  // Transfer from bank to savings
+  async transferBankToSavings(transferData: {
+    bankAccountId: string;
+    savingsAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.transferBankToSavings(transferData);
+    }
+    const response = await this.request<any>('/savings/transfer/bank-to-savings', {
+      method: 'POST',
+      body: JSON.stringify(transferData),
+    });
+    return response.data;
+  }
+
+  // Transfer from savings to bank
+  async transferSavingsToBank(transferData: {
+    savingsAccountId: string;
+    bankAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.transferSavingsToBank(transferData);
+    }
+    const response = await this.request<any>('/savings/transfer/savings-to-bank', {
+      method: 'POST',
+      body: JSON.stringify(transferData),
+    });
+    return response.data;
+  }
+
+  // Update savings goal
+  async updateSavingsGoal(accountId: string, goalData: {
+    targetAmount: number;
+    targetDate: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateSavingsGoal(accountId, goalData);
+    }
+    const response = await this.request<any>(`/savings/accounts/${accountId}/goal`, {
+      method: 'PUT',
+      body: JSON.stringify(goalData),
+    });
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

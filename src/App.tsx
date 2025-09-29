@@ -18,6 +18,7 @@ import Settings from './pages/Settings';
 import Transactions from './pages/Transactions';
 import Apportioner from './pages/Apportioner';
 import BankAccounts from './pages/BankAccounts';
+import Savings from './pages/Savings';
 import LoanDashboard from './components/Loans/LoanDashboard';
 import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
@@ -93,6 +94,11 @@ const AppRoutes: React.FC = () => {
           <Route path="bank-accounts" element={
             <ProfileProtectedRoute>
               <BankAccounts />
+            </ProfileProtectedRoute>
+          } />
+          <Route path="savings" element={
+            <ProfileProtectedRoute>
+              <Savings />
             </ProfileProtectedRoute>
           } />
           <Route path="loans" element={

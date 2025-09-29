@@ -729,4 +729,130 @@ export const mockDataService = {
     };
   },
 
+  // ==================== SAVINGS MANAGEMENT METHODS ====================
+
+  // Create a new savings account
+  async createSavingsAccount(userId: string, accountData: {
+    accountName: string;
+    savingsType: string;
+    targetAmount: number;
+    description?: string;
+    goal?: string;
+    targetDate: string;
+    currency?: string;
+  }): Promise<any> {
+    // Import the mock savings data service
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.createSavingsAccount(userId, accountData);
+  },
+
+  // Get all savings accounts for a user
+  async getSavingsAccounts(userId: string, filters?: {
+    savingsType?: string;
+    isActive?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsAccounts(userId, filters);
+  },
+
+  // Get a specific savings account
+  async getSavingsAccount(accountId: string): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsAccount(accountId);
+  },
+
+  // Update a savings account
+  async updateSavingsAccount(accountId: string, accountData: {
+    accountName?: string;
+    savingsType?: string;
+    targetAmount?: number;
+    description?: string;
+    goal?: string;
+    targetDate?: string;
+    currency?: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.updateSavingsAccount(accountId, accountData);
+  },
+
+  // Delete a savings account
+  async deleteSavingsAccount(accountId: string): Promise<void> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.deleteSavingsAccount(accountId);
+  },
+
+  // Create a savings transaction
+  async createSavingsTransaction(transactionData: {
+    savingsAccountId: string;
+    sourceBankAccountId: string;
+    amount: number;
+    transactionType: string;
+    description: string;
+    category?: string;
+    notes?: string;
+    transactionDate?: string;
+    currency?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.createSavingsTransaction(transactionData);
+  },
+
+  // Get savings transactions for an account
+  async getSavingsTransactions(accountId: string, filters?: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsTransactions(accountId, filters);
+  },
+
+  // Get savings summary
+  async getSavingsSummary(userId: string): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsSummary(userId);
+  },
+
+  // Get savings analytics
+  async getSavingsAnalytics(userId: string, period?: string): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsAnalytics(userId, period);
+  },
+
+  // Transfer from bank to savings
+  async transferBankToSavings(transferData: {
+    bankAccountId: string;
+    savingsAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.transferBankToSavings(transferData);
+  },
+
+  // Transfer from savings to bank
+  async transferSavingsToBank(transferData: {
+    savingsAccountId: string;
+    bankAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.transferSavingsToBank(transferData);
+  },
+
+  // Update savings goal
+  async updateSavingsGoal(accountId: string, goalData: {
+    targetAmount: number;
+    targetDate: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.updateSavingsGoal(accountId, goalData);
+  }
+
 };
