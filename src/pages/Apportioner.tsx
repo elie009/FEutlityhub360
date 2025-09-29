@@ -177,9 +177,27 @@ const Apportioner: React.FC = () => {
     setAdjustableValues(prev => {
       const newValues = { ...prev, [key]: value };
       
-      // Auto-calculate savings when income or expenses change
-      if (key === 'monthlyIncome' || key === 'monthlyExpenses') {
-        newValues.monthlySavings = Math.max(0, newValues.monthlyIncome - newValues.monthlyExpenses);
+      // Auto-adjust expenses and savings to always add up to income
+      if (key === 'monthlyIncome') {
+        // When income changes, keep the same ratio of expenses to savings
+        const totalCurrent = prev.monthlyExpenses + Math.abs(prev.monthlySavings);
+        if (totalCurrent > 0) {
+          const expenseRatio = prev.monthlyExpenses / totalCurrent;
+          const savingsRatio = Math.abs(prev.monthlySavings) / totalCurrent;
+          
+          newValues.monthlyExpenses = newValues.monthlyIncome * expenseRatio;
+          newValues.monthlySavings = newValues.monthlyIncome * savingsRatio;
+        } else {
+          // If no previous allocation, split 50/50
+          newValues.monthlyExpenses = newValues.monthlyIncome * 0.5;
+          newValues.monthlySavings = newValues.monthlyIncome * 0.5;
+        }
+      } else if (key === 'monthlyExpenses') {
+        // When expenses change, adjust savings to maintain total = income
+        newValues.monthlySavings = newValues.monthlyIncome - newValues.monthlyExpenses;
+      } else if (key === 'monthlySavings') {
+        // When savings change, adjust expenses to maintain total = income
+        newValues.monthlyExpenses = newValues.monthlyIncome - Math.abs(newValues.monthlySavings);
       }
       
       return newValues;
@@ -541,7 +559,7 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyExpenses}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyExpenses', value as number)}
                       min={0}
-                      max={Math.max(adjustableValues.monthlyIncome, 1000)}
+                      max={adjustableValues.monthlyIncome}
                       step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
                       sx={{
                         position: 'absolute',
@@ -602,7 +620,7 @@ const Apportioner: React.FC = () => {
                         handleAdjustableValueChange('monthlySavings', newValue);
                       }}
                       min={0}
-                      max={Math.max(adjustableValues.monthlyIncome, 1000)}
+                      max={adjustableValues.monthlyIncome}
                       step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
                       sx={{
                         position: 'absolute',
