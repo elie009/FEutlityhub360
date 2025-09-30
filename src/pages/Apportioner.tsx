@@ -186,7 +186,9 @@ const Apportioner: React.FC = () => {
           const savingsRatio = Math.abs(prev.monthlySavings) / totalCurrent;
           
           newValues.monthlyExpenses = newValues.monthlyIncome * expenseRatio;
-          newValues.monthlySavings = newValues.monthlyIncome * savingsRatio;
+          // Maintain the sign of savings (positive/negative)
+          const savingsAmount = newValues.monthlyIncome * savingsRatio;
+          newValues.monthlySavings = prev.monthlySavings >= 0 ? savingsAmount : -savingsAmount;
         } else {
           // If no previous allocation, split 50/50
           newValues.monthlyExpenses = newValues.monthlyIncome * 0.5;
@@ -194,7 +196,9 @@ const Apportioner: React.FC = () => {
         }
       } else if (key === 'monthlyExpenses') {
         // When expenses change, adjust savings to maintain total = income
-        newValues.monthlySavings = newValues.monthlyIncome - newValues.monthlyExpenses;
+        const remainingAmount = newValues.monthlyIncome - newValues.monthlyExpenses;
+        // Maintain the sign of savings (positive/negative)
+        newValues.monthlySavings = prev.monthlySavings >= 0 ? remainingAmount : -remainingAmount;
       } else if (key === 'monthlySavings') {
         // When savings change, adjust expenses to maintain total = income
         newValues.monthlyExpenses = newValues.monthlyIncome - Math.abs(newValues.monthlySavings);
@@ -511,6 +515,7 @@ const Apportioner: React.FC = () => {
                         '& .MuiSlider-thumb': {
                           width: 20,
                           height: 20,
+                          display: 'none',
                           bgcolor: 'success.main',
                           border: '2px solid white',
                           '&:hover': {
@@ -568,6 +573,7 @@ const Apportioner: React.FC = () => {
                         '& .MuiSlider-thumb': {
                           width: 20,
                           height: 20,
+                          display: 'none',
                           bgcolor: 'error.main',
                           border: '2px solid white',
                           '&:hover': {
@@ -630,7 +636,8 @@ const Apportioner: React.FC = () => {
                           width: 20,
                           height: 20,
                           bgcolor: adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main',
-                          border: '2px solid white',
+                          border: '2px solid blue',
+                          display: 'none',
                           '&:hover': {
                             boxShadow: adjustableValues.monthlySavings >= 0 
                               ? '0 0 0 8px rgba(25, 118, 210, 0.16)' 
