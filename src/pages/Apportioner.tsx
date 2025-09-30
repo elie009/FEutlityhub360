@@ -59,6 +59,9 @@ const Apportioner: React.FC = () => {
     monthlySavings: 0,
   });
 
+  // Graph maximum value from total monthly income API
+  const [graphMaxValue, setGraphMaxValue] = useState(1000);
+
   useEffect(() => {
     if (user?.id) {
       loadFinancialData();
@@ -102,6 +105,9 @@ const Apportioner: React.FC = () => {
       const totalMonthlyExpenses = monthlyBills + monthlyLoans + otherExpenses;
       const monthlySavings = monthlyIncome - totalMonthlyExpenses;
 
+      // Set graph maximum to total monthly income from API
+      setGraphMaxValue(Math.max(totalMonthlyIncome || 1000, 1000));
+
       setFinancialData({
         currentBalance,
         monthlyIncome,
@@ -132,7 +138,7 @@ const Apportioner: React.FC = () => {
     const monthsToGoal = Math.max(1, Math.ceil((targetDateObj.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
 
     const requiredMonthlySavings = (targetAmount - financialData.currentBalance) / monthsToGoal;
-    const currentMonthlySavings = adjustableValues.monthlyIncome - adjustableValues.monthlyExpenses;
+    const currentMonthlySavings = adjustableValues.monthlySavings; // Use current savings from Interactive Financial Overview
     const adjustedExpenses = adjustableValues.monthlyExpenses + (requiredMonthlySavings - currentMonthlySavings);
 
     let feasibility: 'achievable' | 'challenging' | 'difficult' = 'achievable';
@@ -390,10 +396,46 @@ const Apportioner: React.FC = () => {
                 <CalendarToday sx={{ mr: 1 }} />
                 Goal Analysis
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Based on your current Interactive Financial Overview settings
+              </Typography>
               <Divider sx={{ mb: 3 }} />
               
               {goalPlan ? (
                 <Box>
+                  {/* Current Financial Overview Values */}
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Current Financial Overview:
+                    </Typography>
+                    <Grid container spacing={1}>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          Income
+                        </Typography>
+                        <Typography variant="body2" color="success.main" fontWeight="bold">
+                          {formatCurrency(adjustableValues.monthlyIncome)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          Expenses
+                        </Typography>
+                        <Typography variant="body2" color="error.main" fontWeight="bold">
+                          {formatCurrency(adjustableValues.monthlyExpenses)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          Current Savings
+                        </Typography>
+                        <Typography variant="body2" color={adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main'} fontWeight="bold">
+                          {formatCurrency(adjustableValues.monthlySavings)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
                   <Grid container spacing={2} sx={{ mb: 3 }}>
                     <Grid item xs={6}>
                       <Typography variant="body2" color="text.secondary">
@@ -412,6 +454,41 @@ const Apportioner: React.FC = () => {
                       </Typography>
                     </Grid>
                   </Grid>
+
+                  {/* Savings Comparison */}
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Savings Analysis:
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Current Monthly Savings
+                        </Typography>
+                        <Typography variant="h6" color={adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main'}>
+                          {formatCurrency(adjustableValues.monthlySavings)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Required Monthly Savings
+                        </Typography>
+                        <Typography variant="h6" color="primary.main">
+                          {formatCurrency(goalPlan.requiredMonthlySavings)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Difference: 
+                        <Typography component="span" variant="body2" color={goalPlan.requiredMonthlySavings <= adjustableValues.monthlySavings ? 'success.main' : 'error.main'} fontWeight="bold">
+                          {goalPlan.requiredMonthlySavings <= adjustableValues.monthlySavings ? ' +' : ' '}
+                          {formatCurrency(Math.abs(goalPlan.requiredMonthlySavings - adjustableValues.monthlySavings))}
+                          {goalPlan.requiredMonthlySavings <= adjustableValues.monthlySavings ? ' surplus' : ' shortfall'}
+                        </Typography>
+                      </Typography>
+                    </Box>
+                  </Box>
 
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -464,9 +541,8 @@ const Apportioner: React.FC = () => {
             {/* X-axis labels */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, px: 1 }}>
               {(() => {
-                const maxValue = Math.max(adjustableValues.monthlyIncome, 1000);
-                const step = maxValue / 5;
-                return [0, step, step * 2, step * 3, step * 4, maxValue].map((value) => (
+                const step = graphMaxValue / 5;
+                return [0, step, step * 2, step * 3, step * 4, graphMaxValue].map((value) => (
                   <Typography key={value} variant="caption" color="text.secondary">
                     {formatCurrency(Math.round(value))}
                   </Typography>
@@ -488,7 +564,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlyIncome / Math.max(adjustableValues.monthlyIncome, 1000)) * 100, 100)}%`,
+                        width: `${Math.min((adjustableValues.monthlyIncome / graphMaxValue) * 100, 100)}%`,
                         bgcolor: 'success.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -506,8 +582,8 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyIncome}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyIncome', value as number)}
                       min={0}
-                      max={Math.max(adjustableValues.monthlyIncome, 1000)}
-                      step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
+                      max={graphMaxValue}
+                      step={Math.max(graphMaxValue / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -546,7 +622,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlyExpenses / Math.max(adjustableValues.monthlyIncome, 1000)) * 100, 100)}%`,
+                        width: `${Math.min((adjustableValues.monthlyExpenses / graphMaxValue) * 100, 100)}%`,
                         bgcolor: 'error.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -564,8 +640,8 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyExpenses}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyExpenses', value as number)}
                       min={0}
-                      max={adjustableValues.monthlyIncome}
-                      step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
+                      max={graphMaxValue}
+                      step={Math.max(graphMaxValue / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -605,7 +681,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((Math.abs(adjustableValues.monthlySavings) / Math.max(adjustableValues.monthlyIncome, 1000)) * 100, 100)}%`,
+                        width: `${Math.min((Math.abs(adjustableValues.monthlySavings) / graphMaxValue) * 100, 100)}%`,
                         bgcolor: adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -626,8 +702,8 @@ const Apportioner: React.FC = () => {
                         handleAdjustableValueChange('monthlySavings', newValue);
                       }}
                       min={0}
-                      max={adjustableValues.monthlyIncome}
-                      step={Math.max(adjustableValues.monthlyIncome / 100, 10)}
+                      max={graphMaxValue}
+                      step={Math.max(graphMaxValue / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
