@@ -1532,6 +1532,58 @@ class ApiService {
     });
     return response.data;
   }
+
+  // Get income sources with summary
+  async getIncomeSourcesWithSummary(activeOnly: boolean = true): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response with income sources and summary
+      return {
+        success: true,
+        message: null,
+        data: {
+          incomeSources: [
+            {
+              id: 'income-source-id-1',
+              userId: 'user-id',
+              name: 'Primary Salary',
+              amount: 4000.00,
+              frequency: 'MONTHLY',
+              category: 'PRIMARY',
+              currency: 'USD',
+              isActive: true,
+              description: 'Main job salary',
+              company: 'Tech Corp',
+              createdAt: '2024-01-01T10:00:00Z',
+              updatedAt: '2024-01-01T10:00:00Z',
+              monthlyAmount: 4000.00
+            },
+            {
+              id: 'income-source-id-2',
+              userId: 'user-id',
+              name: 'Freelance Work',
+              amount: 250.00,
+              frequency: 'WEEKLY',
+              category: 'SIDE_HUSTLE',
+              currency: 'USD',
+              isActive: true,
+              description: 'Web development projects',
+              company: 'Freelance',
+              createdAt: '2024-01-01T10:00:00Z',
+              updatedAt: '2024-01-01T10:00:00Z',
+              monthlyAmount: 1082.50
+            }
+          ],
+          totalActiveSources: 2,
+          totalPrimarySources: 1,
+          totalSources: 2,
+          totalMonthlyIncome: 5082.50
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string | null; data: any; errors: string[] }>(`/IncomeSource/with-summary?activeOnly=${activeOnly}`);
+    return response;
+  }
 }
 
 export const apiService = new ApiService();

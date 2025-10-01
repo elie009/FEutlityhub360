@@ -157,10 +157,16 @@ const Settings: React.FC = () => {
   const [incomeSourceError, setIncomeSourceError] = useState<string | null>(null);
   const [incomeSourceSuccess, setIncomeSourceSuccess] = useState<string | null>(null);
 
-  // Income Sources data state
-  const [incomeSources, setIncomeSources] = useState<any[]>([]);
-  const [incomeSourcesLoading, setIncomeSourcesLoading] = useState(false);
-  const [incomeSourcesError, setIncomeSourcesError] = useState<string | null>(null);
+  // Income Sources with Summary state
+  const [incomeData, setIncomeData] = useState<any>({
+    incomeSources: [],
+    totalActiveSources: 0,
+    totalPrimarySources: 0,
+    totalSources: 0,
+    totalMonthlyIncome: 0
+  });
+  const [incomeDataLoading, setIncomeDataLoading] = useState(false);
+  const [incomeDataError, setIncomeDataError] = useState<string | null>(null);
 
   // Bulk Income Sources state
   const [showBulkIncomeDialog, setShowBulkIncomeDialog] = useState(false);
@@ -469,8 +475,8 @@ const Settings: React.FC = () => {
       setTimeout(() => {
         setShowAddIncomeDialog(false);
         setIncomeSourceSuccess(null);
-        // Reload income sources to show updated data
-        loadIncomeSources();
+        // Reload income data to show updated data
+        loadIncomeData();
       }, 1500);
     } catch (err: any) {
       setIncomeSourceError(err.message || 'Failed to create income source. Please try again.');
@@ -566,7 +572,7 @@ const Settings: React.FC = () => {
       setTimeout(() => {
         setShowBulkIncomeDialog(false);
         setBulkIncomeSuccess(null);
-        loadIncomeSources(); // Reload income sources
+        loadIncomeData(); // Reload income data
       }, 2000);
     } catch (err: any) {
       setBulkIncomeError(err.message || 'Failed to create bulk income sources. Please try again.');
@@ -589,27 +595,33 @@ const Settings: React.FC = () => {
     setBulkIncomeSuccess(null);
   };
 
-  // Load income sources
-  const loadIncomeSources = useCallback(async () => {
-    setIncomeSourcesLoading(true);
-    setIncomeSourcesError(null);
+  // Load income sources with summary
+  const loadIncomeData = useCallback(async () => {
+    setIncomeDataLoading(true);
+    setIncomeDataError(null);
 
     try {
-      const response = await apiService.getIncomeSources();
-      setIncomeSources(response.data || []);
+      const response = await apiService.getIncomeSourcesWithSummary(true);
+      setIncomeData(response.data || {
+        incomeSources: [],
+        totalActiveSources: 0,
+        totalPrimarySources: 0,
+        totalSources: 0,
+        totalMonthlyIncome: 0
+      });
     } catch (err: any) {
-      setIncomeSourcesError(err.message || 'Failed to load income sources');
+      setIncomeDataError(err.message || 'Failed to load income data');
     } finally {
-      setIncomeSourcesLoading(false);
+      setIncomeDataLoading(false);
     }
   }, []);
 
-  // Load income sources when component mounts
+  // Load income data when component mounts
   useEffect(() => {
     if (user?.id) {
-      loadIncomeSources();
+      loadIncomeData();
     }
-  }, [user?.id, loadIncomeSources]);
+  }, [user?.id, loadIncomeData]);
 
   // Check if user needs to complete profile
   useEffect(() => {
@@ -923,6 +935,7 @@ const Settings: React.FC = () => {
         </Grid>
       )}
 
+
         {/* Income Sources Table */}
         <Grid item xs={12} sx={{ mt: 3 }}>
           <Paper sx={{ p: 3 }}>
@@ -935,8 +948,8 @@ const Settings: React.FC = () => {
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
-                onClick={loadIncomeSources}
-                disabled={incomeSourcesLoading}
+                onClick={loadIncomeData}
+                disabled={incomeDataLoading}
               >
                 Refresh
               </Button>
@@ -958,17 +971,17 @@ const Settings: React.FC = () => {
             </Box>
             </Box>
             
-            {incomeSourcesError && (
+            {incomeDataError && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                {incomeSourcesError}
+                {incomeDataError}
               </Alert>
             )}
 
-            {incomeSourcesLoading ? (
+            {incomeDataLoading ? (
               <Box display="flex" justifyContent="center" p={3}>
                 <CircularProgress />
               </Box>
-            ) : incomeSources.length === 0 ? (
+            ) : incomeData.incomeSources.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <MoneyIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -996,13 +1009,13 @@ const Settings: React.FC = () => {
                         <TableCell>Frequency</TableCell>
                         <TableCell>Category</TableCell>
                         <TableCell>Company</TableCell>
-                        <TableCell>Monthly Amount</TableCell>
+                        <TableCell>Updated At</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {incomeSources.map((source: any) => (
+                      {incomeData.incomeSources.map((source: any) => (
                         <TableRow key={source.id}>
                           <TableCell>
                             <Box>
@@ -1047,8 +1060,12 @@ const Settings: React.FC = () => {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" fontWeight="medium" color="success.main">
-                              {source.currency} {source.monthlyAmount.toLocaleString()}
+                            <Typography variant="body2" color="text.secondary">
+                              {source.updatedAt ? new Date(source.updatedAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : '-'}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1083,7 +1100,7 @@ const Settings: React.FC = () => {
                     <Card variant="outlined">
                       <CardContent sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" color="primary">
-                          USD {incomeSources.reduce((total, source) => total + (source.monthlyAmount || 0), 0).toLocaleString()}
+                          USD {incomeData.totalMonthlyIncome.toLocaleString()}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Total Monthly Income
@@ -1095,7 +1112,7 @@ const Settings: React.FC = () => {
                     <Card variant="outlined">
                       <CardContent sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" color="success.main">
-                          {incomeSources.filter(source => source.isActive).length}
+                          {incomeData.totalActiveSources}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Active Sources
@@ -1107,7 +1124,7 @@ const Settings: React.FC = () => {
                     <Card variant="outlined">
                       <CardContent sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" color="warning.main">
-                          {incomeSources.filter(source => source.category?.toLowerCase() === 'primary').length}
+                          {incomeData.totalPrimarySources}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Primary Sources
@@ -1119,7 +1136,7 @@ const Settings: React.FC = () => {
                     <Card variant="outlined">
                       <CardContent sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" color="info.main">
-                          {incomeSources.length}
+                          {incomeData.totalSources}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Total Sources
