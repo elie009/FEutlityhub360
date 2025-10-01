@@ -162,6 +162,23 @@ const Settings: React.FC = () => {
   const [incomeSourcesLoading, setIncomeSourcesLoading] = useState(false);
   const [incomeSourcesError, setIncomeSourcesError] = useState<string | null>(null);
 
+  // Bulk Income Sources state
+  const [showBulkIncomeDialog, setShowBulkIncomeDialog] = useState(false);
+  const [bulkIncomeSources, setBulkIncomeSources] = useState([
+    {
+      name: '',
+      amount: 0,
+      frequency: 'MONTHLY',
+      category: 'PRIMARY',
+      currency: 'USD',
+      description: '',
+      company: '',
+    }
+  ]);
+  const [bulkIncomeLoading, setBulkIncomeLoading] = useState(false);
+  const [bulkIncomeError, setBulkIncomeError] = useState<string | null>(null);
+  const [bulkIncomeSuccess, setBulkIncomeSuccess] = useState<string | null>(null);
+
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
     setNotifications(prev => ({
@@ -474,6 +491,102 @@ const Settings: React.FC = () => {
     });
     setIncomeSourceError(null);
     setIncomeSourceSuccess(null);
+  };
+
+  // Bulk Income Source handlers
+  const handleBulkIncomeSourceChange = (index: number, field: string, value: any) => {
+    setBulkIncomeSources(prev => prev.map((source, i) => 
+      i === index ? { ...source, [field]: value } : source
+    ));
+    if (bulkIncomeError) setBulkIncomeError(null);
+  };
+
+  const addBulkIncomeSource = () => {
+    setBulkIncomeSources(prev => [...prev, {
+      name: '',
+      amount: 0,
+      frequency: 'MONTHLY',
+      category: 'PRIMARY',
+      currency: 'USD',
+      description: '',
+      company: '',
+    }]);
+  };
+
+  const removeBulkIncomeSource = (index: number) => {
+    if (bulkIncomeSources.length > 1) {
+      setBulkIncomeSources(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const validateBulkIncomeSources = (): string | null => {
+    for (let i = 0; i < bulkIncomeSources.length; i++) {
+      const source = bulkIncomeSources[i];
+      if (!source.name.trim()) {
+        return `Income source ${i + 1}: Name is required`;
+      }
+      if (source.amount <= 0) {
+        return `Income source ${i + 1}: Amount must be greater than 0`;
+      }
+      if (!source.frequency) {
+        return `Income source ${i + 1}: Frequency is required`;
+      }
+      if (!source.category) {
+        return `Income source ${i + 1}: Category is required`;
+      }
+    }
+    return null;
+  };
+
+  const handleCreateBulkIncomeSources = async () => {
+    const validationError = validateBulkIncomeSources();
+    if (validationError) {
+      setBulkIncomeError(validationError);
+      return;
+    }
+
+    setBulkIncomeLoading(true);
+    setBulkIncomeError(null);
+
+    try {
+      const response = await apiService.createBulkIncomeSources(bulkIncomeSources);
+      setBulkIncomeSuccess(`Successfully created ${response.data.length} income sources!`);
+      
+      // Reset form
+      setBulkIncomeSources([{
+        name: '',
+        amount: 0,
+        frequency: 'MONTHLY',
+        category: 'PRIMARY',
+        currency: 'USD',
+        description: '',
+        company: '',
+      }]);
+      
+      setTimeout(() => {
+        setShowBulkIncomeDialog(false);
+        setBulkIncomeSuccess(null);
+        loadIncomeSources(); // Reload income sources
+      }, 2000);
+    } catch (err: any) {
+      setBulkIncomeError(err.message || 'Failed to create bulk income sources. Please try again.');
+    } finally {
+      setBulkIncomeLoading(false);
+    }
+  };
+
+  const resetBulkIncomeForm = () => {
+    setBulkIncomeSources([{
+      name: '',
+      amount: 0,
+      frequency: 'MONTHLY',
+      category: 'PRIMARY',
+      currency: 'USD',
+      description: '',
+      company: '',
+    }]);
+    setBulkIncomeError(null);
+    setBulkIncomeSuccess(null);
   };
 
   // Load income sources
@@ -826,6 +939,14 @@ const Settings: React.FC = () => {
                 disabled={incomeSourcesLoading}
               >
                 Refresh
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setShowBulkIncomeDialog(true)}
+                color="secondary"
+              >
+                Bulk Add
               </Button>
               <Button
                 variant="contained"
@@ -1707,6 +1828,177 @@ const Settings: React.FC = () => {
             startIcon={incomeSourceLoading ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {incomeSourceLoading ? 'Creating...' : 'Add Income Source'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Add Income Sources Dialog */}
+      <Dialog 
+        open={showBulkIncomeDialog} 
+        onClose={() => {
+          setShowBulkIncomeDialog(false);
+          resetBulkIncomeForm();
+        }} 
+        maxWidth="lg" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Bulk Add Income Sources
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Add multiple income sources at once for faster setup
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {bulkIncomeSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {bulkIncomeSuccess}
+            </Alert>
+          )}
+
+          {bulkIncomeError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {bulkIncomeError}
+            </Alert>
+          )}
+
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">
+              Income Sources ({bulkIncomeSources.length})
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={addBulkIncomeSource}
+              size="small"
+            >
+              Add Another
+            </Button>
+          </Box>
+
+          {bulkIncomeSources.map((source, index) => (
+            <Paper key={index} sx={{ p: 2, mb: 2, border: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Income Source {index + 1}
+                </Typography>
+                {bulkIncomeSources.length > 1 && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={() => removeBulkIncomeSource(index)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </Box>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    fullWidth
+                    label="Income Source Name"
+                    value={source.name}
+                    onChange={(e) => handleBulkIncomeSourceChange(index, 'name', e.target.value)}
+                    placeholder="e.g., Company Salary, Freelance Work"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    fullWidth
+                    label="Amount"
+                    type="number"
+                    value={source.amount}
+                    onChange={(e) => handleBulkIncomeSourceChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                    inputProps={{ min: 0, step: 0.01 }}
+                    placeholder="0.00"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Frequency</InputLabel>
+                    <Select
+                      value={source.frequency}
+                      label="Frequency"
+                      onChange={(e) => handleBulkIncomeSourceChange(index, 'frequency', e.target.value)}
+                    >
+                      <MenuItem value="MONTHLY">Monthly</MenuItem>
+                      <MenuItem value="WEEKLY">Weekly</MenuItem>
+                      <MenuItem value="QUARTERLY">Quarterly</MenuItem>
+                      <MenuItem value="YEARLY">Yearly</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={source.category}
+                      label="Category"
+                      onChange={(e) => handleBulkIncomeSourceChange(index, 'category', e.target.value)}
+                    >
+                      <MenuItem value="PRIMARY">Primary</MenuItem>
+                      <MenuItem value="SIDE_HUSTLE">Side Hustle</MenuItem>
+                      <MenuItem value="PASSIVE">Passive</MenuItem>
+                      <MenuItem value="INVESTMENT">Investment</MenuItem>
+                      <MenuItem value="BUSINESS">Business</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Company"
+                    value={source.company}
+                    onChange={(e) => handleBulkIncomeSourceChange(index, 'company', e.target.value)}
+                    placeholder="Company or organization name"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Currency"
+                    value={source.currency}
+                    onChange={(e) => handleBulkIncomeSourceChange(index, 'currency', e.target.value)}
+                    placeholder="USD"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Description"
+                    multiline
+                    rows={2}
+                    value={source.description}
+                    onChange={(e) => handleBulkIncomeSourceChange(index, 'description', e.target.value)}
+                    placeholder="Additional details about this income source..."
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowBulkIncomeDialog(false);
+              resetBulkIncomeForm();
+            }}
+            disabled={bulkIncomeLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateBulkIncomeSources}
+            variant="contained"
+            disabled={bulkIncomeLoading}
+            startIcon={bulkIncomeLoading ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            {bulkIncomeLoading ? 'Creating...' : `Create ${bulkIncomeSources.length} Income Sources`}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1492,6 +1492,46 @@ class ApiService {
     });
     return response.data;
   }
+
+  // Create bulk income sources
+  async createBulkIncomeSources(incomeSources: {
+    name: string;
+    amount: number;
+    frequency: string;
+    category: string;
+    currency: string;
+    description: string;
+    company: string | null;
+  }[]): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response with multiple income sources
+      const mockData = incomeSources.map((source, index) => ({
+        id: `income-bulk-${Date.now()}-${index}`,
+        userId: 'demo-user-123',
+        ...source,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        monthlyAmount: source.frequency === 'MONTHLY' ? source.amount : 
+                      source.frequency === 'WEEKLY' ? source.amount * 4.33 :
+                      source.frequency === 'QUARTERLY' ? source.amount / 3 :
+                      source.frequency === 'YEARLY' ? source.amount / 12 :
+                      source.amount
+      }));
+
+      return {
+        success: true,
+        message: 'All income sources created successfully',
+        data: mockData,
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any[]; errors: string[] }>('/IncomeSource/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ incomeSources }),
+    });
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();
