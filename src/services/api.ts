@@ -1601,6 +1601,44 @@ class ApiService {
     });
     return response.data;
   }
+
+  // Update income source
+  async updateIncomeSource(incomeSourceId: string, incomeSourceData: {
+    name: string;
+    amount: number;
+    frequency: string;
+    category: string;
+    currency: string;
+    description: string;
+    company: string;
+    isActive: boolean;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source updated successfully',
+        data: {
+          id: incomeSourceId,
+          userId: 'demo-user-123',
+          ...incomeSourceData,
+          createdAt: '2025-10-01T20:24:34.521Z',
+          updatedAt: new Date().toISOString(),
+          monthlyAmount: incomeSourceData.frequency === 'MONTHLY' ? incomeSourceData.amount : 
+                        incomeSourceData.frequency === 'WEEKLY' ? incomeSourceData.amount * 4.33 :
+                        incomeSourceData.frequency === 'QUARTERLY' ? incomeSourceData.amount / 3 :
+                        incomeSourceData.frequency === 'YEARLY' ? incomeSourceData.amount / 12 :
+                        incomeSourceData.amount
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(incomeSourceData),
+    });
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

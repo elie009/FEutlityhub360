@@ -193,6 +193,23 @@ const Settings: React.FC = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
+  // Edit Income Source state
+  const [showEditIncomeDialog, setShowEditIncomeDialog] = useState(false);
+  const [editIncomeFormData, setEditIncomeFormData] = useState({
+    name: '',
+    amount: 0,
+    frequency: 'MONTHLY',
+    category: 'PRIMARY',
+    currency: 'USD',
+    description: '',
+    company: '',
+    isActive: true,
+  });
+  const [editIncomeLoading, setEditIncomeLoading] = useState(false);
+  const [editIncomeError, setEditIncomeError] = useState<string | null>(null);
+  const [editIncomeSuccess, setEditIncomeSuccess] = useState<string | null>(null);
+  const [incomeSourceToEdit, setIncomeSourceToEdit] = useState<any>(null);
+
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
     setNotifications(prev => ({
@@ -639,6 +656,118 @@ const Settings: React.FC = () => {
     setIncomeSourceToDelete(null);
     setDeleteError(null);
     setDeleteSuccess(null);
+  };
+
+  // Edit Income Source handlers
+  const handleEditClick = (incomeSource: any) => {
+    setIncomeSourceToEdit(incomeSource);
+    setEditIncomeFormData({
+      name: incomeSource.name || '',
+      amount: incomeSource.amount || 0,
+      frequency: incomeSource.frequency || 'MONTHLY',
+      category: incomeSource.category || 'PRIMARY',
+      currency: incomeSource.currency || 'USD',
+      description: incomeSource.description || '',
+      company: incomeSource.company || '',
+      isActive: incomeSource.isActive !== undefined ? incomeSource.isActive : true,
+    });
+    setShowEditIncomeDialog(true);
+    setEditIncomeError(null);
+    setEditIncomeSuccess(null);
+  };
+
+  const handleEditIncomeInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditIncomeFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (editIncomeError) setEditIncomeError(null);
+  };
+
+  const handleEditIncomeSelectChange = (e: any) => {
+    const { name, value } = e.target;
+    setEditIncomeFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (editIncomeError) setEditIncomeError(null);
+  };
+
+  const handleEditIncomeSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setEditIncomeFormData(prev => ({
+      ...prev,
+      [name]: checked,
+    }));
+    if (editIncomeError) setEditIncomeError(null);
+  };
+
+  const validateEditIncomeForm = (): string | null => {
+    if (!editIncomeFormData.name.trim()) {
+      return 'Income source name is required';
+    }
+    if (editIncomeFormData.amount <= 0) {
+      return 'Amount must be greater than 0';
+    }
+    if (!editIncomeFormData.frequency) {
+      return 'Frequency is required';
+    }
+    if (!editIncomeFormData.category) {
+      return 'Category is required';
+    }
+    return null;
+  };
+
+  const handleUpdateIncomeSource = async () => {
+    if (!incomeSourceToEdit) return;
+
+    const validationError = validateEditIncomeForm();
+    if (validationError) {
+      setEditIncomeError(validationError);
+      return;
+    }
+
+    setEditIncomeLoading(true);
+    setEditIncomeError(null);
+
+    try {
+      await apiService.updateIncomeSource(incomeSourceToEdit.id, editIncomeFormData);
+      setEditIncomeSuccess('Income source updated successfully!');
+      
+      setTimeout(() => {
+        setShowEditIncomeDialog(false);
+        setIncomeSourceToEdit(null);
+        setEditIncomeSuccess(null);
+        loadIncomeData(); // Reload income data
+      }, 1500);
+    } catch (err: any) {
+      setEditIncomeError(err.message || 'Failed to update income source. Please try again.');
+    } finally {
+      setEditIncomeLoading(false);
+    }
+  };
+
+  const handleEditIncomeCancel = () => {
+    setShowEditIncomeDialog(false);
+    setIncomeSourceToEdit(null);
+    setEditIncomeError(null);
+    setEditIncomeSuccess(null);
+  };
+
+  const resetEditIncomeForm = () => {
+    setEditIncomeFormData({
+      name: '',
+      amount: 0,
+      frequency: 'MONTHLY',
+      category: 'PRIMARY',
+      currency: 'USD',
+      description: '',
+      company: '',
+      isActive: true,
+    });
+    setEditIncomeError(null);
+    setEditIncomeSuccess(null);
   };
 
   // Load income sources with summary
@@ -1128,7 +1257,12 @@ const Settings: React.FC = () => {
                               <IconButton size="small" color="primary" title="View Details">
                                 <ViewIcon />
                               </IconButton>
-                              <IconButton size="small" color="primary" title="Edit">
+                              <IconButton 
+                                size="small" 
+                                color="primary" 
+                                title="Edit"
+                                onClick={() => handleEditClick(source)}
+                              >
                                 <EditIcon />
                               </IconButton>
                               <IconButton 
@@ -2069,6 +2203,162 @@ const Settings: React.FC = () => {
             startIcon={bulkIncomeLoading ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {bulkIncomeLoading ? 'Creating...' : `Create ${bulkIncomeSources.length} Income Sources`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Income Source Dialog */}
+      <Dialog 
+        open={showEditIncomeDialog} 
+        onClose={handleEditIncomeCancel} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Edit Income Source
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Update your income source information
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {editIncomeSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {editIncomeSuccess}
+            </Alert>
+          )}
+
+          {editIncomeError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {editIncomeError}
+            </Alert>
+          )}
+
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                id="edit-income-name"
+                label="Income Source Name"
+                name="name"
+                value={editIncomeFormData.name}
+                onChange={handleEditIncomeInputChange}
+                placeholder="e.g., Company Salary, Freelance Work"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                required
+                fullWidth
+                id="edit-income-amount"
+                label="Amount"
+                name="amount"
+                type="number"
+                value={editIncomeFormData.amount}
+                onChange={handleEditIncomeInputChange}
+                inputProps={{ min: 0, step: 0.01 }}
+                placeholder="0.00"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Frequency</InputLabel>
+                <Select
+                  name="frequency"
+                  value={editIncomeFormData.frequency}
+                  label="Frequency"
+                  onChange={handleEditIncomeSelectChange}
+                >
+                  <MenuItem value="MONTHLY">Monthly</MenuItem>
+                  <MenuItem value="WEEKLY">Weekly</MenuItem>
+                  <MenuItem value="QUARTERLY">Quarterly</MenuItem>
+                  <MenuItem value="YEARLY">Yearly</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  name="category"
+                  value={editIncomeFormData.category}
+                  label="Category"
+                  onChange={handleEditIncomeSelectChange}
+                >
+                  <MenuItem value="PRIMARY">Primary</MenuItem>
+                  <MenuItem value="SIDE_HUSTLE">Side Hustle</MenuItem>
+                  <MenuItem value="PASSIVE">Passive</MenuItem>
+                  <MenuItem value="INVESTMENT">Investment</MenuItem>
+                  <MenuItem value="BUSINESS">Business</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="edit-income-company"
+                label="Company"
+                name="company"
+                value={editIncomeFormData.company}
+                onChange={handleEditIncomeInputChange}
+                placeholder="Company or organization name"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="edit-income-currency"
+                label="Currency"
+                name="currency"
+                value={editIncomeFormData.currency}
+                onChange={handleEditIncomeInputChange}
+                placeholder="USD"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="isActive"
+                    checked={editIncomeFormData.isActive}
+                    onChange={handleEditIncomeSwitchChange}
+                    color="primary"
+                  />
+                }
+                label="Active"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                id="edit-income-description"
+                label="Description"
+                name="description"
+                multiline
+                rows={3}
+                value={editIncomeFormData.description}
+                onChange={handleEditIncomeInputChange}
+                placeholder="Additional details about this income source..."
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleEditIncomeCancel}
+            disabled={editIncomeLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdateIncomeSource}
+            variant="contained"
+            disabled={editIncomeLoading}
+            startIcon={editIncomeLoading ? <CircularProgress size={20} /> : <EditIcon />}
+          >
+            {editIncomeLoading ? 'Updating...' : 'Update Income Source'}
           </Button>
         </DialogActions>
       </Dialog>
