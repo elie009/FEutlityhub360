@@ -33,6 +33,7 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Tooltip,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -940,10 +941,12 @@ const Settings: React.FC = () => {
         <Grid item xs={12} sx={{ mt: 3 }}>
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MoneyIcon />
-                Income Sources
-              </Typography>
+              <Tooltip title="Manage your income sources including salary, freelance work, investments, and other revenue streams. Track amounts, frequencies, and categories for better financial planning." arrow>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'help' }}>
+                  <MoneyIcon />
+                  Income Sources
+                </Typography>
+              </Tooltip>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="outlined"
