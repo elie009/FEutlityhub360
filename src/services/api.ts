@@ -1584,6 +1584,23 @@ class ApiService {
     const response = await this.request<{ success: boolean; message: string | null; data: any; errors: string[] }>(`/IncomeSource/with-summary?activeOnly=${activeOnly}`);
     return response;
   }
+
+  // Delete income source
+  async deleteIncomeSource(incomeSourceId: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source deleted successfully',
+        data: true,
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: boolean; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
+      method: 'DELETE',
+    });
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

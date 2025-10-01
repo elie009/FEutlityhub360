@@ -186,6 +186,13 @@ const Settings: React.FC = () => {
   const [bulkIncomeError, setBulkIncomeError] = useState<string | null>(null);
   const [bulkIncomeSuccess, setBulkIncomeSuccess] = useState<string | null>(null);
 
+  // Delete Income Source state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [incomeSourceToDelete, setIncomeSourceToDelete] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
     setNotifications(prev => ({
@@ -594,6 +601,44 @@ const Settings: React.FC = () => {
     }]);
     setBulkIncomeError(null);
     setBulkIncomeSuccess(null);
+  };
+
+  // Delete Income Source handlers
+  const handleDeleteClick = (incomeSource: any) => {
+    setIncomeSourceToDelete(incomeSource);
+    setShowDeleteDialog(true);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!incomeSourceToDelete) return;
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try {
+      await apiService.deleteIncomeSource(incomeSourceToDelete.id);
+      setDeleteSuccess('Income source deleted successfully!');
+      
+      setTimeout(() => {
+        setShowDeleteDialog(false);
+        setIncomeSourceToDelete(null);
+        setDeleteSuccess(null);
+        loadIncomeData(); // Reload income data
+      }, 1500);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete income source. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+    setIncomeSourceToDelete(null);
+    setDeleteError(null);
+    setDeleteSuccess(null);
   };
 
   // Load income sources with summary
@@ -1086,7 +1131,12 @@ const Settings: React.FC = () => {
                               <IconButton size="small" color="primary" title="Edit">
                                 <EditIcon />
                               </IconButton>
-                              <IconButton size="small" color="error" title="Delete">
+                              <IconButton 
+                                size="small" 
+                                color="error" 
+                                title="Delete"
+                                onClick={() => handleDeleteClick(source)}
+                              >
                                 <DeleteIcon />
                               </IconButton>
                             </Box>
@@ -2019,6 +2069,89 @@ const Settings: React.FC = () => {
             startIcon={bulkIncomeLoading ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {bulkIncomeLoading ? 'Creating...' : `Create ${bulkIncomeSources.length} Income Sources`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Income Source Confirmation Dialog */}
+      <Dialog 
+        open={showDeleteDialog} 
+        onClose={handleDeleteCancel}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div" color="error">
+            Delete Income Source
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {deleteSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {deleteSuccess}
+            </Alert>
+          )}
+
+          {deleteError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+
+          {!deleteSuccess && (
+            <>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Are you sure you want to delete this income source?
+              </Typography>
+              
+              {incomeSourceToDelete && (
+                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Income Source Details:
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Name:</strong> {incomeSourceToDelete.name}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Amount:</strong> {incomeSourceToDelete.currency} {incomeSourceToDelete.amount.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Frequency:</strong> {incomeSourceToDelete.frequency}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Category:</strong> {incomeSourceToDelete.category}
+                  </Typography>
+                  {incomeSourceToDelete.company && (
+                    <Typography variant="body2">
+                      <strong>Company:</strong> {incomeSourceToDelete.company}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>Warning:</strong> This action cannot be undone. The income source will be permanently deleted from your account.
+                </Typography>
+              </Alert>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleDeleteCancel}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleteLoading || !!deleteSuccess}
+            startIcon={deleteLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {deleteLoading ? 'Deleting...' : deleteSuccess ? 'Deleted' : 'Delete Income Source'}
           </Button>
         </DialogActions>
       </Dialog>
