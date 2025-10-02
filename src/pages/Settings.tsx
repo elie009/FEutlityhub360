@@ -210,6 +210,12 @@ const Settings: React.FC = () => {
   const [editIncomeSuccess, setEditIncomeSuccess] = useState<string | null>(null);
   const [incomeSourceToEdit, setIncomeSourceToEdit] = useState<any>(null);
 
+  // View Income Source state
+  const [showViewIncomeDialog, setShowViewIncomeDialog] = useState(false);
+  const [viewIncomeData, setViewIncomeData] = useState<any>(null);
+  const [viewIncomeLoading, setViewIncomeLoading] = useState(false);
+  const [viewIncomeError, setViewIncomeError] = useState<string | null>(null);
+
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
     setNotifications(prev => ({
@@ -770,6 +776,28 @@ const Settings: React.FC = () => {
     setEditIncomeSuccess(null);
   };
 
+  // View Income Source handlers
+  const handleViewClick = async (incomeSource: any) => {
+    setShowViewIncomeDialog(true);
+    setViewIncomeLoading(true);
+    setViewIncomeError(null);
+
+    try {
+      const response = await apiService.getIncomeSourceById(incomeSource.id);
+      setViewIncomeData(response.data);
+    } catch (err: any) {
+      setViewIncomeError(err.message || 'Failed to load income source details');
+    } finally {
+      setViewIncomeLoading(false);
+    }
+  };
+
+  const handleViewClose = () => {
+    setShowViewIncomeDialog(false);
+    setViewIncomeData(null);
+    setViewIncomeError(null);
+  };
+
   // Load income sources with summary
   const loadIncomeData = useCallback(async () => {
     setIncomeDataLoading(true);
@@ -1254,7 +1282,12 @@ const Settings: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', gap: 1 }}>
-                              <IconButton size="small" color="primary" title="View Details">
+                              <IconButton 
+                                size="small" 
+                                color="primary" 
+                                title="View Details"
+                                onClick={() => handleViewClick(source)}
+                              >
                                 <ViewIcon />
                               </IconButton>
                               <IconButton 
@@ -2203,6 +2236,207 @@ const Settings: React.FC = () => {
             startIcon={bulkIncomeLoading ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {bulkIncomeLoading ? 'Creating...' : `Create ${bulkIncomeSources.length} Income Sources`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Income Source Dialog */}
+      <Dialog 
+        open={showViewIncomeDialog} 
+        onClose={handleViewClose}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Income Source Details
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            View detailed information about this income source
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {viewIncomeError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {viewIncomeError}
+            </Alert>
+          )}
+
+          {viewIncomeLoading ? (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress />
+            </Box>
+          ) : viewIncomeData ? (
+            <Grid container spacing={3}>
+              {/* Basic Information */}
+              <Grid item xs={12}>
+                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MoneyIcon />
+                    Basic Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Name
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewIncomeData.name}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Amount
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium" color="success.main">
+                        {viewIncomeData.currency} {viewIncomeData.amount.toLocaleString()}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Frequency
+                      </Typography>
+                      <Chip 
+                        label={viewIncomeData.frequency} 
+                        size="small" 
+                        color="primary"
+                        variant="outlined"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Category
+                      </Typography>
+                      <Chip 
+                        label={viewIncomeData.category} 
+                        size="small" 
+                        color={
+                          viewIncomeData.category?.toLowerCase() === 'primary' ? 'success' :
+                          viewIncomeData.category?.toLowerCase() === 'passive' ? 'info' :
+                          viewIncomeData.category?.toLowerCase() === 'business' ? 'warning' :
+                          'default'
+                        }
+                        variant="outlined"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Company
+                      </Typography>
+                      <Typography variant="body1">
+                        {viewIncomeData.company || '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Status
+                      </Typography>
+                      <Chip 
+                        label={viewIncomeData.isActive ? 'Active' : 'Inactive'} 
+                        size="small" 
+                        color={viewIncomeData.isActive ? 'success' : 'default'}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Grid>
+
+              {/* Financial Details */}
+              <Grid item xs={12}>
+                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MoneyIcon />
+                    Financial Details
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Monthly Amount
+                      </Typography>
+                      <Typography variant="h6" color="success.main">
+                        {viewIncomeData.currency} {viewIncomeData.monthlyAmount.toLocaleString()}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Currency
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewIncomeData.currency}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Grid>
+
+              {/* Additional Information */}
+              {viewIncomeData.description && (
+                <Grid item xs={12}>
+                  <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Description
+                    </Typography>
+                    <Typography variant="body1">
+                      {viewIncomeData.description}
+                    </Typography>
+                  </Box>
+                </Grid>
+              )}
+
+              {/* Timestamps */}
+              <Grid item xs={12}>
+                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Timestamps
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Created At
+                      </Typography>
+                      <Typography variant="body1">
+                        {viewIncomeData.createdAt ? new Date(viewIncomeData.createdAt).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Updated At
+                      </Typography>
+                      <Typography variant="body1">
+                        {viewIncomeData.updatedAt ? new Date(viewIncomeData.updatedAt).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '-'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Grid>
+            </Grid>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <MoneyIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Data Available
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Unable to load income source details
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleViewClose}>
+            Close
           </Button>
         </DialogActions>
       </Dialog>

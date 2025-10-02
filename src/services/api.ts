@@ -1639,6 +1639,35 @@ class ApiService {
     });
     return response.data;
   }
+
+  // Get income source by ID
+  async getIncomeSourceById(incomeSourceId: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source retrieved successfully',
+        data: {
+          id: incomeSourceId,
+          userId: 'demo-user-123',
+          name: 'Company Salary',
+          amount: 5000.00,
+          frequency: 'MONTHLY',
+          category: 'PRIMARY',
+          currency: 'USD',
+          isActive: true,
+          description: 'Main job salary',
+          company: 'Tech Corp',
+          createdAt: '2025-10-01T20:30:07.800Z',
+          updatedAt: '2025-10-01T20:30:07.800Z',
+          monthlyAmount: 5000.00
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`);
+    return response;
+  }
 }
 
 export const apiService = new ApiService();
