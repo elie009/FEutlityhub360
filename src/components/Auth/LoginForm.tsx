@@ -118,18 +118,16 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
       }}
     >
-      <Container sx={{ maxWidth: '1200px' }} >
-        <Grid container spacing={6} alignItems="center" >
+      <Container sx={{ maxWidth: '1200px' }}>
+        <Grid container spacing={6} alignItems="center">
           {/* Left Side - Branding & Features */}
-          <Grid item xs={12} lg={4} >
+          <Grid item xs={12} lg={4}>
             <Box sx={{ color: 'white', textAlign: { xs: 'center', lg: 'left' }, pr: { lg: 4 } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: { xs: 'center', lg: 'flex-start' } }}>
                 <AccountBalance sx={{ fontSize: 56, mr: 2 }} />
@@ -194,7 +192,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)',
                 maxWidth: 'none',
-                width: '100%',
+                
               }}
             >
               <CardContent sx={{ p: 5 }}>
@@ -248,7 +246,22 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     value={credentials.email}
                     onChange={handleChange('email')}
                     disabled={isLoading}
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -269,7 +282,22 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     value={credentials.password}
                     onChange={handleChange('password')}
                     disabled={isLoading}
-                    sx={{ mb: 3 }}
+                    sx={{ 
+                      mb: 3,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">

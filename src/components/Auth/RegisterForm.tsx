@@ -112,8 +112,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -218,7 +216,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.name}
                     onChange={handleChange('name')}
                     disabled={isLoading}
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -239,7 +252,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.email}
                     onChange={handleChange('email')}
                     disabled={isLoading}
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -259,7 +287,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.phone}
                     onChange={handleChange('phone')}
                     disabled={isLoading}
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -280,7 +323,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.password}
                     onChange={handleChange('password')}
                     disabled={isLoading}
-                    sx={{ mb: 2 }}
+                    sx={{ 
+                      mb: 2,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -311,7 +369,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.confirmPassword}
                     onChange={handleChange('confirmPassword')}
                     disabled={isLoading}
-                    sx={{ mb: 3 }}
+                    sx={{ 
+                      mb: 3,
+                      '& input:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                        caretColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                      '& input:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px white inset',
+                        WebkitTextFillColor: 'inherit',
+                      },
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
