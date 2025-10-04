@@ -197,10 +197,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
             >
               <CardContent sx={{ p: 5 }}>
                 <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold', mb: 1, color: '#233C4B' }}>
                     Welcome Back
                   </Typography>
-                  <Typography variant="body1" sx={{ color: 'primary.main' }}>
+                  <Typography variant="body1" sx={{ color: '#233C4B' }}>
                     Sign in to access your financial dashboard
                   </Typography>
                 </Box>
@@ -211,7 +211,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     mb: 3,
                     borderRadius: 2,
                     '& .MuiAlert-icon': {
-                      color: 'primary.main'
+                      color: '#5F9B8C'
                     }
                   }}
                 >
@@ -345,7 +345,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                   </Button>
 
                   <Divider sx={{ my: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: '#233C4B' }}>
                       New to UtilityHub360?
                     </Typography>
                   </Divider>
@@ -359,11 +359,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     sx={{
                       py: 1.5,
                       borderRadius: 2,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
+                      borderColor: '#233C4B',
+                      color: '#233C4B',
                       '&:hover': {
-                        borderColor: 'primary.dark',
-                        backgroundColor: 'primary.50',
+                        borderColor: '#1a2d3a',
+                        backgroundColor: 'rgba(35, 60, 75, 0.1)',
                       },
                     }}
                   >

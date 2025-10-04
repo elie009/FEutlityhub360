@@ -183,10 +183,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
             >
               <CardContent sx={{ p: 5 }}>
                 <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold', mb: 1, color: '#233C4B' }}>
                     Create Account
                   </Typography>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" sx={{ color: '#233C4B' }}>
                     Join UtilityHub360 and take control of your finances
                   </Typography>
                 </Box>
@@ -432,7 +432,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                   </Button>
 
                   <Divider sx={{ my: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: '#233C4B' }}>
                       Already have an account?
                     </Typography>
                   </Divider>
@@ -446,11 +446,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     sx={{
                       py: 1.5,
                       borderRadius: 2,
-                      borderColor: 'primary.main',
-                      color: 'primary.main',
+                      borderColor: '#233C4B',
+                      color: '#233C4B',
                       '&:hover': {
-                        borderColor: 'primary.dark',
-                        backgroundColor: 'primary.50',
+                        borderColor: '#1a2d3a',
+                        backgroundColor: 'rgba(35, 60, 75, 0.1)',
                       },
                     }}
                   >
