@@ -15,7 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterData } from '../../types/loan';
-import { validateEmail, validatePhone, validatePassword, validateRequired, getErrorMessage } from '../../utils/validation';
+import { validateEmail, validatePassword, validateRequired, getErrorMessage } from '../../utils/validation';
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -44,16 +44,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
-    // Validate phone
-    if (!validatePhone(formData.phone)) {
-      setError('Please enter a valid phone number');
-      return;
-    }
-
     // Validate name
     const nameValidation = validateRequired(formData.name, 'Name');
     if (!nameValidation.isValid) {
       setError(nameValidation.error || 'Name is required');
+      return;
+    }
+
+    // Validate phone number - just check if it contains enough digits
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7) {
+      setError('Phone number must contain at least 7 digits');
       return;
     }
 
@@ -74,12 +75,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
     try {
       await register(formData);
-      // Redirect to profile setup after successful registration
-      navigate('/profile-setup', { 
-        state: { 
-          message: 'Registration successful! Please complete your profile setup.' 
-        }
-      });
+      // Registration successful - redirect to home page
+      navigate('/');
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Registration failed'));
     } finally {

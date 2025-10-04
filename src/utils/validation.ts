@@ -6,8 +6,15 @@ export const validateEmail = (email: string): boolean => {
 };
 
 export const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+  // Remove all non-digit characters except + at the beginning
+  const cleanedPhone = phone.replace(/[^\d+]/g, '');
+  
+  // Check if it contains only digits and optionally starts with +
+  const phoneRegex = /^\+?[\d]+$/;
+  
+  // Must have at least 7 digits (minimum for most countries) and max 15 digits (international standard)
+  const digitsOnly = cleanedPhone.replace(/^\+/, '');
+  return phoneRegex.test(cleanedPhone) && digitsOnly.length >= 7 && digitsOnly.length <= 15;
 };
 
 export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
@@ -62,6 +69,28 @@ export const validatePaymentAmount = (amount: number, maxAmount: number): { isVa
 export const validateRequired = (value: string | number, fieldName: string): { isValid: boolean; error?: string } => {
   if (!value || (typeof value === 'string' && value.trim() === '')) {
     return { isValid: false, error: `${fieldName} is required` };
+  }
+  
+  return { isValid: true };
+};
+
+export const validateUsername = (username: string): { isValid: boolean; error?: string } => {
+  if (!username || username.trim() === '') {
+    return { isValid: false, error: 'Username is required' };
+  }
+  
+  if (username.length < 3) {
+    return { isValid: false, error: 'Username must be at least 3 characters long' };
+  }
+  
+  if (username.length > 20) {
+    return { isValid: false, error: 'Username must be no more than 20 characters long' };
+  }
+  
+  // Username should only contain letters, numbers, underscores, and hyphens
+  const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!usernameRegex.test(username)) {
+    return { isValid: false, error: 'Username can only contain letters, numbers, underscores, and hyphens' };
   }
   
   return { isValid: true };

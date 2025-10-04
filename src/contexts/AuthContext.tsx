@@ -238,35 +238,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: RegisterData): Promise<void> => {
     try {
       setIsLoading(true);
       // Use new backend API
       const response = await apiService.register(data);
       
-      // Store tokens in localStorage for persistence
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      // Check if registration was successful
+      if (!response.success) {
+        // Handle validation errors from the new API format
+        if (response.errors && response.errors.length > 0) {
+          const errorMessages = response.errors.map(err => `${err.field}: ${err.message}`).join(', ');
+          throw new Error(errorMessages);
+        }
+        throw new Error(response.message || 'Registration failed');
+      }
       
-      // Store user data directly from registration response
-      const userFromRegister = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        phone: response.user.phone,
-        kycVerified: response.user.isActive, // Map isActive to kycVerified
-        isActive: response.user.isActive,
-        createdAt: response.user.createdAt,
-        updatedAt: response.user.updatedAt,
-      };
-      console.log('AuthContext: User data from registration response:', userFromRegister);
-      setUser(userFromRegister);
-      // Save user to localStorage for persistence across page reloads
-      localStorage.setItem('user', JSON.stringify(userFromRegister));
-      console.log('AuthContext: User data set from registration response and saved to localStorage');
+      // Registration successful - user needs to login after registration
+      // The new API doesn't automatically log in the user
+      console.log('AuthContext: Registration completed successfully');
+      console.log('AuthContext: User data from registration response:', response.data);
       
       // Registration completed successfully - redirect will be handled by RegisterForm
-      console.log('AuthContext: Registration completed successfully');
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;

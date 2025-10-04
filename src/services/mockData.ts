@@ -522,41 +522,39 @@ export const mockDataService = {
     password: string;
     confirmPassword: string;
   }): Promise<{
-    token: string;
-    refreshToken: string;
-    expiresAt: string;
-    user: {
-      id: string;
+    success: boolean;
+    message: string;
+    data: {
+      userId: string;
       name: string;
       email: string;
       phone: string;
-      role: string;
-      isActive: boolean;
+      isEmailConfirmed: boolean;
       createdAt: string;
-      updatedAt: string;
-    };
+    } | null;
+    errors: Array<{
+      field: string;
+      message: string;
+    }>;
   }> {
     await delay(1000);
     
     // Simulate registration
     const userId = 'user-' + Date.now();
     const now = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
     
     return {
-      token: 'mock-jwt-token-' + Date.now(),
-      refreshToken: 'mock-refresh-token-' + Date.now(),
-      expiresAt,
-      user: {
-        id: userId,
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        userId: userId,
         name: registerData.name,
         email: registerData.email,
         phone: registerData.phone,
-        role: 'user',
-        isActive: true,
+        isEmailConfirmed: false,
         createdAt: now,
-        updatedAt: now,
       },
+      errors: [],
     };
   },
 

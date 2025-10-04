@@ -68,6 +68,11 @@ const Register: React.FC = () => {
     if (!formData.phone.trim()) {
       return 'Phone number is required';
     }
+    // Basic phone validation - just check if it contains numbers
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7) {
+      return 'Phone number must contain at least 7 digits';
+    }
     if (!formData.password) {
       return 'Password is required';
     }
@@ -95,17 +100,20 @@ const Register: React.FC = () => {
     try {
       const response = await apiService.register(formData);
       
-      // Store tokens
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      
-      // Navigate to profile setup
-      navigate('/profile-setup', { 
-        state: { 
-          user: response.user,
-          message: 'Registration successful! Please complete your profile setup.' 
+      // Check if registration was successful
+      if (!response.success) {
+        // Handle validation errors from the new API format
+        if (response.errors && response.errors.length > 0) {
+          const errorMessages = response.errors.map(err => `${err.field}: ${err.message}`).join(', ');
+          setError(errorMessages);
+          return;
         }
-      });
+        setError(response.message || 'Registration failed');
+        return;
+      }
+      
+      // Registration successful - redirect to home page
+      navigate('/');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {

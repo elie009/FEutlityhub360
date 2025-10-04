@@ -62,7 +62,28 @@ class ApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('API Service: Error response:', errorData);
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        
+        // Handle 400 validation errors with detailed field errors
+        if (response.status === 400 && errorData.errors) {
+          const fieldErrors: string[] = [];
+          Object.keys(errorData.errors).forEach(field => {
+            const fieldErrorMessages = errorData.errors[field];
+            if (Array.isArray(fieldErrorMessages)) {
+              fieldErrorMessages.forEach((message: string) => {
+                fieldErrors.push(`${field}: ${message}`);
+              });
+            } else {
+              fieldErrors.push(`${field}: ${fieldErrorMessages}`);
+            }
+          });
+          
+          if (fieldErrors.length > 0) {
+            throw new Error(fieldErrors.join(', '));
+          }
+        }
+        
+        // Handle other error responses
+        throw new Error(errorData.message || errorData.title || `HTTP error! status: ${response.status}`);
       }
 
       const jsonResponse = await response.json();
@@ -99,31 +120,44 @@ class ApiService {
     password: string;
     confirmPassword: string;
   }): Promise<{
-    token: string;
-    refreshToken: string;
-    expiresAt: string;
-    user: {
-      id: string;
+    success: boolean;
+    message: string;
+    data: {
+      userId: string;
       name: string;
       email: string;
       phone: string;
-      role: string;
-      isActive: boolean;
+      isEmailConfirmed: boolean;
       createdAt: string;
-      updatedAt: string;
-    };
+    } | null;
+    errors: Array<{
+      field: string;
+      message: string;
+    }>;
   }> {
     if (isMockDataEnabled()) {
       return mockDataService.register(registerData);
     }
-    const response = await this.request<any>('/Auth/register', {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {
+        userId: string;
+        name: string;
+        email: string;
+        phone: string;
+        isEmailConfirmed: boolean;
+        createdAt: string;
+      } | null;
+      errors: Array<{
+        field: string;
+        message: string;
+      }>;
+    }>('/Auth/register', {
       method: 'POST',
       body: JSON.stringify(registerData),
     });
-    if (response && response.success && response.data) {
-      return response.data;
-    }
-    throw new Error(response?.message || 'Registration failed');
+    return response;
   }
 
   async getCurrentUser(): Promise<User> {
