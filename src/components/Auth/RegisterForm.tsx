@@ -8,10 +8,24 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  Link,
   Container,
   Grid,
+  InputAdornment,
+  IconButton,
+  Divider,
 } from '@mui/material';
+import {
+  AccountBalance,
+  TrendingUp,
+  Security,
+  Visibility,
+  VisibilityOff,
+  Email,
+  Lock,
+  Person,
+  Phone,
+  CheckCircle,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterData } from '../../types/loan';
@@ -32,6 +46,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   });
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,36 +110,107 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Card sx={{ width: '100%', maxWidth: 500 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography component="h1" variant="h4" align="center" gutterBottom>
-              Create Account
-            </Typography>
-            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
-              Start managing your loans today
-            </Typography>
-            
-            <Alert severity="info" sx={{ mb: 2 }}>
-              <Typography variant="body2">
-                <strong>Demo Mode:</strong> You can also use the demo account:<br />
-                Email: demo@utilityhub360.com | Password: Demo123!
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Container maxWidth="xl">
+        <Grid container spacing={6} alignItems="center">
+          {/* Left Side - Branding & Benefits */}
+          <Grid item xs={12} lg={6}>
+            <Box sx={{ color: 'white', textAlign: { xs: 'center', lg: 'left' }, pr: { lg: 4 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: { xs: 'center', lg: 'flex-start' } }}>
+                <AccountBalance sx={{ fontSize: 56, mr: 2 }} />
+                <Typography variant="h2" component="h1" sx={{ fontWeight: 'bold' }}>
+                  UtilityHub360
+                </Typography>
+              </Box>
+              
+              <Typography variant="h4" sx={{ mb: 4, fontWeight: 300 }}>
+                Start Your Financial Journey Today
               </Typography>
-            </Alert>
+              
+              <Typography variant="h6" sx={{ mb: 5, opacity: 0.9, lineHeight: 1.6, fontWeight: 300 }}>
+                Join thousands of users who have taken control of their finances. Create your account 
+                and unlock powerful tools for managing loans, tracking expenses, and building wealth.
+              </Typography>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
+              {/* Benefits List */}
+              <Box sx={{ mb: 5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <CheckCircle sx={{ mr: 2, color: '#4caf50', fontSize: 28 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 400 }}>Comprehensive loan management</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <CheckCircle sx={{ mr: 2, color: '#4caf50', fontSize: 28 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 400 }}>Real-time expense tracking</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <CheckCircle sx={{ mr: 2, color: '#4caf50', fontSize: 28 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 400 }}>Smart savings goals</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <CheckCircle sx={{ mr: 2, color: '#4caf50', fontSize: 28 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 400 }}>Advanced analytics & insights</Typography>
+                </Box>
+              </Box>
 
-            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
+                <Security sx={{ mr: 1 }} />
+                <Typography variant="body2">
+                  Your data is protected with enterprise-grade security
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+
+          {/* Right Side - Registration Form */}
+          <Grid item xs={12} lg={6}>
+            <Card
+              elevation={24}
+              sx={{
+                borderRadius: 3,
+                overflow: 'hidden',
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(10px)',
+                maxWidth: 550,
+                mx: 'auto',
+              }}
+            >
+              <CardContent sx={{ p: 5 }}>
+                <Box sx={{ textAlign: 'center', mb: 3 }}>
+                  <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Create Account
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    Join UtilityHub360 and take control of your finances
+                  </Typography>
+                </Box>
+
+                {error && (
+                  <Alert 
+                    severity="error" 
+                    sx={{ 
+                      mb: 3,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {error}
+                    </Typography>
+                  </Alert>
+                )}
+
+                <Box component="form" onSubmit={handleSubmit}>
                   <TextField
-                    required
                     fullWidth
+                    required
                     id="name"
                     label="Full Name"
                     name="name"
@@ -131,12 +218,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.name}
                     onChange={handleChange('name')}
                     disabled={isLoading}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
                   />
-                </Grid>
-                <Grid item xs={12}>
+
                   <TextField
-                    required
                     fullWidth
+                    required
                     id="email"
                     label="Email Address"
                     name="email"
@@ -145,12 +239,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.email}
                     onChange={handleChange('email')}
                     disabled={isLoading}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
                   />
-                </Grid>
-                <Grid item xs={12}>
+
                   <TextField
-                    required
                     fullWidth
+                    required
                     id="phone"
                     label="Phone Number"
                     name="phone"
@@ -158,63 +259,137 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     value={formData.phone}
                     onChange={handleChange('phone')}
                     disabled={isLoading}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
                   />
-                </Grid>
-                <Grid item xs={12} sm={6}>
+
                   <TextField
-                    required
                     fullWidth
+                    required
                     name="password"
                     label="Password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     id="password"
                     autoComplete="new-password"
                     value={formData.password}
                     onChange={handleChange('password')}
                     disabled={isLoading}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
-                </Grid>
-                <Grid item xs={12} sm={6}>
+
                   <TextField
-                    required
                     fullWidth
+                    required
                     name="confirmPassword"
                     label="Confirm Password"
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     id="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange('confirmPassword')}
                     disabled={isLoading}
+                    sx={{ mb: 3 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle confirm password visibility"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            edge="end"
+                          >
+                            {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
-                </Grid>
-              </Grid>
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{ mt: 3, mb: 2 }}
-                disabled={isLoading}
-              >
-                {isLoading ? <CircularProgress size={24} /> : 'Create Account'}
-              </Button>
-              <Box textAlign="center">
-                <Typography variant="body2">
-                  Already have an account?{' '}
-                  <Link
-                    component="button"
-                    variant="body2"
+
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    disabled={isLoading}
+                    sx={{
+                      mb: 3,
+                      py: 1.5,
+                      borderRadius: 2,
+                      background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)',
+                      },
+                    }}
+                  >
+                    {isLoading ? (
+                      <CircularProgress size={24} color="inherit" />
+                    ) : (
+                      <>
+                        <TrendingUp sx={{ mr: 1 }} />
+                        Create Account & Start Managing
+                      </>
+                    )}
+                  </Button>
+
+                  <Divider sx={{ my: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Already have an account?
+                    </Typography>
+                  </Divider>
+
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="large"
                     onClick={onSwitchToLogin}
                     disabled={isLoading}
+                    sx={{
+                      py: 1.5,
+                      borderRadius: 2,
+                      borderColor: 'primary.main',
+                      color: 'primary.main',
+                      '&:hover': {
+                        borderColor: 'primary.dark',
+                        backgroundColor: 'primary.50',
+                      },
+                    }}
                   >
-                    Sign in here
-                  </Link>
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-    </Container>
+                    Sign In to Your Account
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
   );
 };
 

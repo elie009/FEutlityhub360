@@ -22,7 +22,7 @@ const AuthPage: React.FC = () => {
         sx={{
           borderRadius: 2,
           overflow: 'hidden',
-          maxWidth: 600,
+          maxWidth: 'none',
           width: '100%',
         }}
       >
