@@ -1,7 +1,7 @@
 // Mock data service for demonstration purposes
 // This provides sample loan data without requiring a real backend
 
-import { Loan, RepaymentSchedule, Payment, Transaction, Notification, LoanStatus, PaymentStatus, PaymentMethod, TransactionType, NotificationType, NotificationStatus } from '../types/loan';
+import { Loan, RepaymentSchedule, Payment, Transaction, Notification, LoanStatus, PaymentStatus, PaymentMethod, TransactionType, NotificationType, NotificationStatus, NotificationPriority, NotificationsResponse, GetNotificationsParams } from '../types/loan';
 
 // Mock loan data
 export const mockLoans: Loan[] = [
@@ -236,47 +236,83 @@ export const mockTransactions: Transaction[] = [
 // Mock notifications
 export const mockNotifications: Notification[] = [
   {
-    id: 'notif-001',
+    id: 'notification-123-456',
     userId: 'demo-user-123',
+    title: 'Payment Due Reminder',
+    message: 'Your loan payment of $500 is due in 3 days',
+    type: NotificationType.PAYMENT_REMINDER,
+    priority: NotificationPriority.HIGH,
+    isRead: false,
+    createdAt: '2024-01-15T10:30:00Z',
+    readAt: undefined,
+    metadata: {
+      loanId: 'loan-456-789',
+      amount: 500.00,
+      dueDate: '2024-01-18T00:00:00Z'
+    }
+  },
+  {
+    id: 'notification-123-457',
+    userId: 'demo-user-123',
+    title: 'Loan Approved',
+    message: 'Congratulations! Your loan application has been approved',
     type: NotificationType.LOAN_APPROVED,
-    message: 'Your loan application #loan-001 has been approved and disbursed.',
-    status: NotificationStatus.READ,
-    sentAt: '2024-01-20T14:30:00Z',
-    readAt: '2024-01-20T15:00:00Z',
+    priority: NotificationPriority.MEDIUM,
+    isRead: true,
+    createdAt: '2024-01-14T14:20:00Z',
+    readAt: '2024-01-14T15:45:00Z',
+    metadata: {
+      loanId: 'loan-456-789',
+      approvedAmount: 25000.00
+    }
   },
   {
-    id: 'notif-002',
+    id: 'notification-123-458',
     userId: 'demo-user-123',
+    title: 'Payment Confirmed',
+    message: 'Your payment of $680 has been successfully processed',
     type: NotificationType.PAYMENT_CONFIRMED,
-    message: 'Payment of $680 for loan #loan-001 has been confirmed.',
-    status: NotificationStatus.READ,
-    sentAt: '2024-02-14T10:35:00Z',
-    readAt: '2024-02-14T11:00:00Z',
+    priority: NotificationPriority.LOW,
+    isRead: true,
+    createdAt: '2024-01-13T16:15:00Z',
+    readAt: '2024-01-13T16:30:00Z',
+    metadata: {
+      loanId: 'loan-456-789',
+      amount: 680.00,
+      paymentDate: '2024-01-13T16:00:00Z'
+    }
   },
   {
-    id: 'notif-003',
+    id: 'notification-123-459',
     userId: 'demo-user-123',
-    type: NotificationType.PAYMENT_DUE,
-    message: 'Payment of $680 for loan #loan-001 is due on April 15, 2024.',
-    status: NotificationStatus.SENT,
-    sentAt: '2024-04-10T09:00:00Z',
+    title: 'System Maintenance',
+    message: 'Scheduled maintenance will occur tonight from 2-4 AM',
+    type: NotificationType.SYSTEM_UPDATE,
+    priority: NotificationPriority.MEDIUM,
+    isRead: false,
+    createdAt: '2024-01-12T09:00:00Z',
+    readAt: undefined,
+    metadata: {
+      maintenanceStart: '2024-01-13T02:00:00Z',
+      maintenanceEnd: '2024-01-13T04:00:00Z'
+    }
   },
   {
-    id: 'notif-004',
+    id: 'notification-123-460',
     userId: 'demo-user-123',
-    type: NotificationType.PAYMENT_OVERDUE,
-    message: 'Payment of $1,433 for loan #loan-004 is overdue. Please make payment immediately.',
-    status: NotificationStatus.SENT,
-    sentAt: '2024-04-05T08:00:00Z',
-  },
-  {
-    id: 'notif-005',
-    userId: 'demo-user-123',
-    type: NotificationType.UPCOMING_DUE,
-    message: 'Payment of $444 for loan #loan-002 is due in 3 days.',
-    status: NotificationStatus.SENT,
-    sentAt: '2024-04-09T10:00:00Z',
-  },
+    title: 'Account Security Alert',
+    message: 'New login detected from a different device',
+    type: NotificationType.ACCOUNT_ALERT,
+    priority: NotificationPriority.HIGH,
+    isRead: false,
+    createdAt: '2024-01-11T18:30:00Z',
+    readAt: undefined,
+    metadata: {
+      deviceType: 'Mobile',
+      location: 'New York, NY',
+      ipAddress: '192.168.1.100'
+    }
+  }
 ];
 
 // Simulate API delay
@@ -308,9 +344,48 @@ export const mockDataService = {
     return mockPayments.filter(payment => payment.loanId === loanId);
   },
 
-  async getNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: string, params?: GetNotificationsParams): Promise<NotificationsResponse> {
     await delay(600);
-    return mockNotifications.filter(notification => notification.userId === userId);
+    
+    let filteredNotifications = mockNotifications.filter(notification => notification.userId === userId);
+    
+    // Apply unreadOnly filter if specified
+    if (params?.unreadOnly) {
+      filteredNotifications = filteredNotifications.filter(notification => !notification.isRead);
+    }
+    
+    // Pagination
+    const page = params?.page || 1;
+    const limit = params?.limit || 10;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex);
+    
+    // Calculate summary
+    const totalNotifications = filteredNotifications.length;
+    const unreadCount = filteredNotifications.filter(n => !n.isRead).length;
+    const highPriorityCount = filteredNotifications.filter(n => n.priority === NotificationPriority.HIGH).length;
+    const mediumPriorityCount = filteredNotifications.filter(n => n.priority === NotificationPriority.MEDIUM).length;
+    const lowPriorityCount = filteredNotifications.filter(n => n.priority === NotificationPriority.LOW).length;
+    
+    return {
+      notifications: paginatedNotifications,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalNotifications / limit),
+        totalItems: totalNotifications,
+        itemsPerPage: limit,
+        hasNextPage: endIndex < totalNotifications,
+        hasPreviousPage: page > 1
+      },
+      summary: {
+        totalNotifications,
+        unreadCount,
+        highPriorityCount,
+        mediumPriorityCount,
+        lowPriorityCount
+      }
+    };
   },
 
   async applyForLoan(application: any): Promise<Loan> {

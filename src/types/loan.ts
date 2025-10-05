@@ -96,21 +96,63 @@ export enum TransactionType {
 export interface Notification {
   id: string;
   userId: string;
-  type: NotificationType;
+  title: string;
   message: string;
-  status: NotificationStatus;
-  sentAt: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  isRead: boolean;
+  createdAt: string;
   readAt?: string;
+  metadata?: Record<string, any>;
 }
 
 export enum NotificationType {
+  PAYMENT_REMINDER = 'PAYMENT_REMINDER',
   LOAN_APPROVED = 'LOAN_APPROVED',
   LOAN_REJECTED = 'LOAN_REJECTED',
   PAYMENT_DUE = 'PAYMENT_DUE',
   PAYMENT_CONFIRMED = 'PAYMENT_CONFIRMED',
   PAYMENT_OVERDUE = 'PAYMENT_OVERDUE',
   LOAN_CLOSED = 'LOAN_CLOSED',
-  UPCOMING_DUE = 'UPCOMING_DUE'
+  UPCOMING_DUE = 'UPCOMING_DUE',
+  SYSTEM_UPDATE = 'SYSTEM_UPDATE',
+  ACCOUNT_ALERT = 'ACCOUNT_ALERT'
+}
+
+export enum NotificationPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT'
+}
+
+export interface NotificationPagination {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface NotificationSummary {
+  totalNotifications: number;
+  unreadCount: number;
+  highPriorityCount: number;
+  mediumPriorityCount: number;
+  lowPriorityCount: number;
+}
+
+export interface NotificationsResponse {
+  notifications: Notification[];
+  pagination: NotificationPagination;
+  summary: NotificationSummary;
+}
+
+export interface GetNotificationsParams {
+  page?: number;
+  limit?: number;
+  unreadOnly?: boolean;
 }
 
 export enum NotificationStatus {

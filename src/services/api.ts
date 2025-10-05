@@ -9,7 +9,9 @@ import {
   AuthUser, 
   LoginCredentials, 
   RegisterData,
-  PaymentMethod 
+  PaymentMethod,
+  NotificationsResponse,
+  GetNotificationsParams
 } from '../types/loan';
 import { Bill, CreateBillRequest, UpdateBillRequest, BillFilters, BillAnalytics, TotalPaidAnalytics, PaginatedBillsResponse } from '../types/bill';
 import { mockDataService } from './mockData';
@@ -623,11 +625,20 @@ class ApiService {
   }
 
   // Notification APIs
-  async getNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: string, params?: GetNotificationsParams): Promise<NotificationsResponse> {
     if (isMockDataEnabled()) {
-      return mockDataService.getNotifications(userId);
+      return mockDataService.getNotifications(userId, params);
     }
-    return this.request<Notification[]>(`/notifications/${userId}`);
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.unreadOnly) queryParams.append('unreadOnly', params.unreadOnly.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Notifications/user/${userId}${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<NotificationsResponse>(endpoint);
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {

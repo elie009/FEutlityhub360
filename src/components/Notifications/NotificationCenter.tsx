@@ -30,7 +30,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
-import { Notification, NotificationType, NotificationStatus } from '../../types/loan';
+import { Notification, NotificationType, NotificationStatus, NotificationPriority, NotificationsResponse, GetNotificationsParams, NotificationPagination, NotificationSummary } from '../../types/loan';
 import { getErrorMessage } from '../../utils/validation';
 
 const getNotificationIcon = (type: NotificationType) => {
@@ -90,25 +90,37 @@ const formatDate = (dateString: string): string => {
 const NotificationCenter: React.FC = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [pagination, setPagination] = useState<NotificationPagination | null>(null);
+  const [summary, setSummary] = useState<NotificationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
 
 
   useEffect(() => {
     if (user) {
       loadNotifications();
     }
-  }, [user]);
+  }, [user, currentPage, filter]);
 
   const loadNotifications = async () => {
     if (!user) return;
 
     try {
       setIsLoading(true);
-      const userNotifications = await apiService.getNotifications(user.id);
-      setNotifications(userNotifications);
+      const params: GetNotificationsParams = {
+        page: currentPage,
+        limit: pageSize,
+        unreadOnly: filter === 'unread'
+      };
+      
+      const response: NotificationsResponse = await apiService.getNotifications(user.id, params);
+      setNotifications(response.notifications);
+      setPagination(response.pagination);
+      setSummary(response.summary);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to load notifications'));
     } finally {
@@ -120,12 +132,19 @@ const NotificationCenter: React.FC = () => {
     try {
       await apiService.markNotificationAsRead(notificationId);
       setNotifications(prev =>
-        prev.map(notif =>
+        (prev || []).map(notif =>
           notif.id === notificationId
-            ? { ...notif, status: NotificationStatus.READ, readAt: new Date().toISOString() }
+            ? { ...notif, isRead: true, readAt: new Date().toISOString() }
             : notif
         )
       );
+      // Update summary if available
+      if (summary) {
+        setSummary(prev => prev ? {
+          ...prev,
+          unreadCount: Math.max(0, prev.unreadCount - 1)
+        } : null);
+      }
     } catch (err: unknown) {
       console.error('Failed to mark notification as read:', err);
     }
@@ -133,15 +152,22 @@ const NotificationCenter: React.FC = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const unreadNotifications = notifications.filter(n => n.status !== NotificationStatus.READ);
+      const unreadNotifications = (notifications || []).filter(n => !n.isRead);
       await Promise.all(unreadNotifications.map(n => apiService.markNotificationAsRead(n.id)));
       setNotifications(prev =>
-        prev.map(notif => ({
+        (prev || []).map(notif => ({
           ...notif,
-          status: NotificationStatus.READ,
+          isRead: true,
           readAt: notif.readAt || new Date().toISOString(),
         }))
       );
+      // Update summary
+      if (summary) {
+        setSummary(prev => prev ? {
+          ...prev,
+          unreadCount: 0
+        } : null);
+      }
     } catch (err: unknown) {
       console.error('Failed to mark all notifications as read:', err);
     }
@@ -160,14 +186,14 @@ const NotificationCenter: React.FC = () => {
     handleMenuClose();
   };
 
-  const filteredNotifications = notifications.filter(notification => {
+  const filteredNotifications = (notifications || []).filter(notification => {
     if (filter === 'unread') {
-      return notification.status !== NotificationStatus.READ;
+      return !notification.isRead;
     }
     return true;
   });
 
-  const unreadCount = notifications.filter(n => n.status !== NotificationStatus.READ).length;
+  const unreadCount = summary?.unreadCount || (notifications || []).filter(n => !n.isRead).length;
 
   if (isLoading) {
     return (
@@ -240,7 +266,7 @@ const NotificationCenter: React.FC = () => {
               <React.Fragment key={notification.id}>
                 <ListItem
                   sx={{
-                    bgcolor: notification.status === NotificationStatus.READ ? 'transparent' : 'action.hover',
+                    bgcolor: notification.isRead ? 'transparent' : 'action.hover',
                     '&:hover': {
                       bgcolor: 'action.selected',
                     },
@@ -260,7 +286,7 @@ const NotificationCenter: React.FC = () => {
                           color={getNotificationColor(notification.type)}
                           size="small"
                         />
-                        {notification.status !== NotificationStatus.READ && (
+                        {!notification.isRead && (
                           <Chip
                             label="New"
                             color="primary"
@@ -272,9 +298,9 @@ const NotificationCenter: React.FC = () => {
                     secondary={
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="body2" color="text.secondary">
-                          {formatDate(notification.sentAt)}
+                          {formatDate(notification.createdAt)}
                         </Typography>
-                        {notification.status !== NotificationStatus.READ && (
+                        {!notification.isRead && (
                           <Button
                             size="small"
                             onClick={() => handleMarkAsRead(notification.id)}
