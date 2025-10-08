@@ -19,6 +19,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -45,6 +47,7 @@ const Dashboard: React.FC = () => {
   // Profile form states
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
+    isUnemployed: false,
     jobTitle: '',
     company: '',
     employmentType: '',
@@ -107,6 +110,22 @@ const Dashboard: React.FC = () => {
     }));
   };
 
+  const handleUnemployedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isUnemployed = e.target.checked;
+    setProfileFormData(prev => ({
+      ...prev,
+      isUnemployed,
+      // Clear employment fields when unemployed is checked
+      ...(isUnemployed ? {
+        jobTitle: '',
+        company: '',
+        employmentType: '',
+        industry: '',
+        location: '',
+      } : {}),
+    }));
+  };
+
   const handleIncomeSourceChange = (index: number, field: string, value: any) => {
     const newIncomeSources = [...profileFormData.incomeSources];
     newIncomeSources[index] = {
@@ -150,10 +169,12 @@ const Dashboard: React.FC = () => {
       setProfileError('');
       setProfileSuccess('');
 
-      // Validate form
-      if (!profileFormData.jobTitle || !profileFormData.company) {
-        setProfileError('Please fill in all required fields');
-        return;
+      // Validate form - skip employment validation if unemployed
+      if (!profileFormData.isUnemployed) {
+        if (!profileFormData.jobTitle || !profileFormData.company) {
+          setProfileError('Please fill in all required fields');
+          return;
+        }
       }
 
       // Create profile
@@ -431,6 +452,21 @@ const Dashboard: React.FC = () => {
                 <WorkIcon />
                 Employment Information
               </Typography>
+              
+              {/* Unemployed Checkbox */}
+              <Box sx={{ mb: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={profileFormData.isUnemployed}
+                      onChange={handleUnemployedChange}
+                      color="primary"
+                    />
+                  }
+                  label="I am currently unemployed"
+                />
+              </Box>
+
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
@@ -438,7 +474,8 @@ const Dashboard: React.FC = () => {
                     label="Job Title"
                     value={profileFormData.jobTitle}
                     onChange={(e) => handleProfileFormInputChange('jobTitle', e.target.value)}
-                    required
+                    required={!profileFormData.isUnemployed}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -447,11 +484,12 @@ const Dashboard: React.FC = () => {
                     label="Company"
                     value={profileFormData.company}
                     onChange={(e) => handleProfileFormInputChange('company', e.target.value)}
-                    required
+                    required={!profileFormData.isUnemployed}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth required={!profileFormData.isUnemployed} disabled={profileFormData.isUnemployed}>
                     <InputLabel>Employment Type</InputLabel>
                     <Select
                       value={profileFormData.employmentType}
@@ -471,6 +509,7 @@ const Dashboard: React.FC = () => {
                     label="Industry"
                     value={profileFormData.industry}
                     onChange={(e) => handleProfileFormInputChange('industry', e.target.value)}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -479,6 +518,7 @@ const Dashboard: React.FC = () => {
                     label="Location"
                     value={profileFormData.location}
                     onChange={(e) => handleProfileFormInputChange('location', e.target.value)}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
               </Grid>

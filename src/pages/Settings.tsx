@@ -10,6 +10,7 @@ import {
   Button,
   Switch,
   FormControlLabel,
+  Checkbox,
   Divider,
   List,
   ListItem,
@@ -60,6 +61,7 @@ interface IncomeSource {
 }
 
 interface ProfileFormData {
+  isUnemployed: boolean;
   jobTitle: string;
   company: string;
   employmentType: string;
@@ -92,6 +94,7 @@ const Settings: React.FC = () => {
   // Profile form state
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileFormData, setProfileFormData] = useState<ProfileFormData>({
+    isUnemployed: false,
     jobTitle: '',
     company: '',
     employmentType: '',
@@ -127,6 +130,7 @@ const Settings: React.FC = () => {
   // Edit profile state
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    isUnemployed: false,
     jobTitle: '',
     company: '',
     employmentType: '',
@@ -287,6 +291,40 @@ const Settings: React.FC = () => {
     if (profileError) setProfileError(null);
   };
 
+  const handleUnemployedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isUnemployed = e.target.checked;
+    setProfileFormData(prev => ({
+      ...prev,
+      isUnemployed,
+      // Clear employment fields when unemployed is checked
+      ...(isUnemployed ? {
+        jobTitle: '',
+        company: '',
+        employmentType: '',
+        industry: '',
+        location: '',
+      } : {}),
+    }));
+    if (profileError) setProfileError(null);
+  };
+
+  const handleEditUnemployedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isUnemployed = e.target.checked;
+    setEditFormData(prev => ({
+      ...prev,
+      isUnemployed,
+      // Clear employment fields when unemployed is checked
+      ...(isUnemployed ? {
+        jobTitle: '',
+        company: '',
+        employmentType: '',
+        industry: '',
+        location: '',
+      } : {}),
+    }));
+    if (editError) setEditError(null);
+  };
+
   const handleIncomeSourceChange = (index: number, field: keyof IncomeSource, value: any) => {
     setProfileFormData(prev => ({
       ...prev,
@@ -324,6 +362,11 @@ const Settings: React.FC = () => {
   };
 
   const validateProfileForm = (): string | null => {
+    // Skip validation if user is unemployed
+    if (profileFormData.isUnemployed) {
+      return null;
+    }
+    
     if (!profileFormData.jobTitle.trim()) {
       return 'Job title is required';
     }
@@ -371,6 +414,7 @@ const Settings: React.FC = () => {
   const handleEditProfile = () => {
     if (userProfile) {
       setEditFormData({
+        isUnemployed: (userProfile as any).isUnemployed || false,
         jobTitle: userProfile.jobTitle || '',
         company: userProfile.company || '',
         employmentType: userProfile.employmentType || '',
@@ -408,6 +452,11 @@ const Settings: React.FC = () => {
   };
 
   const validateEditForm = (): string | null => {
+    // Skip validation if user is unemployed
+    if (editFormData.isUnemployed) {
+      return null;
+    }
+    
     if (!editFormData.jobTitle.trim()) {
       return 'Job title is required';
     }
@@ -1414,31 +1463,48 @@ const Settings: React.FC = () => {
                 <WorkIcon />
                 Employment Information
               </Typography>
+              
+              {/* Unemployed Checkbox */}
+              <Box sx={{ mb: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={profileFormData.isUnemployed}
+                      onChange={handleUnemployedChange}
+                      color="primary"
+                    />
+                  }
+                  label="I am currently unemployed"
+                />
+              </Box>
+
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required
+                    required={!profileFormData.isUnemployed}
                     fullWidth
                     id="jobTitle"
                     label="Job Title"
                     name="jobTitle"
                     value={profileFormData.jobTitle}
                     onChange={handleProfileFormInputChange}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required
+                    required={!profileFormData.isUnemployed}
                     fullWidth
                     id="company"
                     label="Company"
                     name="company"
                     value={profileFormData.company}
                     onChange={handleProfileFormInputChange}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
+                  <FormControl fullWidth required={!profileFormData.isUnemployed} disabled={profileFormData.isUnemployed}>
                     <InputLabel>Employment Type</InputLabel>
                     <Select
                       name="employmentType"
@@ -1462,6 +1528,7 @@ const Settings: React.FC = () => {
                     name="industry"
                     value={profileFormData.industry}
                     onChange={handleProfileFormInputChange}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -1472,6 +1539,7 @@ const Settings: React.FC = () => {
                     name="location"
                     value={profileFormData.location}
                     onChange={handleProfileFormInputChange}
+                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
               </Grid>
@@ -1745,31 +1813,48 @@ const Settings: React.FC = () => {
                 <WorkIcon />
                 Employment Information
               </Typography>
+              
+              {/* Unemployed Checkbox */}
+              <Box sx={{ mb: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editFormData.isUnemployed}
+                      onChange={handleEditUnemployedChange}
+                      color="primary"
+                    />
+                  }
+                  label="I am currently unemployed"
+                />
+              </Box>
+
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required
+                    required={!editFormData.isUnemployed}
                     fullWidth
                     id="edit-jobTitle"
                     label="Job Title"
                     name="jobTitle"
                     value={editFormData.jobTitle}
                     onChange={handleEditInputChange}
+                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required
+                    required={!editFormData.isUnemployed}
                     fullWidth
                     id="edit-company"
                     label="Company"
                     name="company"
                     value={editFormData.company}
                     onChange={handleEditInputChange}
+                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
+                  <FormControl fullWidth required={!editFormData.isUnemployed} disabled={editFormData.isUnemployed}>
                     <InputLabel>Employment Type</InputLabel>
                     <Select
                       name="employmentType"
@@ -1793,6 +1878,7 @@ const Settings: React.FC = () => {
                     name="industry"
                     value={editFormData.industry}
                     onChange={handleEditInputChange}
+                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -1803,6 +1889,7 @@ const Settings: React.FC = () => {
                     name="location"
                     value={editFormData.location}
                     onChange={handleEditInputChange}
+                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
               </Grid>
