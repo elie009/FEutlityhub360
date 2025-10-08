@@ -72,7 +72,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
       <CardContent sx={{ flexGrow: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Typography variant="h6" component="div">
-            Loan #{loan.id.slice(-8)}
+            Loan #{loan.id.slice(-8).toUpperCase()}
           </Typography>
           <Chip
             label={loan.status}

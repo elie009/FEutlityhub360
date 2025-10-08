@@ -153,7 +153,7 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          Loan Details #{loan.id.slice(-8)}
+          Loan Details #{loan.id.slice(-8).toUpperCase()}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button

@@ -117,14 +117,22 @@ const LoanDashboard: React.FC = () => {
   };
 
   const handleUpdateSuccess = async (updatedLoan: Loan) => {
-    // Update the loan in the loans array
+    console.log('🎉 Update success handler called with:', updatedLoan);
+    
+    // Update the loan in the loans array immediately with the response data
     setLoans(prevLoans => 
       prevLoans.map(loan => 
         loan.id === updatedLoan.id ? updatedLoan : loan
       )
     );
+    
     setShowUpdateForm(false);
     setSelectedLoan(null);
+    
+    // Reload all loans from backend to ensure all calculated fields are synced
+    console.log('🔄 Reloading all loans to sync calculated fields...');
+    await loadLoans();
+    
     // Refresh the outstanding amount after updating loan
     await loadOutstandingAmount();
   };
@@ -403,6 +411,7 @@ const LoanDashboard: React.FC = () => {
         }}
         loan={selectedLoan}
         onSuccess={handleUpdateSuccess}
+        onRefresh={loadLoans}
       />
 
       {/* Delete Confirmation Dialog */}

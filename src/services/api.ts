@@ -427,6 +427,7 @@ class ApiService {
     purpose?: string;
     additionalInfo?: string;
     status?: string;
+    principal?: number;
     interestRate?: number;
     monthlyPayment?: number;
     remainingBalance?: number;

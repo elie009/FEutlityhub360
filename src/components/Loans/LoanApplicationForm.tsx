@@ -44,6 +44,44 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
   const [error, setError] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [otherPurpose, setOtherPurpose] = useState<string>(''); // For custom purpose input
+  
+  // Real-time validation state
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Update validation errors in real-time
+  React.useEffect(() => {
+    const errors: Record<string, string> = {};
+    
+    // Validate Step 0 fields
+    const principalValidation = validateLoanAmount(formData.principal);
+    if (!principalValidation.isValid && formData.principal !== 0) {
+      errors.principal = principalValidation.error || '';
+    }
+    
+    const interestRateValidation = validateInterestRate(formData.interestRate);
+    if (!interestRateValidation.isValid && formData.interestRate !== 0) {
+      errors.interestRate = interestRateValidation.error || '';
+    }
+    
+    const purposeValidation = validateRequired(formData.purpose, 'Purpose');
+    if (!purposeValidation.isValid && formData.purpose !== '') {
+      errors.purpose = purposeValidation.error || '';
+    }
+    
+    // Validate Step 1 fields
+    const incomeValidation = validateRequired(formData.monthlyIncome, 'Monthly Income');
+    if (!incomeValidation.isValid && formData.monthlyIncome !== 0) {
+      errors.monthlyIncome = incomeValidation.error || '';
+    }
+    
+    const employmentValidation = validateEmploymentStatus(formData.employmentStatus);
+    if (!employmentValidation.isValid && formData.employmentStatus !== '') {
+      errors.employmentStatus = employmentValidation.error || '';
+    }
+    
+    setValidationErrors(errors);
+  }, [formData]);
 
   const handleNext = () => {
     setActiveStep(prev => prev + 1);
@@ -79,7 +117,13 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     setIsLoading(true);
 
     try {
-      const loan = await apiService.applyForLoan(formData);
+      // If "other" is selected, use the custom purpose
+      const finalFormData = {
+        ...formData,
+        purpose: formData.purpose === 'other' ? otherPurpose : formData.purpose
+      };
+      
+      const loan = await apiService.applyForLoan(finalFormData);
       onSuccess(loan.id);
     } catch (err: unknown) {
       const { message, fieldErrors: apiFieldErrors } = getApiErrorMessage(err, 'Failed to submit loan application');
@@ -96,10 +140,42 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
         const principalValidation = validateLoanAmount(formData.principal);
         const interestRateValidation = validateInterestRate(formData.interestRate);
         const purposeValidation = validateRequired(formData.purpose, 'Purpose');
-        return principalValidation.isValid && interestRateValidation.isValid && purposeValidation.isValid;
+        
+        // If "other" is selected, also check if custom purpose is provided
+        const otherPurposeValid = formData.purpose === 'other' ? otherPurpose.trim() !== '' : true;
+        
+        // Debug logging
+        console.log('🔍 Step 0 validation:', {
+          principal: formData.principal,
+          principalValid: principalValidation.isValid,
+          principalError: principalValidation.error,
+          interestRate: formData.interestRate,
+          interestRateValid: interestRateValidation.isValid,
+          interestRateError: interestRateValidation.error,
+          purpose: formData.purpose,
+          purposeValid: purposeValidation.isValid,
+          purposeError: purposeValidation.error,
+          otherPurpose: otherPurpose,
+          otherPurposeValid: otherPurposeValid,
+          overallValid: principalValidation.isValid && interestRateValidation.isValid && purposeValidation.isValid && otherPurposeValid
+        });
+        
+        return principalValidation.isValid && interestRateValidation.isValid && purposeValidation.isValid && otherPurposeValid;
       case 1:
         const incomeValidation = validateRequired(formData.monthlyIncome, 'Monthly Income');
         const employmentValidation = validateEmploymentStatus(formData.employmentStatus);
+        
+        // Debug logging
+        console.log('🔍 Step 1 validation:', {
+          monthlyIncome: formData.monthlyIncome,
+          incomeValid: incomeValidation.isValid,
+          incomeError: incomeValidation.error,
+          employmentStatus: formData.employmentStatus,
+          employmentValid: employmentValidation.isValid,
+          employmentError: employmentValidation.error,
+          overallValid: incomeValidation.isValid && employmentValidation.isValid
+        });
+        
         return incomeValidation.isValid && employmentValidation.isValid;
       case 2:
         return true;
@@ -118,11 +194,12 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 fullWidth
                 label="Loan Amount"
                 type="number"
-                value={formData.principal}
+                value={formData.principal === 0 ? '' : formData.principal}
                 onChange={handleInputChange('principal')}
-                helperText={fieldErrors.principal || "Enter the amount you wish to borrow"}
-                error={!!fieldErrors.principal}
+                helperText={validationErrors.principal || fieldErrors.principal || "Enter the amount you wish to borrow"}
+                error={!!validationErrors.principal || !!fieldErrors.principal}
                 required
+                inputProps={{ min: 0.01, max: 100000, step: 0.01 }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -130,16 +207,16 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 fullWidth
                 label="Interest Rate (%)"
                 type="number"
-                value={formData.interestRate}
+                value={formData.interestRate ?? ''}
                 onChange={handleInputChange('interestRate')}
-                helperText={fieldErrors.interestRate || "Enter the desired interest rate (0-50%)"}
-                error={!!fieldErrors.interestRate}
+                helperText={validationErrors.interestRate || fieldErrors.interestRate || "Enter interest rate (0% - 50%)"}
+                error={!!validationErrors.interestRate || !!fieldErrors.interestRate}
                 required
                 inputProps={{ min: 0, max: 50, step: 0.1 }}
               />
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth required error={!!fieldErrors.purpose}>
+              <FormControl fullWidth required error={!!validationErrors.purpose || !!fieldErrors.purpose}>
                 <InputLabel>Purpose of Loan</InputLabel>
                 <Select
                   value={formData.purpose}
@@ -154,29 +231,37 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                   <MenuItem value="personal">Personal</MenuItem>
                   <MenuItem value="other">Other</MenuItem>
                 </Select>
-                {fieldErrors.purpose && (
+                {(validationErrors.purpose || fieldErrors.purpose) && (
                   <Typography variant="caption" color="error" sx={{ mt: 1, ml: 2 }}>
-                    {fieldErrors.purpose}
+                    {validationErrors.purpose || fieldErrors.purpose}
                   </Typography>
                 )}
               </FormControl>
             </Grid>
+            {formData.purpose === 'other' && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Please Specify Purpose"
+                  value={otherPurpose}
+                  onChange={(e) => setOtherPurpose(e.target.value)}
+                  helperText="Enter your specific loan purpose"
+                  required
+                  error={formData.purpose === 'other' && otherPurpose.trim() === ''}
+                />
+              </Grid>
+            )}
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Loan Term</InputLabel>
-                <Select
-                  value={formData.term}
-                  onChange={handleSelectChange('term')}
-                  label="Loan Term"
-                >
-                  <MenuItem value={6}>6 months</MenuItem>
-                  <MenuItem value={12}>12 months</MenuItem>
-                  <MenuItem value={24}>24 months</MenuItem>
-                  <MenuItem value={36}>36 months</MenuItem>
-                  <MenuItem value={48}>48 months</MenuItem>
-                  <MenuItem value={60}>60 months</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="Loan Term (months)"
+                type="number"
+                value={formData.term}
+                onChange={handleInputChange('term')}
+                helperText="Enter loan duration in months (e.g., 12, 24, 36, 60)"
+                required
+                inputProps={{ min: 1, max: 360, step: 1 }}
+              />
             </Grid>
           </Grid>
         );

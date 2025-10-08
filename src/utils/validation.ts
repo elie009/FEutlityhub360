@@ -42,9 +42,9 @@ export const validatePassword = (password: string): { isValid: boolean; errors: 
   };
 };
 
-export const validateLoanAmount = (amount: number, minAmount: number = 1000, maxAmount: number = 100000): { isValid: boolean; error?: string } => {
-  if (amount < minAmount) {
-    return { isValid: false, error: `Minimum loan amount is $${minAmount.toLocaleString()}` };
+export const validateLoanAmount = (amount: number, minAmount: number = 0.01, maxAmount: number = 100000): { isValid: boolean; error?: string } => {
+  if (amount <= 0) {
+    return { isValid: false, error: `Loan amount must be greater than $0` };
   }
   
   if (amount > maxAmount) {
@@ -67,7 +67,16 @@ export const validatePaymentAmount = (amount: number, maxAmount: number): { isVa
 };
 
 export const validateRequired = (value: string | number, fieldName: string): { isValid: boolean; error?: string } => {
-  if (!value || (typeof value === 'string' && value.trim() === '')) {
+  // For numbers, check if it's a valid number (including 0)
+  if (typeof value === 'number') {
+    if (isNaN(value)) {
+      return { isValid: false, error: `${fieldName} is required` };
+    }
+    return { isValid: true };
+  }
+  
+  // For strings, check if empty or whitespace only
+  if (!value || value.trim() === '') {
     return { isValid: false, error: `${fieldName} is required` };
   }
   
@@ -168,12 +177,12 @@ export const validateEmploymentStatus = (status: string): { isValid: boolean; er
 };
 
 export const validateInterestRate = (rate: number, minRate: number = 0, maxRate: number = 50): { isValid: boolean; error?: string } => {
-  if (rate < minRate) {
-    return { isValid: false, error: `Interest rate must be at least ${minRate}%` };
+  if (rate < 0) {
+    return { isValid: false, error: `Interest rate cannot be negative` };
   }
   
   if (rate > maxRate) {
-    return { isValid: false, error: `Interest rate cannot exceed ${maxRate}%` };
+    return { isValid: false, error: `Maximum interest rate is ${maxRate}%` };
   }
   
   return { isValid: true };
