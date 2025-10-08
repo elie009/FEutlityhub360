@@ -337,24 +337,24 @@ const Savings: React.FC = () => {
     handleMenuClose();
   };
 
-  // Get savings type color
+  // Get savings type color - Green family theme
   const getSavingsTypeColor = (type: SavingsType): string => {
     const colors: Record<SavingsType, string> = {
-      [SavingsType.EMERGENCY]: '#f44336',
-      [SavingsType.VACATION]: '#2196f3',
-      [SavingsType.INVESTMENT]: '#4caf50',
-      [SavingsType.RETIREMENT]: '#ff9800',
-      [SavingsType.EDUCATION]: '#9c27b0',
-      [SavingsType.HOME_DOWN_PAYMENT]: '#795548',
-      [SavingsType.CAR_PURCHASE]: '#607d8b',
-      [SavingsType.WEDDING]: '#e91e63',
-      [SavingsType.TRAVEL]: '#00bcd4',
-      [SavingsType.BUSINESS]: '#3f51b5',
-      [SavingsType.HEALTH]: '#8bc34a',
-      [SavingsType.TAX_SAVINGS]: '#ffc107',
-      [SavingsType.GENERAL]: '#9e9e9e',
+      [SavingsType.EMERGENCY]: '#059669',      // Dark emerald
+      [SavingsType.VACATION]: '#10b981',       // Emerald
+      [SavingsType.INVESTMENT]: '#14b8a6',     // Teal
+      [SavingsType.RETIREMENT]: '#06b6d4',     // Cyan
+      [SavingsType.EDUCATION]: '#22c55e',      // Green
+      [SavingsType.HOME_DOWN_PAYMENT]: '#16a34a', // Dark green
+      [SavingsType.CAR_PURCHASE]: '#15803d',   // Forest green
+      [SavingsType.WEDDING]: '#84cc16',        // Lime
+      [SavingsType.TRAVEL]: '#34d399',         // Light emerald
+      [SavingsType.BUSINESS]: '#0d9488',       // Dark teal
+      [SavingsType.HEALTH]: '#4ade80',         // Light green
+      [SavingsType.TAX_SAVINGS]: '#a3e635',    // Light lime
+      [SavingsType.GENERAL]: '#6ee7b7',        // Very light emerald
     };
-    return colors[type] || '#9e9e9e';
+    return colors[type] || '#10b981';
   };
 
   // Format currency

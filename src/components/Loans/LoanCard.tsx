@@ -139,7 +139,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
         </Grid>
 
         {/* Payment Information */}
-        <Box sx={{ mt: 2, p: 2, bgcolor: 'darkslategray', borderRadius: 1 }}>
+        <Box sx={{ mt: 2, p: 2, bgcolor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0' }}>
           <Grid container spacing={2}>
             <Grid item xs={6}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>

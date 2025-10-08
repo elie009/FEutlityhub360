@@ -5,7 +5,7 @@ import { CssBaseline, CircularProgress, Box } from '@mui/material';
 import { theme } from './theme/theme';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
-import ProfileProtectedRoute from './components/ProfileProtectedRoute';
+// import ProfileProtectedRoute from './components/ProfileProtectedRoute';
 import AuthPage from './components/Auth/AuthPage';
 import Register from './pages/Register';
 import ProfileSetup from './pages/ProfileSetup';
@@ -61,65 +61,65 @@ const AppRoutes: React.FC = () => {
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Users />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="bills" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Bills />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="analytics" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Analytics />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="support" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Support />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="settings" element={<Settings />} />
           <Route path="transactions" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Transactions />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="apportioner" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Apportioner />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="bank-accounts" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <BankAccounts />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="savings" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <Savings />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="loans" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <LoanDashboard />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="loans/:loanId" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <LoanDetailsWrapper />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="notifications" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <NotificationCenter />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
           <Route path="reports" element={
-            <ProfileProtectedRoute>
+            <ProtectedRoute>
               <ReportsPage />
-            </ProfileProtectedRoute>
+            </ProtectedRoute>
           } />
         </Route>
       </Routes>
