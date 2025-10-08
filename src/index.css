@@ -4,7 +4,7 @@ body {
   font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #1a1a1a;
+  background-color: rgb(36, 43, 33);
   color: #b1e599;
   overflow-x: hidden;
 }
@@ -54,13 +54,13 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: rgb(36, 43, 33);
   border: 1px solid #404040;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #b1e599;
-  border: 1px solid #1a1a1a;
+  border: 1px solid rgb(36, 43, 33);
 }
 
 ::-webkit-scrollbar-thumb:hover {

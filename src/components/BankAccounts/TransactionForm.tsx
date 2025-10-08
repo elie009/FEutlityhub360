@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,10 +17,24 @@ import {
   FormControlLabel,
   Switch,
   SelectChangeEvent,
+  Autocomplete,
+  Chip,
+  Typography,
+  Divider,
 } from '@mui/material';
 import { apiService } from '../../services/api';
 import { BankAccount } from '../../types/bankAccount';
 import { getErrorMessage } from '../../utils/validation';
+import { 
+  categorySuggestions, 
+  getCategoryType,
+  isBillCategory,
+  isSavingsCategory,
+  isLoanCategory,
+  validateTransactionForm,
+  generateEnhancedDescription
+} from '../../utils/categoryLogic';
+import { BillStatus } from '../../types/bill';
 
 interface TransactionFormProps {
   open: boolean;
@@ -29,18 +43,32 @@ interface TransactionFormProps {
   bankAccounts: BankAccount[];
 }
 
-const TRANSACTION_CATEGORIES = [
-  'Food',
-  'Transportation',
-  'Entertainment',
-  'Shopping',
-  'Healthcare',
-  'Education',
-  'Utilities',
-  'Insurance',
-  'Income',
-  'Transfer',
-  'Other',
+interface Bill {
+  id: string;
+  billName: string;
+  amount: number;
+  status: string;
+}
+
+interface Loan {
+  id: string;
+  purpose: string;
+  principal: number;
+  status: string;
+}
+
+interface SavingsAccount {
+  id: string;
+  name: string;
+  balance: number;
+}
+
+// Get all category suggestions for autocomplete
+const ALL_CATEGORIES = [
+  ...categorySuggestions.bill,
+  ...categorySuggestions.savings,
+  ...categorySuggestions.loan,
+  ...categorySuggestions.other
 ];
 
 const RECURRING_FREQUENCIES = [
@@ -69,10 +97,27 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     notes: '',
     isRecurring: false,
     recurringFrequency: '',
+    referenceNumber: '',
+    currency: 'USD',
+    // NEW: Reference Fields for Smart Linking
+    billId: '',
+    savingsAccountId: '',
+    loanId: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  
+  // State for reference data
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
+  const [loadingReferences, setLoadingReferences] = useState(false);
+  
+  // State for dynamic form fields
+  const [showBillSelector, setShowBillSelector] = useState(false);
+  const [showSavingsSelector, setShowSavingsSelector] = useState(false);
+  const [showLoanSelector, setShowLoanSelector] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -89,10 +134,51 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         notes: '',
         isRecurring: false,
         recurringFrequency: '',
+        referenceNumber: '',
+        currency: 'USD',
+        billId: '',
+        savingsAccountId: '',
+        loanId: '',
       });
       setError('');
+      // Reset dynamic selectors
+      setShowBillSelector(false);
+      setShowSavingsSelector(false);
+      setShowLoanSelector(false);
     }
   }, [open, bankAccounts]);
+
+  const loadReferenceData = useCallback(async () => {
+    setLoadingReferences(true);
+    try {
+      // Load bills, loans, and savings accounts in parallel
+      const [billsResponse, loansResponse] = await Promise.all([
+        apiService.getUserBills({ status: BillStatus.PENDING }).catch(() => ({ data: [] })),
+        apiService.getUserLoans('demo-user-123').catch(() => [])
+      ]);
+
+      setBills(billsResponse.data || []);
+      setLoans(Array.isArray(loansResponse) ? loansResponse : []);
+      // For now, we'll use bank accounts as savings accounts
+      // In a real implementation, you'd have a separate savings accounts API
+      setSavingsAccounts(bankAccounts.map(acc => ({
+        id: acc.id,
+        name: acc.accountName,
+        balance: acc.currentBalance
+      })));
+    } catch (error) {
+      console.error('Failed to load reference data:', error);
+    } finally {
+      setLoadingReferences(false);
+    }
+  }, [bankAccounts]);
+
+  // Load reference data when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadReferenceData();
+    }
+  }, [open, loadReferenceData]);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -102,10 +188,39 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleSelectChange = (field: string) => (event: SelectChangeEvent<string>) => {
+    const value = event.target.value;
     setFormData(prev => ({
       ...prev,
-      [field]: event.target.value,
+      [field]: value,
     }));
+
+    // If transaction type changes to CREDIT, clear category and hide selectors
+    if (field === 'transactionType' && value === 'CREDIT') {
+      setFormData(prev => ({
+        ...prev,
+        category: '',
+        billId: '',
+        savingsAccountId: '',
+        loanId: '',
+      }));
+      setShowBillSelector(false);
+      setShowSavingsSelector(false);
+      setShowLoanSelector(false);
+    }
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setFormData(prev => ({ ...prev, category }));
+    
+    // Show/hide reference selectors based on category
+    setShowBillSelector(isBillCategory(category));
+    setShowSavingsSelector(isSavingsCategory(category));
+    setShowLoanSelector(isLoanCategory(category));
+    
+    // Clear other references when category changes
+    if (!isBillCategory(category)) setFormData(prev => ({ ...prev, billId: '' }));
+    if (!isSavingsCategory(category)) setFormData(prev => ({ ...prev, savingsAccountId: '' }));
+    if (!isLoanCategory(category)) setFormData(prev => ({ ...prev, loanId: '' }));
   };
 
   const handleSwitchChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,39 +234,53 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     e.preventDefault();
     setError('');
 
-    // Validation
-    if (!formData.bankAccountId) {
-      setError('Please select a bank account');
-      return;
-    }
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
-    if (!formData.description.trim()) {
-      setError('Please enter a description');
-      return;
-    }
-    if (!formData.category) {
-      setError('Please select a category');
+    // Enhanced validation using category logic
+    const validationErrors = validateTransactionForm({
+      bankAccountId: formData.bankAccountId,
+      amount: parseFloat(formData.amount),
+      description: formData.description.trim(),
+      category: formData.category,
+      billId: formData.billId,
+      savingsAccountId: formData.savingsAccountId,
+      loanId: formData.loanId,
+      transactionType: formData.transactionType,
+    });
+
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(', '));
       return;
     }
 
     setIsLoading(true);
 
     try {
+      // Generate enhanced description based on category and reference
+      const categoryType = formData.category ? getCategoryType(formData.category) : 'other';
+      const enhancedDescription = generateEnhancedDescription(
+        formData.description.trim(),
+        formData.category || '',
+        categoryType === 'other' ? undefined : categoryType,
+        undefined // We could pass reference names here if needed
+      );
+
       await apiService.createBankTransaction({
         bankAccountId: formData.bankAccountId,
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
-        description: formData.description.trim(),
-        category: formData.category,
+        description: enhancedDescription,
+        category: formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category,
         merchant: formData.merchant.trim() || undefined,
         location: formData.location.trim() || undefined,
         transactionDate: new Date(formData.transactionDate).toISOString(),
         notes: formData.notes.trim() || undefined,
         isRecurring: formData.isRecurring,
         recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
+        referenceNumber: formData.referenceNumber.trim() || undefined,
+        currency: formData.currency,
+        // NEW: Reference Fields for Smart Linking
+        billId: formData.billId || undefined,
+        savingsAccountId: formData.savingsAccountId || undefined,
+        loanId: formData.loanId || undefined,
       });
 
       onSuccess();
@@ -228,22 +357,126 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Category</InputLabel>
-                <Select
+            {formData.transactionType !== 'CREDIT' && (
+              <Grid item xs={12} sm={6}>
+                <Autocomplete
+                  freeSolo
+                  options={ALL_CATEGORIES}
                   value={formData.category}
-                  onChange={handleSelectChange('category')}
-                  label="Category"
-                >
-                  {TRANSACTION_CATEGORIES.map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  onInputChange={(event, newValue) => {
+                    if (newValue) {
+                      handleCategoryChange(newValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Category"
+                      required
+                      placeholder="Type or select a category"
+                      helperText="Categories like 'utility', 'savings', 'loan payment' will show additional options"
+                    />
+                  )}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        variant="outlined"
+                        label={option}
+                        {...getTagProps({ index })}
+                        key={option}
+                      />
+                    ))
+                  }
+                />
+              </Grid>
+            )}
+
+            {/* Reference Number Field */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Reference Number"
+                value={formData.referenceNumber}
+                onChange={handleInputChange('referenceNumber')}
+                placeholder="Optional reference number"
+              />
             </Grid>
+
+            {/* Dynamic Reference Selectors */}
+            {showBillSelector && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Bill Payment
+                  </Typography>
+                </Divider>
+                <FormControl fullWidth required>
+                  <InputLabel>Select Bill</InputLabel>
+                  <Select
+                    value={formData.billId}
+                    onChange={handleSelectChange('billId')}
+                    label="Select Bill"
+                    disabled={loadingReferences}
+                  >
+                    {bills.map((bill) => (
+                      <MenuItem key={bill.id} value={bill.id}>
+                        {bill.billName} - ${bill.amount.toFixed(2)} ({bill.status})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+
+            {showSavingsSelector && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Savings Deposit
+                  </Typography>
+                </Divider>
+                <FormControl fullWidth required>
+                  <InputLabel>Select Savings Account</InputLabel>
+                  <Select
+                    value={formData.savingsAccountId}
+                    onChange={handleSelectChange('savingsAccountId')}
+                    label="Select Savings Account"
+                    disabled={loadingReferences}
+                  >
+                    {savingsAccounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.name} - ${account.balance.toFixed(2)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+
+            {showLoanSelector && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Loan Payment
+                  </Typography>
+                </Divider>
+                <FormControl fullWidth required>
+                  <InputLabel>Select Loan</InputLabel>
+                  <Select
+                    value={formData.loanId}
+                    onChange={handleSelectChange('loanId')}
+                    label="Select Loan"
+                    disabled={loadingReferences}
+                  >
+                    {loans.map((loan) => (
+                      <MenuItem key={loan.id} value={loan.id}>
+                        {loan.purpose} - ${loan.principal.toFixed(2)} ({loan.status})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
 
             <Grid item xs={12}>
               <TextField

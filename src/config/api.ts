@@ -209,6 +209,7 @@ export class ApiService {
   // Loan endpoints
   async applyForLoan(loanData: {
     principal: number;
+    interestRate: number;
     purpose: string;
     term: number;
     monthlyIncome: number;
@@ -218,10 +219,21 @@ export class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.applyForLoan(loanData);
     }
-    return this.request('/Loans/user/apply', {
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>('/Loans/apply', {
       method: 'POST',
       body: JSON.stringify(loanData),
     });
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      // Create error message that includes both message and errors array
+      const errorMessage = JSON.stringify({
+        message: response.message || 'Failed to apply for loan',
+        errors: response.errors || []
+      });
+      throw new Error(errorMessage);
+    }
   }
 
   async getLoan(loanId: string) {
@@ -343,9 +355,15 @@ export class ApiService {
     amount: number;
     method: string;
     reference: string;
+    bankAccountId?: string;
   }) {
     if (isMockDataEnabled()) {
-      return mockDataService.makePayment(paymentData.loanId, paymentData.amount, paymentData.method as any, paymentData.reference);
+      return mockDataService.makeLoanPayment(paymentData.loanId, {
+        amount: paymentData.amount,
+        method: paymentData.method,
+        reference: paymentData.reference,
+        bankAccountId: paymentData.bankAccountId,
+      });
     }
     return this.request('/payments', {
       method: 'POST',

@@ -1,7 +1,7 @@
 // Mock data service for demonstration purposes
 // This provides sample loan data without requiring a real backend
 
-import { Loan, RepaymentSchedule, Payment, Transaction, Notification, LoanStatus, PaymentStatus, PaymentMethod, TransactionType, NotificationType, NotificationStatus } from '../types/loan';
+import { Loan, RepaymentSchedule, Payment, Transaction, Notification, LoanStatus, PaymentStatus, PaymentMethod, TransactionType, NotificationType, NotificationStatus, NotificationPriority, NotificationsResponse, GetNotificationsParams } from '../types/loan';
 
 // Mock loan data
 export const mockLoans: Loan[] = [
@@ -236,47 +236,83 @@ export const mockTransactions: Transaction[] = [
 // Mock notifications
 export const mockNotifications: Notification[] = [
   {
-    id: 'notif-001',
+    id: 'notification-123-456',
     userId: 'demo-user-123',
+    title: 'Payment Due Reminder',
+    message: 'Your loan payment of $500 is due in 3 days',
+    type: NotificationType.PAYMENT_REMINDER,
+    priority: NotificationPriority.HIGH,
+    isRead: false,
+    createdAt: '2024-01-15T10:30:00Z',
+    readAt: undefined,
+    metadata: {
+      loanId: 'loan-456-789',
+      amount: 500.00,
+      dueDate: '2024-01-18T00:00:00Z'
+    }
+  },
+  {
+    id: 'notification-123-457',
+    userId: 'demo-user-123',
+    title: 'Loan Approved',
+    message: 'Congratulations! Your loan application has been approved',
     type: NotificationType.LOAN_APPROVED,
-    message: 'Your loan application #loan-001 has been approved and disbursed.',
-    status: NotificationStatus.READ,
-    sentAt: '2024-01-20T14:30:00Z',
-    readAt: '2024-01-20T15:00:00Z',
+    priority: NotificationPriority.MEDIUM,
+    isRead: true,
+    createdAt: '2024-01-14T14:20:00Z',
+    readAt: '2024-01-14T15:45:00Z',
+    metadata: {
+      loanId: 'loan-456-789',
+      approvedAmount: 25000.00
+    }
   },
   {
-    id: 'notif-002',
+    id: 'notification-123-458',
     userId: 'demo-user-123',
+    title: 'Payment Confirmed',
+    message: 'Your payment of $680 has been successfully processed',
     type: NotificationType.PAYMENT_CONFIRMED,
-    message: 'Payment of $680 for loan #loan-001 has been confirmed.',
-    status: NotificationStatus.READ,
-    sentAt: '2024-02-14T10:35:00Z',
-    readAt: '2024-02-14T11:00:00Z',
+    priority: NotificationPriority.LOW,
+    isRead: true,
+    createdAt: '2024-01-13T16:15:00Z',
+    readAt: '2024-01-13T16:30:00Z',
+    metadata: {
+      loanId: 'loan-456-789',
+      amount: 680.00,
+      paymentDate: '2024-01-13T16:00:00Z'
+    }
   },
   {
-    id: 'notif-003',
+    id: 'notification-123-459',
     userId: 'demo-user-123',
-    type: NotificationType.PAYMENT_DUE,
-    message: 'Payment of $680 for loan #loan-001 is due on April 15, 2024.',
-    status: NotificationStatus.SENT,
-    sentAt: '2024-04-10T09:00:00Z',
+    title: 'System Maintenance',
+    message: 'Scheduled maintenance will occur tonight from 2-4 AM',
+    type: NotificationType.SYSTEM_UPDATE,
+    priority: NotificationPriority.MEDIUM,
+    isRead: false,
+    createdAt: '2024-01-12T09:00:00Z',
+    readAt: undefined,
+    metadata: {
+      maintenanceStart: '2024-01-13T02:00:00Z',
+      maintenanceEnd: '2024-01-13T04:00:00Z'
+    }
   },
   {
-    id: 'notif-004',
+    id: 'notification-123-460',
     userId: 'demo-user-123',
-    type: NotificationType.PAYMENT_OVERDUE,
-    message: 'Payment of $1,433 for loan #loan-004 is overdue. Please make payment immediately.',
-    status: NotificationStatus.SENT,
-    sentAt: '2024-04-05T08:00:00Z',
-  },
-  {
-    id: 'notif-005',
-    userId: 'demo-user-123',
-    type: NotificationType.UPCOMING_DUE,
-    message: 'Payment of $444 for loan #loan-002 is due in 3 days.',
-    status: NotificationStatus.SENT,
-    sentAt: '2024-04-09T10:00:00Z',
-  },
+    title: 'Account Security Alert',
+    message: 'New login detected from a different device',
+    type: NotificationType.ACCOUNT_ALERT,
+    priority: NotificationPriority.HIGH,
+    isRead: false,
+    createdAt: '2024-01-11T18:30:00Z',
+    readAt: undefined,
+    metadata: {
+      deviceType: 'Mobile',
+      location: 'New York, NY',
+      ipAddress: '192.168.1.100'
+    }
+  }
 ];
 
 // Simulate API delay
@@ -308,14 +344,53 @@ export const mockDataService = {
     return mockPayments.filter(payment => payment.loanId === loanId);
   },
 
-  async getNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: string, params?: GetNotificationsParams): Promise<NotificationsResponse> {
     await delay(600);
-    return mockNotifications.filter(notification => notification.userId === userId);
+    
+    let filteredNotifications = mockNotifications.filter(notification => notification.userId === userId);
+    
+    // Apply unreadOnly filter if specified
+    if (params?.unreadOnly) {
+      filteredNotifications = filteredNotifications.filter(notification => !notification.isRead);
+    }
+    
+    // Pagination
+    const page = params?.page || 1;
+    const limit = params?.limit || 10;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex);
+    
+    // Calculate summary
+    const totalNotifications = filteredNotifications.length;
+    const unreadCount = filteredNotifications.filter(n => !n.isRead).length;
+    const highPriorityCount = filteredNotifications.filter(n => n.priority === NotificationPriority.HIGH).length;
+    const mediumPriorityCount = filteredNotifications.filter(n => n.priority === NotificationPriority.MEDIUM).length;
+    const lowPriorityCount = filteredNotifications.filter(n => n.priority === NotificationPriority.LOW).length;
+    
+    return {
+      notifications: paginatedNotifications,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalNotifications / limit),
+        totalItems: totalNotifications,
+        itemsPerPage: limit,
+        hasNextPage: endIndex < totalNotifications,
+        hasPreviousPage: page > 1
+      },
+      summary: {
+        totalNotifications,
+        unreadCount,
+        highPriorityCount,
+        mediumPriorityCount,
+        lowPriorityCount
+      }
+    };
   },
 
   async applyForLoan(application: any): Promise<Loan> {
     await delay(2000);
-    const interestRate = 10.0; // Default rate
+    const interestRate = application.interestRate || 10.0; // Use provided rate or default
     const totalAmount = application.principal * (1 + (interestRate / 100) * (application.term / 12));
     const monthlyPayment = totalAmount / application.term;
     
@@ -449,6 +524,7 @@ export const mockDataService = {
     amount: number;
     method: string;
     reference: string;
+    bankAccountId?: string;
   }): Promise<any> {
     await delay(1200);
     
@@ -468,10 +544,12 @@ export const mockDataService = {
       amount: paymentData.amount,
       method: paymentData.method,
       reference: paymentData.reference,
+      bankAccountId: paymentData.bankAccountId,
       status: 'COMPLETED',
       processedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
+
     
     // Update loan remaining balance
     const currentBalance = loan.remainingBalance || loan.outstandingBalance;
@@ -511,4 +589,344 @@ export const mockDataService = {
     
     return totalOutstanding;
   },
+
+  async register(registerData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      userId: string;
+      name: string;
+      email: string;
+      phone: string;
+      isEmailConfirmed: boolean;
+      createdAt: string;
+    } | null;
+    errors: Array<{
+      field: string;
+      message: string;
+    }>;
+  }> {
+    await delay(1000);
+    
+    // Simulate registration
+    const userId = 'user-' + Date.now();
+    const now = new Date().toISOString();
+    
+    return {
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        userId: userId,
+        name: registerData.name,
+        email: registerData.email,
+        phone: registerData.phone,
+        isEmailConfirmed: false,
+        createdAt: now,
+      },
+      errors: [],
+    };
+  },
+
+  async createUserProfile(profileData: any): Promise<any> {
+    await delay(1500);
+    
+    const now = new Date().toISOString();
+    const profileId = 'profile-' + Date.now();
+    
+    // Calculate monthly amounts for income sources
+    const incomeSources = profileData.incomeSources.map((source: any) => {
+      let monthlyAmount = source.amount;
+      switch (source.frequency) {
+        case 'daily':
+          monthlyAmount = source.amount * 30;
+          break;
+        case 'weekly':
+          monthlyAmount = source.amount * 4.33;
+          break;
+        case 'monthly':
+          monthlyAmount = source.amount;
+          break;
+        case 'quarterly':
+          monthlyAmount = source.amount / 3;
+          break;
+        case 'yearly':
+          monthlyAmount = source.amount / 12;
+          break;
+        default:
+          monthlyAmount = source.amount;
+      }
+      
+      return {
+        id: 'income-' + Date.now() + Math.random(),
+        userId: 'demo-user-123',
+        name: source.name,
+        amount: source.amount,
+        frequency: source.frequency,
+        category: source.category,
+        currency: source.currency,
+        isActive: true,
+        description: source.description,
+        company: source.company,
+        createdAt: now,
+        updatedAt: now,
+        monthlyAmount: Math.round(monthlyAmount * 100) / 100,
+      };
+    });
+    
+    const totalMonthlyIncome = incomeSources.reduce((sum: number, source: any) => sum + source.monthlyAmount, 0);
+    const totalMonthlyGoals = profileData.monthlySavingsGoal + profileData.monthlyInvestmentGoal + profileData.monthlyEmergencyFundGoal;
+    const netMonthlyIncome = totalMonthlyIncome - (totalMonthlyIncome * profileData.taxRate / 100) - profileData.monthlyTaxDeductions;
+    const disposableIncome = netMonthlyIncome - totalMonthlyGoals;
+    
+    return {
+      id: profileId,
+      userId: 'demo-user-123',
+      jobTitle: profileData.jobTitle,
+      company: profileData.company,
+      employmentType: profileData.employmentType,
+      monthlySavingsGoal: profileData.monthlySavingsGoal,
+      monthlyInvestmentGoal: profileData.monthlyInvestmentGoal,
+      monthlyEmergencyFundGoal: profileData.monthlyEmergencyFundGoal,
+      taxRate: profileData.taxRate,
+      monthlyTaxDeductions: profileData.monthlyTaxDeductions,
+      industry: profileData.industry,
+      location: profileData.location,
+      notes: profileData.notes,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      totalMonthlyIncome: Math.round(totalMonthlyIncome * 100) / 100,
+      netMonthlyIncome: Math.round(netMonthlyIncome * 100) / 100,
+      totalMonthlyGoals: Math.round(totalMonthlyGoals * 100) / 100,
+      disposableIncome: Math.round(disposableIncome * 100) / 100,
+      incomeSources,
+    };
+  },
+
+  async getUserProfile(): Promise<any> {
+    await delay(800);
+    
+    // Return profile data with isActive: true to test the logic
+    console.log('MockData: getUserProfile - returning profile data with isActive: true');
+    return {
+      "id": "string",
+      "userId": "string",
+      "jobTitle": "string",
+      "company": "string",
+      "employmentType": "string",
+      "monthlySavingsGoal": 0,
+      "monthlyInvestmentGoal": 0,
+      "monthlyEmergencyFundGoal": 0,
+      "taxRate": 0,
+      "monthlyTaxDeductions": 0,
+      "industry": "string",
+      "location": "string",
+      "notes": "string",
+      "isActive": true,
+      "createdAt": "2025-09-26T16:10:24.398Z",
+      "updatedAt": "2025-09-26T16:10:24.398Z",
+      "totalMonthlyIncome": 0,
+      "netMonthlyIncome": 0,
+      "totalMonthlyGoals": 0,
+      "disposableIncome": 0,
+      "incomeSources": [
+        {
+          "id": "string",
+          "userId": "string",
+          "name": "string",
+          "amount": 0,
+          "frequency": "string",
+          "category": "string",
+          "currency": "string",
+          "isActive": true,
+          "description": "string",
+          "company": "string",
+          "createdAt": "2025-09-26T16:10:24.398Z",
+          "updatedAt": "2025-09-26T16:10:24.398Z",
+          "monthlyAmount": 0
+        }
+      ]
+    };
+  },
+
+  async updateUserProfile(profileData: any): Promise<any> {
+    await delay(1000);
+    
+    const now = new Date().toISOString();
+    
+    // Simulate updating the profile with new data
+    return {
+      id: 'profile-123',
+      userId: 'demo-user-123',
+      jobTitle: profileData.jobTitle,
+      company: profileData.company,
+      employmentType: profileData.employmentType,
+      monthlySavingsGoal: profileData.monthlySavingsGoal,
+      monthlyInvestmentGoal: profileData.monthlyInvestmentGoal,
+      monthlyEmergencyFundGoal: profileData.monthlyEmergencyFundGoal,
+      taxRate: profileData.taxRate,
+      monthlyTaxDeductions: profileData.monthlyTaxDeductions,
+      industry: profileData.industry,
+      location: profileData.location,
+      notes: profileData.notes,
+      isActive: true,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: now,
+      totalMonthlyIncome: 5000,
+      netMonthlyIncome: 3450,
+      totalMonthlyGoals: profileData.monthlySavingsGoal + profileData.monthlyInvestmentGoal + profileData.monthlyEmergencyFundGoal,
+      disposableIncome: 1750,
+      incomeSources: [
+        {
+          id: 'income-123',
+          userId: 'demo-user-123',
+          name: 'Company salary',
+          amount: 5000,
+          frequency: 'monthly',
+          category: 'Primary',
+          currency: 'USD',
+          isActive: true,
+          description: 'Monthly salary from full-time employment',
+          company: profileData.company,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: now,
+          monthlyAmount: 5000,
+        },
+      ],
+    };
+  },
+
+  // ==================== SAVINGS MANAGEMENT METHODS ====================
+
+  // Create a new savings account
+  async createSavingsAccount(userId: string, accountData: {
+    accountName: string;
+    savingsType: string;
+    targetAmount: number;
+    description?: string;
+    goal?: string;
+    targetDate: string;
+    currency?: string;
+  }): Promise<any> {
+    // Import the mock savings data service
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.createSavingsAccount(userId, accountData);
+  },
+
+  // Get all savings accounts for a user
+  async getSavingsAccounts(userId: string, filters?: {
+    savingsType?: string;
+    isActive?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsAccounts(userId, filters);
+  },
+
+  // Get a specific savings account
+  async getSavingsAccount(accountId: string): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsAccount(accountId);
+  },
+
+  // Update a savings account
+  async updateSavingsAccount(accountId: string, accountData: {
+    accountName?: string;
+    savingsType?: string;
+    targetAmount?: number;
+    description?: string;
+    goal?: string;
+    targetDate?: string;
+    currency?: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.updateSavingsAccount(accountId, accountData);
+  },
+
+  // Delete a savings account
+  async deleteSavingsAccount(accountId: string): Promise<void> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.deleteSavingsAccount(accountId);
+  },
+
+  // Create a savings transaction
+  async createSavingsTransaction(transactionData: {
+    savingsAccountId: string;
+    sourceBankAccountId?: string;
+    amount: number;
+    transactionType: 'DEPOSIT' | 'WITHDRAWAL';
+    description: string;
+    category?: string;
+    notes?: string;
+    transactionDate?: string;
+    currency?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+    method?: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.createSavingsTransaction(transactionData);
+  },
+
+  // Get savings transactions for an account
+  async getSavingsTransactions(accountId: string, filters?: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsTransactions(accountId, filters);
+  },
+
+  // Get savings summary
+  async getSavingsSummary(userId: string): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsSummary(userId);
+  },
+
+  // Get savings analytics
+  async getSavingsAnalytics(userId: string, period?: string): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.getSavingsAnalytics(userId, period);
+  },
+
+  // Transfer from bank to savings
+  async transferBankToSavings(transferData: {
+    bankAccountId: string;
+    savingsAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.transferBankToSavings(transferData);
+  },
+
+  // Transfer from savings to bank
+  async transferSavingsToBank(transferData: {
+    savingsAccountId: string;
+    bankAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.transferSavingsToBank(transferData);
+  },
+
+  // Update savings goal
+  async updateSavingsGoal(accountId: string, goalData: {
+    targetAmount: number;
+    targetDate: string;
+  }): Promise<any> {
+    const { mockSavingsDataService } = await import('./mockSavingsData');
+    return mockSavingsDataService.updateSavingsGoal(accountId, goalData);
+  }
+
 };

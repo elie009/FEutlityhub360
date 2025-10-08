@@ -10,6 +10,9 @@ const Layout: React.FC = () => {
   const [desktopOpen, setDesktopOpen] = useState(true);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const drawerWidth = 240;
+  const collapsedWidth = 64;
 
   const handleDrawerToggle = () => {
     if (isMobile) {
@@ -36,7 +39,7 @@ const Layout: React.FC = () => {
           flexGrow: 1,
           p: 3,
           width: { 
-            md: desktopOpen ? `calc(100% - 240px)` : '100%' 
+            md: desktopOpen ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${collapsedWidth}px)`
           },
           mt: 8,
           transition: theme.transitions.create(['width', 'margin'], {

@@ -26,10 +26,12 @@ import {
   AttachMoney as FinanceIcon,
   TrendingUp as ApportionerIcon,
   AccountBalance as BankAccountIcon,
+  Savings as SavingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const drawerWidth = 240;
+const collapsedWidth = 64;
 
 interface MenuItem {
   text: string;
@@ -47,6 +49,7 @@ const menuItems: MenuItem[] = [
       { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
       { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
       { text: 'Bank Accounts', icon: <BankAccountIcon />, path: '/bank-accounts' },
+      { text: 'Savings', icon: <SavingsIcon />, path: '/savings' },
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
     ],
   },
@@ -94,6 +97,48 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
     const hasActiveChild = hasChildren ? isChildPathActive(item.children!) : false;
     const isExpanded = hasChildren ? openSections[item.text] : false;
 
+    // Don't show children when collapsed
+    if (!open && hasChildren && level === 0) {
+      return (
+        <ListItem key={item.text} disablePadding>
+          <ListItemButton
+            selected={false}
+            onClick={() => {
+              if (item.path) {
+                handleNavigation(item.path);
+              }
+            }}
+            sx={{
+              pl: 2,
+              justifyContent: 'center',
+              backgroundColor: (isActive || hasActiveChild) ? 'rgba(177, 229, 153, 0.1)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(177, 229, 153, 0.15)',
+              },
+              '& .MuiListItemIcon-root': {
+                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+              },
+            }}
+            title={item.text} // Tooltip for collapsed state
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 40,
+                justifyContent: 'center',
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+          </ListItemButton>
+        </ListItem>
+      );
+    }
+
+    // Don't show children items when collapsed
+    if (!open && level > 0) {
+      return null;
+    }
+
     return (
       <React.Fragment key={item.text}>
         <ListItem disablePadding>
@@ -120,6 +165,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
                 fontWeight: (isActive || hasActiveChild) ? 600 : 400,
               },
             }}
+            title={!open ? item.text : undefined} // Tooltip for collapsed state
           >
             <ListItemIcon
               sx={{
@@ -128,13 +174,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
             >
               {item.icon}
             </ListItemIcon>
-            <ListItemText primary={item.text} />
-            {hasChildren && (
+            {open && <ListItemText primary={item.text} />}
+            {open && hasChildren && (
               isExpanded ? <ExpandLess /> : <ExpandMore />
             )}
           </ListItemButton>
         </ListItem>
-        {hasChildren && (
+        {open && hasChildren && (
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
               {item.children!.map((child) => renderMenuItem(child, level + 1))}
@@ -147,10 +193,16 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
 
   const drawerContent = (
     <Box>
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h6" noWrap component="div">
-          Admin Panel
-        </Typography>
+      <Box sx={{ p: open ? 2 : 1, textAlign: open ? 'left' : 'center' }}>
+        {open ? (
+          <Typography variant="h6" noWrap component="div">
+            Admin Panel
+          </Typography>
+        ) : (
+          <Typography variant="h6" component="div" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+            AP
+          </Typography>
+        )}
       </Box>
       <Divider />
       <List>
@@ -164,11 +216,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
       variant="permanent"
       sx={{
         display: { xs: 'none', md: 'block' },
-        width: open ? drawerWidth : 0,
+        width: open ? drawerWidth : collapsedWidth,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
           boxSizing: 'border-box',
-          width: open ? drawerWidth : 0,
+          width: open ? drawerWidth : collapsedWidth,
           overflowX: 'hidden',
           transition: (theme) => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
@@ -176,9 +228,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
           }),
         },
       }}
-      open={open}
+      open={true} // Always open, but with different widths
     >
-      {open && drawerContent}
+      {drawerContent}
     </MuiDrawer>
   );
 };

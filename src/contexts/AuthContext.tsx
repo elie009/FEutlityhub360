@@ -6,11 +6,16 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasProfile: boolean;
+  profileLoading: boolean;
+  userProfile: any | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   getUserData: () => User | null;
+  //checkUserProfile: () => Promise<boolean>;
+  updateUserProfile: (profile: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,7 +70,9 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [hasProfile, setHasProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const isAuthenticated = !!user;
   
   // Debug logging
@@ -113,10 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('AuthContext: Starting login process');
       setIsLoading(true);
       // Use real backend API
-      console.log('AuthContext: About to call apiService.login...');
       const authUser: AuthUser = await apiService.login(credentials);
-      console.log('AuthContext: Login API response received:', authUser);
-      console.log('AuthContext: Full authUser object:', JSON.stringify(authUser, null, 2));
       
       // Check if the API call actually succeeded
       if (!authUser) {
@@ -124,83 +128,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Login failed: No response from server');
       }
       
-      // CRITICAL DEBUG: Let's see exactly what we're getting
-      console.log('=== CRITICAL DEBUG: API Response Analysis ===');
-      console.log('authUser type:', typeof authUser);
-      console.log('authUser is null?', authUser === null);
-      console.log('authUser is undefined?', authUser === undefined);
-      console.log('authUser keys:', Object.keys(authUser || {}));
-      console.log('FULL authUser object:', JSON.stringify(authUser, null, 2));
+     
       
-      if (authUser && typeof authUser === 'object') {
-        console.log('authUser.data exists?', 'data' in authUser);
-        console.log('authUser.data type:', typeof authUser.data);
-        if (authUser.data) {
-          console.log('authUser.data keys:', Object.keys(authUser.data));
-          console.log('FULL authUser.data object:', JSON.stringify(authUser.data, null, 2));
-          console.log('authUser.data.user exists?', 'user' in authUser.data);
-          if (authUser.data.user) {
-            console.log('authUser.data.user keys:', Object.keys(authUser.data.user));
-            console.log('FULL authUser.data.user object:', JSON.stringify(authUser.data.user, null, 2));
-            console.log('authUser.data.user.id:', authUser.data.user.id);
-            console.log('authUser.data.user.name:', authUser.data.user.name);
-          }
-        }
-      }
-      console.log('=== END CRITICAL DEBUG ===');
+    
       
-      // Debug: Check the actual response structure
-      console.log('AuthContext: authUser keys:', Object.keys(authUser));
-      console.log('AuthContext: authUser.data exists?', !!authUser.data);
-      if (authUser.data) {
-        console.log('AuthContext: authUser.data keys:', Object.keys(authUser.data));
-        console.log('AuthContext: authUser.data.user exists?', !!authUser.data.user);
-        if (authUser.data.user) {
-          console.log('AuthContext: authUser.data.user keys:', Object.keys(authUser.data.user));
-          console.log('AuthContext: authUser.data.user.id:', authUser.data.user.id);
-          console.log('AuthContext: authUser.data.user.name:', authUser.data.user.name);
-        }
-      }
-      
-      // Check if user data is at the top level
-      console.log('AuthContext: authUser.id:', authUser.id);
-      console.log('AuthContext: authUser.name:', authUser.name);
-      console.log('AuthContext: authUser.email:', authUser.email);
-      
+     
       // Store tokens in localStorage for persistence
       const authData = authUser.data;
       localStorage.setItem('authToken', authData.token);
       localStorage.setItem('refreshToken', authData.refreshToken);
-      console.log('AuthContext: Tokens stored in localStorage');
-      console.log('AuthContext: Token stored:', authData.token?.substring(0, 20) + '...');
-      console.log('AuthContext: Refresh token stored:', authData.refreshToken);
+     
       
       // Get user data from the correct location: authUser.data.user
       const userData = authData.user;
-      console.log('AuthContext: Using user data from authUser.data.user');
-      console.log('AuthContext: userData structure:', userData);
-      console.log('AuthContext: userData keys:', Object.keys(userData || {}));
-      console.log('AuthContext: userData.id:', userData?.id);
-      console.log('AuthContext: userData.name:', userData?.name);
-      console.log('AuthContext: userData.email:', userData?.email);
       
       // Validate userData exists
       if (!userData) {
-        console.error('AuthContext: userData is null/undefined!');
-        console.error('AuthContext: authData structure:', authData);
-        console.error('AuthContext: authData keys:', Object.keys(authData || {}));
+       
         throw new Error('User data not found in API response');
       }
       
       // Validate required fields exist
       if (!userData.id || !userData.name || !userData.email) {
-        console.error('AuthContext: Missing required user fields!');
-        console.error('AuthContext: userData.id:', userData.id);
-        console.error('AuthContext: userData.name:', userData.name);
-        console.error('AuthContext: userData.email:', userData.email);
-        console.error('AuthContext: Full userData:', userData);
         throw new Error('Invalid user data: missing required fields');
       }
+      const profile = await apiService.getUserProfile();
+      var isActiveUser = false;
+      if (profile && profile.id) {
+        // Profile exists - save to session and state
+        
+        setHasProfile(true);
+        setUserProfile(profile);
+        isActiveUser = true;
+        sessionStorage.setItem('userProfile', JSON.stringify(profile));
+       
+      } else {
+        // No profile data - clear session and state
+        console.log('AuthContext: ❌ No profile found - profile:', !!profile);
+        setHasProfile(false);
+        setUserProfile(null);
+        sessionStorage.removeItem('userProfile');
+      }
+
       
       // Create user object directly from the API response
       const userFromLogin = {
@@ -209,20 +178,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: userData.email,
         phone: userData.phone,
         kycVerified: userData.isActive, // Map isActive to kycVerified
-        isActive: userData.isActive,
+        isActive: isActiveUser,//userData.isActive,
         createdAt: userData.createdAt,
         updatedAt: userData.updatedAt,
       };
-      console.log('AuthContext: User data from login response:', userFromLogin);
-      console.log('AuthContext: User data JSON:', JSON.stringify(userFromLogin, null, 2));
-      
-      // Use the value directly before setting it in state
-      console.log('AuthContext: Using userFromLogin directly - ID:', userFromLogin.id);
-      console.log('AuthContext: Using userFromLogin directly - Name:', userFromLogin.name);
-      console.log('AuthContext: Using userFromLogin directly - Email:', userFromLogin.email);
-      console.log('AuthContext: Using userFromLogin directly - Phone:', userFromLogin.phone);
-      console.log('AuthContext: Using userFromLogin directly - isActive:', userFromLogin.isActive);
-      console.log('AuthContext: Using userFromLogin directly - kycVerified:', userFromLogin.kycVerified);
       
       // Check if userFromLogin has any undefined fields
       const undefinedFields = [];
@@ -240,7 +199,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('AuthContext: userFromLogin has all fields defined!');
       }
       setUser(userFromLogin);
-      console.log('AuthContext: User data set from login response');
+      // Save user to localStorage for persistence across page reloads
+      localStorage.setItem('user', JSON.stringify(userFromLogin));
+      console.log('AuthContext: User data set from login response and saved to localStorage');
       
       // The user state won't be immediately available here due to React's async state updates
       // Use useEffect to monitor when the state actually changes
@@ -277,38 +238,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: RegisterData): Promise<void> => {
     try {
       setIsLoading(true);
-      // Use real backend API
-      const authUser: AuthUser = await apiService.register(data);
+      // Use new backend API
+      const response = await apiService.register(data);
       
-      // Store tokens in localStorage for persistence
-      const authData = authUser.data;
-      localStorage.setItem('authToken', authData.token);
-      localStorage.setItem('refreshToken', authData.refreshToken);
+      // Check if registration was successful
+      if (!response.success) {
+        // Handle validation errors from the new API format
+        if (response.errors && response.errors.length > 0) {
+          const errorMessages = response.errors.map(err => `${err.field}: ${err.message}`).join(', ');
+          throw new Error(errorMessages);
+        }
+        throw new Error(response.message || 'Registration failed');
+      }
       
-      // Store user data directly from registration response
-      const userData = authData.user;
-      const userFromRegister = {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        kycVerified: userData.isActive, // Map isActive to kycVerified
-        isActive: userData.isActive,
-        createdAt: userData.createdAt,
-        updatedAt: userData.updatedAt,
-      };
-      console.log('AuthContext: User data from registration response:', userFromRegister);
-      setUser(userFromRegister);
-      console.log('AuthContext: User data set from registration response');
-      
-      // User data is already set from registration response, no need to call refreshUser
-      console.log('AuthContext: User data already set from registration response');
+      // Registration successful - user needs to login after registration
+      // The new API doesn't automatically log in the user
+      console.log('AuthContext: Registration completed successfully');
+      console.log('AuthContext: User data from registration response:', response.data);
       
       // Registration completed successfully - redirect will be handled by RegisterForm
-      console.log('AuthContext: Registration completed successfully');
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
@@ -318,9 +269,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    // Clear tokens from localStorage
+    // Clear tokens and user from localStorage
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
@@ -349,7 +301,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       console.log('AuthContext: Setting user data:', user);
       setUser(user);
-      console.log('AuthContext: User data refreshed successfully');
+      // Save user to localStorage for persistence across page reloads
+      localStorage.setItem('user', JSON.stringify(user));
+      console.log('AuthContext: User data refreshed successfully and saved to localStorage');
       console.log('AuthContext: After setUser - isAuthenticated should be true');
     } catch (error) {
       console.error('Failed to refresh user data:', error);
@@ -370,28 +324,93 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return user;
   };
 
+  // Check if user has a profile and save to session
+  const checkUserProfile = async (): Promise<boolean> => {
+    
+    if (!isAuthenticated) {
+  
+      setHasProfile(false);
+      setUserProfile(null);
+      return false;
+    }
+
+    try {
+      setProfileLoading(true);
+      const profile = await apiService.getUserProfile();
+
+      if (profile && profile.id) {
+      
+        
+        setHasProfile(true);
+        setUserProfile(profile);
+        sessionStorage.setItem('userProfile', JSON.stringify(profile));
+        
+        return true;
+      } else {
+        // No profile data - clear session and state
+        setHasProfile(false);
+        setUserProfile(null);
+        sessionStorage.removeItem('userProfile');
+        return false;
+      }
+    } catch (error) {
+      setHasProfile(false);
+      setUserProfile(null);
+      sessionStorage.removeItem('userProfile');
+      return false;
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // Update user profile in state and session
+  const updateUserProfile = (profile: any) => {
+    setUserProfile(profile);
+    setHasProfile(!!profile);
+    if (profile) {
+      sessionStorage.setItem('userProfile', JSON.stringify(profile));
+    } else {
+      sessionStorage.removeItem('userProfile');
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       console.log('AuthContext: Initializing auth...');
       const token = localStorage.getItem('authToken');
-      console.log('AuthContext: Token found:', !!token);
-      console.log('AuthContext: Token value:', token ? token.substring(0, 20) + '...' : 'null');
+      const savedUser = localStorage.getItem('user');
       
-      if (token) {
+      
+      if (token && savedUser) {
+        console.log('AuthContext: ✅ Token and user found, proceeding with authentication');
         try {
-          console.log('AuthContext: Refreshing user data with stored token...');
-          console.log('AuthContext: Token being used:', token.substring(0, 20) + '...');
-          console.log('AuthContext: About to call refreshUser()...');
-          await refreshUser();
-          console.log('AuthContext: User data refreshed successfully');
+          // Load user from localStorage
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          console.log('AuthContext: User data loaded from localStorage:', userData.email);
+          
+          // Check user profile
+          console.log('AuthContext: Checking user profile...');
+          //await checkUserProfile();
         } catch (error) {
           console.error('AuthContext: Failed to initialize auth:', error);
-          // Clear invalid token and continue without authentication
+          console.log('AuthContext: Clearing invalid data and continuing without auth');
+          logout();
+        }
+      } else if (token && !savedUser) {
+        console.log('AuthContext: ⚠️ Token found but no user data, attempting to refresh user');
+        try {
+          // Try to refresh user data from API
+          await refreshUser();
+          //await checkUserProfile();
+        } catch (error) {
+          console.error('AuthContext: Failed to refresh user:', error);
           console.log('AuthContext: Clearing invalid token and continuing without auth');
           logout();
         }
       } else {
-        console.log('AuthContext: No token found, user not authenticated');
+        console.log('AuthContext: ❌ No token found, user not authenticated');
+        console.log('AuthContext: This means user needs to login first!');
       }
       
       console.log('AuthContext: Setting loading to false');
@@ -401,15 +420,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
+  // Load profile from session on mount if available
+  useEffect(() => {
+    const savedProfile = sessionStorage.getItem('userProfile');
+    if (savedProfile && isAuthenticated) {
+      try {
+        const profile = JSON.parse(savedProfile);
+        setUserProfile(profile);
+        setHasProfile(true);
+        console.log('AuthContext: Loaded profile from session');
+      } catch (error) {
+        console.error('AuthContext: Error parsing saved profile:', error);
+        sessionStorage.removeItem('userProfile');
+      }
+    }
+  }, [isAuthenticated]);
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
     isLoading,
+    hasProfile,
+    profileLoading,
+    userProfile,
     login,
     register,
     logout,
     refreshUser,
     getUserData,
+    //checkUserProfile,
+    updateUserProfile,
   };
   
   // Debug: Log what's being passed to the context

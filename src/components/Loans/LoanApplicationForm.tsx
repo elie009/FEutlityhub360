@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { LoanApplication } from '../../types/loan';
 import { apiService } from '../../services/api';
-import { validateLoanAmount, validateRequired, validateEmploymentStatus, getErrorMessage } from '../../utils/validation';
+import { validateLoanAmount, validateRequired, validateEmploymentStatus, validateInterestRate, getErrorMessage, getApiErrorMessage } from '../../utils/validation';
 
 interface LoanApplicationFormProps {
   onSuccess: (loanId: string) => void;
@@ -34,6 +34,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<LoanApplication>({
     principal: 0,
+    interestRate: 0,
     purpose: '',
     term: 12,
     monthlyIncome: 0,
@@ -41,6 +42,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     additionalInfo: '',
   });
   const [error, setError] = useState<string>('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const handleNext = () => {
@@ -73,13 +75,16 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
 
   const handleSubmit = async () => {
     setError('');
+    setFieldErrors({});
     setIsLoading(true);
 
     try {
       const loan = await apiService.applyForLoan(formData);
       onSuccess(loan.id);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to submit loan application'));
+      const { message, fieldErrors: apiFieldErrors } = getApiErrorMessage(err, 'Failed to submit loan application');
+      setError(message);
+      setFieldErrors(apiFieldErrors);
     } finally {
       setIsLoading(false);
     }
@@ -89,8 +94,9 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     switch (step) {
       case 0:
         const principalValidation = validateLoanAmount(formData.principal);
+        const interestRateValidation = validateInterestRate(formData.interestRate);
         const purposeValidation = validateRequired(formData.purpose, 'Purpose');
-        return principalValidation.isValid && purposeValidation.isValid;
+        return principalValidation.isValid && interestRateValidation.isValid && purposeValidation.isValid;
       case 1:
         const incomeValidation = validateRequired(formData.monthlyIncome, 'Monthly Income');
         const employmentValidation = validateEmploymentStatus(formData.employmentStatus);
@@ -114,12 +120,26 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 type="number"
                 value={formData.principal}
                 onChange={handleInputChange('principal')}
-                helperText="Enter the amount you wish to borrow"
+                helperText={fieldErrors.principal || "Enter the amount you wish to borrow"}
+                error={!!fieldErrors.principal}
                 required
               />
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth required>
+              <TextField
+                fullWidth
+                label="Interest Rate (%)"
+                type="number"
+                value={formData.interestRate}
+                onChange={handleInputChange('interestRate')}
+                helperText={fieldErrors.interestRate || "Enter the desired interest rate (0-50%)"}
+                error={!!fieldErrors.interestRate}
+                required
+                inputProps={{ min: 0, max: 50, step: 0.1 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required error={!!fieldErrors.purpose}>
                 <InputLabel>Purpose of Loan</InputLabel>
                 <Select
                   value={formData.purpose}
@@ -134,6 +154,11 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                   <MenuItem value="personal">Personal</MenuItem>
                   <MenuItem value="other">Other</MenuItem>
                 </Select>
+                {fieldErrors.purpose && (
+                  <Typography variant="caption" color="error" sx={{ mt: 1, ml: 2 }}>
+                    {fieldErrors.purpose}
+                  </Typography>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12}>
@@ -214,6 +239,14 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 </Typography>
                 <Typography variant="h6">
                   ${formData.principal.toLocaleString()}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body2" color="text.secondary">
+                  Interest Rate:
+                </Typography>
+                <Typography variant="h6">
+                  {formData.interestRate}%
                 </Typography>
               </Grid>
               <Grid item xs={6}>
@@ -318,3 +351,4 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
 };
 
 export default LoanApplicationForm;
+

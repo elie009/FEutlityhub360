@@ -15,7 +15,7 @@ interface TransactionCardProps {
 }
 
 const getTransactionTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-  switch (type) {
+  switch (type.toLowerCase()) {
     case 'credit': return 'success';
     case 'debit': return 'error';
     case 'transfer': return 'info';
@@ -24,7 +24,7 @@ const getTransactionTypeColor = (type: string): 'default' | 'primary' | 'seconda
 };
 
 const getTransactionTypeIcon = (type: string) => {
-  switch (type) {
+  switch (type.toLowerCase()) {
     case 'credit': return <TrendingUp sx={{ fontSize: 16 }} />;
     case 'debit': return <TrendingDown sx={{ fontSize: 16 }} />;
     case 'transfer': return <AccountBalance sx={{ fontSize: 16 }} />;
@@ -92,7 +92,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
     handleMenuClose();
   };
 
-  const isCredit = transaction.transactionType === 'credit';
+  const isCredit = transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT';
   const amountColor = isCredit ? 'success.main' : 'error.main';
   const amountPrefix = isCredit ? '+' : '-';
 

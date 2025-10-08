@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Paper } from '@mui/material';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
+import AnimatedParticlesBackground from './AnimatedParticlesBackground';
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,20 +11,26 @@ const AuthPage: React.FC = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
       }}
     >
+      {/* Animated Particles Background */}
+      <AnimatedParticlesBackground />
+      
+      {/* Auth Content */}
       <Paper
         elevation={10}
         sx={{
           borderRadius: 2,
           overflow: 'hidden',
-          maxWidth: 600,
-          width: '100%',
+          maxWidth: 'none',
+          
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         {isLogin ? (

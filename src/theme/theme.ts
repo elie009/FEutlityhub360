@@ -16,7 +16,7 @@ export const theme = createTheme({
       contrastText: '#1a1a1a',
     },
     background: {
-      default: '#1a1a1a', // Very dark green/black
+      default: 'rgb(36, 43, 33)', // Very dark green/black
       paper: '#2a2a2a', // Slightly lighter dark green
     },
     text: {
@@ -171,7 +171,7 @@ export const theme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          backgroundColor: '#1a1a1a',
+          backgroundColor: 'rgb(36, 43, 33)',
           border: '2px solid #b1e599',
           boxShadow: '0 0 30px rgba(177, 229, 153, 0.5)',
         },

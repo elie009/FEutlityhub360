@@ -9,7 +9,9 @@ import {
   AuthUser, 
   LoginCredentials, 
   RegisterData,
-  PaymentMethod 
+  PaymentMethod,
+  NotificationsResponse,
+  GetNotificationsParams
 } from '../types/loan';
 import { Bill, CreateBillRequest, UpdateBillRequest, BillFilters, BillAnalytics, TotalPaidAnalytics, PaginatedBillsResponse } from '../types/bill';
 import { mockDataService } from './mockData';
@@ -48,6 +50,11 @@ class ApiService {
 
     try {
       console.log('API Service: Making fetch request to:', url);
+      console.log('API Service: Request config:', {
+        method: requestConfig.method,
+        headers: requestConfig.headers,
+        body: requestConfig.body
+      });
       const response = await fetch(url, requestConfig);
       clearTimeout(timeoutId);
       
@@ -57,7 +64,28 @@ class ApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('API Service: Error response:', errorData);
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        
+        // Handle 400 validation errors with detailed field errors
+        if (response.status === 400 && errorData.errors) {
+          const fieldErrors: string[] = [];
+          Object.keys(errorData.errors).forEach(field => {
+            const fieldErrorMessages = errorData.errors[field];
+            if (Array.isArray(fieldErrorMessages)) {
+              fieldErrorMessages.forEach((message: string) => {
+                fieldErrors.push(`${field}: ${message}`);
+              });
+            } else {
+              fieldErrors.push(`${field}: ${fieldErrorMessages}`);
+            }
+          });
+          
+          if (fieldErrors.length > 0) {
+            throw new Error(fieldErrors.join(', '));
+          }
+        }
+        
+        // Handle other error responses
+        throw new Error(errorData.message || errorData.title || `HTTP error! status: ${response.status}`);
       }
 
       const jsonResponse = await response.json();
@@ -70,13 +98,6 @@ class ApiService {
     }
   }
 
-  // Authentication APIs
-  async register(data: RegisterData): Promise<AuthUser> {
-    return this.request<AuthUser>('/Auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
 
   async login(credentials: LoginCredentials): Promise<AuthUser> {
     console.log('API Service: Making login request to /Auth/login');
@@ -94,6 +115,53 @@ class ApiService {
     return response;
   }
 
+  async register(registerData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      userId: string;
+      name: string;
+      email: string;
+      phone: string;
+      isEmailConfirmed: boolean;
+      createdAt: string;
+    } | null;
+    errors: Array<{
+      field: string;
+      message: string;
+    }>;
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.register(registerData);
+    }
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {
+        userId: string;
+        name: string;
+        email: string;
+        phone: string;
+        isEmailConfirmed: boolean;
+        createdAt: string;
+      } | null;
+      errors: Array<{
+        field: string;
+        message: string;
+      }>;
+    }>('/Auth/register', {
+      method: 'POST',
+      body: JSON.stringify(registerData),
+    });
+    return response;
+  }
+
   async getCurrentUser(): Promise<User> {
     return this.request<User>('/Auth/me');
   }
@@ -108,15 +176,244 @@ class ApiService {
     return this.request<User>(`/users/${userId}`);
   }
 
+  // User Profile APIs
+  async createUserProfile(profileData: {
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    incomeSources: Array<{
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      description: string;
+      company: string;
+    }>;
+  }): Promise<{
+    id: string;
+    userId: string;
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    totalMonthlyIncome: number;
+    netMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableIncome: number;
+    incomeSources: Array<{
+      id: string;
+      userId: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      isActive: boolean;
+      description: string;
+      company: string;
+      createdAt: string;
+      updatedAt: string;
+      monthlyAmount: number;
+    }>;
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.createUserProfile(profileData);
+    }
+    const response = await this.request<any>('/UserProfile', {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create user profile');
+  }
+
+  async getUserProfile(): Promise<{
+    id: string;
+    userId: string;
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    totalMonthlyIncome: number;
+    netMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableIncome: number;
+    incomeSources: Array<{
+      id: string;
+      userId: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      isActive: boolean;
+      description: string;
+      company: string;
+      createdAt: string;
+      updatedAt: string;
+      monthlyAmount: number;
+    }>;
+  } | null> {
+
+    if (isMockDataEnabled()) {
+      return mockDataService.getUserProfile();
+    }
+    
+    const response = await this.request<any>('/UserProfile');
+    console.log('=== API: getUserProfile FULL RESPONSE ===');
+    console.log('API: Raw response:', JSON.stringify(response, null, 2));
+    console.log('API: Response type:', typeof response);
+    console.log('API: Response success:', response?.success);
+    console.log('API: Response data:', response?.data);
+    console.log('API: Response data type:', typeof response?.data);
+    console.log('API: Response data id:', response?.data?.id);
+    console.log('API: Response data isActive:', response?.data?.isActive);
+    console.log('API: Response data isActive type:', typeof response?.data?.isActive);
+    console.log('API: Response data incomeSources:', response?.data?.incomeSources);
+    console.log('API: Response data incomeSources length:', response?.data?.incomeSources?.length);
+    console.log('=== END API RESPONSE ===');
+    if (response && response.success === true && response.data !== null && response.data.id) {
+      // Profile found - response.data contains the profile
+      console.log('API: ✅ Profile found - returning data');
+      console.log('API: Profile ID:', response.data.id);
+      console.log('API: Profile isActive:', response.data.isActive);
+      console.log('API: Income Sources count:', response.data.incomeSources?.length || 0);
+      return response.data;
+    } else if (response && response.success === true && response.data === null) {
+      // Profile not found - data is null
+      console.log('API: ❌ Profile not found - data is null');
+      return null;
+    } else if (response && response.success === false && response.data === null) {
+      // Profile not found - this is a valid response
+      console.log('API: ❌ Profile not found - returning null');
+      return null;
+    } else {
+      // Other error or unexpected response format
+      console.log('API: ⚠️ Error or unexpected response format');
+      console.log('API: Response success:', response?.success);
+      console.log('API: Response data:', response?.data);
+      throw new Error(response?.message || 'Failed to get user profile');
+    }
+  }
+
+  async updateUserProfile(profileData: {
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+  }): Promise<{
+    id: string;
+    userId: string;
+    jobTitle: string;
+    company: string;
+    employmentType: string;
+    monthlySavingsGoal: number;
+    monthlyInvestmentGoal: number;
+    monthlyEmergencyFundGoal: number;
+    taxRate: number;
+    monthlyTaxDeductions: number;
+    industry: string;
+    location: string;
+    notes: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    totalMonthlyIncome: number;
+    netMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableIncome: number;
+    incomeSources: Array<{
+      id: string;
+      userId: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      category: string;
+      currency: string;
+      isActive: boolean;
+      description: string;
+      company: string;
+      createdAt: string;
+      updatedAt: string;
+      monthlyAmount: number;
+    }>;
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateUserProfile(profileData);
+    }
+    const response = await this.request<any>('/UserProfile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update user profile');
+  }
+
   // Loan APIs
   async applyForLoan(application: LoanApplication): Promise<Loan> {
     if (isMockDataEnabled()) {
       return mockDataService.applyForLoan(application);
     }
-    return this.request<Loan>('/Loans/user/apply', {
+    
+    console.log('API: applyForLoan - Request data:', JSON.stringify(application, null, 2));
+    
+    const response = await this.request<{ success: boolean; message: string; data: Loan; errors: string[] }>('/Loans/apply', {
       method: 'POST',
       body: JSON.stringify(application),
     });
+    
+    console.log('API: applyForLoan - Response:', JSON.stringify(response, null, 2));
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      // Create error message that includes both message and errors array
+      const errorMessage = JSON.stringify({
+        message: response.message || 'Failed to apply for loan',
+        errors: response.errors || []
+      });
+      throw new Error(errorMessage);
+    }
   }
 
   async getLoan(loanId: string): Promise<Loan> {
@@ -185,18 +482,26 @@ class ApiService {
     amount: number;
     method: string;
     reference: string;
+    bankAccountId?: string;
   }): Promise<any> {
     if (isMockDataEnabled()) {
       return mockDataService.makeLoanPayment(loanId, paymentData);
     }
+    const requestBody: any = {
+      loanId,
+      amount: paymentData.amount,
+      method: paymentData.method,
+      reference: paymentData.reference,
+    };
+
+    // Only include bankAccountId if provided (for bank-related payments)
+    if (paymentData.bankAccountId) {
+      requestBody.bankAccountId = paymentData.bankAccountId;
+    }
+
     const response = await this.request<any>('/Payments', {
       method: 'POST',
-      body: JSON.stringify({
-        loanId,
-        amount: paymentData.amount,
-        method: paymentData.method,
-        reference: paymentData.reference,
-      }),
+      body: JSON.stringify(requestBody),
     });
     
     // Handle the response structure
@@ -320,11 +625,20 @@ class ApiService {
   }
 
   // Notification APIs
-  async getNotifications(userId: string): Promise<Notification[]> {
+  async getNotifications(userId: string, params?: GetNotificationsParams): Promise<NotificationsResponse> {
     if (isMockDataEnabled()) {
-      return mockDataService.getNotifications(userId);
+      return mockDataService.getNotifications(userId, params);
     }
-    return this.request<Notification[]>(`/notifications/${userId}`);
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.unreadOnly) queryParams.append('unreadOnly', params.unreadOnly.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Notifications/user/${userId}${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<NotificationsResponse>(endpoint);
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
@@ -859,13 +1173,20 @@ class ApiService {
     amount: number;
     transactionType: 'DEBIT' | 'CREDIT';
     description: string;
-    category: string;
+    category?: string;
     merchant?: string;
     location?: string;
     transactionDate: string;
     notes?: string;
     isRecurring?: boolean;
     recurringFrequency?: string;
+    referenceNumber?: string;
+    externalTransactionId?: string;
+    currency?: string;
+    // NEW: Reference Fields for Smart Linking
+    billId?: string;           // For bill-related transactions
+    savingsAccountId?: string; // For savings-related transactions
+    loanId?: string;           // For loan-related transactions
   }): Promise<BankAccountTransaction> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
@@ -898,6 +1219,498 @@ class ApiService {
     if (response && response.data) {
       return response.data;
     }
+    return response;
+  }
+
+  // ==================== SAVINGS MANAGEMENT APIs ====================
+
+  // Create a new savings account
+  async createSavingsAccount(accountData: {
+    accountName: string;
+    savingsType: string;
+    targetAmount: number;
+    description?: string;
+    goal?: string;
+    targetDate: string;
+    currency?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.createSavingsAccount(user?.id || 'demo-user-123', accountData);
+    }
+    const response = await this.request<any>('/Savings/accounts', {
+      method: 'POST',
+      body: JSON.stringify(accountData),
+    });
+    return response.data;
+  }
+
+  // Get all savings accounts for the authenticated user
+  async getSavingsAccounts(filters?: {
+    savingsType?: string;
+    isActive?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
+    console.log('🔍 getSavingsAccounts called with filters:', filters);
+    console.log('🔍 Mock data enabled:', isMockDataEnabled());
+    
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      console.log('🔍 Using mock data for user:', user?.id);
+      const result = await mockDataService.getSavingsAccounts(user?.id || 'demo-user-123', filters);
+      console.log('🔍 Mock data result:', result);
+      return result;
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (filters?.savingsType) queryParams.append('savingsType', filters.savingsType);
+    if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString());
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    
+    const endpoint = `/Savings/accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    console.log('🔍 Making API request to:', endpoint);
+    
+    try {
+      const response = await this.request<any>(endpoint);
+      console.log('🔍 API response received:', response);
+      console.log('🔍 Response data:', response.data);
+      // The API returns { success: true, data: [...], errors: [] }
+      // So we need to return the nested data array
+      return response.data;
+    } catch (error) {
+      console.error('🔍 API request failed:', error);
+      throw error;
+    }
+  }
+
+  // Get a specific savings account with transactions
+  async getSavingsAccount(accountId: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getSavingsAccount(accountId);
+    }
+    const response = await this.request<any>(`/Savings/accounts/${accountId}`);
+    return response.data;
+  }
+
+  // Update a savings account
+  async updateSavingsAccount(accountId: string, accountData: {
+    accountName?: string;
+    savingsType?: string;
+    targetAmount?: number;
+    description?: string;
+    goal?: string;
+    targetDate?: string;
+    currency?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateSavingsAccount(accountId, accountData);
+    }
+    const response = await this.request<any>(`/Savings/accounts/${accountId}`, {
+      method: 'PUT',
+      body: JSON.stringify(accountData),
+    });
+    return response.data;
+  }
+
+  // Delete a savings account
+  async deleteSavingsAccount(accountId: string): Promise<void> {
+    if (isMockDataEnabled()) {
+      return mockDataService.deleteSavingsAccount(accountId);
+    }
+    await this.request<void>(`/Savings/accounts/${accountId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Create a savings transaction (creates both SavingsTransaction and Payment records)
+  async createSavingsTransaction(transactionData: {
+    savingsAccountId: string;
+    sourceBankAccountId?: string;
+    amount: number;
+    transactionType: 'DEPOSIT' | 'WITHDRAWAL';
+    description: string;
+    category?: string;
+    notes?: string;
+    transactionDate?: string;
+    currency?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+    method?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.createSavingsTransaction(transactionData);
+    }
+    const response = await this.request<any>('/Savings/transactions', {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+    return response.data;
+  }
+
+  // Get savings transactions for an account
+  async getSavingsTransactions(accountId: string, filters?: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getSavingsTransactions(accountId, filters);
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    if (filters?.startDate) queryParams.append('startDate', filters.startDate);
+    if (filters?.endDate) queryParams.append('endDate', filters.endDate);
+    
+    const endpoint = `/Savings/accounts/${accountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    return response.data;
+  }
+
+  // Get savings summary
+  async getSavingsSummary(): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.getSavingsSummary(user?.id || 'demo-user-123');
+    }
+    const response = await this.request<any>('/savings/summary');
+    return response.data;
+  }
+
+  // Get savings analytics
+  async getSavingsAnalytics(period?: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      const user = this.getCurrentUserFromToken();
+      return mockDataService.getSavingsAnalytics(user?.id || 'demo-user-123', period);
+    }
+    
+    const queryParams = new URLSearchParams();
+    if (period) queryParams.append('period', period);
+    
+    const endpoint = `/savings/analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    return response.data;
+  }
+
+  // Transfer from bank to savings
+  async transferBankToSavings(transferData: {
+    bankAccountId: string;
+    savingsAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.transferBankToSavings(transferData);
+    }
+    const response = await this.request<any>('/savings/transfer/bank-to-savings', {
+      method: 'POST',
+      body: JSON.stringify(transferData),
+    });
+    return response.data;
+  }
+
+  // Transfer from savings to bank
+  async transferSavingsToBank(transferData: {
+    savingsAccountId: string;
+    bankAccountId: string;
+    amount: number;
+    description: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.transferSavingsToBank(transferData);
+    }
+    const response = await this.request<any>('/savings/transfer/savings-to-bank', {
+      method: 'POST',
+      body: JSON.stringify(transferData),
+    });
+    return response.data;
+  }
+
+  // Update savings goal
+  async updateSavingsGoal(accountId: string, goalData: {
+    targetAmount: number;
+    targetDate: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateSavingsGoal(accountId, goalData);
+    }
+    const response = await this.request<any>(`/savings/accounts/${accountId}/goal`, {
+      method: 'PUT',
+      body: JSON.stringify(goalData),
+    });
+    return response.data;
+  }
+
+  // Get total monthly income
+  async getTotalMonthlyIncome(): Promise<number> {
+    if (isMockDataEnabled()) {
+      // Return mock monthly income
+      return 5000.00;
+    }
+    const response = await this.request<{ success: boolean; data: number; message: string | null; errors: string[] }>('/IncomeSource/total-monthly-income');
+    return response.data;
+  }
+
+  // Get all income sources
+  async getIncomeSources(): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response with sample income sources matching the real API format
+      return {
+        success: true,
+        message: 'Success',
+        data: [
+          {
+            id: '0cb9d9b1-8ad3-47ea-9ebb-97bd7d888c03',
+            userId: '34e5ee71-d06f-4b45-80e2-80dd9e5668f8',
+            name: 'Rental my house',
+            amount: 480.00,
+            frequency: 'MONTHLY',
+            category: 'PASSIVE',
+            currency: 'USD',
+            isActive: true,
+            description: 'passive income',
+            company: 'Own passive',
+            createdAt: '2025-09-29T20:39:07.2149178',
+            updatedAt: '2025-09-29T20:39:07.2149634',
+            monthlyAmount: 480.00
+          },
+          {
+            id: '88073e74-2151-4021-9f5c-0f9b8e079dea',
+            userId: '34e5ee71-d06f-4b45-80e2-80dd9e5668f8',
+            name: 'Company Salary',
+            amount: 10500.00,
+            frequency: 'MONTHLY',
+            category: 'PRIMARY',
+            currency: 'USD',
+            isActive: true,
+            description: '',
+            company: '',
+            createdAt: '2025-09-26T15:06:05.3077854',
+            updatedAt: '2025-09-26T15:06:05.3078278',
+            monthlyAmount: 10500.00
+          }
+        ],
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any[]; errors: string[] }>('/IncomeSource');
+    return response;
+  }
+
+  // Create income source
+  async createIncomeSource(incomeSourceData: {
+    name: string;
+    amount: number;
+    frequency: string;
+    category: string;
+    currency: string;
+    description: string;
+    company: string;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source created successfully',
+        data: {
+          id: `income-${Date.now()}`,
+          userId: 'demo-user-123',
+          ...incomeSourceData,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          monthlyAmount: incomeSourceData.frequency === 'monthly' ? incomeSourceData.amount : 
+                        incomeSourceData.frequency === 'weekly' ? incomeSourceData.amount * 4.33 :
+                        incomeSourceData.frequency === 'yearly' ? incomeSourceData.amount / 12 :
+                        incomeSourceData.amount
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>('/IncomeSource', {
+      method: 'POST',
+      body: JSON.stringify(incomeSourceData),
+    });
+    return response.data;
+  }
+
+  // Create bulk income sources
+  async createBulkIncomeSources(incomeSources: {
+    name: string;
+    amount: number;
+    frequency: string;
+    category: string;
+    currency: string;
+    description: string;
+    company: string | null;
+  }[]): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response with multiple income sources
+      const mockData = incomeSources.map((source, index) => ({
+        id: `income-bulk-${Date.now()}-${index}`,
+        userId: 'demo-user-123',
+        ...source,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        monthlyAmount: source.frequency === 'MONTHLY' ? source.amount : 
+                      source.frequency === 'WEEKLY' ? source.amount * 4.33 :
+                      source.frequency === 'QUARTERLY' ? source.amount / 3 :
+                      source.frequency === 'YEARLY' ? source.amount / 12 :
+                      source.amount
+      }));
+
+      return {
+        success: true,
+        message: 'All income sources created successfully',
+        data: mockData,
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any[]; errors: string[] }>('/IncomeSource/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ incomeSources }),
+    });
+    return response.data;
+  }
+
+  // Get income sources with summary
+  async getIncomeSourcesWithSummary(activeOnly: boolean = true): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response with income sources and summary
+      return {
+        success: true,
+        message: null,
+        data: {
+          incomeSources: [
+            {
+              id: 'income-source-id-1',
+              userId: 'user-id',
+              name: 'Primary Salary',
+              amount: 4000.00,
+              frequency: 'MONTHLY',
+              category: 'PRIMARY',
+              currency: 'USD',
+              isActive: true,
+              description: 'Main job salary',
+              company: 'Tech Corp',
+              createdAt: '2024-01-01T10:00:00Z',
+              updatedAt: '2024-01-01T10:00:00Z',
+              monthlyAmount: 4000.00
+            },
+            {
+              id: 'income-source-id-2',
+              userId: 'user-id',
+              name: 'Freelance Work',
+              amount: 250.00,
+              frequency: 'WEEKLY',
+              category: 'SIDE_HUSTLE',
+              currency: 'USD',
+              isActive: true,
+              description: 'Web development projects',
+              company: 'Freelance',
+              createdAt: '2024-01-01T10:00:00Z',
+              updatedAt: '2024-01-01T10:00:00Z',
+              monthlyAmount: 1082.50
+            }
+          ],
+          totalActiveSources: 2,
+          totalPrimarySources: 1,
+          totalSources: 2,
+          totalMonthlyIncome: 5082.50
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string | null; data: any; errors: string[] }>(`/IncomeSource/with-summary?activeOnly=${activeOnly}`);
+    return response;
+  }
+
+  // Delete income source
+  async deleteIncomeSource(incomeSourceId: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source deleted successfully',
+        data: true,
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: boolean; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
+      method: 'DELETE',
+    });
+    return response.data;
+  }
+
+  // Update income source
+  async updateIncomeSource(incomeSourceId: string, incomeSourceData: {
+    name: string;
+    amount: number;
+    frequency: string;
+    category: string;
+    currency: string;
+    description: string;
+    company: string;
+    isActive: boolean;
+  }): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source updated successfully',
+        data: {
+          id: incomeSourceId,
+          userId: 'demo-user-123',
+          ...incomeSourceData,
+          createdAt: '2025-10-01T20:24:34.521Z',
+          updatedAt: new Date().toISOString(),
+          monthlyAmount: incomeSourceData.frequency === 'MONTHLY' ? incomeSourceData.amount : 
+                        incomeSourceData.frequency === 'WEEKLY' ? incomeSourceData.amount * 4.33 :
+                        incomeSourceData.frequency === 'QUARTERLY' ? incomeSourceData.amount / 3 :
+                        incomeSourceData.frequency === 'YEARLY' ? incomeSourceData.amount / 12 :
+                        incomeSourceData.amount
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(incomeSourceData),
+    });
+    return response.data;
+  }
+
+  // Get income source by ID
+  async getIncomeSourceById(incomeSourceId: string): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response
+      return {
+        success: true,
+        message: 'Income source retrieved successfully',
+        data: {
+          id: incomeSourceId,
+          userId: 'demo-user-123',
+          name: 'Company Salary',
+          amount: 5000.00,
+          frequency: 'MONTHLY',
+          category: 'PRIMARY',
+          currency: 'USD',
+          isActive: true,
+          description: 'Main job salary',
+          company: 'Tech Corp',
+          createdAt: '2025-10-01T20:30:07.800Z',
+          updatedAt: '2025-10-01T20:30:07.800Z',
+          monthlyAmount: 5000.00
+        },
+        errors: []
+      };
+    }
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`);
     return response;
   }
 }

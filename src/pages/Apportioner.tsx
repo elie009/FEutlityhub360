@@ -59,6 +59,9 @@ const Apportioner: React.FC = () => {
     monthlySavings: 0,
   });
 
+  // Graph maximum value from total monthly income API
+  const [graphMaxValue, setGraphMaxValue] = useState(1000);
+
   useEffect(() => {
     if (user?.id) {
       loadFinancialData();
@@ -79,10 +82,11 @@ const Apportioner: React.FC = () => {
 
     try {
       // Load bank account analytics for current balance and income/expense data
-      const [bankAnalytics, bills, loans] = await Promise.all([
+      const [bankAnalytics, bills, loans, totalMonthlyIncome] = await Promise.all([
         apiService.getBankAccountAnalyticsSummary(),
         apiService.getUserBills(),
         apiService.getUserLoans(user.id),
+        apiService.getTotalMonthlyIncome(),
       ]);
 
       // Calculate monthly expenses from bills and loans
@@ -94,12 +98,15 @@ const Apportioner: React.FC = () => {
         .filter((loan: Loan) => loan.status === LoanStatus.ACTIVE)
         .reduce((total: number, loan: Loan) => total + (loan.monthlyPayment || 0), 0);
 
-      const monthlyIncome = bankAnalytics?.totalIncoming || 0;
+      const monthlyIncome = totalMonthlyIncome || bankAnalytics?.totalIncoming || 0;
       const currentBalance = bankAnalytics?.totalBalance || 0;
       const otherExpenses = Math.max(0, monthlyIncome - monthlyBills - monthlyLoans - 500); // Estimate other expenses
 
       const totalMonthlyExpenses = monthlyBills + monthlyLoans + otherExpenses;
       const monthlySavings = monthlyIncome - totalMonthlyExpenses;
+
+      // Set graph maximum to total monthly income from API
+      setGraphMaxValue(Math.max(totalMonthlyIncome || 1000, 1000));
 
       setFinancialData({
         currentBalance,
@@ -131,7 +138,7 @@ const Apportioner: React.FC = () => {
     const monthsToGoal = Math.max(1, Math.ceil((targetDateObj.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
 
     const requiredMonthlySavings = (targetAmount - financialData.currentBalance) / monthsToGoal;
-    const currentMonthlySavings = adjustableValues.monthlyIncome - adjustableValues.monthlyExpenses;
+    const currentMonthlySavings = adjustableValues.monthlySavings; // Use current savings from Interactive Financial Overview
     const adjustedExpenses = adjustableValues.monthlyExpenses + (requiredMonthlySavings - currentMonthlySavings);
 
     let feasibility: 'achievable' | 'challenging' | 'difficult' = 'achievable';
@@ -176,9 +183,31 @@ const Apportioner: React.FC = () => {
     setAdjustableValues(prev => {
       const newValues = { ...prev, [key]: value };
       
-      // Auto-calculate savings when income or expenses change
-      if (key === 'monthlyIncome' || key === 'monthlyExpenses') {
-        newValues.monthlySavings = Math.max(0, newValues.monthlyIncome - newValues.monthlyExpenses);
+      // Auto-adjust expenses and savings to always add up to income
+      if (key === 'monthlyIncome') {
+        // When income changes, keep the same ratio of expenses to savings
+        const totalCurrent = prev.monthlyExpenses + Math.abs(prev.monthlySavings);
+        if (totalCurrent > 0) {
+          const expenseRatio = prev.monthlyExpenses / totalCurrent;
+          const savingsRatio = Math.abs(prev.monthlySavings) / totalCurrent;
+          
+          newValues.monthlyExpenses = newValues.monthlyIncome * expenseRatio;
+          // Maintain the sign of savings (positive/negative)
+          const savingsAmount = newValues.monthlyIncome * savingsRatio;
+          newValues.monthlySavings = prev.monthlySavings >= 0 ? savingsAmount : -savingsAmount;
+        } else {
+          // If no previous allocation, split 50/50
+          newValues.monthlyExpenses = newValues.monthlyIncome * 0.5;
+          newValues.monthlySavings = newValues.monthlyIncome * 0.5;
+        }
+      } else if (key === 'monthlyExpenses') {
+        // When expenses change, adjust savings to maintain total = income
+        const remainingAmount = newValues.monthlyIncome - newValues.monthlyExpenses;
+        // Maintain the sign of savings (positive/negative)
+        newValues.monthlySavings = prev.monthlySavings >= 0 ? remainingAmount : -remainingAmount;
+      } else if (key === 'monthlySavings') {
+        // When savings change, adjust expenses to maintain total = income
+        newValues.monthlyExpenses = newValues.monthlyIncome - Math.abs(newValues.monthlySavings);
       }
       
       return newValues;
@@ -367,10 +396,46 @@ const Apportioner: React.FC = () => {
                 <CalendarToday sx={{ mr: 1 }} />
                 Goal Analysis
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Based on your current Interactive Financial Overview settings
+              </Typography>
               <Divider sx={{ mb: 3 }} />
               
               {goalPlan ? (
                 <Box>
+                  {/* Current Financial Overview Values */}
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Current Financial Overview:
+                    </Typography>
+                    <Grid container spacing={1}>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          Income
+                        </Typography>
+                        <Typography variant="body2" color="success.main" fontWeight="bold">
+                          {formatCurrency(adjustableValues.monthlyIncome)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          Expenses
+                        </Typography>
+                        <Typography variant="body2" color="error.main" fontWeight="bold">
+                          {formatCurrency(adjustableValues.monthlyExpenses)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          Current Savings
+                        </Typography>
+                        <Typography variant="body2" color={adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main'} fontWeight="bold">
+                          {formatCurrency(adjustableValues.monthlySavings)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
                   <Grid container spacing={2} sx={{ mb: 3 }}>
                     <Grid item xs={6}>
                       <Typography variant="body2" color="text.secondary">
@@ -389,6 +454,41 @@ const Apportioner: React.FC = () => {
                       </Typography>
                     </Grid>
                   </Grid>
+
+                  {/* Savings Comparison */}
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Savings Analysis:
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Current Monthly Savings
+                        </Typography>
+                        <Typography variant="h6" color={adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main'}>
+                          {formatCurrency(adjustableValues.monthlySavings)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Required Monthly Savings
+                        </Typography>
+                        <Typography variant="h6" color="primary.main">
+                          {formatCurrency(goalPlan.requiredMonthlySavings)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Difference: 
+                        <Typography component="span" variant="body2" color={goalPlan.requiredMonthlySavings <= adjustableValues.monthlySavings ? 'success.main' : 'error.main'} fontWeight="bold">
+                          {goalPlan.requiredMonthlySavings <= adjustableValues.monthlySavings ? ' +' : ' '}
+                          {formatCurrency(Math.abs(goalPlan.requiredMonthlySavings - adjustableValues.monthlySavings))}
+                          {goalPlan.requiredMonthlySavings <= adjustableValues.monthlySavings ? ' surplus' : ' shortfall'}
+                        </Typography>
+                      </Typography>
+                    </Box>
+                  </Box>
 
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -440,11 +540,14 @@ const Apportioner: React.FC = () => {
             
             {/* X-axis labels */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, px: 1 }}>
-              {[0, 2000, 4000, 6000, 8000, 10000].map((value) => (
-                <Typography key={value} variant="caption" color="text.secondary">
-                  {formatCurrency(value)}
-                </Typography>
-              ))}
+              {(() => {
+                const step = graphMaxValue / 5;
+                return [0, step, step * 2, step * 3, step * 4, graphMaxValue].map((value) => (
+                  <Typography key={value} variant="caption" color="text.secondary">
+                    {formatCurrency(Math.round(value))}
+                  </Typography>
+                ));
+              })()}
             </Box>
             
             {/* Interactive Bar Chart */}
@@ -461,7 +564,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlyIncome / 10000) * 100, 100)}%`,
+                        width: `${Math.min((adjustableValues.monthlyIncome / graphMaxValue) * 100, 100)}%`,
                         bgcolor: 'success.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -479,8 +582,8 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyIncome}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyIncome', value as number)}
                       min={0}
-                      max={10000}
-                      step={100}
+                      max={graphMaxValue}
+                      step={Math.max(graphMaxValue / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -488,6 +591,7 @@ const Apportioner: React.FC = () => {
                         '& .MuiSlider-thumb': {
                           width: 20,
                           height: 20,
+                          display: 'none',
                           bgcolor: 'success.main',
                           border: '2px solid white',
                           '&:hover': {
@@ -518,7 +622,7 @@ const Apportioner: React.FC = () => {
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlyExpenses / 10000) * 100, 100)}%`,
+                        width: `${Math.min((adjustableValues.monthlyExpenses / graphMaxValue) * 100, 100)}%`,
                         bgcolor: 'error.main',
                         borderRadius: '10px',
                         display: 'flex',
@@ -536,8 +640,8 @@ const Apportioner: React.FC = () => {
                       value={adjustableValues.monthlyExpenses}
                       onChange={(_, value) => handleAdjustableValueChange('monthlyExpenses', value as number)}
                       min={0}
-                      max={10000}
-                      step={100}
+                      max={graphMaxValue}
+                      step={Math.max(graphMaxValue / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -545,6 +649,7 @@ const Apportioner: React.FC = () => {
                         '& .MuiSlider-thumb': {
                           width: 20,
                           height: 20,
+                          display: 'none',
                           bgcolor: 'error.main',
                           border: '2px solid white',
                           '&:hover': {
@@ -569,14 +674,15 @@ const Apportioner: React.FC = () => {
                   <Typography variant="body2" sx={{ minWidth: 120, fontWeight: 'bold' }}>
                     Monthly Savings
                   </Typography>
+              
                   <Box sx={{ flex: 1, position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
                     <Box
                       sx={{
                         position: 'absolute',
                         left: 0,
                         height: 20,
-                        width: `${Math.min((adjustableValues.monthlySavings / 10000) * 100, 100)}%`,
-                        bgcolor: 'primary.main',
+                        width: `${Math.min((Math.abs(adjustableValues.monthlySavings) / graphMaxValue) * 100, 100)}%`,
+                        bgcolor: adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main',
                         borderRadius: '10px',
                         display: 'flex',
                         alignItems: 'center',
@@ -590,11 +696,14 @@ const Apportioner: React.FC = () => {
                       </Typography>
                     </Box>
                     <Slider
-                      value={adjustableValues.monthlySavings}
-                      onChange={(_, value) => handleAdjustableValueChange('monthlySavings', value as number)}
+                      value={Math.abs(adjustableValues.monthlySavings)}
+                      onChange={(_, value) => {
+                        const newValue = adjustableValues.monthlySavings >= 0 ? value as number : -(value as number);
+                        handleAdjustableValueChange('monthlySavings', newValue);
+                      }}
                       min={0}
-                      max={10000}
-                      step={100}
+                      max={graphMaxValue}
+                      step={Math.max(graphMaxValue / 100, 10)}
                       sx={{
                         position: 'absolute',
                         left: 0,
@@ -602,10 +711,13 @@ const Apportioner: React.FC = () => {
                         '& .MuiSlider-thumb': {
                           width: 20,
                           height: 20,
-                          bgcolor: 'primary.main',
-                          border: '2px solid white',
+                          bgcolor: adjustableValues.monthlySavings >= 0 ? 'primary.main' : 'error.main',
+                          border: '2px solid blue',
+                          display: 'none',
                           '&:hover': {
-                            boxShadow: '0 0 0 8px rgba(177, 229, 153, 0.16)',
+                            boxShadow: adjustableValues.monthlySavings >= 0 
+                              ? '0 0 0 8px rgba(25, 118, 210, 0.16)' 
+                              : '0 0 0 8px rgba(244, 67, 54, 0.16)',
                           },
                         },
                         '& .MuiSlider-track': {

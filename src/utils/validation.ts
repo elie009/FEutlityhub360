@@ -6,8 +6,15 @@ export const validateEmail = (email: string): boolean => {
 };
 
 export const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+  // Remove all non-digit characters except + at the beginning
+  const cleanedPhone = phone.replace(/[^\d+]/g, '');
+  
+  // Check if it contains only digits and optionally starts with +
+  const phoneRegex = /^\+?[\d]+$/;
+  
+  // Must have at least 7 digits (minimum for most countries) and max 15 digits (international standard)
+  const digitsOnly = cleanedPhone.replace(/^\+/, '');
+  return phoneRegex.test(cleanedPhone) && digitsOnly.length >= 7 && digitsOnly.length <= 15;
 };
 
 export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
@@ -62,6 +69,28 @@ export const validatePaymentAmount = (amount: number, maxAmount: number): { isVa
 export const validateRequired = (value: string | number, fieldName: string): { isValid: boolean; error?: string } => {
   if (!value || (typeof value === 'string' && value.trim() === '')) {
     return { isValid: false, error: `${fieldName} is required` };
+  }
+  
+  return { isValid: true };
+};
+
+export const validateUsername = (username: string): { isValid: boolean; error?: string } => {
+  if (!username || username.trim() === '') {
+    return { isValid: false, error: 'Username is required' };
+  }
+  
+  if (username.length < 3) {
+    return { isValid: false, error: 'Username must be at least 3 characters long' };
+  }
+  
+  if (username.length > 20) {
+    return { isValid: false, error: 'Username must be no more than 20 characters long' };
+  }
+  
+  // Username should only contain letters, numbers, underscores, and hyphens
+  const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!usernameRegex.test(username)) {
+    return { isValid: false, error: 'Username can only contain letters, numbers, underscores, and hyphens' };
   }
   
   return { isValid: true };
@@ -138,6 +167,18 @@ export const validateEmploymentStatus = (status: string): { isValid: boolean; er
   return { isValid: true };
 };
 
+export const validateInterestRate = (rate: number, minRate: number = 0, maxRate: number = 50): { isValid: boolean; error?: string } => {
+  if (rate < minRate) {
+    return { isValid: false, error: `Interest rate must be at least ${minRate}%` };
+  }
+  
+  if (rate > maxRate) {
+    return { isValid: false, error: `Interest rate cannot exceed ${maxRate}%` };
+  }
+  
+  return { isValid: true };
+};
+
 // Error handling utility
 export const getErrorMessage = (err: unknown, fallback: string = 'An unknown error occurred'): string => {
   if (err instanceof Error) {
@@ -147,4 +188,45 @@ export const getErrorMessage = (err: unknown, fallback: string = 'An unknown err
     return err;
   }
   return fallback;
+};
+
+// Enhanced error handling for API responses with errors array
+export const getApiErrorMessage = (err: unknown, fallback: string = 'An unknown error occurred'): { message: string; fieldErrors: Record<string, string> } => {
+  const fieldErrors: Record<string, string> = {};
+  let message = fallback;
+  
+  if (err instanceof Error) {
+    // Try to parse the error message as JSON to extract field-specific errors
+    try {
+      const errorData = JSON.parse(err.message);
+      if (errorData.errors && Array.isArray(errorData.errors)) {
+        // Parse field-specific errors from the errors array
+        errorData.errors.forEach((error: string) => {
+          // Look for field-specific error patterns like "Purpose: Invalid purpose"
+          const fieldMatch = error.match(/^(\w+):\s*(.+)$/i);
+          if (fieldMatch) {
+            const [, field, errorMsg] = fieldMatch;
+            fieldErrors[field.toLowerCase()] = errorMsg;
+          } else {
+            // If no field pattern, add to general message
+            message = error;
+          }
+        });
+        
+        // If we have field errors but no general message, create one
+        if (Object.keys(fieldErrors).length > 0 && message === fallback) {
+          message = 'Please fix the following errors:';
+        }
+      } else if (errorData.message) {
+        message = errorData.message;
+      }
+    } catch {
+      // If parsing fails, use the error message as is
+      message = err.message;
+    }
+  } else if (typeof err === 'string') {
+    message = err;
+  }
+  
+  return { message, fieldErrors };
 };

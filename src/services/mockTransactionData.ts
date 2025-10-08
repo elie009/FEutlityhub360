@@ -358,13 +358,20 @@ export const mockTransactionDataService = {
     amount: number;
     transactionType: 'DEBIT' | 'CREDIT';
     description: string;
-    category: string;
+    category?: string;
     merchant?: string;
     location?: string;
     transactionDate: string;
     notes?: string;
     isRecurring?: boolean;
     recurringFrequency?: string;
+    referenceNumber?: string;
+    externalTransactionId?: string;
+    currency?: string;
+    // NEW: Reference Fields for Smart Linking
+    billId?: string;           // For bill-related transactions
+    savingsAccountId?: string; // For savings-related transactions
+    loanId?: string;           // For loan-related transactions
   }): Promise<BankAccountTransaction> {
     await delay(500);
     
@@ -391,9 +398,9 @@ export const mockTransactionDataService = {
       amount: amount,
       transactionType: transactionData.transactionType.toLowerCase() as 'debit' | 'credit',
       description: transactionData.description,
-      category: transactionData.category.toLowerCase(),
-      referenceNumber: `REF-${Date.now()}`,
-      externalTransactionId: `EXT-${Date.now()}`,
+      category: transactionData.transactionType === 'CREDIT' ? 'credit' : (transactionData.category?.toLowerCase() || 'other'),
+      referenceNumber: transactionData.referenceNumber || `REF-${Date.now()}`,
+      externalTransactionId: transactionData.externalTransactionId || `EXT-${Date.now()}`,
       transactionDate: transactionData.transactionDate,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -402,8 +409,12 @@ export const mockTransactionDataService = {
       location: transactionData.location || '',
       isRecurring: transactionData.isRecurring || false,
       recurringFrequency: transactionData.recurringFrequency || '',
-      currency: 'USD',
+      currency: transactionData.currency || 'USD',
       balanceAfterTransaction: balanceAfterTransaction,
+      // NEW: Reference Fields for Smart Linking
+      billId: transactionData.billId || undefined,
+      savingsAccountId: transactionData.savingsAccountId || undefined,
+      loanId: transactionData.loanId || undefined,
     };
 
     // Add to mock data
