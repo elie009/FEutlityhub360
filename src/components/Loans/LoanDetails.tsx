@@ -317,7 +317,7 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
                 {schedule.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{formatDate(item.dueDate)}</TableCell>
-                    <TableCell align="right">{formatCurrency(item.amountDue)}</TableCell>
+                    <TableCell align="right">{formatCurrency(item.totalAmount || item.amountDue || 0)}</TableCell>
                     <TableCell align="right">{formatCurrency(item.principalAmount)}</TableCell>
                     <TableCell align="right">{formatCurrency(item.interestAmount)}</TableCell>
                     <TableCell align="center">

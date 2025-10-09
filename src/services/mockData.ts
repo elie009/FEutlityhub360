@@ -89,8 +89,10 @@ export const mockRepaymentSchedules: RepaymentSchedule[] = [
   {
     id: 'schedule-001-01',
     loanId: 'loan-001',
+    installmentNumber: 1,
     dueDate: '2024-02-15T00:00:00Z',
     amountDue: 680,
+    totalAmount: 680,
     principalAmount: 580,
     interestAmount: 100,
     status: PaymentStatus.PAID,
@@ -99,68 +101,24 @@ export const mockRepaymentSchedules: RepaymentSchedule[] = [
   {
     id: 'schedule-001-02',
     loanId: 'loan-001',
+    installmentNumber: 2,
     dueDate: '2024-03-15T00:00:00Z',
     amountDue: 680,
-    principalAmount: 584,
-    interestAmount: 96,
+    totalAmount: 680,
+    principalAmount: 585,
+    interestAmount: 95,
     status: PaymentStatus.PAID,
-    paidAt: '2024-03-14T09:15:00Z',
+    paidAt: '2024-03-13T15:20:00Z',
   },
   {
     id: 'schedule-001-03',
     loanId: 'loan-001',
+    installmentNumber: 3,
     dueDate: '2024-04-15T00:00:00Z',
     amountDue: 680,
-    principalAmount: 588,
-    interestAmount: 92,
-    status: PaymentStatus.PENDING,
-  },
-  {
-    id: 'schedule-001-04',
-    loanId: 'loan-001',
-    dueDate: '2024-05-15T00:00:00Z',
-    amountDue: 680,
-    principalAmount: 592,
-    interestAmount: 88,
-    status: PaymentStatus.PENDING,
-  },
-  // Loan 002 schedules
-  {
-    id: 'schedule-002-01',
-    loanId: 'loan-002',
-    dueDate: '2024-03-12T00:00:00Z',
-    amountDue: 444,
-    principalAmount: 394,
-    interestAmount: 50,
-    status: PaymentStatus.PAID,
-    paidAt: '2024-03-11T14:20:00Z',
-  },
-  {
-    id: 'schedule-002-02',
-    loanId: 'loan-002',
-    dueDate: '2024-04-12T00:00:00Z',
-    amountDue: 444,
-    principalAmount: 398,
-    interestAmount: 46,
-    status: PaymentStatus.PENDING,
-  },
-  // Loan 004 schedules (overdue)
-  {
-    id: 'schedule-004-01',
-    loanId: 'loan-004',
-    dueDate: '2024-04-03T00:00:00Z',
-    amountDue: 1433,
-    principalAmount: 1283,
-    interestAmount: 150,
-    status: PaymentStatus.OVERDUE,
-  },
-  {
-    id: 'schedule-004-02',
-    loanId: 'loan-004',
-    dueDate: '2024-05-03T00:00:00Z',
-    amountDue: 1433,
-    principalAmount: 1300,
-    interestAmount: 133,
+    totalAmount: 680,
+    principalAmount: 590,
+    interestAmount: 90,
     status: PaymentStatus.PENDING,
   },
 ];
@@ -927,6 +885,86 @@ export const mockDataService = {
   }): Promise<any> {
     const { mockSavingsDataService } = await import('./mockSavingsData');
     return mockSavingsDataService.updateSavingsGoal(accountId, goalData);
+  },
+
+  // Due Date Tracking Methods
+  async getUpcomingPayments(days: number = 30): Promise<any[]> {
+    await delay(500);
+    
+    // Generate mock upcoming payments
+    const today = new Date();
+    const upcomingPayments = [];
+    
+    // Add some sample upcoming payments
+    for (let i = 0; i < 3; i++) {
+      const dueDate = new Date(today);
+      dueDate.setDate(today.getDate() + (i + 1) * 7); // Weekly payments
+      
+      upcomingPayments.push({
+        loanId: `loan-00${i + 1}`,
+        dueDate: dueDate.toISOString(),
+        amount: 680 + (i * 100),
+        installmentNumber: i + 5,
+        daysUntilDue: (i + 1) * 7,
+        loanPurpose: ['Home renovation project', 'Emergency medical expenses', 'Vehicle purchase'][i],
+      });
+    }
+    
+    return upcomingPayments;
+  },
+
+  async getOverduePayments(): Promise<any[]> {
+    await delay(500);
+    
+    // Generate mock overdue payments
+    const today = new Date();
+    const overduePayments = [];
+    
+    // Add one overdue payment for demo
+    const overdueDate = new Date(today);
+    overdueDate.setDate(today.getDate() - 5); // 5 days overdue
+    
+    overduePayments.push({
+      loanId: 'loan-004',
+      dueDate: overdueDate.toISOString(),
+      amount: 1433.33,
+      installmentNumber: 2,
+      daysOverdue: 5,
+      loanPurpose: 'Business equipment',
+    });
+    
+    return overduePayments;
+  },
+
+  async getNextDueDate(loanId: string): Promise<string | null> {
+    await delay(300);
+    
+    // Generate a mock next due date (15 days from now)
+    const nextDueDate = new Date();
+    nextDueDate.setDate(nextDueDate.getDate() + 15);
+    
+    return nextDueDate.toISOString();
+  },
+
+  async updateScheduleDueDate(loanId: string, installmentNumber: number, newDueDate: string): Promise<any> {
+    await delay(1000);
+    
+    // Find the schedule item and update it
+    const scheduleItem = mockRepaymentSchedules.find(
+      s => s.loanId === loanId && s.installmentNumber === installmentNumber
+    );
+    
+    if (!scheduleItem) {
+      throw new Error('Repayment schedule not found');
+    }
+    
+    // Update the due date
+    scheduleItem.dueDate = newDueDate;
+    
+    return {
+      ...scheduleItem,
+      totalAmount: scheduleItem.principalAmount + scheduleItem.interestAmount,
+    };
   }
 
 };

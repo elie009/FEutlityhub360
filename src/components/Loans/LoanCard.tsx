@@ -8,6 +8,7 @@ import {
   Button,
   Grid,
   Divider,
+  Alert,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -20,8 +21,12 @@ import {
   Pending,
   Delete,
   History,
+  EventAvailable,
+  Warning,
+  NotificationImportant,
 } from '@mui/icons-material';
 import { Loan, LoanStatus } from '../../types/loan';
+import { formatDueDate, getDueDateColor, isOverdue, isDueToday, isDueSoon } from '../../utils/dateUtils';
 
 interface LoanCardProps {
   loan: Loan;
@@ -67,6 +72,11 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
   const remainingBalance = loan.remainingBalance || loan.outstandingBalance;
   const remainingPayments = Math.ceil(remainingBalance / monthlyPayment);
 
+  // Due date tracking
+  const hasNextDueDate = loan.nextDueDate && loan.status === LoanStatus.ACTIVE;
+  const dueDateColor = getDueDateColor(loan.nextDueDate);
+  const showDueDateAlert = hasNextDueDate && (isOverdue(loan.nextDueDate) || isDueToday(loan.nextDueDate) || isDueSoon(loan.nextDueDate, 3));
+
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flexGrow: 1 }}>
@@ -84,6 +94,23 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
         <Typography variant="body2" color="text.secondary" gutterBottom>
           {loan.purpose}
         </Typography>
+
+        {/* Next Due Date Alert */}
+        {showDueDateAlert && (
+          <Alert 
+            severity={dueDateColor === 'error' ? 'error' : dueDateColor === 'warning' ? 'warning' : 'info'}
+            icon={
+              isOverdue(loan.nextDueDate) ? <NotificationImportant /> :
+              isDueToday(loan.nextDueDate) ? <Warning /> :
+              <EventAvailable />
+            }
+            sx={{ my: 1 }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {formatDueDate(loan.nextDueDate)}
+            </Typography>
+          </Alert>
+        )}
 
         <Divider sx={{ my: 2 }} />
 
@@ -176,6 +203,21 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
             </Typography>
           )}
         </Box>
+
+        {/* Next Due Date - Only show if not already alerted */}
+        {hasNextDueDate && !showDueDateAlert && (
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              <EventAvailable sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.secondary">
+                Next Payment Due
+              </Typography>
+            </Box>
+            <Typography variant="body1" fontWeight="medium">
+              {formatDueDate(loan.nextDueDate)}
+            </Typography>
+          </Box>
+        )}
 
         {/* Timeline Information */}
         <Box sx={{ mt: 2 }}>

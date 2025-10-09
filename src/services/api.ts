@@ -11,7 +11,9 @@ import {
   RegisterData,
   PaymentMethod,
   NotificationsResponse,
-  GetNotificationsParams
+  GetNotificationsParams,
+  UpcomingPayment,
+  OverduePayment
 } from '../types/loan';
 import { Bill, CreateBillRequest, UpdateBillRequest, BillFilters, BillAnalytics, TotalPaidAnalytics, PaginatedBillsResponse } from '../types/bill';
 import { mockDataService } from './mockData';
@@ -567,7 +569,83 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getLoanSchedule(loanId);
     }
-    return this.request<RepaymentSchedule[]>(`/Loans/user/${loanId}/schedule`);
+    const response = await this.request<any>(`/Loans/${loanId}/schedule`);
+    
+    // Handle the response structure
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    }
+    return [];
+  }
+
+  // Due Date Tracking APIs
+  async getUpcomingPayments(days: number = 30): Promise<UpcomingPayment[]> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getUpcomingPayments(days);
+    }
+    const response = await this.request<any>(`/Loans/upcoming-payments?days=${days}`);
+    
+    // Handle the response structure
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    }
+    return [];
+  }
+
+  async getOverduePayments(): Promise<OverduePayment[]> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getOverduePayments();
+    }
+    const response = await this.request<any>('/Loans/overdue-payments');
+    
+    // Handle the response structure
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    }
+    return [];
+  }
+
+  async getNextDueDate(loanId: string): Promise<string | null> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getNextDueDate(loanId);
+    }
+    const response = await this.request<any>(`/Loans/${loanId}/next-due-date`);
+    
+    // Handle the response structure
+    if (response && response.success && response.data !== undefined) {
+      return response.data;
+    } else if (response && response.data !== undefined) {
+      return response.data;
+    }
+    return null;
+  }
+
+  async updateScheduleDueDate(loanId: string, installmentNumber: number, newDueDate: string): Promise<RepaymentSchedule> {
+    if (isMockDataEnabled()) {
+      return mockDataService.updateScheduleDueDate(loanId, installmentNumber, newDueDate);
+    }
+    const response = await this.request<any>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
+      method: 'PUT',
+      body: JSON.stringify({ newDueDate }),
+    });
+    
+    // Handle the response structure
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
   }
 
 

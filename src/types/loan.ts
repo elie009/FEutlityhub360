@@ -28,6 +28,7 @@ export interface Loan {
   createdAt: string;
   updatedAt: string;
   outstandingBalance: number; // Keep for backward compatibility
+  nextDueDate?: string | null; // ISO date string for next payment due date
 }
 
 export enum LoanStatus {
@@ -42,12 +43,32 @@ export enum LoanStatus {
 export interface RepaymentSchedule {
   id: string;
   loanId: string;
+  installmentNumber: number;
   dueDate: string;
-  amountDue: number;
+  amountDue?: number; // Keep for backward compatibility
+  totalAmount: number;
   principalAmount: number;
   interestAmount: number;
   status: PaymentStatus;
   paidAt?: string;
+}
+
+export interface UpcomingPayment {
+  loanId: string;
+  dueDate: string;
+  amount: number;
+  installmentNumber: number;
+  daysUntilDue: number;
+  loanPurpose: string;
+}
+
+export interface OverduePayment {
+  loanId: string;
+  dueDate: string;
+  amount: number;
+  installmentNumber: number;
+  daysOverdue: number;
+  loanPurpose: string;
 }
 
 export enum PaymentStatus {

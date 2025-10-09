@@ -13,6 +13,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -20,11 +24,15 @@ import {
   TrendingUp,
   Schedule,
   Payment,
+  CalendarMonth,
+  EventAvailable,
+  NotificationImportant,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
-import { Loan } from '../../types/loan';
+import { Loan, UpcomingPayment, OverduePayment } from '../../types/loan';
 import { getErrorMessage } from '../../utils/validation';
+import { formatDueDate, formatDate } from '../../utils/dateUtils';
 import LoanCard from './LoanCard';
 import LoanApplicationForm from './LoanApplicationForm';
 import PaymentForm from './PaymentForm';
@@ -35,6 +43,8 @@ const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
+  const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
+  const [overduePayments, setOverduePayments] = useState<OverduePayment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
@@ -42,6 +52,8 @@ const LoanDashboard: React.FC = () => {
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [showUpcomingDialog, setShowUpcomingDialog] = useState(false);
+  const [showOverdueDialog, setShowOverdueDialog] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
@@ -81,12 +93,30 @@ const LoanDashboard: React.FC = () => {
       
       // Load outstanding amount after loading loans
       await loadOutstandingAmount();
+      
+      // Load due date tracking data
+      await loadDueDateTracking();
     } catch (err: unknown) {
       console.error('Error loading loans:', err);
       setError(getErrorMessage(err, 'Failed to load loans'));
       setLoans([]); // Ensure we always have an array
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadDueDateTracking = async () => {
+    try {
+      // Load upcoming payments (next 30 days)
+      const upcoming = await apiService.getUpcomingPayments(30);
+      setUpcomingPayments(upcoming);
+      
+      // Load overdue payments
+      const overdue = await apiService.getOverduePayments();
+      setOverduePayments(overdue);
+    } catch (err: unknown) {
+      console.error('Error loading due date tracking:', err);
+      // Don't set error state since this is supplementary data
     }
   };
 
@@ -213,6 +243,16 @@ const LoanDashboard: React.FC = () => {
     return loans.filter(loan => loan.status === 'OVERDUE').length;
   };
 
+  const getTotalMonthlyPayment = (): number => {
+    if (!Array.isArray(loans)) {
+      console.error('Loans is not an array:', loans);
+      return 0;
+    }
+    return loans
+      .filter(loan => loan.status === 'ACTIVE')
+      .reduce((total, loan) => total + (loan.monthlyPayment || 0), 0);
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -244,7 +284,7 @@ const LoanDashboard: React.FC = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -262,7 +302,7 @@ const LoanDashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -280,7 +320,7 @@ const LoanDashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -298,18 +338,61 @@ const LoanDashboard: React.FC = () => {
           </Card>
         </Grid>
 
+        {/* Upcoming Payments Card */}
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card 
+            sx={{ 
+              cursor: upcomingPayments.length > 0 ? 'pointer' : 'default',
+              '&:hover': upcomingPayments.length > 0 ? { boxShadow: 3 } : {}
+            }}
+            onClick={() => upcomingPayments.length > 0 && setShowUpcomingDialog(true)}
+          >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Payment sx={{ mr: 2, color: 'error.main' }} />
+                <EventAvailable sx={{ mr: 2, color: 'info.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    {getOverdueLoansCount()}
+                    {upcomingPayments.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Overdue Loans
+                    Upcoming Payments
                   </Typography>
+                  {upcomingPayments.length > 0 && (
+                    <Typography variant="caption" color="info.main" sx={{ fontWeight: 600 }}>
+                      Click to view
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Overdue Payments Card */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card 
+            sx={{ 
+              cursor: overduePayments.length > 0 ? 'pointer' : 'default',
+              '&:hover': overduePayments.length > 0 ? { boxShadow: 3 } : {},
+              bgcolor: overduePayments.length > 0 ? 'error.lighter' : 'background.paper'
+            }}
+            onClick={() => overduePayments.length > 0 && setShowOverdueDialog(true)}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <NotificationImportant sx={{ mr: 2, color: 'error.main' }} />
+                <Box>
+                  <Typography variant="h6" color={overduePayments.length > 0 ? 'error.main' : 'text.primary'}>
+                    {overduePayments.length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Overdue Payments
+                  </Typography>
+                  {overduePayments.length > 0 && (
+                    <Typography variant="caption" color="error.main" sx={{ fontWeight: 600 }}>
+                      Click to view
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             </CardContent>
@@ -446,6 +529,142 @@ const LoanDashboard: React.FC = () => {
           loanPurpose={loanForHistory?.purpose}
           loanData={loanForHistory || undefined} // Add this line to pass loan data
         />
+
+      {/* Upcoming Payments Dialog */}
+      <Dialog open={showUpcomingDialog} onClose={() => setShowUpcomingDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EventAvailable color="info" />
+            <Typography variant="h6">
+              Upcoming Payments (Next 30 Days)
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {upcomingPayments.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+              No upcoming payments in the next 30 days
+            </Typography>
+          ) : (
+            <List>
+              {upcomingPayments.map((payment, index) => (
+                <ListItem 
+                  key={index}
+                  sx={{ 
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    mb: 1,
+                    bgcolor: 'background.default'
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle2">
+                          {payment.loanPurpose}
+                        </Typography>
+                        <Chip 
+                          label={formatDueDate(payment.dueDate)} 
+                          size="small" 
+                          color={payment.daysUntilDue <= 3 ? 'warning' : 'info'}
+                        />
+                      </Box>
+                    }
+                    secondary={
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Amount: ${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Installment #{payment.installmentNumber} • Due {formatDate(payment.dueDate)}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowUpcomingDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Overdue Payments Dialog */}
+      <Dialog open={showOverdueDialog} onClose={() => setShowOverdueDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <NotificationImportant color="error" />
+            <Typography variant="h6">
+              Overdue Payments
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {overduePayments.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+              No overdue payments
+            </Typography>
+          ) : (
+            <>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  You have {overduePayments.length} overdue payment{overduePayments.length !== 1 ? 's' : ''}. 
+                  Please make payment(s) as soon as possible to avoid penalties.
+                </Typography>
+              </Alert>
+              <List>
+                {overduePayments.map((payment, index) => (
+                  <ListItem 
+                    key={index}
+                    sx={{ 
+                      border: '1px solid',
+                      borderColor: 'error.main',
+                      borderRadius: 1,
+                      mb: 1,
+                      bgcolor: 'error.lighter'
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="subtitle2" color="error.main">
+                            {payment.loanPurpose}
+                          </Typography>
+                          <Chip 
+                            label={`Overdue by ${payment.daysOverdue} day${payment.daysOverdue !== 1 ? 's' : ''}`} 
+                            size="small" 
+                            color="error"
+                          />
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Amount: ${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Installment #{payment.installmentNumber} • Was due {formatDate(payment.dueDate)}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowOverdueDialog(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

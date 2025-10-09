@@ -14,10 +14,23 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+  Paper,
+  Tabs,
+  Tab,
 } from '@mui/material';
+import { 
+  Calculate as CalculateIcon, 
+  AttachMoney as MoneyIcon,
+  Info as InfoIcon,
+  Schedule as ScheduleIcon,
+} from '@mui/icons-material';
 import { Loan, LoanStatus } from '../../types/loan';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import RepaymentScheduleManager from './RepaymentScheduleManager';
 
 interface LoanUpdateFormProps {
   open: boolean;
@@ -43,8 +56,10 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
     monthlyPayment: 0,
     remainingBalance: 0,
   });
+  const [autoCalculate, setAutoCalculate] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     if (loan) {
@@ -57,6 +72,10 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
         monthlyPayment: loan.monthlyPayment || 0,
         remainingBalance: loan.remainingBalance || 0,
       });
+      // Reset auto-calculate to true when opening the form
+      setAutoCalculate(true);
+      // Reset to first tab when opening
+      setActiveTab(0);
     }
   }, [loan]);
 
@@ -95,6 +114,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
       updateData.status = formData.status;
     }
     
+    // Principal Update Logic
     if (formData.principal !== loan.principal) {
       updateData.principal = formData.principal;
     }
@@ -103,15 +123,19 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
       updateData.interestRate = formData.interestRate;
     }
     
-    if (formData.monthlyPayment !== loan.monthlyPayment) {
+    // 💰 Auto-Calculate Feature Logic
+    // Only include monthlyPayment if NOT auto-calculating OR if value changed and auto-calc is off
+    if (!autoCalculate && formData.monthlyPayment !== loan.monthlyPayment) {
       updateData.monthlyPayment = formData.monthlyPayment;
     }
     
-    if (formData.remainingBalance !== loan.remainingBalance) {
+    // Only include remainingBalance if NOT auto-calculating OR if value changed and auto-calc is off
+    if (!autoCalculate && formData.remainingBalance !== loan.remainingBalance) {
       updateData.remainingBalance = formData.remainingBalance;
     }
 
     console.log('📤 Submitting loan update:');
+    console.log('🔹 Auto-Calculate Mode:', autoCalculate ? '✅ ENABLED' : '❌ DISABLED');
     console.log('🔹 Original Loan:', {
       principal: loan.principal,
       interestRate: loan.interestRate,
@@ -121,11 +145,11 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
     });
     console.log('🔹 Fields Changed:', updateData);
     console.log('🔹 Backend Will Auto-Calculate:', {
-      monthlyPayment: !updateData.hasOwnProperty('monthlyPayment') && 
+      monthlyPayment: autoCalculate && 
                      (updateData.hasOwnProperty('principal') || updateData.hasOwnProperty('interestRate')) 
                      ? '✅ YES' : '❌ NO (using manual value)',
       totalAmount: '✅ ALWAYS (if any financial field changed)',
-      remainingBalance: !updateData.hasOwnProperty('remainingBalance') && 
+      remainingBalance: autoCalculate && 
                        (updateData.hasOwnProperty('principal') || 
                         updateData.hasOwnProperty('interestRate') || 
                         updateData.hasOwnProperty('monthlyPayment'))
@@ -156,10 +180,10 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
           ? `${loan.interestRate}% → ${updatedLoan.interestRate}%`
           : 'unchanged',
         monthlyPayment: loan.monthlyPayment !== updatedLoan.monthlyPayment
-          ? `${loan.monthlyPayment} → ${updatedLoan.monthlyPayment}`
+          ? `${loan.monthlyPayment} → ${updatedLoan.monthlyPayment} ${autoCalculate ? '(auto-calculated)' : '(manual)'}`
           : 'unchanged',
         remainingBalance: loan.remainingBalance !== updatedLoan.remainingBalance
-          ? `${loan.remainingBalance} → ${updatedLoan.remainingBalance}`
+          ? `${loan.remainingBalance} → ${updatedLoan.remainingBalance} ${autoCalculate ? '(auto-calculated)' : '(manual)'}`
           : 'unchanged',
         totalAmount: loan.totalAmount !== updatedLoan.totalAmount
           ? `${loan.totalAmount} → ${updatedLoan.totalAmount} (calculated)`
@@ -191,108 +215,237 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
   if (!loan) return null;
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        Update Loan #{loan.id.slice(-8).toUpperCase()}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <MoneyIcon color="primary" />
+          <Typography variant="h6">
+            Update Loan #{loan.id.slice(-8).toUpperCase()}
+          </Typography>
+        </Box>
+        
+        {/* Tabs for switching between Update and Schedule */}
+        <Tabs 
+          value={activeTab} 
+          onChange={(e, newValue) => setActiveTab(newValue)}
+          sx={{ mt: 2 }}
+        >
+          <Tab 
+            label="Update Loan" 
+            icon={<MoneyIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            label="Payment Schedule" 
+            icon={<ScheduleIcon />} 
+            iconPosition="start"
+          />
+        </Tabs>
       </DialogTitle>
       
       <form onSubmit={handleSubmit}>
         <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
+          {/* Tab Panel 0: Update Loan */}
+          {activeTab === 0 && (
+            <>
+              {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              )}
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Basic Information Section */}
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default' }}>
+                  <Typography variant="subtitle2" color="primary" sx={{ mb: 2, fontWeight: 600 }}>
+                    Basic Information
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label="Purpose"
+                      value={formData.purpose}
+                      onChange={handleChange('purpose')}
+                      fullWidth
+                      required
+                    />
+
+                    <TextField
+                      label="Additional Information"
+                      value={formData.additionalInfo}
+                      onChange={handleChange('additionalInfo')}
+                      fullWidth
+                      multiline
+                      rows={3}
+                    />
+
+                    <FormControl fullWidth>
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        value={formData.status}
+                        onChange={handleSelectChange('status')}
+                        label="Status"
+                      >
+                        <MenuItem value={LoanStatus.PENDING}>Pending</MenuItem>
+                        <MenuItem value={LoanStatus.APPROVED}>Approved</MenuItem>
+                        <MenuItem value={LoanStatus.ACTIVE}>Active</MenuItem>
+                        <MenuItem value={LoanStatus.OVERDUE}>Overdue</MenuItem>
+                        <MenuItem value={LoanStatus.CLOSED}>Closed</MenuItem>
+                        <MenuItem value={LoanStatus.REJECTED}>Rejected</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+                </Paper>
+
+                <Divider />
+
+                {/* Financial Details Section */}
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 600 }}>
+                      Financial Details
+                    </Typography>
+                    
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={autoCalculate}
+                          onChange={(e) => setAutoCalculate(e.target.checked)}
+                          icon={<CalculateIcon />}
+                          checkedIcon={<CalculateIcon />}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          Auto-calculate
+                        </Typography>
+                      }
+                    />
+                  </Box>
+
+                  {autoCalculate && (
+                    <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
+                      <Typography variant="body2">
+                        <strong>Auto-Calculate Mode:</strong> Monthly payment and remaining balance will be 
+                        automatically calculated based on principal, interest rate, and term.
+                      </Typography>
+                    </Alert>
+                  )}
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label="Principal Amount"
+                      type="number"
+                      value={formData.principal ?? ''}
+                      onChange={handleChange('principal')}
+                      fullWidth
+                      required
+                      inputProps={{ min: 0.01, step: 100 }}
+                      helperText="⭐ Original loan amount - Changing this triggers auto-calculation"
+                    />
+
+                    <TextField
+                      label="Interest Rate (%)"
+                      type="number"
+                      value={formData.interestRate ?? ''}
+                      onChange={handleChange('interestRate')}
+                      fullWidth
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      helperText="Changing this triggers auto-calculation of monthly payment"
+                    />
+
+                    <TextField
+                      label="Monthly Payment"
+                      type="number"
+                      value={formData.monthlyPayment ?? ''}
+                      onChange={handleChange('monthlyPayment')}
+                      fullWidth
+                      disabled={autoCalculate}
+                      inputProps={{ min: 0, step: 10 }}
+                      helperText={
+                        autoCalculate 
+                          ? "🔒 Auto-calculated based on principal, interest rate, and term" 
+                          : "💡 Manually set your custom monthly payment"
+                      }
+                      sx={{
+                        '& .MuiInputBase-input.Mui-disabled': {
+                          WebkitTextFillColor: 'text.primary',
+                          opacity: 0.7,
+                        },
+                      }}
+                    />
+
+                    <TextField
+                      label="Remaining Balance"
+                      type="number"
+                      value={formData.remainingBalance ?? ''}
+                      onChange={handleChange('remainingBalance')}
+                      fullWidth
+                      disabled={autoCalculate}
+                      inputProps={{ min: 0, step: 10 }}
+                      helperText={
+                        autoCalculate 
+                          ? "🔒 Auto-calculated (preserves payment history)" 
+                          : "💡 Manually set remaining balance"
+                      }
+                      sx={{
+                        '& .MuiInputBase-input.Mui-disabled': {
+                          WebkitTextFillColor: 'text.primary',
+                          opacity: 0.7,
+                        },
+                      }}
+                    />
+                  </Box>
+                </Paper>
+
+                {/* Info Box */}
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'info.lighter' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    <strong>💡 How it works:</strong><br />
+                    • <strong>Auto-Calculate ON:</strong> Backend calculates monthly payment & remaining balance when you update principal or interest rate<br />
+                    • <strong>Auto-Calculate OFF:</strong> You have full control over all values<br />
+                    • Payment history is always preserved in calculations
+                  </Typography>
+                </Paper>
+              </Box>
+            </>
           )}
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Purpose"
-              value={formData.purpose}
-              onChange={handleChange('purpose')}
-              fullWidth
-              required
-            />
-
-            <TextField
-              label="Additional Information"
-              value={formData.additionalInfo}
-              onChange={handleChange('additionalInfo')}
-              fullWidth
-              multiline
-              rows={3}
-            />
-
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={handleSelectChange('status')}
-                label="Status"
-              >
-                <MenuItem value={LoanStatus.PENDING}>Pending</MenuItem>
-                <MenuItem value={LoanStatus.APPROVED}>Approved</MenuItem>
-                <MenuItem value={LoanStatus.ACTIVE}>Active</MenuItem>
-                <MenuItem value={LoanStatus.OVERDUE}>Overdue</MenuItem>
-                <MenuItem value={LoanStatus.CLOSED}>Closed</MenuItem>
-                <MenuItem value={LoanStatus.REJECTED}>Rejected</MenuItem>
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Principal Amount"
-              type="number"
-              value={formData.principal ?? ''}
-              onChange={handleChange('principal')}
-              fullWidth
-              inputProps={{ min: 0.01, step: 0.01 }}
-              helperText="⭐ Original loan amount - Changing this auto-calculates all other financial values"
-            />
-
-            <TextField
-              label="Interest Rate (%)"
-              type="number"
-              value={formData.interestRate ?? ''}
-              onChange={handleChange('interestRate')}
-              fullWidth
-              inputProps={{ min: 0, max: 100, step: 0.01 }}
-              helperText="Changing this auto-calculates monthly payment and remaining balance"
-            />
-
-            <TextField
-              label="Monthly Payment"
-              type="number"
-              value={formData.monthlyPayment ?? ''}
-              onChange={handleChange('monthlyPayment')}
-              fullWidth
-              inputProps={{ min: 0, step: 0.01 }}
-              helperText="Leave unchanged to auto-calculate based on principal/interest rate"
-            />
-
-            <TextField
-              label="Remaining Balance"
-              type="number"
-              value={formData.remainingBalance ?? ''}
-              onChange={handleChange('remainingBalance')}
-              fullWidth
-              inputProps={{ min: 0, step: 0.01 }}
-              helperText="Leave unchanged to auto-calculate when financial values change"
-            />
-          </Box>
+          {/* Tab Panel 1: Payment Schedule */}
+          {activeTab === 1 && (
+            <Box sx={{ mt: 2 }}>
+              <RepaymentScheduleManager 
+                loanId={loan.id}
+                loanPurpose={loan.purpose}
+              />
+            </Box>
+          )}
         </DialogContent>
 
-        <DialogActions>
-          <Button onClick={handleClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isLoading}
-            startIcon={isLoading ? <CircularProgress size={20} /> : null}
-          >
-            {isLoading ? 'Updating...' : 'Update Loan'}
-          </Button>
-        </DialogActions>
+        {activeTab === 0 && (
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleClose} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={isLoading}
+              startIcon={isLoading ? <CircularProgress size={20} /> : <CalculateIcon />}
+            >
+              {isLoading ? 'Updating...' : 'Update Loan'}
+            </Button>
+          </DialogActions>
+        )}
+
+        {activeTab === 1 && (
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleClose}>
+              Close
+            </Button>
+          </DialogActions>
+        )}
       </form>
     </Dialog>
   );
