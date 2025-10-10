@@ -7,7 +7,6 @@ import {
   CardContent,
   Button,
   Alert,
-  CircularProgress,
   Fab,
   Dialog,
   DialogTitle,
@@ -37,6 +36,7 @@ import { Bill, BillStatus, BillType, BillFilters, BillAnalytics } from '../types
 import { getErrorMessage } from '../utils/validation';
 import BillCard from '../components/Bills/BillCard';
 import BillForm from '../components/Bills/BillForm';
+import { SimpleFinanceLoader } from '../components/Common';
 
 const Bills: React.FC = () => {
   const { user } = useAuth();
@@ -142,7 +142,7 @@ const Bills: React.FC = () => {
   if (isLoading && bills.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <SimpleFinanceLoader size="large" text="Loading your bills..." />
       </Box>
     );
   }
