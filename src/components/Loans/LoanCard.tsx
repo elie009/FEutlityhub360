@@ -175,7 +175,17 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
                   Monthly Payment
                 </Typography>
               </Box>
-              <Typography variant="body1" fontWeight="medium">
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 700, 
+                  color: 'info.main',
+                  bgcolor: 'info.lighter',
+                  p: 0.75,
+                  borderRadius: 1,
+                  textAlign: 'center'
+                }}
+              >
                 {formatCurrency(monthlyPayment)}
               </Typography>
             </Grid>

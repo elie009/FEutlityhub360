@@ -965,6 +965,52 @@ export const mockDataService = {
       ...scheduleItem,
       totalAmount: scheduleItem.principalAmount + scheduleItem.interestAmount,
     };
+  },
+
+  async getMonthlyPaymentTotal(): Promise<any> {
+    await delay(500);
+    
+    // Get active loans only
+    const activeLoans = mockLoans.filter(loan => loan.status === 'ACTIVE');
+    
+    const totalMonthlyPayment = activeLoans.reduce(
+      (sum, loan) => sum + (loan.monthlyPayment || 0), 
+      0
+    );
+    
+    const totalRemainingBalance = activeLoans.reduce(
+      (sum, loan) => sum + (loan.remainingBalance || 0), 
+      0
+    );
+    
+    // Calculate totals for installments
+    const totalPayment = activeLoans.reduce((sum, loan) => sum + loan.term, 0);
+    const totalPaymentRemaining = activeLoans.reduce((sum, loan) => {
+      const remaining = Math.ceil(loan.remainingBalance / (loan.monthlyPayment || 1));
+      return sum + remaining;
+    }, 0);
+    
+    return {
+      totalMonthlyPayment,
+      totalRemainingBalance,
+      activeLoanCount: activeLoans.length,
+      totalPayment,
+      totalPaymentRemaining,
+      totalMonthsRemaining: totalPaymentRemaining,
+      loans: activeLoans.map(loan => {
+        const installmentsRemaining = Math.ceil(loan.remainingBalance / (loan.monthlyPayment || 1));
+        return {
+          id: loan.id,
+          purpose: loan.purpose,
+          monthlyPayment: loan.monthlyPayment,
+          remainingBalance: loan.remainingBalance,
+          interestRate: loan.interestRate,
+          totalInstallments: loan.term,
+          installmentsRemaining: installmentsRemaining,
+          monthsRemaining: installmentsRemaining
+        };
+      })
+    };
   }
 
 };

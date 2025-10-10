@@ -17,20 +17,19 @@ import {
   List,
   ListItem,
   ListItemText,
+  Paper,
 } from '@mui/material';
 import {
   Add as AddIcon,
   AccountBalance,
   TrendingUp,
   Schedule,
-  Payment,
   CalendarMonth,
   EventAvailable,
-  NotificationImportant,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
-import { Loan, UpcomingPayment, OverduePayment } from '../../types/loan';
+import { Loan, UpcomingPayment } from '../../types/loan';
 import { getErrorMessage } from '../../utils/validation';
 import { formatDueDate, formatDate } from '../../utils/dateUtils';
 import LoanCard from './LoanCard';
@@ -44,7 +43,24 @@ const LoanDashboard: React.FC = () => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
   const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
-  const [overduePayments, setOverduePayments] = useState<OverduePayment[]>([]);
+  const [monthlyPaymentData, setMonthlyPaymentData] = useState<{
+    totalMonthlyPayment: number;
+    totalRemainingBalance: number;
+    activeLoanCount: number;
+    totalPayment: number;
+    totalPaymentRemaining: number;
+    totalMonthsRemaining: number;
+    loans: Array<{
+      id: string;
+      purpose: string;
+      monthlyPayment: number;
+      remainingBalance: number;
+      interestRate: number;
+      totalInstallments: number;
+      installmentsRemaining: number;
+      monthsRemaining: number;
+    }>;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
@@ -53,7 +69,7 @@ const LoanDashboard: React.FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showUpcomingDialog, setShowUpcomingDialog] = useState(false);
-  const [showOverdueDialog, setShowOverdueDialog] = useState(false);
+  const [showMonthlyPaymentDialog, setShowMonthlyPaymentDialog] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
@@ -63,7 +79,7 @@ const LoanDashboard: React.FC = () => {
     if (user) {
       loadLoans();
     }
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadOutstandingAmount = async () => {
     try {
@@ -73,6 +89,26 @@ const LoanDashboard: React.FC = () => {
       console.error('Error loading outstanding amount:', err);
       // Fallback to calculating from loans if API fails
       setOutstandingAmount(getTotalOutstanding());
+    }
+  };
+
+  const loadMonthlyPaymentTotal = async () => {
+    try {
+      const data = await apiService.getMonthlyPaymentTotal();
+      setMonthlyPaymentData(data);
+    } catch (err: unknown) {
+      console.error('Error loading monthly payment total:', err);
+      // Fallback to calculating from loans if API fails
+      const fallbackTotal = getTotalMonthlyPayment();
+      setMonthlyPaymentData({
+        totalMonthlyPayment: fallbackTotal,
+        totalRemainingBalance: getTotalOutstanding(),
+        activeLoanCount: getActiveLoansCount(),
+        totalPayment: 0,
+        totalPaymentRemaining: 0,
+        totalMonthsRemaining: 0,
+        loans: []
+      });
     }
   };
 
@@ -94,6 +130,9 @@ const LoanDashboard: React.FC = () => {
       // Load outstanding amount after loading loans
       await loadOutstandingAmount();
       
+      // Load monthly payment total
+      await loadMonthlyPaymentTotal();
+      
       // Load due date tracking data
       await loadDueDateTracking();
     } catch (err: unknown) {
@@ -110,10 +149,6 @@ const LoanDashboard: React.FC = () => {
       // Load upcoming payments (next 30 days)
       const upcoming = await apiService.getUpcomingPayments(30);
       setUpcomingPayments(upcoming);
-      
-      // Load overdue payments
-      const overdue = await apiService.getOverduePayments();
-      setOverduePayments(overdue);
     } catch (err: unknown) {
       console.error('Error loading due date tracking:', err);
       // Don't set error state since this is supplementary data
@@ -125,6 +160,7 @@ const LoanDashboard: React.FC = () => {
     // Refresh the loans list and outstanding amount
     await loadLoans();
     await loadOutstandingAmount();
+    await loadMonthlyPaymentTotal();
   };
 
   const handleMakePayment = (loanId: string) => {
@@ -139,6 +175,7 @@ const LoanDashboard: React.FC = () => {
     await loadLoans();
     // Also explicitly refresh the outstanding amount from the API
     await loadOutstandingAmount();
+    await loadMonthlyPaymentTotal();
   };
 
   const handleUpdateLoan = (loan: Loan) => {
@@ -165,6 +202,7 @@ const LoanDashboard: React.FC = () => {
     
     // Refresh the outstanding amount after updating loan
     await loadOutstandingAmount();
+    await loadMonthlyPaymentTotal();
   };
 
   const handleDeleteLoan = (loanId: string) => {
@@ -190,6 +228,7 @@ const LoanDashboard: React.FC = () => {
       
       // Refresh the outstanding amount after deleting loan
       await loadOutstandingAmount();
+      await loadMonthlyPaymentTotal();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to delete loan'));
     } finally {
@@ -235,14 +274,6 @@ const LoanDashboard: React.FC = () => {
     return loans.filter(loan => loan.status === 'ACTIVE').length;
   };
 
-  const getOverdueLoansCount = (): number => {
-    if (!Array.isArray(loans)) {
-      console.error('Loans is not an array:', loans);
-      return 0;
-    }
-    return loans.filter(loan => loan.status === 'OVERDUE').length;
-  };
-
   const getTotalMonthlyPayment = (): number => {
     if (!Array.isArray(loans)) {
       console.error('Loans is not an array:', loans);
@@ -284,7 +315,7 @@ const LoanDashboard: React.FC = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -302,7 +333,7 @@ const LoanDashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -320,7 +351,7 @@ const LoanDashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -338,8 +369,37 @@ const LoanDashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Upcoming Payments Card */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <Card 
+            sx={{ 
+              cursor: 'pointer',
+              '&:hover': { boxShadow: 3 }
+            }}
+            onClick={() => setShowMonthlyPaymentDialog(true)}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <CalendarMonth sx={{ mr: 2, color: 'info.main' }} />
+                <Box sx={{ width: '100%' }}>
+                  <Typography variant="h6">
+                    ${(monthlyPaymentData?.totalMonthlyPayment || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Due This Month
+                  </Typography>
+                  <Typography variant="caption" color="info.main" sx={{ fontWeight: 600 }}>
+                    {monthlyPaymentData?.activeLoanCount || 0} active loan{(monthlyPaymentData?.activeLoanCount || 0) !== 1 ? 's' : ''} • Click for details
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={2.4}>
           <Card 
             sx={{ 
               cursor: upcomingPayments.length > 0 ? 'pointer' : 'default',
@@ -350,7 +410,7 @@ const LoanDashboard: React.FC = () => {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <EventAvailable sx={{ mr: 2, color: 'info.main' }} />
-                <Box>
+                <Box sx={{ width: '100%' }}>
                   <Typography variant="h6">
                     {upcomingPayments.length}
                   </Typography>
@@ -359,38 +419,7 @@ const LoanDashboard: React.FC = () => {
                   </Typography>
                   {upcomingPayments.length > 0 && (
                     <Typography variant="caption" color="info.main" sx={{ fontWeight: 600 }}>
-                      Click to view
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Overdue Payments Card */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card 
-            sx={{ 
-              cursor: overduePayments.length > 0 ? 'pointer' : 'default',
-              '&:hover': overduePayments.length > 0 ? { boxShadow: 3 } : {},
-              bgcolor: overduePayments.length > 0 ? 'error.lighter' : 'background.paper'
-            }}
-            onClick={() => overduePayments.length > 0 && setShowOverdueDialog(true)}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <NotificationImportant sx={{ mr: 2, color: 'error.main' }} />
-                <Box>
-                  <Typography variant="h6" color={overduePayments.length > 0 ? 'error.main' : 'text.primary'}>
-                    {overduePayments.length}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Overdue Payments
-                  </Typography>
-                  {overduePayments.length > 0 && (
-                    <Typography variant="caption" color="error.main" sx={{ fontWeight: 600 }}>
-                      Click to view
+                      Next 30 days
                     </Typography>
                   )}
                 </Box>
@@ -594,73 +623,197 @@ const LoanDashboard: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Overdue Payments Dialog */}
-      <Dialog open={showOverdueDialog} onClose={() => setShowOverdueDialog(false)} maxWidth="sm" fullWidth>
+      {/* Monthly Payment Breakdown Dialog */}
+      <Dialog open={showMonthlyPaymentDialog} onClose={() => setShowMonthlyPaymentDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <NotificationImportant color="error" />
+            <CalendarMonth color="info" />
             <Typography variant="h6">
-              Overdue Payments
+              Monthly Payment Breakdown
             </Typography>
           </Box>
         </DialogTitle>
         <DialogContent>
-          {overduePayments.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-              No overdue payments
-            </Typography>
-          ) : (
+          {monthlyPaymentData ? (
             <>
-              <Alert severity="error" sx={{ mb: 2 }}>
-                <Typography variant="body2">
-                  You have {overduePayments.length} overdue payment{overduePayments.length !== 1 ? 's' : ''}. 
-                  Please make payment(s) as soon as possible to avoid penalties.
+              {/* Summary Cards */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={4}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'info.lighter', textAlign: 'center' }}>
+                    <Typography variant="h5" color="info.main" sx={{ fontWeight: 600 }}>
+                      ${monthlyPaymentData.totalMonthlyPayment.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Monthly Payment
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'warning.lighter', textAlign: 'center' }}>
+                    <Typography variant="h5" color="warning.main" sx={{ fontWeight: 600 }}>
+                      ${monthlyPaymentData.totalRemainingBalance.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Remaining Balance
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'success.lighter', textAlign: 'center' }}>
+                    <Typography variant="h5" color="success.main" sx={{ fontWeight: 600 }}>
+                      {monthlyPaymentData.activeLoanCount}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Active Loan{monthlyPaymentData.activeLoanCount !== 1 ? 's' : ''}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              {/* Loan List */}
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                  Active Loans
                 </Typography>
-              </Alert>
-              <List>
-                {overduePayments.map((payment, index) => (
-                  <ListItem 
-                    key={index}
-                    sx={{ 
-                      border: '1px solid',
-                      borderColor: 'error.main',
-                      borderRadius: 1,
-                      mb: 1,
-                      bgcolor: 'error.lighter'
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="subtitle2" color="error.main">
-                            {payment.loanPurpose}
-                          </Typography>
-                          <Chip 
-                            label={`Overdue by ${payment.daysOverdue} day${payment.daysOverdue !== 1 ? 's' : ''}`} 
-                            size="small" 
-                            color="error"
-                          />
+                {monthlyPaymentData.loans.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    No active loans
+                  </Typography>
+                ) : (
+                  <List>
+                    {monthlyPaymentData.loans.map((loan, index) => (
+                      <ListItem 
+                        key={loan.id}
+                        sx={{ 
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          mb: 1,
+                          bgcolor: 'background.default',
+                          flexDirection: 'column',
+                          alignItems: 'stretch'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip 
+                              label={`#${index + 1}`} 
+                              size="small" 
+                              color="primary"
+                              sx={{ fontWeight: 600 }}
+                            />
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              {loan.purpose}
+                            </Typography>
+                          </Box>
+                          {loan.interestRate > 0 && (
+                            <Chip 
+                              label={`${loan.interestRate}% APR`} 
+                              size="small" 
+                              variant="outlined"
+                            />
+                          )}
                         </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Amount: ${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Monthly Payment
+                            </Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 600, color: 'info.main' }}>
+                              ${loan.monthlyPayment.toLocaleString(undefined, { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {loan.totalInstallments && loan.installmentsRemaining !== undefined
+                                ? `${loan.totalInstallments - loan.installmentsRemaining} months out of ${loan.totalInstallments} months`
+                                : 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Remaining Balance
+                            </Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              ${loan.remainingBalance.toLocaleString(undefined, { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        {/* Progress bar showing payment completion percentage */}
+                        <Box sx={{ mt: 2, width: '100%' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                              Payment Progress
+                            </Typography>
+                            <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
+                              {loan.totalInstallments && loan.installmentsRemaining !== undefined
+                                ? `${((loan.totalInstallments - loan.installmentsRemaining) / loan.totalInstallments * 100).toFixed(1)}%`
+                                : '0%'}
+                            </Typography>
+                          </Box>
+                          
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                            {loan.totalInstallments && loan.installmentsRemaining !== undefined
+                              ? `${loan.totalInstallments - loan.installmentsRemaining} months out of ${loan.totalInstallments} months`
+                              : 'N/A'}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Installment #{payment.installmentNumber} • Was due {formatDate(payment.dueDate)}
+                          
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: 10,
+                              bgcolor: 'grey.200',
+                              borderRadius: 1,
+                              overflow: 'hidden',
+                              border: '1px solid',
+                              borderColor: 'grey.300'
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: `${loan.totalInstallments && loan.installmentsRemaining !== undefined 
+                                  ? ((loan.totalInstallments - loan.installmentsRemaining) / loan.totalInstallments) * 100 
+                                  : 0}%`,
+                                height: '100%',
+                                bgcolor: 'success.main',
+                                borderRadius: 1,
+                                transition: 'width 0.3s ease'
+                              }}
+                            />
+                          </Box>
+                          
+                          <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block', textAlign: 'right' }}>
+                            {loan.installmentsRemaining !== undefined
+                              ? `${loan.installmentsRemaining} months remaining`
+                              : 'N/A'}
                           </Typography>
                         </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Box>
             </>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+              Loading payment data...
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowOverdueDialog(false)}>
+          <Button onClick={() => setShowMonthlyPaymentDialog(false)}>
             Close
           </Button>
         </DialogActions>

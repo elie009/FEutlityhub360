@@ -539,6 +539,48 @@ class ApiService {
     return 0;
   }
 
+  async getMonthlyPaymentTotal(): Promise<{
+    totalMonthlyPayment: number;
+    totalRemainingBalance: number;
+    activeLoanCount: number;
+    totalPayment: number;
+    totalPaymentRemaining: number;
+    totalMonthsRemaining: number;
+    loans: Array<{
+      id: string;
+      purpose: string;
+      monthlyPayment: number;
+      remainingBalance: number;
+      interestRate: number;
+      totalInstallments: number;
+      installmentsRemaining: number;
+      monthsRemaining: number;
+    }>;
+  }> {
+    if (isMockDataEnabled()) {
+      return mockDataService.getMonthlyPaymentTotal();
+    }
+    const response = await this.request<any>('/Loans/monthly-payment-total');
+    
+    // Handle the response structure
+    if (response && response.success && response.data) {
+      return response.data;
+    } else if (response && response.data) {
+      return response.data;
+    }
+    
+    // Return default empty data if response is invalid
+    return {
+      totalMonthlyPayment: 0,
+      totalRemainingBalance: 0,
+      activeLoanCount: 0,
+      totalPayment: 0,
+      totalPaymentRemaining: 0,
+      totalMonthsRemaining: 0,
+      loans: []
+    };
+  }
+
   async getUserLoans(userId: string): Promise<Loan[]> {
     if (isMockDataEnabled()) {
       return mockDataService.getUserLoans(userId);
