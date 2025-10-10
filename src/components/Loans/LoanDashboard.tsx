@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -7,7 +7,6 @@ import {
   CardContent,
   Button,
   Alert,
-  CircularProgress,
   Fab,
   Dialog,
   DialogTitle,
@@ -18,6 +17,23 @@ import {
   ListItem,
   ListItemText,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Menu,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -26,7 +42,18 @@ import {
   Schedule,
   CalendarMonth,
   EventAvailable,
+  ViewModule,
+  ViewList,
+  FilterList,
+  MoreVert,
+  Edit,
+  Delete,
+  History,
+  Payment,
+  ArrowUpward,
+  ArrowDownward,
 } from '@mui/icons-material';
+import { SimpleFinanceLoader } from '../Common';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
 import { Loan, UpcomingPayment } from '../../types/loan';
@@ -38,8 +65,14 @@ import PaymentForm from './PaymentForm';
 import LoanUpdateForm from './LoanUpdateForm';
 import LoanTransactionHistory from './LoanTransactionHistory';
 
+type SortField = 'principal' | 'remainingBalance' | 'monthlyPayment' | 'term' | 'appliedAt' | 'nextDueDate';
+type SortOrder = 'asc' | 'desc';
+
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [loans, setLoans] = useState<Loan[]>([]);
   const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
   const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
@@ -74,6 +107,21 @@ const LoanDashboard: React.FC = () => {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
   const [loanForHistory, setLoanForHistory] = useState<Loan | null>(null);
+  
+  // View mode and filter states
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  const [sortField, setSortField] = useState<SortField>('appliedAt');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [showFilters, setShowFilters] = useState(false);
+  const [anchorElActions, setAnchorElActions] = useState<null | HTMLElement>(null);
+  const [actionLoanId, setActionLoanId] = useState<string>('');
+
+  // Force card view on mobile
+  useEffect(() => {
+    if (isMobile && viewMode === 'table') {
+      setViewMode('card');
+    }
+  }, [isMobile, viewMode]);
 
   useEffect(() => {
     if (user) {
@@ -284,33 +332,260 @@ const LoanDashboard: React.FC = () => {
       .reduce((total, loan) => total + (loan.monthlyPayment || 0), 0);
   };
 
+  // Sorted and filtered loans
+  const sortedLoans = useMemo(() => {
+    if (!Array.isArray(loans)) return [];
+    
+    const sorted = [...loans].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'principal':
+          aValue = a.principal;
+          bValue = b.principal;
+          break;
+        case 'remainingBalance':
+          aValue = a.remainingBalance;
+          bValue = b.remainingBalance;
+          break;
+        case 'monthlyPayment':
+          aValue = a.monthlyPayment;
+          bValue = b.monthlyPayment;
+          break;
+        case 'term':
+          aValue = a.term;
+          bValue = b.term;
+          break;
+        case 'appliedAt':
+          aValue = new Date(a.appliedAt).getTime();
+          bValue = new Date(b.appliedAt).getTime();
+          break;
+        case 'nextDueDate':
+          aValue = a.nextDueDate ? new Date(a.nextDueDate).getTime() : 0;
+          bValue = b.nextDueDate ? new Date(b.nextDueDate).getTime() : 0;
+          break;
+        default:
+          aValue = a.appliedAt;
+          bValue = b.appliedAt;
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    return sorted;
+  }, [loans, sortField, sortOrder]);
+
+  // Handle sort field change
+  const handleSortChange = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle order if same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new field with default desc order
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
+  // Handle view mode change
+  const handleViewModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newMode: 'card' | 'table' | null,
+  ) => {
+    if (newMode !== null) {
+      setViewMode(newMode);
+    }
+  };
+
+  // Handle action menu
+  const handleActionsClick = (event: React.MouseEvent<HTMLElement>, loanId: string) => {
+    setAnchorElActions(event.currentTarget);
+    setActionLoanId(loanId);
+  };
+
+  const handleActionsClose = () => {
+    setAnchorElActions(null);
+    setActionLoanId('');
+  };
+
+  const handleActionUpdate = () => {
+    const loan = loans.find(l => l.id === actionLoanId);
+    if (loan) {
+      handleUpdateLoan(loan);
+    }
+    handleActionsClose();
+  };
+
+  const handleActionPayment = () => {
+    handleMakePayment(actionLoanId);
+    handleActionsClose();
+  };
+
+  const handleActionHistory = () => {
+    handleViewHistory(actionLoanId);
+    handleActionsClose();
+  };
+
+  const handleActionDelete = () => {
+    handleDeleteLoan(actionLoanId);
+    handleActionsClose();
+  };
+
+  // Get status color
+  const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    switch (status) {
+      case 'PENDING':
+        return 'warning';
+      case 'APPROVED':
+        return 'info';
+      case 'ACTIVE':
+        return 'success';
+      case 'CLOSED':
+        return 'default';
+      case 'REJECTED':
+        return 'error';
+      case 'OVERDUE':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <SimpleFinanceLoader size="large" text="Loading your loans..." />
       </Box>
     );
   }
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        mb: 3,
+        gap: 2
+      }}>
+        <Typography variant="h4" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
           My Loans
         </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* View Toggle - Hidden on mobile */}
+          {!isMobile && (
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              aria-label="view mode"
+              size="small"
+            >
+              <ToggleButton value="card" aria-label="card view">
+                <Tooltip title="Card View">
+                  <ViewModule />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="table view">
+                <Tooltip title="Table View">
+                  <ViewList />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
+          {/* Filter Button */}
+          <Button
+            variant={showFilters ? 'contained' : 'outlined'}
+            startIcon={<FilterList />}
+            onClick={() => setShowFilters(!showFilters)}
+            size="small"
+          >
+            Filters
+          </Button>
+
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setShowApplicationForm(true)}
+            size="small"
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
           Apply for Loan
         </Button>
+        </Box>
       </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
+      )}
+
+      {/* Filter Section */}
+      {showFilters && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+              Sort & Filter
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Sort By</InputLabel>
+                  <Select
+                    value={sortField}
+                    label="Sort By"
+                    onChange={(e) => setSortField(e.target.value as SortField)}
+                  >
+                    <MenuItem value="appliedAt">Applied Date</MenuItem>
+                    <MenuItem value="principal">Principal Amount</MenuItem>
+                    <MenuItem value="remainingBalance">Remaining Balance</MenuItem>
+                    <MenuItem value="monthlyPayment">Monthly Payment</MenuItem>
+                    <MenuItem value="term">Terms (Months)</MenuItem>
+                    <MenuItem value="nextDueDate">Due Date</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Order</InputLabel>
+                  <Select
+                    value={sortOrder}
+                    label="Order"
+                    onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+                  >
+                    <MenuItem value="asc">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <ArrowUpward fontSize="small" />
+                        Ascending
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="desc">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <ArrowDownward fontSize="small" />
+                        Descending
+                      </Box>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Showing {sortedLoans.length} loan{sortedLoans.length !== 1 ? 's' : ''}
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
       )}
 
       {/* Summary Cards */}
@@ -429,7 +704,7 @@ const LoanDashboard: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Loans Grid */}
+      {/* Loans Grid/Table */}
       {!Array.isArray(loans) || loans.length === 0 ? (
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
@@ -449,9 +724,10 @@ const LoanDashboard: React.FC = () => {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'card' ? (
+        // Card View
         <Grid container spacing={3}>
-          {Array.isArray(loans) && loans.map((loan) => (
+          {Array.isArray(sortedLoans) && sortedLoans.map((loan) => (
             <Grid item xs={12} sm={6} md={4} key={loan.id}>
               <LoanCard
                 loan={loan}
@@ -463,7 +739,237 @@ const LoanDashboard: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+      ) : (
+        // Table View
+        <TableContainer component={Paper} sx={{ boxShadow: 2 }}>
+          <Table sx={{ minWidth: 650 }} aria-label="loans table">
+            <TableHead>
+              <TableRow>
+                <TableCell>
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('purpose' as SortField)}
+                  >
+                    Loan Purpose
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'flex-end',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('principal')}
+                  >
+                    Principal
+                    {sortField === 'principal' && (
+                      sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'flex-end',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('remainingBalance')}
+                  >
+                    Remaining
+                    {sortField === 'remainingBalance' && (
+                      sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'flex-end',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('monthlyPayment')}
+                  >
+                    Monthly
+                    {sortField === 'monthlyPayment' && (
+                      sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="center">
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('term')}
+                  >
+                    Terms
+                    {sortField === 'term' && (
+                      sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="center">Interest</TableCell>
+                <TableCell align="center">Status</TableCell>
+                <TableCell align="center">
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('appliedAt')}
+                  >
+                    Applied
+                    {sortField === 'appliedAt' && (
+                      sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="center">
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                    onClick={() => handleSortChange('nextDueDate')}
+                  >
+                    Due Date
+                    {sortField === 'nextDueDate' && (
+                      sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sortedLoans.map((loan) => (
+                <TableRow
+                  key={loan.id}
+                  sx={{ 
+                    '&:last-child td, &:last-child th': { border: 0 },
+                    '&:hover': { bgcolor: 'action.hover' }
+                  }}
+                >
+                  <TableCell component="th" scope="row">
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {loan.purpose}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      ${loan.principal.toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ color: loan.remainingBalance > 0 ? 'warning.main' : 'success.main', fontWeight: 600 }}>
+                      ${loan.remainingBalance.toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">
+                      ${loan.monthlyPayment.toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2">
+                      {loan.term} months
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip label={`${loan.interestRate}%`} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip 
+                      label={loan.status} 
+                      size="small" 
+                      color={getStatusColor(loan.status)}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="caption">
+                      {formatDate(loan.appliedAt)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    {loan.nextDueDate ? (
+                      <Typography variant="caption" sx={{ color: 'info.main' }}>
+                        {formatDueDate(loan.nextDueDate)}
+                      </Typography>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        N/A
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleActionsClick(e, loan.id)}
+                    >
+                      <MoreVert />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
+
+      {/* Actions Menu */}
+      <Menu
+        anchorEl={anchorElActions}
+        open={Boolean(anchorElActions)}
+        onClose={handleActionsClose}
+      >
+        <MenuItem onClick={handleActionUpdate}>
+          <Edit fontSize="small" sx={{ mr: 1 }} />
+          Update Loan
+        </MenuItem>
+        <MenuItem onClick={handleActionPayment}>
+          <Payment fontSize="small" sx={{ mr: 1 }} />
+          Make Payment
+        </MenuItem>
+        <MenuItem onClick={handleActionHistory}>
+          <History fontSize="small" sx={{ mr: 1 }} />
+          View History
+        </MenuItem>
+        <MenuItem onClick={handleActionDelete} sx={{ color: 'error.main' }}>
+          <Delete fontSize="small" sx={{ mr: 1 }} />
+          Delete Loan
+        </MenuItem>
+      </Menu>
 
       {/* Floating Action Button for Mobile */}
       <Fab
@@ -545,7 +1051,7 @@ const LoanDashboard: React.FC = () => {
             variant="contained"
             disabled={isLoading}
           >
-            {isLoading ? <CircularProgress size={20} /> : 'Delete'}
+            {isLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
