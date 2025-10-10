@@ -149,7 +149,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               <Grid container spacing={4} sx={{ mb: 5 }}>
                 <Grid item xs={4}>
                   <Box sx={{ textAlign: 'center' }}>
-                    <Dashboard sx={{ fontSize: 40, mb: 2, opacity: 0.9 }} />
+                    <Dashboard sx={{ fontSize: 40, mb: 2, color: '#34D399' }} />
                     <Typography variant="body1" sx={{ opacity: 0.9, fontWeight: 500 }}>
                       Dashboard
                     </Typography>
@@ -157,7 +157,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 </Grid>
                 <Grid item xs={4}>
                   <Box sx={{ textAlign: 'center' }}>
-                    <Analytics sx={{ fontSize: 40, mb: 2, opacity: 0.9 }} />
+                    <Analytics sx={{ fontSize: 40, mb: 2, color: '#34D399' }} />
                     <Typography variant="body1" sx={{ opacity: 0.9, fontWeight: 500 }}>
                       Analytics
                     </Typography>
@@ -165,7 +165,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 </Grid>
                 <Grid item xs={4}>
                   <Box sx={{ textAlign: 'center' }}>
-                    <Savings sx={{ fontSize: 40, mb: 2, opacity: 0.9 }} />
+                    <Savings sx={{ fontSize: 40, mb: 2, color: '#34D399' }} />
                     <Typography variant="body1" sx={{ opacity: 0.9, fontWeight: 500 }}>
                       Savings
                     </Typography>

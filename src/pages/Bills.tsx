@@ -148,12 +148,19 @@ const Bills: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        mb: 3,
+        gap: 2
+      }}>
+        <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
           Bills Management
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
           <Tooltip title="Refresh">
             <IconButton onClick={refreshData} disabled={isLoading}>
               <Refresh />
@@ -163,6 +170,8 @@ const Bills: React.FC = () => {
             variant="outlined"
             startIcon={<FilterList />}
             onClick={() => setShowFilters(!showFilters)}
+            size="small"
+            sx={{ flex: { xs: 1, sm: 'none' } }}
           >
             Filters
           </Button>
@@ -170,6 +179,8 @@ const Bills: React.FC = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreateBill}
+            size="small"
+            sx={{ flex: { xs: 1, flex: 'none' }, display: { xs: 'none', sm: 'inline-flex' } }}
           >
             Add Bill
           </Button>

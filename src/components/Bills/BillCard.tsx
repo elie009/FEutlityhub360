@@ -137,14 +137,27 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
   const isBillOverdue = isOverdue(bill.dueDate) && bill.status === BillStatus.PENDING;
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flexGrow: 1 }}>
+    <Card sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      boxShadow: { xs: 1, sm: 2 }
+    }}>
+      <CardContent sx={{ flexGrow: 1, p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" component="div" sx={{ mb: 1 }}>
+          <Box sx={{ flexGrow: 1, pr: 1 }}>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                mb: 1,
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+                wordBreak: 'break-word'
+              }}
+            >
               {bill.billName}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
               <Chip
                 label={bill.status}
                 color={getStatusColor(bill.status)}
@@ -157,7 +170,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
                 sx={{ 
                   backgroundColor: getBillTypeColor(bill.billType),
                   color: 'white',
-                  '& .MuiChip-label': { color: 'white' }
+                  '& .MuiChip-label': { color: 'white', fontSize: { xs: '0.7rem', sm: '0.8125rem' } }
                 }}
               />
             </Box>
@@ -165,7 +178,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           <IconButton
             size="small"
             onClick={handleMenuClick}
-            sx={{ ml: 1 }}
+            sx={{ ml: 1, flexShrink: 0 }}
           >
             <MoreVert />
           </IconButton>
@@ -177,11 +190,15 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <AttachMoney sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Amount
               </Typography>
             </Box>
-            <Typography variant="h6" color={isBillOverdue ? 'error.main' : 'primary.main'}>
+            <Typography 
+              variant="h6" 
+              color={isBillOverdue ? 'error.main' : 'primary.main'}
+              sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+            >
               {formatCurrency(bill.amount)}
             </Typography>
           </Grid>
@@ -189,13 +206,14 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Schedule sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Due Date
               </Typography>
             </Box>
             <Typography 
               variant="h6" 
               color={isBillOverdue ? 'error.main' : 'text.primary'}
+              sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }}
             >
               {formatDate(bill.dueDate)}
             </Typography>
@@ -204,11 +222,11 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Receipt sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Frequency
               </Typography>
             </Box>
-            <Typography variant="body1">
+            <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               {getFrequencyText(bill.frequency)}
             </Typography>
           </Grid>
@@ -216,11 +234,11 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Receipt sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Provider
               </Typography>
             </Box>
-            <Typography variant="body1">
+            <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, wordBreak: 'break-word' }}>
               {bill.provider || 'N/A'}
             </Typography>
           </Grid>
@@ -228,10 +246,10 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
 
         {bill.notes && (
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               Notes:
             </Typography>
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, wordBreak: 'break-word' }}>
               {bill.notes}
             </Typography>
           </Box>
@@ -239,10 +257,10 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
 
         {bill.referenceNumber && (
           <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               Reference:
             </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: { xs: '0.7rem', sm: '0.875rem' }, wordBreak: 'break-all' }}>
               {bill.referenceNumber}
             </Typography>
           </Box>
@@ -250,7 +268,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
 
         {bill.paidAt && (
           <Box sx={{ mt: 2, p: 1, bgcolor: 'success.50', borderRadius: 1 }}>
-            <Typography variant="caption" color="success.main">
+            <Typography variant="caption" color="success.main" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
               Paid on: {formatDate(bill.paidAt)}
             </Typography>
           </Box>
@@ -258,14 +276,19 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
 
         {isBillOverdue && (
           <Box sx={{ mt: 2, p: 1, bgcolor: 'error.50', borderRadius: 1 }}>
-            <Typography variant="caption" color="error.main">
+            <Typography variant="caption" color="error.main" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
               ⚠️ This bill is overdue
             </Typography>
           </Box>
         )}
 
         {/* Action Buttons */}
-        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+        <Box sx={{ 
+          mt: 2, 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 1 
+        }}>
           <Button
             variant="outlined"
             size="small"

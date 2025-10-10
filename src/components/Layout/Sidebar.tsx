@@ -47,7 +47,7 @@ const menuItems: MenuItem[] = [
     icon: <FinanceIcon />,
     children: [
       { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
-      { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
+      { text: 'Bills and Utility', icon: <ReceiptIcon />, path: '/bills' },
       { text: 'Bank Accounts', icon: <BankAccountIcon />, path: '/bank-accounts' },
       { text: 'Savings', icon: <SavingsIcon />, path: '/savings' },
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
