@@ -40,7 +40,7 @@ const ProviderQuickLinks: React.FC<ProviderQuickLinksProps> = ({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'PHP',
+      currency: 'USD',
     }).format(amount);
   };
 
@@ -108,12 +108,12 @@ const ProviderQuickLinks: React.FC<ProviderQuickLinksProps> = ({
 
   return (
     <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          📊 Providers ({providers.length})
+      <CardContent sx={{ p: 2 }}>
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+          📊 Providers
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-          Click to view complete history and analytics
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+          {providers.length} provider{providers.length !== 1 ? 's' : ''}
         </Typography>
 
         <List disablePadding>
@@ -126,40 +126,30 @@ const ProviderQuickLinks: React.FC<ProviderQuickLinksProps> = ({
                   borderColor: 'divider',
                   borderRadius: 1,
                   mb: 1,
+                  p: 1.5,
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
                   '&:hover': {
                     bgcolor: 'action.hover',
                   },
                 }}
               >
-                <ListItemIcon>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mb: 1 }}>
                   {getProviderIcon(provider.billType)}
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="subtitle2" fontWeight="medium">
-                        {provider.provider}
-                      </Typography>
-                      <Chip
-                        label={getTrendLabel(provider.trend)}
-                        size="small"
-                        icon={getTrendIcon(provider.trend) || undefined}
-                        variant="outlined"
-                      />
-                    </Box>
-                  }
-                  secondary={
-                    <Box sx={{ mt: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        {provider.billCount} bills • Avg: {formatCurrency(provider.averageMonthly)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Total: {formatCurrency(provider.totalSpent)}
-                      </Typography>
-                    </Box>
-                  }
-                />
-                <ChevronRight />
+                  <Typography variant="body2" fontWeight="medium" sx={{ flex: 1 }}>
+                    {provider.provider}
+                  </Typography>
+                  {getTrendIcon(provider.trend)}
+                </Box>
+                
+                <Box sx={{ width: '100%', pl: 4 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {provider.billCount} bill{provider.billCount !== 1 ? 's' : ''}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" fontWeight="medium">
+                    Avg: {formatCurrency(provider.averageMonthly)}
+                  </Typography>
+                </Box>
               </ListItemButton>
               {index < providers.length - 1 && <Divider sx={{ my: 1 }} />}
             </React.Fragment>

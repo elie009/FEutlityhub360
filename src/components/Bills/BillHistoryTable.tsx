@@ -44,7 +44,7 @@ const BillHistoryTable: React.FC<BillHistoryTableProps> = ({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'PHP',
+      currency: 'USD',
     }).format(amount);
   };
 

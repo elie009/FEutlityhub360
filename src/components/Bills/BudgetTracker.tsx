@@ -51,12 +51,12 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'PHP',
+      currency: 'USD',
     }).format(amount);
   };
 
-  const getStatusColor = () => {
-    if (!budgetStatus) return 'default';
+  const getStatusColor = (): 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    if (!budgetStatus) return 'primary';
     switch (budgetStatus.status) {
       case 'under_budget':
         return 'success';
@@ -67,7 +67,23 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
       case 'over_budget':
         return 'error';
       default:
-        return 'default';
+        return 'primary';
+    }
+  };
+
+  const getAlertSeverity = (): 'error' | 'info' | 'success' | 'warning' => {
+    if (!budgetStatus) return 'info';
+    switch (budgetStatus.status) {
+      case 'under_budget':
+        return 'success';
+      case 'on_track':
+        return 'info';
+      case 'near_limit':
+        return 'warning';
+      case 'over_budget':
+        return 'error';
+      default:
+        return 'info';
     }
   };
 
@@ -145,7 +161,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
                 }
                 sx={{ mt: 2, mb: 2 }}
                 InputProps={{
-                  startAdornment: '₱',
+                  startAdornment: '$',
                 }}
               />
 
@@ -241,7 +257,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
               <Typography
                 variant="caption"
                 fontWeight="bold"
-                color={getStatusColor() + '.main'}
+                color={`${getStatusColor()}.main`}
               >
                 {budgetStatus.percentageUsed.toFixed(1)}%
               </Typography>
@@ -249,23 +265,47 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
             <LinearProgress
               variant="determinate"
               value={Math.min(budgetStatus.percentageUsed, 100)}
-              color={getStatusColor() as any}
+              color={getStatusColor()}
               sx={{ height: 8, borderRadius: 1 }}
             />
           </Box>
         </Box>
 
         {budgetStatus.alert && budgetStatus.message && (
-          <Alert severity={getStatusColor() as any}>
+          <Alert severity={getAlertSeverity()}>
             {budgetStatus.message}
           </Alert>
         )}
 
         {/* Budget Dialog */}
-        <Dialog open={showDialog} onClose={() => setShowDialog(false)} maxWidth="sm" fullWidth>
+        <Dialog open={showDialog} onClose={() => setShowDialog(false)} maxWidth="md" fullWidth>
           <DialogTitle>Edit Monthly Budget</DialogTitle>
           <DialogContent>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            
+            {/* Explanatory Note */}
+            <Alert severity="info" sx={{ mt: 2, mb: 3 }} icon={<AccountBalance />}>
+              <Typography variant="body2" fontWeight="medium" gutterBottom>
+                💡 How to Set Your Budget
+              </Typography>
+              <Typography variant="caption" display="block" gutterBottom>
+                Your monthly budget helps you track spending and get alerts when costs are higher than expected.
+              </Typography>
+              <Box sx={{ mt: 1, pl: 2, borderLeft: 2, borderColor: 'info.main' }}>
+                <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                  <strong>Example:</strong> If your average {provider} bill is $2,865:
+                </Typography>
+                <Typography variant="caption" display="block">
+                  • Conservative: $3,000 (105% of average)
+                </Typography>
+                <Typography variant="caption" display="block">
+                  • Comfortable: $3,200 (112% of average)
+                </Typography>
+                <Typography variant="caption" display="block">
+                  • Generous: $3,500 (122% of average)
+                </Typography>
+              </Box>
+            </Alert>
             
             <TextField
               fullWidth
@@ -275,10 +315,11 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
               onChange={(e) =>
                 setFormData({ ...formData, monthlyBudget: parseFloat(e.target.value) || 0 })
               }
-              sx={{ mt: 2, mb: 2 }}
+              sx={{ mb: 2 }}
               InputProps={{
-                startAdornment: '₱',
+                startAdornment: '$',
               }}
+              helperText={`Recommended: Set 10-20% above your average bill ($${((budgetStatus?.currentBill || 0) * 1.1).toFixed(0)} - $${((budgetStatus?.currentBill || 0) * 1.2).toFixed(0)})`}
             />
 
             <FormControlLabel
@@ -290,21 +331,44 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
                   }
                 />
               }
-              label="Enable Budget Alerts"
+              label={
+                <Box>
+                  <Typography variant="body2">Enable Budget Alerts</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Get notified when your bill approaches or exceeds your budget
+                  </Typography>
+                </Box>
+              }
             />
 
             {formData.enableAlerts && (
-              <TextField
-                fullWidth
-                label="Alert Threshold (%)"
-                type="number"
-                value={formData.alertThreshold}
-                onChange={(e) =>
-                  setFormData({ ...formData, alertThreshold: parseInt(e.target.value) || 90 })
-                }
-                sx={{ mt: 2 }}
-                helperText="Get notified when spending reaches this percentage"
-              />
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                <TextField
+                  fullWidth
+                  label="Alert Threshold (%)"
+                  type="number"
+                  value={formData.alertThreshold}
+                  onChange={(e) =>
+                    setFormData({ ...formData, alertThreshold: parseInt(e.target.value) || 90 })
+                  }
+                  sx={{ mb: 1 }}
+                  helperText="You'll be notified when spending reaches this percentage"
+                  inputProps={{ min: 50, max: 100 }}
+                />
+                
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                  <strong>Examples:</strong>
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  • 85% - Early warning (alert at ${((formData.monthlyBudget || 0) * 0.85).toFixed(0)})
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  • 90% - Balanced (alert at ${((formData.monthlyBudget || 0) * 0.90).toFixed(0)})
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  • 95% - Late warning (alert at ${((formData.monthlyBudget || 0) * 0.95).toFixed(0)})
+                </Typography>
+              </Box>
             )}
           </DialogContent>
           <DialogActions>

@@ -102,19 +102,14 @@ const BillAlerts: React.FC<BillAlertsProps> = ({ alerts, onAlertRead }) => {
 
   return (
     <Card>
-      <CardContent>
+      <CardContent sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6">Alerts</Typography>
+            <Typography variant="subtitle1" fontWeight="bold">🔔 Alerts</Typography>
             {unreadAlerts.length > 0 && (
-              <Badge badgeContent={unreadAlerts.length} color="error">
-                <NotificationsActive />
-              </Badge>
+              <Badge badgeContent={unreadAlerts.length} color="error" />
             )}
           </Box>
-          <Typography variant="caption" color="text.secondary">
-            {alerts.length} total
-          </Typography>
         </Box>
 
         <List disablePadding>
@@ -126,58 +121,44 @@ const BillAlerts: React.FC<BillAlertsProps> = ({ alerts, onAlertRead }) => {
                 borderColor: 'divider',
                 borderRadius: 1,
                 mb: 1,
+                p: 1,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
                 bgcolor: alert.read ? 'background.paper' : 'action.hover',
                 '&:last-child': { mb: 0 },
               }}
-              secondaryAction={
+            >
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%', mb: 0.5 }}>
+                <Box sx={{ color: `${alert.severity}.main`, mt: 0.5 }}>
+                  {getAlertIcon(alert.severity)}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" fontWeight="bold" display="block">
+                    {alert.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    {alert.message}
+                  </Typography>
+                  {alert.provider && (
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      {alert.provider}
+                    </Typography>
+                  )}
+                  {alert.amount && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      ${alert.amount.toLocaleString()}
+                    </Typography>
+                  )}
+                </Box>
                 <IconButton
-                  edge="end"
                   size="small"
                   onClick={() => handleMarkAsRead(alert.id)}
                   disabled={alert.read}
+                  sx={{ p: 0.5 }}
                 >
                   <Close fontSize="small" />
                 </IconButton>
-              }
-            >
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <Box sx={{ color: `${alert.severity}.main` }}>
-                      {getAlertIcon(alert.severity)}
-                    </Box>
-                    <Typography variant="subtitle2" fontWeight="medium">
-                      {alert.title}
-                    </Typography>
-                    <Chip
-                      label={getAlertTypeLabel(alert.type)}
-                      size="small"
-                      variant="outlined"
-                      sx={{ ml: 'auto' }}
-                    />
-                  </Box>
-                }
-                secondary={
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      {alert.message}
-                    </Typography>
-                    {alert.provider && (
-                      <Typography variant="caption" color="text.secondary">
-                        Provider: {alert.provider}
-                      </Typography>
-                    )}
-                    {alert.amount && (
-                      <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                        Amount: ₱{alert.amount.toLocaleString()}
-                      </Typography>
-                    )}
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      {formatDate(alert.createdAt)}
-                    </Typography>
-                  </Box>
-                }
-              />
+              </Box>
             </ListItem>
           ))}
         </List>

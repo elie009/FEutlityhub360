@@ -57,7 +57,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, provider, averageAmount }
   const lowestAmount = Math.min(...amounts);
 
   const formatCurrency = (value: number) => {
-    return `₱${value.toLocaleString()}`;
+    return `$${value.toLocaleString()}`;
   };
 
   return (
@@ -93,7 +93,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ data, provider, averageAmount }
                 style={{ fontSize: '12px' }}
               />
               <YAxis
-                tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                tickFormatter={(value) => `$${value.toLocaleString()}`}
                 style={{ fontSize: '12px' }}
               />
               <Tooltip
