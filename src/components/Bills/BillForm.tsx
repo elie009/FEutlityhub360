@@ -27,6 +27,7 @@ interface BillFormProps {
   onClose: () => void;
   bill?: Bill | null;
   onSuccess: (bill: Bill) => void;
+  lockedFields?: boolean; // Lock billName, billType, frequency, provider for monthly edits
 }
 
 const BillForm: React.FC<BillFormProps> = ({
@@ -34,6 +35,7 @@ const BillForm: React.FC<BillFormProps> = ({
   onClose,
   bill,
   onSuccess,
+  lockedFields = false,
 }) => {
   const [formData, setFormData] = useState({
     billName: '',
@@ -49,6 +51,11 @@ const BillForm: React.FC<BillFormProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [dateWarning, setDateWarning] = useState<string>('');
+  
+  // Get the month and year from the original bill's due date (for validation)
+  const originalMonth = bill ? new Date(bill.dueDate).getMonth() : null;
+  const originalYear = bill ? new Date(bill.dueDate).getFullYear() : null;
 
   useEffect(() => {
     if (bill) {
@@ -99,9 +106,31 @@ const BillForm: React.FC<BillFormProps> = ({
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const dateValue = event.target.value;
     if (dateValue) {
+      const selectedDate = new Date(dateValue);
+      const selectedMonth = selectedDate.getMonth();
+      const selectedYear = selectedDate.getFullYear();
+      
+      // If locked fields (editing a specific month), validate the date is in the same month
+      if (lockedFields && originalMonth !== null && originalYear !== null) {
+        if (selectedMonth !== originalMonth || selectedYear !== originalYear) {
+          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                             'July', 'August', 'September', 'October', 'November', 'December'];
+          const expectedMonthName = monthNames[originalMonth];
+          const selectedMonthName = monthNames[selectedMonth];
+          
+          setDateWarning(
+            `Warning: You selected ${selectedMonthName} ${selectedYear}, but you're editing ${expectedMonthName} ${originalYear}. ` +
+            `Please select a date within ${expectedMonthName} ${originalYear}.`
+          );
+          return; // Don't update the date
+        } else {
+          setDateWarning(''); // Clear warning if date is valid
+        }
+      }
+      
       setFormData(prev => ({
         ...prev,
-        dueDate: new Date(dateValue),
+        dueDate: selectedDate,
       }));
     }
   };
@@ -176,6 +205,12 @@ const BillForm: React.FC<BillFormProps> = ({
                 {error}
               </Alert>
             )}
+            
+            {dateWarning && (
+              <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDateWarning('')}>
+                {dateWarning}
+              </Alert>
+            )}
 
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
@@ -185,12 +220,13 @@ const BillForm: React.FC<BillFormProps> = ({
                   onChange={handleChange('billName')}
                   fullWidth
                   required
-                  helperText="Enter a descriptive name for the bill"
+                  disabled={lockedFields}
+                  helperText={lockedFields ? "Cannot change bill name when editing a specific month" : "Enter a descriptive name for the bill"}
                 />
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl fullWidth required disabled={lockedFields}>
                   <InputLabel>Bill Type</InputLabel>
                   <Select
                     value={formData.billType}
@@ -205,6 +241,11 @@ const BillForm: React.FC<BillFormProps> = ({
                     <MenuItem value={BillType.MEDICAL}>Medical Bill</MenuItem>
                     <MenuItem value={BillType.OTHER}>Other</MenuItem>
                   </Select>
+                  {lockedFields && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Cannot change bill type when editing a specific month
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
 
@@ -222,7 +263,7 @@ const BillForm: React.FC<BillFormProps> = ({
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl fullWidth required disabled={lockedFields}>
                   <InputLabel>Frequency</InputLabel>
                   <Select
                     value={formData.frequency}
@@ -233,6 +274,11 @@ const BillForm: React.FC<BillFormProps> = ({
                     <MenuItem value={BillFrequency.QUARTERLY}>Quarterly</MenuItem>
                     <MenuItem value={BillFrequency.YEARLY}>Yearly</MenuItem>
                   </Select>
+                  {lockedFields && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Cannot change frequency when editing a specific month
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
 
@@ -273,7 +319,8 @@ const BillForm: React.FC<BillFormProps> = ({
                   value={formData.provider}
                   onChange={handleChange('provider')}
                   fullWidth
-                  helperText="Company or service provider"
+                  disabled={lockedFields}
+                  helperText={lockedFields ? "Cannot change provider when editing a specific month" : "Company or service provider"}
                 />
               </Grid>
 

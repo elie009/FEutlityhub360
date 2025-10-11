@@ -910,16 +910,48 @@ class ApiService {
   }
 
   // Delete a bill
-  async deleteBill(billId: string): Promise<boolean> {
+  async deleteBill(billId: string): Promise<{ success: boolean; message: string }> {
+    console.log('🗑️ deleteBill API called with billId:', billId);
+    
     if (isMockDataEnabled()) {
-      return mockBillDataService.deleteBill(billId);
+      console.log('📝 Using mock data');
+      const result = await mockBillDataService.deleteBill(billId);
+      return { 
+        success: result, 
+        message: result ? 'Bill deleted successfully' : 'Failed to delete bill' 
+      };
     }
     
-    const response = await this.request<any>(`/Bills/${billId}`, {
-      method: 'DELETE',
-    });
-    
-    return response?.data || response || true;
+    try {
+      console.log('🌐 Making DELETE request to:', `/Bills/${billId}`);
+      const response = await this.request<{
+        success: boolean;
+        message: string;
+        data: boolean;
+        errors: any[];
+      }>(`/Bills/${billId}`, {
+        method: 'DELETE',
+      });
+      
+      console.log('✅ Delete API response:', response);
+      
+      if (response && response.success) {
+        return {
+          success: true,
+          message: response.message || 'Bill and all related records deleted successfully'
+        };
+      } else {
+        console.error('❌ Delete failed, response.success is false');
+        throw new Error(response?.message || 'Failed to delete bill');
+      }
+    } catch (error: any) {
+      console.error('❌ Delete API error:', error);
+      // Handle 404 specifically
+      if (error.response?.status === 404 || error.message?.includes('not found')) {
+        throw new Error('Bill not found');
+      }
+      throw error;
+    }
   }
 
   // Mark bill as paid

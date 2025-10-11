@@ -57,7 +57,7 @@ interface BillCardProps {
   alerts?: BillAlert[];
   historicalCount?: number;
   allBills?: Bill[];  // All bills in this group
-  onEdit: (bill: Bill) => void;
+  onEdit: (bill: Bill, isSpecificMonth?: boolean) => void;
   onDelete: (billId: string) => void;
   onMarkAsPaid: (billId: string) => void;
   onViewHistory?: (provider: string, billType: BillType) => void;
@@ -156,15 +156,26 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
   const [selectedBill, setSelectedBill] = React.useState<Bill>(bill);
   const open = Boolean(anchorEl);
 
-  // Sort bills by due date (most recent first)
+  // Sort bills by due date (oldest first - ascending order)
   const sortedBills = React.useMemo(() => {
-    return [...allBills].sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+    return [...allBills].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   }, [allBills]);
 
-  // Update selected bill when main bill changes
+  // Find the earliest unpaid bill to use as default (oldest pending bill)
+  const earliestUnpaidBill = React.useMemo(() => {
+    // Get all pending bills sorted by date (oldest first)
+    const pendingBills = [...allBills]
+      .filter(b => b.status === BillStatus.PENDING)
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    
+    // Return the oldest pending bill (earliest due date), or the main bill if no pending bills
+    return pendingBills.length > 0 ? pendingBills[0] : bill;
+  }, [allBills, bill]);
+
+  // Update selected bill when main bill changes - use earliest unpaid bill as default
   React.useEffect(() => {
-    setSelectedBill(bill);
-  }, [bill]);
+    setSelectedBill(earliestUnpaidBill);
+  }, [earliestUnpaidBill]);
 
   // Filter alerts specific to this bill
   const billAlerts = alerts.filter(
@@ -258,7 +269,9 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
   };
 
   const handleEdit = () => {
-    onEdit(selectedBill);
+    // If editing a selected month (not the main bill), pass true to lock fields
+    const isEditingSpecificMonth = sortedBills.length > 1 && selectedBill.id !== bill.id;
+    onEdit(selectedBill, isEditingSpecificMonth);
     handleMenuClose();
   };
 
@@ -272,7 +285,8 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
     handleMenuClose();
   };
 
-  const isBillOverdue = isOverdue(bill.dueDate) && bill.status === BillStatus.PENDING;
+  const isBillOverdue = isOverdue(selectedBill.dueDate) && selectedBill.status === BillStatus.PENDING;
+  const isSelectedBillPending = selectedBill.status === BillStatus.PENDING;
 
   return (
     <Card sx={{ 
@@ -314,8 +328,8 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, ml: 1 }}>
-            {/* Notification Bell */}
-            {totalNotifications > 0 && (
+            {/* Notification Bell - Hidden for now */}
+            {/* {totalNotifications > 0 && (
               <Tooltip title={`${totalNotifications} notification${totalNotifications > 1 ? 's' : ''}`}>
                 <IconButton
                   size="small"
@@ -327,7 +341,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
                   </Badge>
                 </IconButton>
               </Tooltip>
-            )}
+            )} */}
             <IconButton
               size="small"
               onClick={handleMenuClick}
@@ -375,13 +389,13 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Receipt sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                Frequency
-              </Typography>
-            </Box>
-            <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-              {getFrequencyText(bill.frequency)}
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+              Frequency
             </Typography>
+          </Box>
+          <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+            {getFrequencyText(selectedBill.frequency)}
+          </Typography>
           </Grid>
 
           <Grid item xs={6}>
@@ -392,7 +406,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
               </Typography>
             </Box>
             <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, wordBreak: 'break-word' }}>
-              {bill.provider || 'N/A'}
+              {selectedBill.provider || 'N/A'}
             </Typography>
           </Grid>
         </Grid>
@@ -419,10 +433,10 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
           </Box>
         )}
 
-        {bill.paidAt && (
+        {selectedBill.paidAt && (
           <Box sx={{ mt: 2, p: 1, bgcolor: 'success.50', borderRadius: 1 }}>
             <Typography variant="caption" color="success.main" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              Paid on: {formatDate(bill.paidAt)}
+              Paid on: {formatDate(selectedBill.paidAt)}
             </Typography>
           </Box>
         )}
@@ -501,7 +515,8 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 1 
         }}>
-          {onViewHistory && bill.provider && (
+          {/* View History button - Hidden for now */}
+          {/* {onViewHistory && bill.provider && (
             <Button
               variant="contained"
               size="small"
@@ -511,7 +526,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
             >
               View History
             </Button>
-          )}
+          )} */}
           <Button
             variant="outlined"
             size="small"
@@ -520,7 +535,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
           >
             Update
           </Button>
-          {bill.status === BillStatus.PENDING && (
+          {isSelectedBillPending && (
             <Button
               variant="contained"
               size="small"
@@ -577,7 +592,7 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
             View Provider Analytics
           </MenuItem>
         )}
-        {bill.status === BillStatus.PENDING && (
+        {isSelectedBillPending && (
           <MenuItem onClick={handleMarkAsPaid}>
             <CheckCircle sx={{ mr: 1, fontSize: 16 }} />
             Mark as Paid
