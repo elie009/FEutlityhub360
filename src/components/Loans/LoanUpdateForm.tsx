@@ -291,10 +291,37 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                         <MenuItem value={LoanStatus.ACTIVE}>Active</MenuItem>
                         <MenuItem value={LoanStatus.OVERDUE}>Overdue</MenuItem>
                         <MenuItem value={LoanStatus.CLOSED}>Closed</MenuItem>
+                        <MenuItem value={LoanStatus.COMPLETED}>Completed ✓</MenuItem>
+                        <MenuItem value={LoanStatus.CANCELLED}>Cancelled ✗</MenuItem>
                         <MenuItem value={LoanStatus.REJECTED}>Rejected</MenuItem>
                       </Select>
                     </FormControl>
                   </Box>
+                  
+                  {/* Informative Note about Status Options */}
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                      💡 Managing Loan Status - Your Options
+                    </Typography>
+                    <Typography variant="body2" component="div" sx={{ fontSize: '0.875rem' }}>
+                      <strong>Option 1: Mark as Completed/Cancelled (Recommended)</strong>
+                      <br />
+                      Instead of deleting, change the loan status to <strong>COMPLETED</strong> or <strong>CANCELLED</strong>. 
+                      This preserves the payment history while effectively closing the loan.
+                      <br /><br />
+                      
+                      <strong>Option 2: Delete All Payments First (Not Recommended)</strong>
+                      <br />
+                      You could manually delete all payment records associated with this loan first, then delete the loan. 
+                      However, this defeats the purpose of maintaining financial history.
+                      <br /><br />
+                      
+                      <strong>Option 3: Contact Administrator (Use with Caution)</strong>
+                      <br />
+                      If you truly need to delete a loan with existing payments, contact your system administrator 
+                      to modify the database constraints. This should only be done in exceptional circumstances.
+                    </Typography>
+                  </Alert>
                 </Paper>
 
                 <Divider />
@@ -341,7 +368,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                       onChange={handleChange('principal')}
                       fullWidth
                       required
-                      inputProps={{ min: 0.01, step: 100 }}
+                      inputProps={{ min: 0.01, step: "any" }}
                       helperText="⭐ Original loan amount - Changing this triggers auto-calculation"
                     />
 
@@ -351,7 +378,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                       value={formData.interestRate ?? ''}
                       onChange={handleChange('interestRate')}
                       fullWidth
-                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      inputProps={{ min: 0, max: 100, step: "any" }}
                       helperText="Changing this triggers auto-calculation of monthly payment"
                     />
 
@@ -362,7 +389,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                       onChange={handleChange('monthlyPayment')}
                       fullWidth
                       disabled={autoCalculate}
-                      inputProps={{ min: 0, step: 10 }}
+                      inputProps={{ min: 0, step: "any" }}
                       helperText={
                         autoCalculate 
                           ? "🔒 Auto-calculated based on principal, interest rate, and term" 
@@ -383,7 +410,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                       onChange={handleChange('remainingBalance')}
                       fullWidth
                       disabled={autoCalculate}
-                      inputProps={{ min: 0, step: 10 }}
+                      inputProps={{ min: 0, step: "any" }}
                       helperText={
                         autoCalculate 
                           ? "🔒 Auto-calculated (preserves payment history)" 

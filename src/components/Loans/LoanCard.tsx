@@ -48,6 +48,10 @@ const getStatusColor = (status: LoanStatus): 'default' | 'primary' | 'secondary'
       return 'error';
     case LoanStatus.CLOSED:
       return 'default';
+    case LoanStatus.COMPLETED:
+      return 'success';
+    case LoanStatus.CANCELLED:
+      return 'secondary';
     case LoanStatus.REJECTED:
       return 'error';
     default:

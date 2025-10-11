@@ -13,10 +13,14 @@ import {
   Select,
   MenuItem,
   Grid,
+  FormControlLabel,
+  Switch,
+  Tooltip,
 } from '@mui/material';
 // Removed MUI X Date Pickers - using native HTML date input instead
 import { Bill, BillType, BillStatus, BillFrequency, CreateBillRequest, UpdateBillRequest } from '../../types/bill';
 import { getErrorMessage } from '../../utils/validation';
+import { Box, Typography } from '@mui/material';
 
 interface BillFormProps {
   open: boolean;
@@ -41,6 +45,7 @@ const BillForm: React.FC<BillFormProps> = ({
     notes: '',
     provider: '',
     referenceNumber: '',
+    autoGenerateNext: false,  // Auto-generation toggle
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -57,6 +62,7 @@ const BillForm: React.FC<BillFormProps> = ({
         notes: bill.notes || '',
         provider: bill.provider || '',
         referenceNumber: bill.referenceNumber || '',
+        autoGenerateNext: bill.autoGenerateNext || false,
       });
     } else {
       // Reset form for new bill
@@ -70,6 +76,7 @@ const BillForm: React.FC<BillFormProps> = ({
         notes: '',
         provider: '',
         referenceNumber: '',
+        autoGenerateNext: false,
       });
     }
   }, [bill, open]);
@@ -291,6 +298,36 @@ const BillForm: React.FC<BillFormProps> = ({
                   helperText="Additional notes or comments"
                 />
               </Grid>
+
+              {/* Auto-Generation Toggle - Only for new bills with monthly frequency */}
+              {!bill && formData.frequency === BillFrequency.MONTHLY && (
+                <Grid item xs={12}>
+                  <Tooltip title="Automatically create future bills using forecast predictions. You'll just need to confirm or update the amount each month.">
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.autoGenerateNext}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            autoGenerateNext: e.target.checked,
+                          }))}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            ⭐ Auto-generate future bills (Recommended)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Save time! System will create next month's bills automatically using forecasts.
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </Tooltip>
+                </Grid>
+              )}
             </Grid>
           </DialogContent>
 

@@ -391,7 +391,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Check user profile
           console.log('AuthContext: Checking user profile...');
-          //await checkUserProfile();
+          await checkUserProfile();
         } catch (error) {
           console.error('AuthContext: Failed to initialize auth:', error);
           console.log('AuthContext: Clearing invalid data and continuing without auth');
@@ -402,7 +402,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           // Try to refresh user data from API
           await refreshUser();
-          //await checkUserProfile();
+          await checkUserProfile();
         } catch (error) {
           console.error('AuthContext: Failed to refresh user:', error);
           console.log('AuthContext: Clearing invalid token and continuing without auth');

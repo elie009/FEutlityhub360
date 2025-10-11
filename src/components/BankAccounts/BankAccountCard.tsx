@@ -230,18 +230,18 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
         </Grid>
 
         {/* Transaction Summary */}
-        <Box sx={{ mt: 2, p: 1, bgcolor: 'darkslategray', borderRadius: 1 }}>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.primary" fontWeight="medium" gutterBottom>
             Transaction Summary:
           </Typography>
           <Grid container spacing={1}>
             <Grid item xs={6}>
-              <Typography variant="caption" color="success.main">
+              <Typography variant="caption" color="success.main" fontWeight="medium">
                 Incoming: {formatCurrency(account.totalIncoming, account.currency)}
               </Typography>
             </Grid>
             <Grid item xs={6}>
-              <Typography variant="caption" color="error.main">
+              <Typography variant="caption" color="error.main" fontWeight="medium">
                 Outgoing: {formatCurrency(account.totalOutgoing, account.currency)}
               </Typography>
             </Grid>

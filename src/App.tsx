@@ -12,6 +12,7 @@ import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Bills from './pages/Bills';
+import BillDetails from './pages/BillDetails';
 import Analytics from './pages/Analytics';
 import Support from './pages/Support';
 import Settings from './pages/Settings';
@@ -69,6 +70,11 @@ const AppRoutes: React.FC = () => {
           <Route path="bills" element={
             <ProtectedRoute>
               <Bills />
+            </ProtectedRoute>
+          } />
+          <Route path="bills/:provider/:billType" element={
+            <ProtectedRoute>
+              <BillDetails />
             </ProtectedRoute>
           } />
           <Route path="analytics" element={

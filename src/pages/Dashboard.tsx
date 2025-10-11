@@ -40,7 +40,7 @@ import { apiService } from '../services/api';
 
 
 const Dashboard: React.FC = () => {
-  const { hasProfile, userProfile, isAuthenticated, user, logout } = useAuth();
+  const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
   const [financialData, setFinancialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -180,13 +180,21 @@ const Dashboard: React.FC = () => {
       // Create profile
       const response = await apiService.createUserProfile(profileFormData);
       
-      setProfileSuccess('Profile created successfully!');
-      setShowProfileForm(false);
-      
-      // Refresh the page to update the profile status
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // Check if response is successful
+      if (response && response.id) {
+        setProfileSuccess('Profile created successfully!');
+        
+        // Fetch the profile immediately and update context
+        const newProfile = await apiService.getUserProfile();
+        if (newProfile && newProfile.id) {
+          updateUserProfile(newProfile);  // This will update hasProfile to true
+          setShowProfileForm(false);  // Close the modal immediately
+        } else {
+          setProfileError('Profile creation succeeded but failed to fetch. Please refresh the page.');
+        }
+      } else {
+        setProfileError('Profile creation failed. Please try again.');
+      }
       
     } catch (error: any) {
       setProfileError(error.message || 'Failed to create profile');

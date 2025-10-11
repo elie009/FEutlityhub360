@@ -15,7 +15,26 @@ import {
   UpcomingPayment,
   OverduePayment
 } from '../types/loan';
-import { Bill, CreateBillRequest, UpdateBillRequest, BillFilters, BillAnalytics, TotalPaidAnalytics, PaginatedBillsResponse } from '../types/bill';
+import { 
+  Bill, 
+  CreateBillRequest, 
+  UpdateBillRequest, 
+  BillFilters, 
+  BillAnalytics, 
+  TotalPaidAnalytics, 
+  PaginatedBillsResponse,
+  BillHistoryAnalytics,
+  BillForecast,
+  BillVariance,
+  BillBudget,
+  CreateBudgetRequest,
+  BudgetStatus,
+  BillDashboard,
+  BillAlert,
+  MonthlyBillData,
+  ProviderAnalytics,
+  BillType
+} from '../types/bill';
 import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAccountFilters, BankAccountAnalytics, PaginatedBankAccountsResponse } from '../types/bankAccount';
@@ -792,10 +811,17 @@ class ApiService {
 
   // Get all bills for the authenticated user
   async getUserBills(filters?: BillFilters): Promise<PaginatedBillsResponse> {
+    console.log('=== API Service: getUserBills ===');
+    console.log('Mock data enabled?', isMockDataEnabled());
+    
     if (isMockDataEnabled()) {
+      console.log('⚠️ USING MOCK DATA for bills!');
       const user = this.getCurrentUserFromToken();
       return mockBillDataService.getUserBills(user?.id || 'demo-user-123', filters);
     }
+    
+    console.log('✅ Using REAL API for bills');
+    console.log('API Base URL:', API_BASE_URL);
     
     const queryParams = new URLSearchParams();
     if (filters?.status) queryParams.append('status', filters.status);
@@ -805,8 +831,10 @@ class ApiService {
     
     const queryString = queryParams.toString();
     const endpoint = `/bills${queryString ? `?${queryString}` : ''}`;
+    console.log('Fetching from:', endpoint);
     
     const response = await this.request<any>(endpoint);
+    console.log('API Response received:', !!response);
     
     // Handle paginated response structure
     if (response && response.data && Array.isArray(response.data.data)) {
@@ -1050,6 +1078,242 @@ class ApiService {
     } catch (error) {
       return null;
     }
+  }
+
+  // ==================== VARIABLE MONTHLY BILLING APIs ====================
+
+  // Get bill history with analytics
+  async getBillHistory(params?: {
+    provider?: string;
+    billType?: BillType;
+    months?: number;
+  }): Promise<BillHistoryAnalytics> {
+    // If no params provided, call endpoint without query string
+    if (!params || (!params.provider && !params.billType && !params.months)) {
+      const response = await this.request<any>('/bills/analytics/history');
+      
+      if (response && response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response?.message || 'Failed to get bill history');
+    }
+    
+    // With params, build query string
+    const queryParams = new URLSearchParams();
+    if (params.provider) queryParams.append('provider', params.provider);
+    if (params.billType) queryParams.append('billType', params.billType);
+    if (params.months) queryParams.append('months', params.months.toString());
+    
+    const response = await this.request<any>(`/bills/analytics/history?${queryParams}`);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get bill history');
+  }
+
+  // Get forecast for next month
+  async getBillForecast(params: {
+    provider?: string;
+    billType?: BillType;
+    method?: 'simple' | 'weighted' | 'seasonal';
+  }): Promise<BillForecast> {
+    const queryParams = new URLSearchParams();
+    if (params.provider) queryParams.append('provider', params.provider);
+    if (params.billType) queryParams.append('billType', params.billType);
+    if (params.method) queryParams.append('method', params.method);
+    
+    const response = await this.request<any>(`/bills/analytics/forecast?${queryParams}`);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get forecast');
+  }
+
+  // Get variance analysis for a bill
+  async getBillVariance(billId: string): Promise<BillVariance> {
+    const response = await this.request<any>(`/bills/${billId}/variance`);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get variance');
+  }
+
+  // Create or update budget
+  async setBillBudget(budgetData: CreateBudgetRequest): Promise<BillBudget> {
+    const response = await this.request<any>('/bills/budgets', {
+      method: 'POST',
+      body: JSON.stringify(budgetData),
+    });
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to set budget');
+  }
+
+  // Update existing budget
+  async updateBillBudget(budgetId: string, budgetData: Partial<CreateBudgetRequest>): Promise<BillBudget> {
+    const response = await this.request<any>(`/bills/budgets/${budgetId}`, {
+      method: 'PUT',
+      body: JSON.stringify(budgetData),
+    });
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update budget');
+  }
+
+  // Delete budget
+  async deleteBillBudget(budgetId: string): Promise<boolean> {
+    const response = await this.request<any>(`/bills/budgets/${budgetId}`, {
+      method: 'DELETE',
+    });
+    return response && response.success;
+  }
+
+  // Get budget status
+  async getBudgetStatus(params: {
+    provider?: string;
+    billType?: BillType;
+  }): Promise<BudgetStatus> {
+    const queryParams = new URLSearchParams();
+    if (params.provider) queryParams.append('provider', params.provider);
+    if (params.billType) queryParams.append('billType', params.billType);
+    
+    const response = await this.request<any>(`/bills/budgets/status?${queryParams}`);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get budget status');
+  }
+
+  // Get all budgets
+  async getUserBudgets(): Promise<BillBudget[]> {
+    const response = await this.request<any>('/bills/budgets');
+    
+    if (response && response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    return [];
+  }
+
+  // Get dashboard data
+  async getBillDashboard(): Promise<BillDashboard> {
+    const response = await this.request<any>('/bills/dashboard');
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get dashboard');
+  }
+
+  // Get alerts
+  async getBillAlerts(): Promise<BillAlert[]> {
+    const response = await this.request<any>('/bills/alerts');
+    
+    if (response && response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    return [];
+  }
+
+  // Mark alert as read
+  async markAlertAsRead(alertId: string): Promise<void> {
+    await this.request<any>(`/bills/alerts/${alertId}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  // Get monthly trend data
+  async getMonthlyTrend(params: {
+    provider: string;
+    billType?: BillType;
+    months?: number;
+  }): Promise<MonthlyBillData[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('provider', params.provider);
+    if (params.billType) queryParams.append('billType', params.billType);
+    if (params.months) queryParams.append('months', params.months.toString());
+    
+    const response = await this.request<any>(`/bills/analytics/trend?${queryParams}`);
+    
+    if (response && response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    return [];
+  }
+
+  // Get provider analytics
+  async getProviderAnalytics(provider?: string): Promise<ProviderAnalytics[]> {
+    const endpoint = provider 
+      ? `/bills/analytics/providers/${encodeURIComponent(provider)}`
+      : '/bills/analytics/providers';
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : [response.data];
+    }
+    return [];
+  }
+
+  // ==================== AUTO-RECURRING BILLS APIs ====================
+
+  // Auto-generate next month's bill for a specific provider
+  async autoGenerateNextBill(provider: string, billType: BillType): Promise<Bill> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('provider', provider);
+    queryParams.append('billType', billType);
+    
+    const response = await this.request<any>(`/bills/auto-generate?${queryParams}`, {
+      method: 'POST',
+    });
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to auto-generate bill');
+  }
+
+  // Auto-generate next month's bills for all providers with auto-gen enabled
+  async autoGenerateAllBills(): Promise<Bill[]> {
+    const response = await this.request<any>('/bills/auto-generate-all', {
+      method: 'POST',
+    });
+    
+    if (response && response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    return [];
+  }
+
+  // Confirm or update amount for auto-generated bill
+  async confirmBillAmount(billId: string, amount: number, notes?: string): Promise<Bill> {
+    const response = await this.request<any>(`/bills/${billId}/confirm-amount`, {
+      method: 'PUT',
+      body: JSON.stringify({ amount, notes }),
+    });
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to confirm bill amount');
+  }
+
+  // Get auto-generated bills (optionally filter by confirmation status)
+  async getAutoGeneratedBills(confirmed?: boolean): Promise<Bill[]> {
+    const queryParams = confirmed !== undefined ? `?confirmed=${confirmed}` : '';
+    const response = await this.request<any>(`/bills/auto-generated${queryParams}`);
+    
+    if (response && response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+    return [];
   }
 
   // ==================== BANK ACCOUNT MANAGEMENT APIs ====================

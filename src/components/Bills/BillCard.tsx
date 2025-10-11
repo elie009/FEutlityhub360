@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Warning,
   Pending,
+  History,
 } from '@mui/icons-material';
 import { Bill, BillStatus, BillType, BillFrequency } from '../../types/bill';
 
@@ -30,6 +31,7 @@ interface BillCardProps {
   onEdit: (bill: Bill) => void;
   onDelete: (billId: string) => void;
   onMarkAsPaid: (billId: string) => void;
+  onViewHistory?: (provider: string, billType: BillType) => void;
 }
 
 const getStatusColor = (status: BillStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -40,6 +42,8 @@ const getStatusColor = (status: BillStatus): 'default' | 'primary' | 'secondary'
       return 'warning';
     case BillStatus.OVERDUE:
       return 'error';
+    case BillStatus.AUTO_GENERATED:
+      return 'info';
     default:
       return 'default';
   }
@@ -53,6 +57,8 @@ const getStatusIcon = (status: BillStatus) => {
       return <Pending sx={{ fontSize: 16 }} />;
     case BillStatus.OVERDUE:
       return <Warning sx={{ fontSize: 16 }} />;
+    case BillStatus.AUTO_GENERATED:
+      return <Receipt sx={{ fontSize: 16 }} />;
     default:
       return <Pending sx={{ fontSize: 16 }} />;
   }
@@ -107,7 +113,7 @@ const isOverdue = (dueDate: string): boolean => {
   return new Date(dueDate) < new Date();
 };
 
-const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPaid }) => {
+const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPaid, onViewHistory }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -289,6 +295,18 @@ const BillCard: React.FC<BillCardProps> = ({ bill, onEdit, onDelete, onMarkAsPai
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 1 
         }}>
+          {onViewHistory && bill.provider && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => onViewHistory(bill.provider!, bill.billType)}
+              startIcon={<History />}
+              fullWidth
+              color="primary"
+            >
+              View History
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="small"
