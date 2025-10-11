@@ -226,7 +226,7 @@ const BillForm: React.FC<BillFormProps> = ({
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required disabled={lockedFields}>
+                <FormControl fullWidth required disabled={!!bill}>
                   <InputLabel>Bill Type</InputLabel>
                   <Select
                     value={formData.billType}
@@ -241,9 +241,9 @@ const BillForm: React.FC<BillFormProps> = ({
                     <MenuItem value={BillType.MEDICAL}>Medical Bill</MenuItem>
                     <MenuItem value={BillType.OTHER}>Other</MenuItem>
                   </Select>
-                  {lockedFields && (
+                  {bill && (
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Cannot change bill type when editing a specific month
+                      Cannot change bill type when editing
                     </Typography>
                   )}
                 </FormControl>
@@ -263,7 +263,7 @@ const BillForm: React.FC<BillFormProps> = ({
               </Grid>
 
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required disabled={lockedFields}>
+                <FormControl fullWidth required disabled={!!bill}>
                   <InputLabel>Frequency</InputLabel>
                   <Select
                     value={formData.frequency}
@@ -274,9 +274,9 @@ const BillForm: React.FC<BillFormProps> = ({
                     <MenuItem value={BillFrequency.QUARTERLY}>Quarterly</MenuItem>
                     <MenuItem value={BillFrequency.YEARLY}>Yearly</MenuItem>
                   </Select>
-                  {lockedFields && (
+                  {bill && (
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Cannot change frequency when editing a specific month
+                      Cannot change frequency when editing
                     </Typography>
                   )}
                 </FormControl>
@@ -319,8 +319,8 @@ const BillForm: React.FC<BillFormProps> = ({
                   value={formData.provider}
                   onChange={handleChange('provider')}
                   fullWidth
-                  disabled={lockedFields}
-                  helperText={lockedFields ? "Cannot change provider when editing a specific month" : "Company or service provider"}
+                  disabled={!!bill}
+                  helperText={bill ? "Cannot change provider when editing" : "Company or service provider"}
                 />
               </Grid>
 

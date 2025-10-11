@@ -63,11 +63,11 @@ const Bills: React.FC = () => {
   const [isEditingSpecificMonth, setIsEditingSpecificMonth] = useState(false);
   const [filters, setFilters] = useState<BillFilters>({
     page: 1,
-    limit: 12,
+    limit: 10000,
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  // Group bills by billName to show the latest unpaid bill per group
+  // Group bills by billName to show the earliest unpaid bill per group
   const groupedBills = React.useMemo(() => {
     return bills.reduce((acc, bill) => {
       // Extract base name by removing date suffixes like " - Apr 2026", " - Jan 2026", etc.
@@ -106,8 +106,26 @@ const Bills: React.FC = () => {
 
   // Get array of latest bills only for display
   const displayBills = React.useMemo(() => {
-    return Object.values(groupedBills).map(group => group.latestBill);
-  }, [groupedBills]);
+    const result = Object.values(groupedBills).map(group => group.latestBill);
+    
+    // Debug logging
+    console.log('📊 Bill Grouping Summary:');
+    console.log('Total bills from API:', bills.length);
+    console.log('Total groups (cards to display):', result.length);
+    console.log('Grouped bills detail:', Object.entries(groupedBills).map(([key, group]) => ({
+      groupName: key,
+      baseName: group.baseName,
+      count: group.count,
+      bills: group.allBills.map(b => ({
+        id: b.id,
+        fullName: b.billName,
+        dueDate: b.dueDate,
+        status: b.status
+      }))
+    })));
+    
+    return result;
+  }, [groupedBills, bills.length]);
 
   // Calculate current month analytics
   const currentMonthAnalytics = React.useMemo(() => {
@@ -321,7 +339,7 @@ const Bills: React.FC = () => {
         gap: 2
       }}>
         <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
-          Bills Management
+          Bills and Utility Management
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
           <Tooltip title="Refresh">
