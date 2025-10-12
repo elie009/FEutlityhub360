@@ -377,13 +377,40 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
                 Due Date
               </Typography>
             </Box>
-            <Typography 
-              variant="h6" 
-              color={isBillOverdue ? 'error.main' : 'text.primary'}
-              sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }}
-            >
-              {formatDate(selectedBill.dueDate)}
-            </Typography>
+            {sortedBills.length > 1 ? (
+              <Box 
+                onClick={() => setShowMonthList(!showMonthList)}
+                sx={{ 
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                    borderRadius: 1,
+                  },
+                  p: 0.5,
+                  ml: -0.5,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
+              >
+                <Typography 
+                  variant="h6" 
+                  color={isBillOverdue ? 'error.main' : 'primary.main'}
+                  sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' }, fontWeight: 'bold' }}
+                >
+                  {formatDate(selectedBill.dueDate)}
+                </Typography>
+                {showMonthList ? <ExpandLess sx={{ fontSize: 20 }} /> : <ExpandMore sx={{ fontSize: 20 }} />}
+              </Box>
+            ) : (
+              <Typography 
+                variant="h6" 
+                color={isBillOverdue ? 'error.main' : 'text.primary'}
+                sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }}
+              >
+                {formatDate(selectedBill.dueDate)}
+              </Typography>
+            )}
           </Grid>
 
           <Grid item xs={6}>

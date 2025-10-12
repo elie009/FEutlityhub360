@@ -1639,6 +1639,19 @@ class ApiService {
     return response;
   }
 
+  // Get total balance from all bank accounts
+  async getTotalBalance(): Promise<number> {
+    if (isMockDataEnabled()) {
+      // Return mock total balance
+      return 125000.00;
+    }
+    const response = await this.request<any>('/BankAccounts/total-balance');
+    if (response && response.success && response.data !== undefined) {
+      return response.data;
+    }
+    return 0;
+  }
+
   // ==================== SAVINGS MANAGEMENT APIs ====================
 
   // Create a new savings account
@@ -2128,6 +2141,121 @@ class ApiService {
       };
     }
     const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`);
+    return response;
+  }
+
+  // ==================== DISPOSABLE AMOUNT APIs ====================
+
+  // Get disposable amount with detailed breakdown
+  async getDisposableAmount(year: number, month: number): Promise<any> {
+    if (isMockDataEnabled()) {
+      // Return mock response matching the API structure
+      return {
+        success: true,
+        message: 'Disposable amount calculated successfully',
+        data: {
+          userId: 'demo-user-123',
+          period: 'MONTHLY',
+          startDate: `${year}-${String(month).padStart(2, '0')}-01T00:00:00Z`,
+          endDate: `${year}-${String(month).padStart(2, '0')}-30T23:59:59Z`,
+          totalIncome: 50000.00,
+          incomeBreakdown: [
+            {
+              sourceName: 'Monthly Salary',
+              category: 'PRIMARY',
+              amount: 45000.00,
+              monthlyAmount: 45000.00,
+              frequency: 'MONTHLY'
+            },
+            {
+              sourceName: 'Freelance Work',
+              category: 'SIDE_HUSTLE',
+              amount: 5000.00,
+              monthlyAmount: 5000.00,
+              frequency: 'MONTHLY'
+            }
+          ],
+          totalFixedExpenses: 19500.00,
+          totalBills: 15500.00,
+          billsBreakdown: [
+            {
+              id: 'bill123',
+              name: 'Meralco Electricity',
+              type: 'utility',
+              amount: 2500.00,
+              status: 'PAID',
+              dueDate: `${year}-${String(month).padStart(2, '0')}-15T00:00:00Z`
+            },
+            {
+              id: 'bill124',
+              name: 'Rent',
+              type: 'housing',
+              amount: 12000.00,
+              status: 'PAID',
+              dueDate: `${year}-${String(month).padStart(2, '0')}-05T00:00:00Z`
+            },
+            {
+              id: 'bill125',
+              name: 'Internet - PLDT',
+              type: 'utility',
+              amount: 1500.00,
+              status: 'PAID',
+              dueDate: `${year}-${String(month).padStart(2, '0')}-10T00:00:00Z`
+            }
+          ],
+          totalLoans: 4000.00,
+          loansBreakdown: [
+            {
+              id: 'loan123',
+              name: 'Personal Loan',
+              type: 'LOAN',
+              amount: 4000.00,
+              status: 'ACTIVE'
+            }
+          ],
+          totalVariableExpenses: 12990.00,
+          variableExpensesBreakdown: [
+            {
+              category: 'GROCERIES',
+              totalAmount: 7794.00,
+              count: 12,
+              percentage: 60.00
+            },
+            {
+              category: 'TRANSPORTATION',
+              totalAmount: 3031.00,
+              count: 8,
+              percentage: 23.33
+            },
+            {
+              category: 'FOOD',
+              totalAmount: 2165.00,
+              count: 15,
+              percentage: 16.67
+            }
+          ],
+          disposableAmount: 17510.00,
+          disposablePercentage: 35.02,
+          targetSavings: null,
+          investmentAllocation: null,
+          netDisposableAmount: null,
+          insights: [
+            'Your disposable income increased by 8.2% compared to the previous period.',
+            'Your highest spending category is GROCERIES at ₱7,794.00 (60.0% of variable expenses).',
+            'Consider saving at least ₱3,502 per month (20% of your disposable income) to build your financial cushion.',
+            'Reducing your variable expenses by 15% (₱1,948) can increase your savings by 11.1%.'
+          ],
+          comparison: {
+            previousPeriodDisposableAmount: 16200.00,
+            changeAmount: 1310.00,
+            changePercentage: 8.09,
+            trend: 'UP'
+          }
+        }
+      };
+    }
+    
+    const response = await this.request<any>(`/Dashboard/disposable-amount?year=${year}&month=${month}`);
     return response;
   }
 }
