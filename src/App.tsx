@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
 // import ProfileProtectedRoute from './components/ProfileProtectedRoute';
 import AuthPage from './components/Auth/AuthPage';
+import ForgotPasswordForm from './components/Auth/ForgotPasswordForm';
+import ResetPasswordForm from './components/Auth/ResetPasswordForm';
 import Register from './pages/Register';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
@@ -50,6 +52,9 @@ const AppRoutes: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/login" element={<Navigate to="/auth" replace />} />
+        <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+        <Route path="/reset-password" element={<ResetPasswordForm />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile-setup" element={
           <ProtectedRoute>

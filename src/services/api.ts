@@ -190,6 +190,43 @@ class ApiService {
     return response;
   }
 
+  async forgotPassword(email: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {};
+  }> {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {};
+    }>('/Auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    return response;
+  }
+
+  async resetPassword(resetData: {
+    token: string;
+    email: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {};
+  }> {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {};
+    }>('/Auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(resetData),
+    });
+    return response;
+  }
+
   async getCurrentUser(): Promise<User> {
     return this.request<User>('/Auth/me');
   }

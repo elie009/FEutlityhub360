@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -325,7 +325,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     size="large"
                     disabled={isLoading}
                     sx={{
-                      mb: 3,
+                      mb: 2,
                       py: 1.5,
                       borderRadius: 2,
                       background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
@@ -343,6 +343,24 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       </>
                     )}
                   </Button>
+
+                  <Box sx={{ textAlign: 'center', mb: 2 }}>
+                    <Button
+                      component={Link}
+                      to="/forgot-password"
+                      variant="text"
+                      sx={{
+                        color: '#233C4B',
+                        textDecoration: 'none',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                          backgroundColor: 'transparent',
+                        },
+                      }}
+                    >
+                      Forgot Password?
+                    </Button>
+                  </Box>
 
                   <Divider sx={{ my: 2 }}>
                     <Typography variant="body2" sx={{ color: '#233C4B' }}>

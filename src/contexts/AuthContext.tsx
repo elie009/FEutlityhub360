@@ -11,6 +11,13 @@ interface AuthContextType {
   userProfile: any | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (resetData: {
+    token: string;
+    email: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   getUserData: () => User | null;
@@ -268,6 +275,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (email: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const response = await apiService.forgotPassword(email);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to send password reset email');
+      }
+      
+      console.log('AuthContext: Password reset email sent successfully');
+    } catch (error) {
+      console.error('Forgot password failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPassword = async (resetData: {
+    token: string;
+    email: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const response = await apiService.resetPassword(resetData);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to reset password');
+      }
+      
+      console.log('AuthContext: Password reset successfully');
+    } catch (error) {
+      console.error('Reset password failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     // Clear tokens and user from localStorage
     localStorage.removeItem('authToken');
@@ -445,6 +493,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     userProfile,
     login,
     register,
+    forgotPassword,
+    resetPassword,
     logout,
     refreshUser,
     getUserData,
