@@ -25,6 +25,7 @@ import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
 import ReportsPage from './components/Reports/ReportsPage';
 import { FinanceLoader } from './components/Common';
+import AddScheduleApiTest from './components/Test/AddScheduleApiTest';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -126,6 +127,11 @@ const AppRoutes: React.FC = () => {
           <Route path="reports" element={
             <ProtectedRoute>
               <ReportsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="test/add-schedule" element={
+            <ProtectedRoute>
+              <AddScheduleApiTest />
             </ProtectedRoute>
           } />
         </Route>

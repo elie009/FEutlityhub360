@@ -20,6 +20,8 @@ import {
   Alert,
   CircularProgress,
   Tooltip,
+  Snackbar,
+  Stack,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -27,15 +29,21 @@ import {
   Schedule,
   EventAvailable,
   Warning,
+  Add,
+  Payment as PaymentIcon,
+  Delete,
 } from '@mui/icons-material';
-import { RepaymentSchedule, PaymentStatus } from '../../types/loan';
+import { RepaymentSchedule, PaymentStatus, Loan } from '../../types/loan';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
 import { formatDate, formatDateLong, isOverdue, isDueToday, getDaysUntilDue } from '../../utils/dateUtils';
+import AddScheduleDialog from './AddScheduleDialog';
+import UpdateScheduleDialog from './UpdateScheduleDialog';
 
 interface RepaymentScheduleManagerProps {
   loanId: string;
   loanPurpose?: string;
+  loan?: Loan; // Add loan as optional prop
 }
 
 const getStatusColor = (status: PaymentStatus): 'default' | 'success' | 'warning' | 'error' => {
@@ -53,8 +61,13 @@ const getStatusColor = (status: PaymentStatus): 'default' | 'success' | 'warning
   }
 };
 
-const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loanId, loanPurpose }) => {
+const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ 
+  loanId, 
+  loanPurpose,
+  loan: loanProp // Receive loan from parent
+}) => {
   const [schedule, setSchedule] = useState<RepaymentSchedule[]>([]);
+  const [loanState, setLoanState] = useState<Loan | null>(loanProp || null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -62,6 +75,30 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
   const [newDueDate, setNewDueDate] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string>('');
+  
+  // New state for Add/Update dialogs
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [updateDialogState, setUpdateDialogState] = useState<{
+    open: boolean;
+    type: 'update' | 'markPaid' | 'updateDate';
+    installment: RepaymentSchedule | null;
+  }>({ open: false, type: 'update', installment: null });
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({ open: false, message: '', severity: 'success' });
+
+  // Update loan state when prop changes
+  useEffect(() => {
+    if (loanProp) {
+      setLoanState(loanProp);
+    } else {
+      loadLoanData();
+    }
+  }, [loanProp, loanId]);
 
   useEffect(() => {
     loadSchedule();
@@ -78,6 +115,15 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
       setError(getErrorMessage(err, 'Failed to load repayment schedule'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadLoanData = async () => {
+    try {
+      const loanData = await apiService.getLoan(loanId);
+      setLoanState(loanData);
+    } catch (err: unknown) {
+      console.error('Error loading loan data:', err);
     }
   };
 
@@ -132,6 +178,83 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
     setUpdateError('');
   };
 
+  // New handlers for Add/Update/Delete operations
+  const handleMarkAsPaidClick = (item: RepaymentSchedule) => {
+    setUpdateDialogState({
+      open: true,
+      type: 'markPaid',
+      installment: item,
+    });
+  };
+
+  const handleDeleteClick = async (item: RepaymentSchedule) => {
+    if (item.status === PaymentStatus.PAID) {
+      setSnackbar({
+        open: true,
+        message: 'Cannot delete paid installments',
+        severity: 'error',
+      });
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete installment #${item.installmentNumber}?`)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await apiService.deletePaymentInstallment(loanId, item.installmentNumber);
+      
+      if (response.success) {
+        setSnackbar({
+          open: true,
+          message: 'Installment deleted successfully',
+          severity: 'success',
+        });
+        await loadSchedule();
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.message || 'Failed to delete installment',
+          severity: 'error',
+        });
+      }
+    } catch (err: unknown) {
+      setSnackbar({
+        open: true,
+        message: getErrorMessage(err, 'Failed to delete installment'),
+        severity: 'error',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleScheduleSuccess = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'success',
+    });
+    loadSchedule();
+  };
+
+  const handleScheduleError = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: 'error',
+    });
+  };
+
+  const handleScheduleUpdate = (newSchedule: RepaymentSchedule[]) => {
+    setSchedule(newSchedule);
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
   const getDueDateStatus = (dueDate: string, status: PaymentStatus) => {
     if (status === PaymentStatus.PAID) {
       return null;
@@ -179,14 +302,24 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Repayment Schedule
-        {loanPurpose && (
-          <Typography variant="body2" color="text.secondary" component="span" sx={{ ml: 1 }}>
-            - {loanPurpose}
-          </Typography>
-        )}
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">
+          Repayment Schedule
+          {loanPurpose && (
+            <Typography variant="body2" color="text.secondary" component="span" sx={{ ml: 1 }}>
+              - {loanPurpose}
+            </Typography>
+          )}
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => setAddDialogOpen(true)}
+          disabled={!loanState}
+        >
+          Add Schedule
+        </Button>
+      </Box>
 
       <TableContainer component={Paper} sx={{ mt: 2 }}>
         <Table size="small">
@@ -203,7 +336,9 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
             </TableRow>
           </TableHead>
           <TableBody>
-            {schedule.map((item) => {
+            {schedule
+              .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+              .map((item) => {
               const dueDateStatus = getDueDateStatus(item.dueDate, item.status);
               
               return (
@@ -266,17 +401,46 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
                     )}
                   </TableCell>
                   <TableCell align="center">
-                    {item.status !== PaymentStatus.PAID && (
-                      <Tooltip title="Edit due date">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleEditClick(item)}
-                          color="primary"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                    <Stack direction="row" spacing={0.5} justifyContent="center">
+                      {/* Edit Due Date Button */}
+                      {item.status !== PaymentStatus.PAID && (
+                        <Tooltip title="Edit due date">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleEditClick(item)}
+                            color="primary"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {/* Mark as Paid Button */}
+                      {(item.status === PaymentStatus.PENDING || item.status === PaymentStatus.OVERDUE) && (
+                        <Tooltip title="Mark as paid">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleMarkAsPaidClick(item)}
+                            color="success"
+                          >
+                            <PaymentIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {/* Delete Button */}
+                      {item.status !== PaymentStatus.PAID && (
+                        <Tooltip title="Delete installment">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDeleteClick(item)}
+                            color="error"
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Stack>
                   </TableCell>
                 </TableRow>
               );
@@ -336,6 +500,45 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({ loa
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Schedule Dialog */}
+      {loanState && (
+        <AddScheduleDialog
+          open={addDialogOpen}
+          onClose={() => setAddDialogOpen(false)}
+          loan={loanState}
+          onSuccess={handleScheduleSuccess}
+          onError={handleScheduleError}
+        />
+      )}
+
+      {/* Update Schedule Dialog (for Mark as Paid, etc.) */}
+      {loanState && (
+        <UpdateScheduleDialog
+          open={updateDialogState.open}
+          onClose={() => setUpdateDialogState({ open: false, type: 'update', installment: null })}
+          loan={loanState}
+          installment={updateDialogState.installment}
+          type={updateDialogState.type}
+          onSuccess={handleScheduleSuccess}
+          onError={handleScheduleError}
+        />
+      )}
+
+      {/* Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -445,6 +445,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
               <RepaymentScheduleManager 
                 loanId={loan.id}
                 loanPurpose={loan.purpose}
+                loan={loan}
               />
             </Box>
           )}

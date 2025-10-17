@@ -19,6 +19,11 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Snackbar,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -26,10 +31,18 @@ import {
   Payment,
   TrendingUp,
   Download,
+  Settings,
+  MoreVert,
+  Edit,
+  DateRange,
+  Delete,
 } from '@mui/icons-material';
 import { Loan, RepaymentSchedule, Transaction, LoanStatus } from '../../types/loan';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import PaymentScheduleManager from './PaymentScheduleManager';
+import AddScheduleDialog from './AddScheduleDialog';
+import UpdateScheduleDialog from './UpdateScheduleDialog';
 
 interface LoanDetailsProps {
   loanId: string;
@@ -97,6 +110,27 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  
+  // Schedule management state
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState<{
+    open: boolean;
+    type: 'update' | 'markPaid' | 'updateDate';
+    installment: RepaymentSchedule | null;
+  }>({ open: false, type: 'update', installment: null });
+  
+  // Snackbar state for success/error messages
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({ open: false, message: '', severity: 'success' });
+
+  // Action menu state for basic schedule table
+  const [scheduleActionMenu, setScheduleActionMenu] = useState<{
+    anchorEl: HTMLElement | null;
+    installment: RepaymentSchedule | null;
+  }>({ anchorEl: null, installment: null });
 
   useEffect(() => {
     loadLoanData();
@@ -128,6 +162,133 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
   const downloadStatement = () => {
     // This would generate and download a PDF statement
     console.log('Download statement for loan:', loanId);
+  };
+
+  // Schedule management handlers
+  const handleScheduleUpdate = (newSchedule: RepaymentSchedule[]) => {
+    setSchedule(newSchedule);
+  };
+
+  const handleScheduleError = (errorMessage: string) => {
+    setSnackbar({
+      open: true,
+      message: errorMessage,
+      severity: 'error',
+    });
+  };
+
+  const handleScheduleSuccess = (successMessage: string) => {
+    setSnackbar({
+      open: true,
+      message: successMessage,
+      severity: 'success',
+    });
+    // Refresh the schedule data
+    loadLoanData();
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  // Schedule action menu handlers
+  const handleScheduleActionMenuOpen = (event: React.MouseEvent<HTMLElement>, installment: RepaymentSchedule) => {
+    setScheduleActionMenu({
+      anchorEl: event.currentTarget,
+      installment,
+    });
+  };
+
+  const handleScheduleActionMenuClose = () => {
+    setScheduleActionMenu({
+      anchorEl: null,
+      installment: null,
+    });
+  };
+
+  const handleScheduleMenuAction = (action: string) => {
+    const { installment } = scheduleActionMenu;
+    handleScheduleActionMenuClose();
+
+    if (!installment) return;
+
+    switch (action) {
+      case 'update':
+        setUpdateDialogOpen({ open: true, type: 'update', installment });
+        break;
+      case 'markPaid':
+        setUpdateDialogOpen({ open: true, type: 'markPaid', installment });
+        break;
+      case 'updateDate':
+        setUpdateDialogOpen({ open: true, type: 'updateDate', installment });
+        break;
+      case 'delete':
+        handleDeleteScheduleInstallment(installment);
+        break;
+    }
+  };
+
+  const handleDeleteScheduleInstallment = async (installment: RepaymentSchedule) => {
+    if (!loan) {
+      setSnackbar({
+        open: true,
+        message: 'Loan data not available',
+        severity: 'error',
+      });
+      return;
+    }
+
+    if (installment.status === 'PAID') {
+      setSnackbar({
+        open: true,
+        message: 'Cannot delete paid installments',
+        severity: 'error',
+      });
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete installment #${installment.installmentNumber}?`)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await apiService.deletePaymentInstallment(loan.id, installment.installmentNumber);
+      
+      if (response.success) {
+        // Remove the deleted installment from the schedule
+        const updatedSchedule = schedule.filter(s => s.id !== installment.id);
+        setSchedule(updatedSchedule);
+        setSnackbar({
+          open: true,
+          message: 'Installment deleted successfully',
+          severity: 'success',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.message || 'Failed to delete installment',
+          severity: 'error',
+        });
+      }
+    } catch (err: unknown) {
+      setSnackbar({
+        open: true,
+        message: getErrorMessage(err, 'Failed to delete installment'),
+        severity: 'error',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper functions for business rules
+  const canMarkAsPaid = (installment: RepaymentSchedule): boolean => {
+    return installment.status === 'PENDING' || installment.status === 'OVERDUE';
+  };
+
+  const canDeleteInstallment = (installment: RepaymentSchedule): boolean => {
+    return installment.status !== 'PAID';
   };
 
   if (isLoading) {
@@ -301,11 +462,23 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={activeTab} onChange={handleTabChange}>
             <Tab label="Repayment Schedule" />
+            <Tab label="Schedule Management" icon={<Settings />} iconPosition="start" />
             <Tab label="Transaction History" />
           </Tabs>
         </Box>
 
         <TabPanel value={activeTab} index={0}>
+          {/* Add Schedule Button for Basic Table */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<Schedule />}
+              onClick={() => setAddDialogOpen(true)}
+            >
+              Add Schedule
+            </Button>
+          </Box>
+          
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
@@ -315,10 +488,13 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
                   <TableCell align="right">Principal</TableCell>
                   <TableCell align="right">Interest</TableCell>
                   <TableCell align="center">Status</TableCell>
+                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {schedule.map((item) => (
+                {schedule
+                  .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                  .map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{formatDate(item.dueDate)}</TableCell>
                     <TableCell align="right">{formatCurrency(item.totalAmount || item.amountDue || 0)}</TableCell>
@@ -331,14 +507,66 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
                         size="small"
                       />
                     </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Actions">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleScheduleActionMenuOpen(e, item)}
+                        >
+                          <MoreVert />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Action Menu for Basic Schedule Table */}
+          <Menu
+            anchorEl={scheduleActionMenu.anchorEl}
+            open={Boolean(scheduleActionMenu.anchorEl)}
+            onClose={handleScheduleActionMenuClose}
+          >
+            <MenuItem onClick={() => handleScheduleMenuAction('update')}>
+              <Edit sx={{ mr: 1 }} fontSize="small" />
+              Update Schedule
+            </MenuItem>
+            {scheduleActionMenu.installment && canMarkAsPaid(scheduleActionMenu.installment) && (
+              <MenuItem onClick={() => handleScheduleMenuAction('markPaid')}>
+                <Payment sx={{ mr: 1 }} fontSize="small" />
+                Mark as Paid
+              </MenuItem>
+            )}
+            <MenuItem onClick={() => handleScheduleMenuAction('updateDate')}>
+              <DateRange sx={{ mr: 1 }} fontSize="small" />
+              Update Due Date
+            </MenuItem>
+            {scheduleActionMenu.installment && canDeleteInstallment(scheduleActionMenu.installment) && (
+              <MenuItem 
+                onClick={() => handleScheduleMenuAction('delete')}
+                sx={{ color: 'error.main' }}
+              >
+                <Delete sx={{ mr: 1 }} fontSize="small" />
+                Delete Installment
+              </MenuItem>
+            )}
+          </Menu>
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
+          <PaymentScheduleManager
+            loan={loan}
+            schedule={schedule}
+            onScheduleUpdate={handleScheduleUpdate}
+            onError={handleScheduleError}
+            onOpenAddDialog={() => setAddDialogOpen(true)}
+            onOpenUpdateDialog={(type, installment) => setUpdateDialogOpen({ open: true, type, installment })}
+          />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={2}>
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
@@ -365,6 +593,40 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
           </TableContainer>
         </TabPanel>
       </Card>
+
+      {/* Dialogs */}
+      <AddScheduleDialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        loan={loan!}
+        onSuccess={handleScheduleSuccess}
+        onError={handleScheduleError}
+      />
+
+      <UpdateScheduleDialog
+        open={updateDialogOpen.open}
+        onClose={() => setUpdateDialogOpen({ open: false, type: 'update', installment: null })}
+        loan={loan!}
+        installment={updateDialogOpen.installment}
+        type={updateDialogOpen.type}
+        onSuccess={handleScheduleSuccess}
+        onError={handleScheduleError}
+      />
+
+      {/* Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

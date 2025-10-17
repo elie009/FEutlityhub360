@@ -53,6 +53,10 @@ export interface RepaymentSchedule {
   interestAmount: number;
   status: PaymentStatus;
   paidAt?: string;
+  paidDate?: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  notes?: string;
 }
 
 export interface UpcomingPayment {
@@ -193,6 +197,57 @@ export interface LoanApplication {
   monthlyIncome: number;
   employmentStatus: string;
   additionalInfo?: string;
+}
+
+// Payment Schedule Management Interfaces
+export interface AddCustomScheduleRequest {
+  startingInstallmentNumber: number;
+  numberOfMonths: number;
+  firstDueDate: string;
+  monthlyPayment: number;
+  reason?: string;
+}
+
+export interface ExtendLoanTermRequest {
+  additionalMonths: number;
+  reason?: string;
+}
+
+export interface RegenerateScheduleRequest {
+  newMonthlyPayment: number;
+  newTerm: number;
+  startDate: string;
+  reason?: string;
+}
+
+export interface UpdateScheduleRequest {
+  amount?: number;
+  status?: PaymentStatus;
+  dueDate?: string;
+  paidDate?: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  notes?: string;
+}
+
+export interface MarkAsPaidRequest {
+  amount: number;
+  method: string;
+  reference: string;
+  paymentDate: string;
+  notes?: string;
+}
+
+export interface UpdateDueDateRequest {
+  newDueDate: string;
+}
+
+// Response interfaces for schedule operations
+export interface ScheduleOperationResponse {
+  success: boolean;
+  message: string;
+  data?: RepaymentSchedule | RepaymentSchedule[] | boolean;
+  errors?: string[];
 }
 
 export interface AuthUser {

@@ -13,7 +13,14 @@ import {
   NotificationsResponse,
   GetNotificationsParams,
   UpcomingPayment,
-  OverduePayment
+  OverduePayment,
+  AddCustomScheduleRequest,
+  ExtendLoanTermRequest,
+  RegenerateScheduleRequest,
+  UpdateScheduleRequest,
+  MarkAsPaidRequest,
+  UpdateDueDateRequest,
+  ScheduleOperationResponse
 } from '../types/loan';
 import { 
   Bill, 
@@ -706,6 +713,192 @@ class ApiService {
     if (response && response.data) {
       return response.data;
     }
+    return response;
+  }
+
+  // ==================== PAYMENT SCHEDULE MANAGEMENT APIs ====================
+
+  // 📅 Add Payment Schedule APIs
+
+  // Add Custom Payment Installments
+  async addCustomPaymentSchedule(loanId: string, request: AddCustomScheduleRequest): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      // Mock implementation for adding custom schedule
+      const mockSchedules: RepaymentSchedule[] = [];
+      for (let i = 0; i < request.numberOfMonths; i++) {
+        const dueDate = new Date(request.firstDueDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+        
+        mockSchedules.push({
+          id: `schedule-${Date.now()}-${i}`,
+          loanId,
+          installmentNumber: request.startingInstallmentNumber + i,
+          dueDate: dueDate.toISOString(),
+          totalAmount: request.monthlyPayment,
+          principalAmount: request.monthlyPayment * 0.8,
+          interestAmount: request.monthlyPayment * 0.2,
+          status: 'PENDING' as any
+        });
+      }
+      
+      return {
+        success: true,
+        message: `Added ${request.numberOfMonths} custom payment installments successfully`,
+        data: mockSchedules
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/add-schedule`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    return response;
+  }
+
+  // Extend Loan Term (Adds Months)
+  async extendLoanTerm(loanId: string, request: ExtendLoanTermRequest): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: `Extended loan term by ${request.additionalMonths} months successfully`,
+        data: true
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/extend-term`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    return response;
+  }
+
+  // Regenerate Entire Schedule
+  async regeneratePaymentSchedule(loanId: string, request: RegenerateScheduleRequest): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: 'Payment schedule regenerated successfully',
+        data: true
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/regenerate-schedule`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    return response;
+  }
+
+  // ✏️ Update Payment Schedule APIs
+
+  // Simple Schedule Update (MAIN UPDATE API)
+  async updatePaymentSchedule(loanId: string, installmentNumber: number, request: UpdateScheduleRequest): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: 'Payment schedule updated successfully',
+        data: {
+          id: `schedule-${loanId}-${installmentNumber}`,
+          loanId,
+          installmentNumber,
+          dueDate: request.dueDate || new Date().toISOString(),
+          totalAmount: request.amount || 825.00,
+          principalAmount: (request.amount || 825.00) * 0.8,
+          interestAmount: (request.amount || 825.00) * 0.2,
+          status: request.status || 'PENDING' as any,
+          paidDate: request.paidDate,
+          paymentMethod: request.paymentMethod,
+          paymentReference: request.paymentReference,
+          notes: request.notes
+        }
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
+      method: 'PATCH',
+      body: JSON.stringify(request),
+    });
+    
+    return response;
+  }
+
+  // Mark Installment as Paid
+  async markInstallmentAsPaid(loanId: string, installmentNumber: number, request: MarkAsPaidRequest): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: 'Installment marked as paid successfully',
+        data: {
+          id: `schedule-${loanId}-${installmentNumber}`,
+          loanId,
+          installmentNumber,
+          dueDate: new Date().toISOString(),
+          totalAmount: request.amount,
+          principalAmount: request.amount * 0.8,
+          interestAmount: request.amount * 0.2,
+          status: 'PAID' as any,
+          paidDate: request.paymentDate,
+          paymentMethod: request.method,
+          paymentReference: request.reference,
+          notes: request.notes
+        }
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}/mark-paid`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    return response;
+  }
+
+  // Update Due Date Only
+  async updateInstallmentDueDate(loanId: string, installmentNumber: number, request: UpdateDueDateRequest): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: 'Due date updated successfully',
+        data: {
+          id: `schedule-${loanId}-${installmentNumber}`,
+          loanId,
+          installmentNumber,
+          dueDate: request.newDueDate,
+          totalAmount: 825.00,
+          principalAmount: 660.00,
+          interestAmount: 165.00,
+          status: 'PENDING' as any
+        }
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    });
+    
+    return response;
+  }
+
+  // 🗑️ Delete Payment Schedule APIs
+
+  // Delete Specific Installment
+  async deletePaymentInstallment(loanId: string, installmentNumber: number): Promise<ScheduleOperationResponse> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: 'Payment installment deleted successfully',
+        data: true
+      };
+    }
+
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
+      method: 'DELETE',
+    });
+    
     return response;
   }
 

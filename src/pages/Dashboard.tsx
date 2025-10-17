@@ -51,6 +51,7 @@ import {
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
+import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 
 
 const Dashboard: React.FC = () => {
@@ -104,12 +105,18 @@ const Dashboard: React.FC = () => {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  
   // Check if user needs to complete profile
   useEffect(() => {
     if (user && !hasProfile) {
-      setShowProfileForm(true);
+      // Show onboarding wizard instead of the old profile form
+      setShowOnboarding(true);
+      setShowProfileForm(false);
     } else if (user && hasProfile) {
       setShowProfileForm(false);
+      setShowOnboarding(false);
     }
   }, [user, hasProfile]);
 
@@ -274,6 +281,19 @@ const Dashboard: React.FC = () => {
     } finally {
       setProfileLoading(false);
     }
+  };
+
+  // Onboarding handlers
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    // Refresh the page to show updated dashboard
+    window.location.reload();
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+    // Show a message that they can complete setup later
+    setProfileError('You can complete your profile setup anytime from the Settings page.');
   };
 
   // Handle disposable card click
@@ -1032,6 +1052,13 @@ const Dashboard: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Onboarding Wizard */}
+      <OnboardingWizard
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
 
       {/* Complete Your Profile Modal */}
       <Dialog 
