@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom';
 import AppBar from './AppBar';
 import Drawer from './Drawer';
 import Sidebar from './Sidebar';
+import Chatbot from '../Chatbot/Chatbot';
 
 const Layout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,6 +51,9 @@ const Layout: React.FC = () => {
       >
         <Outlet />
       </Box>
+      
+      {/* Chatbot - only show when authenticated */}
+      <Chatbot />
     </Box>
   );
 };

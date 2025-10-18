@@ -2374,6 +2374,240 @@ class ApiService {
     return response;
   }
 
+  // ==================== AI CHAT APIs ====================
+
+  // Send a message to AI chat
+  async sendChatMessage(request: {
+    message: string;
+    conversationId?: string;
+    includeTransactionContext?: boolean;
+    reportFormat?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      message: string;
+      conversationId: string;
+      suggestedActions: string[];
+      tokensUsed: number;
+      timestamp: string;
+    };
+  }> {
+    const response = await this.request<any>('/chat/message', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to send chat message');
+  }
+
+  // Get conversation history
+  async getConversations(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      conversations: Array<{
+        id: string;
+        title: string;
+        lastMessage: string;
+        messageCount: number;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      totalCount: number;
+      page: number;
+      limit: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/chat/conversations${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to get conversations');
+  }
+
+  // Get conversation messages
+  async getConversationMessages(conversationId: string, params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      messages: Array<{
+        id: string;
+        type: 'user' | 'assistant';
+        content: string;
+        timestamp: string;
+        tokensUsed?: number;
+      }>;
+      totalCount: number;
+      page: number;
+      limit: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/chat/conversations/${conversationId}/messages${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to get conversation messages');
+  }
+
+  // Delete conversation
+  async deleteConversation(conversationId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: boolean;
+  }> {
+    const response = await this.request<any>(`/chat/conversations/${conversationId}`, {
+      method: 'DELETE',
+    });
+    
+    if (response && response.success) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to delete conversation');
+  }
+
+  // Generate financial report
+  async generateFinancialReport(request: {
+    reportType: string;
+    format: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      reportUrl: string;
+      reportType: string;
+      format: string;
+      generatedAt: string;
+    };
+  }> {
+    const response = await this.request<any>('/chat/generate-report', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to generate financial report');
+  }
+
+  // Get bill reminders
+  async getBillReminders(): Promise<{
+    success: boolean;
+    message: string;
+    data: Array<{
+      id: string;
+      billName: string;
+      amount: number;
+      dueDate: string;
+      daysUntilDue: number;
+      status: string;
+    }>;
+  }> {
+    const response = await this.request<any>('/chat/bill-reminders');
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to get bill reminders');
+  }
+
+  // Get budget suggestions
+  async getBudgetSuggestions(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      suggestions: Array<{
+        category: string;
+        currentSpending: number;
+        suggestedBudget: number;
+        reason: string;
+        priority: 'high' | 'medium' | 'low';
+      }>;
+      totalCurrentSpending: number;
+      totalSuggestedBudget: number;
+      potentialSavings: number;
+    };
+  }> {
+    const response = await this.request<any>('/chat/budget-suggestions');
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to get budget suggestions');
+  }
+
+  // Get financial context
+  async getFinancialContext(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      recentTransactions: Array<{
+        id: string;
+        description: string;
+        amount: number;
+        date: string;
+        category: string;
+      }>;
+      upcomingBills: Array<{
+        id: string;
+        name: string;
+        amount: number;
+        dueDate: string;
+      }>;
+      activeLoans: Array<{
+        id: string;
+        purpose: string;
+        monthlyPayment: number;
+        remainingBalance: number;
+      }>;
+      savingsAccounts: Array<{
+        id: string;
+        name: string;
+        currentAmount: number;
+        targetAmount: number;
+      }>;
+      financialSummary: {
+        totalIncome: number;
+        totalExpenses: number;
+        disposableAmount: number;
+        savingsRate: number;
+      };
+    };
+  }> {
+    const response = await this.request<any>('/chat/financial-context');
+    
+    if (response && response.success && response.data) {
+      return response;
+    }
+    throw new Error(response?.message || 'Failed to get financial context');
+  }
+
   // ==================== DISPOSABLE AMOUNT APIs ====================
 
   // Get disposable amount with detailed breakdown
