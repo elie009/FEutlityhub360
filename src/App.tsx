@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { theme } from './theme/theme';
 import Layout from './components/Layout/Layout';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Utilities from './pages/Utilities';
@@ -18,8 +19,13 @@ function App() {
       <CssBaseline />
       <Router>
         <Routes>
-          <Route path="/" element={<Layout />}>
+          {/* Landing Page - Public Route */}
+          <Route path="/" element={<Landing />} />
+          
+          {/* App Routes - With Layout */}
+          <Route path="/app" element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="utilities" element={<Utilities />} />
             <Route path="bills" element={<Bills />} />
