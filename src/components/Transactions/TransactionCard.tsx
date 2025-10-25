@@ -97,129 +97,173 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
   const amountPrefix = isCredit ? '+' : '-';
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flexGrow: 1 }}>
+    <Card sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      '&:hover': {
+        boxShadow: 2,
+        transform: 'translateY(-1px)',
+        transition: 'all 0.2s ease'
+      }
+    }}>
+      <CardContent sx={{ flexGrow: 1, p: 2, '&:last-child': { pb: 2 } }}>
+        {/* Header Row - Description and Menu */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography 
+            variant="body1" 
+            component="div" 
+            sx={{ 
+              flexGrow: 1, 
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              lineHeight: 1.3,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical'
+            }}
+          >
             {transaction.description}
           </Typography>
           <IconButton
             aria-label="settings"
             onClick={handleMenuClick}
             size="small"
-            sx={{ p: 0 }}
+            sx={{ p: 0.5, ml: 1 }}
           >
-            <MoreVert />
+            <MoreVert sx={{ fontSize: 18 }} />
           </IconButton>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-          <Chip
-            label={transaction.transactionType}
-            icon={getTransactionTypeIcon(transaction.transactionType)}
-            color={getTransactionTypeColor(transaction.transactionType)}
-            size="small"
-          />
-          <Chip
-            label={transaction.category}
-            icon={getCategoryIcon(transaction.category)}
-            color={getCategoryColor(transaction.category)}
-            size="small"
-          />
-          {transaction.isRecurring && (
+        {/* Compact Info Row */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             <Chip
-              label="Recurring"
-              icon={<Schedule sx={{ fontSize: 16 }} />}
-              color="info"
+              label={transaction.transactionType}
+              icon={getTransactionTypeIcon(transaction.transactionType)}
+              color={getTransactionTypeColor(transaction.transactionType)}
               size="small"
+              sx={{ fontSize: '0.7rem', height: 20 }}
             />
-          )}
-        </Box>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Main Transaction Information */}
-        <Box sx={{ mb: 2 }}>
-          <Typography 
-            variant="h5" 
-            component="div" 
-            sx={{ 
-              color: amountColor,
-              fontWeight: 'bold',
-              textAlign: 'right'
-            }}
-          >
-            {amountPrefix}{formatCurrency(Math.abs(transaction.amount), transaction.currency)}
-          </Typography>
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ textAlign: 'right' }}
-          >
-            Balance: {formatCurrency(transaction.balanceAfterTransaction, transaction.currency)}
-          </Typography>
-        </Box>
-
-        <Grid container spacing={1}>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">Date:</Typography>
-            <Typography variant="body2" fontWeight="medium">
+            <Chip
+              label={transaction.category}
+              icon={getCategoryIcon(transaction.category)}
+              color={getCategoryColor(transaction.category)}
+              size="small"
+              sx={{ fontSize: '0.7rem', height: 20 }}
+            />
+            {transaction.isRecurring && (
+              <Chip
+                label="Recurring"
+                icon={<Schedule sx={{ fontSize: 12 }} />}
+                color="info"
+                size="small"
+                sx={{ fontSize: '0.7rem', height: 20 }}
+              />
+            )}
+          </Box>
+          
+          {/* Amount and Date in one line */}
+          <Box sx={{ textAlign: 'right', minWidth: 'fit-content' }}>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                color: amountColor,
+                fontWeight: 'bold',
+                fontSize: '1.1rem',
+                lineHeight: 1.2
+              }}
+            >
+              {amountPrefix}{formatCurrency(Math.abs(transaction.amount), transaction.currency)}
+            </Typography>
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              sx={{ fontSize: '0.7rem' }}
+            >
               {formatDateShort(transaction.transactionDate)}
             </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">Time:</Typography>
-            <Typography variant="body2" fontWeight="medium">
-              {new Date(transaction.transactionDate).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Typography>
-          </Grid>
+          </Box>
+        </Box>
+
+        {/* Compact Details Grid */}
+        <Grid container spacing={1} sx={{ mb: 1 }}>
           {transaction.merchant && (
             <Grid item xs={6}>
-              <Typography variant="body2" color="text.secondary">Merchant:</Typography>
-              <Typography variant="body2" fontWeight="medium">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                Merchant:
+              </Typography>
+              <Typography variant="caption" fontWeight="medium" sx={{ fontSize: '0.75rem', display: 'block' }}>
                 {transaction.merchant}
               </Typography>
             </Grid>
           )}
           {transaction.location && (
             <Grid item xs={6}>
-              <Typography variant="body2" color="text.secondary">Location:</Typography>
-              <Typography variant="body2" fontWeight="medium">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                Location:
+              </Typography>
+              <Typography variant="caption" fontWeight="medium" sx={{ fontSize: '0.75rem', display: 'block' }}>
                 {transaction.location}
               </Typography>
             </Grid>
           )}
         </Grid>
 
-        {transaction.notes && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Notes:
+        {/* Balance and Reference in compact format */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography 
+            variant="caption" 
+            color="text.secondary"
+            sx={{ fontSize: '0.7rem' }}
+          >
+            Balance: {formatCurrency(transaction.balanceAfterTransaction, transaction.currency)}
+          </Typography>
+          {transaction.referenceNumber && (
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontFamily: 'monospace',
+                fontSize: '0.65rem',
+                color: 'text.secondary',
+                maxWidth: '100px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Ref: {transaction.referenceNumber}
             </Typography>
-            <Typography variant="body2">
+          )}
+        </Box>
+
+        {/* Notes in compact format */}
+        {transaction.notes && (
+          <Box sx={{ mt: 1, p: 0.5, bgcolor: 'grey.50', borderRadius: 0.5 }}>
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              sx={{ 
+                fontSize: '0.7rem',
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {transaction.notes}
             </Typography>
           </Box>
         )}
 
-        {transaction.referenceNumber && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Reference:
-            </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-              {transaction.referenceNumber}
-            </Typography>
-          </Box>
-        )}
-
+        {/* Recurring info in compact format */}
         {transaction.isRecurring && transaction.recurringFrequency && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: 'info.50', borderRadius: 1 }}>
-            <Typography variant="caption" color="info.main">
-              🔄 Recurring {transaction.recurringFrequency}
+          <Box sx={{ mt: 0.5, p: 0.5, bgcolor: 'info.50', borderRadius: 0.5 }}>
+            <Typography variant="caption" color="info.main" sx={{ fontSize: '0.7rem' }}>
+              🔄 {transaction.recurringFrequency}
             </Typography>
           </Box>
         )}

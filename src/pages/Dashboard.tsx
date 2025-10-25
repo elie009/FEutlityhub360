@@ -52,6 +52,8 @@ import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Ba
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
+import TransactionCard from '../components/Transactions/TransactionCard';
+import { BankAccountTransaction } from '../types/transaction';
 
 
 const Dashboard: React.FC = () => {
@@ -107,6 +109,10 @@ const Dashboard: React.FC = () => {
   
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // Recent transactions state
+  const [recentTransactions, setRecentTransactions] = useState<BankAccountTransaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   
   // Check if user needs to complete profile
   useEffect(() => {
@@ -180,6 +186,26 @@ const Dashboard: React.FC = () => {
     };
     
     loadTotalBalance();
+  }, [isAuthenticated]);
+
+  // Fetch recent transactions on page load
+  useEffect(() => {
+    const loadRecentTransactions = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setTransactionsLoading(true);
+        const response = await apiService.getTransactions({ limit: 6, page: 1 });
+        setRecentTransactions(response.data || []);
+      } catch (error) {
+        console.error('Failed to load recent transactions for dashboard:', error);
+        setRecentTransactions([]);
+      } finally {
+        setTransactionsLoading(false);
+      }
+    };
+    
+    loadRecentTransactions();
   }, [isAuthenticated]);
 
   // Profile form handlers
@@ -573,6 +599,57 @@ const Dashboard: React.FC = () => {
               </Box>
             ) : (
               <Typography>No financial data available</Typography>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Recent Transactions */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Recent Transactions
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Receipt />}
+                href="/transactions"
+              >
+                View All
+              </Button>
+            </Box>
+            {transactionsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress size={24} />
+                <Typography variant="body2" sx={{ ml: 2 }}>
+                  Loading transactions...
+                </Typography>
+              </Box>
+            ) : recentTransactions.length > 0 ? (
+              <Grid container spacing={2}>
+                {recentTransactions.map((transaction) => (
+                  <Grid item xs={12} sm={6} md={4} key={transaction.id}>
+                    <TransactionCard 
+                      transaction={transaction} 
+                      onViewDetails={() => {
+                        // You could add a dialog here or navigate to transactions page
+                        console.log('View transaction details:', transaction);
+                      }}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No recent transactions found
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Your recent transactions will appear here
+                </Typography>
+              </Box>
             )}
           </Paper>
         </Grid>
