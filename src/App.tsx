@@ -6,6 +6,7 @@ import { theme } from './theme/theme';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
 // import ProfileProtectedRoute from './components/ProfileProtectedRoute';
+import LandingPage from './pages/LandingPage';
 import AuthPage from './components/Auth/AuthPage';
 import ForgotPasswordForm from './components/Auth/ForgotPasswordForm';
 import ResetPasswordForm from './components/Auth/ResetPasswordForm';
@@ -27,7 +28,6 @@ import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
 import ReportsPage from './components/Reports/ReportsPage';
 import { FinanceLoader } from './components/Common';
-import AddScheduleApiTest from './components/Test/AddScheduleApiTest';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -48,24 +48,29 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AppRoutes: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <Router>
       <Routes>
+        {/* Public routes */}
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<Navigate to="/auth" replace />} />
         <Route path="/forgot-password" element={<ForgotPasswordForm />} />
         <Route path="/reset-password" element={<ResetPasswordForm />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/profile-setup" element={
-          <ProtectedRoute>
-            <ProfileSetup />
-          </ProtectedRoute>
-        } />
+        
+        {/* Landing page for unauthenticated users, Dashboard for authenticated */}
         <Route path="/" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
+          isAuthenticated ? (
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          ) : (
+            <LandingPage />
+          )
         }>
+          {/* Protected routes - only accessible when authenticated */}
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={
@@ -132,11 +137,6 @@ const AppRoutes: React.FC = () => {
           <Route path="reports" element={
             <ProtectedRoute>
               <ReportsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="test/add-schedule" element={
-            <ProtectedRoute>
-              <AddScheduleApiTest />
             </ProtectedRoute>
           } />
         </Route>

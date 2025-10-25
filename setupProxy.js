@@ -2,7 +2,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // 🚀 BACKEND CONFIGURATION FROM ENVIRONMENT FILES
 // Automatically loads from env.development.ts or env.production.ts based on NODE_ENV
-let BACKEND_URL = 'https://localhost:5000'; // fallback
+let BACKEND_URL = 'https://api.utilityhub360.com'; // fallback
 
 try {
   // Try to load the environment config
