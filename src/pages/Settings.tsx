@@ -35,6 +35,7 @@ import {
   TableRow,
   Chip,
   Tooltip,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -50,18 +51,51 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 
+// Currency options with codes and full names
+const CURRENCY_OPTIONS = [
+  { code: 'USD', name: 'US Dollar' },
+  { code: 'PHP', name: 'Philippine Peso' },
+  { code: 'SAR', name: 'Saudi Riyal' },
+  { code: 'EUR', name: 'Euro' },
+  { code: 'GBP', name: 'British Pound' },
+  { code: 'AED', name: 'UAE Dirham' },
+  { code: 'INR', name: 'Indian Rupee' },
+  { code: 'JPY', name: 'Japanese Yen' },
+  { code: 'CAD', name: 'Canadian Dollar' },
+  { code: 'AUD', name: 'Australian Dollar' },
+  { code: 'CHF', name: 'Swiss Franc' },
+  { code: 'CNY', name: 'Chinese Yuan' },
+  { code: 'KRW', name: 'South Korean Won' },
+  { code: 'SGD', name: 'Singapore Dollar' },
+  { code: 'HKD', name: 'Hong Kong Dollar' },
+  { code: 'NZD', name: 'New Zealand Dollar' },
+  { code: 'SEK', name: 'Swedish Krona' },
+  { code: 'NOK', name: 'Norwegian Krone' },
+  { code: 'DKK', name: 'Danish Krone' },
+  { code: 'PLN', name: 'Polish Zloty' },
+  { code: 'CZK', name: 'Czech Koruna' },
+  { code: 'HUF', name: 'Hungarian Forint' },
+  { code: 'RUB', name: 'Russian Ruble' },
+  { code: 'BRL', name: 'Brazilian Real' },
+  { code: 'MXN', name: 'Mexican Peso' },
+  { code: 'ZAR', name: 'South African Rand' },
+  { code: 'TRY', name: 'Turkish Lira' },
+  { code: 'THB', name: 'Thai Baht' },
+  { code: 'MYR', name: 'Malaysian Ringgit' },
+  { code: 'IDR', name: 'Indonesian Rupiah' },
+];
+
 interface IncomeSource {
   name: string;
   amount: number;
+  currency: string;
   frequency: string;
   category: string;
-  currency: string;
-  description: string;
   company: string;
+  description: string;
 }
 
 interface ProfileFormData {
-  isUnemployed: boolean;
   jobTitle: string;
   company: string;
   employmentType: string;
@@ -73,6 +107,7 @@ interface ProfileFormData {
   industry: string;
   location: string;
   notes: string;
+  preferredCurrency: string;
   incomeSources: IncomeSource[];
 }
 
@@ -94,7 +129,6 @@ const Settings: React.FC = () => {
   // Profile form state
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileFormData, setProfileFormData] = useState<ProfileFormData>({
-    isUnemployed: false,
     jobTitle: '',
     company: '',
     employmentType: '',
@@ -106,6 +140,7 @@ const Settings: React.FC = () => {
     industry: '',
     location: '',
     notes: '',
+    preferredCurrency: 'USD',
     incomeSources: [
       {
         name: '',
@@ -130,7 +165,6 @@ const Settings: React.FC = () => {
   // Edit profile state
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editFormData, setEditFormData] = useState({
-    isUnemployed: false,
     jobTitle: '',
     company: '',
     employmentType: '',
@@ -142,6 +176,7 @@ const Settings: React.FC = () => {
     industry: '',
     location: '',
     notes: '',
+    preferredCurrency: 'USD',
   });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -291,39 +326,7 @@ const Settings: React.FC = () => {
     if (profileError) setProfileError(null);
   };
 
-  const handleUnemployedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isUnemployed = e.target.checked;
-    setProfileFormData(prev => ({
-      ...prev,
-      isUnemployed,
-      // Clear employment fields when unemployed is checked
-      ...(isUnemployed ? {
-        jobTitle: '',
-        company: '',
-        employmentType: '',
-        industry: '',
-        location: '',
-      } : {}),
-    }));
-    if (profileError) setProfileError(null);
-  };
 
-  const handleEditUnemployedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isUnemployed = e.target.checked;
-    setEditFormData(prev => ({
-      ...prev,
-      isUnemployed,
-      // Clear employment fields when unemployed is checked
-      ...(isUnemployed ? {
-        jobTitle: '',
-        company: '',
-        employmentType: '',
-        industry: '',
-        location: '',
-      } : {}),
-    }));
-    if (editError) setEditError(null);
-  };
 
   const handleIncomeSourceChange = (index: number, field: keyof IncomeSource, value: any) => {
     setProfileFormData(prev => ({
@@ -362,11 +365,6 @@ const Settings: React.FC = () => {
   };
 
   const validateProfileForm = (): string | null => {
-    // Skip validation if user is unemployed
-    if (profileFormData.isUnemployed) {
-      return null;
-    }
-    
     if (!profileFormData.jobTitle.trim()) {
       return 'Job title is required';
     }
@@ -414,7 +412,6 @@ const Settings: React.FC = () => {
   const handleEditProfile = () => {
     if (userProfile) {
       setEditFormData({
-        isUnemployed: (userProfile as any).isUnemployed || false,
         jobTitle: userProfile.jobTitle || '',
         company: userProfile.company || '',
         employmentType: userProfile.employmentType || '',
@@ -426,6 +423,7 @@ const Settings: React.FC = () => {
         industry: userProfile.industry || '',
         location: userProfile.location || '',
         notes: userProfile.notes || '',
+        preferredCurrency: userProfile.preferredCurrency || 'USD',
       });
       setShowEditDialog(true);
       setEditError(null);
@@ -452,11 +450,6 @@ const Settings: React.FC = () => {
   };
 
   const validateEditForm = (): string | null => {
-    // Skip validation if user is unemployed
-    if (editFormData.isUnemployed) {
-      return null;
-    }
-    
     if (!editFormData.jobTitle.trim()) {
       return 'Job title is required';
     }
@@ -1464,47 +1457,32 @@ const Settings: React.FC = () => {
                 Employment Information
               </Typography>
               
-              {/* Unemployed Checkbox */}
-              <Box sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={profileFormData.isUnemployed}
-                      onChange={handleUnemployedChange}
-                      color="primary"
-                    />
-                  }
-                  label="I am currently unemployed"
-                />
-              </Box>
 
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required={!profileFormData.isUnemployed}
+                    required
                     fullWidth
                     id="jobTitle"
                     label="Job Title"
                     name="jobTitle"
                     value={profileFormData.jobTitle}
                     onChange={handleProfileFormInputChange}
-                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required={!profileFormData.isUnemployed}
+                    required
                     fullWidth
                     id="company"
                     label="Company"
                     name="company"
                     value={profileFormData.company}
                     onChange={handleProfileFormInputChange}
-                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required={!profileFormData.isUnemployed} disabled={profileFormData.isUnemployed}>
+                  <FormControl fullWidth required>
                     <InputLabel>Employment Type</InputLabel>
                     <Select
                       name="employmentType"
@@ -1528,7 +1506,6 @@ const Settings: React.FC = () => {
                     name="industry"
                     value={profileFormData.industry}
                     onChange={handleProfileFormInputChange}
-                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -1539,7 +1516,6 @@ const Settings: React.FC = () => {
                     name="location"
                     value={profileFormData.location}
                     onChange={handleProfileFormInputChange}
-                    disabled={profileFormData.isUnemployed}
                   />
                 </Grid>
               </Grid>
@@ -1701,12 +1677,20 @@ const Settings: React.FC = () => {
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Currency"
-                        value={source.currency}
-                        onChange={(e) => handleIncomeSourceChange(index, 'currency', e.target.value)}
-                      />
+                      <FormControl fullWidth>
+                        <InputLabel>Currency</InputLabel>
+                        <Select
+                          value={source.currency}
+                          onChange={(e) => handleIncomeSourceChange(index, 'currency', e.target.value)}
+                          label="Currency"
+                        >
+                          {CURRENCY_OPTIONS.map((currency) => (
+                            <MenuItem key={currency.code} value={currency.code}>
+                              {currency.code} - {currency.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                     </Grid>
                     <Grid item xs={12}>
                       <TextField
@@ -1814,47 +1798,32 @@ const Settings: React.FC = () => {
                 Employment Information
               </Typography>
               
-              {/* Unemployed Checkbox */}
-              <Box sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={editFormData.isUnemployed}
-                      onChange={handleEditUnemployedChange}
-                      color="primary"
-                    />
-                  }
-                  label="I am currently unemployed"
-                />
-              </Box>
 
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required={!editFormData.isUnemployed}
+                    required
                     fullWidth
                     id="edit-jobTitle"
                     label="Job Title"
                     name="jobTitle"
                     value={editFormData.jobTitle}
                     onChange={handleEditInputChange}
-                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required={!editFormData.isUnemployed}
+                    required
                     fullWidth
                     id="edit-company"
                     label="Company"
                     name="company"
                     value={editFormData.company}
                     onChange={handleEditInputChange}
-                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required={!editFormData.isUnemployed} disabled={editFormData.isUnemployed}>
+                  <FormControl fullWidth required>
                     <InputLabel>Employment Type</InputLabel>
                     <Select
                       name="employmentType"
@@ -1878,7 +1847,6 @@ const Settings: React.FC = () => {
                     name="industry"
                     value={editFormData.industry}
                     onChange={handleEditInputChange}
-                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -1889,7 +1857,6 @@ const Settings: React.FC = () => {
                     name="location"
                     value={editFormData.location}
                     onChange={handleEditInputChange}
-                    disabled={editFormData.isUnemployed}
                   />
                 </Grid>
               </Grid>
@@ -2110,15 +2077,22 @@ const Settings: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                id="income-currency"
-                label="Currency"
-                name="currency"
-                value={incomeSourceFormData.currency}
-                onChange={handleIncomeSourceInputChange}
-                placeholder="USD"
-              />
+              <FormControl fullWidth>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  id="income-currency"
+                  name="currency"
+                  value={incomeSourceFormData.currency}
+                  onChange={handleIncomeSourceSelectChange}
+                  label="Currency"
+                >
+                  {CURRENCY_OPTIONS.map((currency) => (
+                    <MenuItem key={currency.code} value={currency.code}>
+                      {currency.code} - {currency.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -2283,13 +2257,20 @@ const Settings: React.FC = () => {
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Currency"
-                    value={source.currency}
-                    onChange={(e) => handleBulkIncomeSourceChange(index, 'currency', e.target.value)}
-                    placeholder="USD"
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Currency</InputLabel>
+                    <Select
+                      value={source.currency}
+                      onChange={(e) => handleBulkIncomeSourceChange(index, 'currency', e.target.value)}
+                      label="Currency"
+                    >
+                      {CURRENCY_OPTIONS.map((currency) => (
+                        <MenuItem key={currency.code} value={currency.code}>
+                          {currency.code} - {currency.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
@@ -2628,15 +2609,22 @@ const Settings: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                id="edit-income-currency"
-                label="Currency"
-                name="currency"
-                value={editIncomeFormData.currency}
-                onChange={handleEditIncomeInputChange}
-                placeholder="USD"
-              />
+              <FormControl fullWidth>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  id="edit-income-currency"
+                  name="currency"
+                  value={editIncomeFormData.currency}
+                  onChange={handleEditIncomeSelectChange}
+                  label="Currency"
+                >
+                  {CURRENCY_OPTIONS.map((currency) => (
+                    <MenuItem key={currency.code} value={currency.code}>
+                      {currency.code} - {currency.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControlLabel

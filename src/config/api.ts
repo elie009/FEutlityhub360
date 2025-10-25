@@ -1,5 +1,6 @@
 import { config, isMockDataEnabled } from './environment';
 import { mockDataService } from '../services/mockData';
+import { CreateUserProfileRequest, UpdateUserProfileRequest, UserProfileResponse } from '../types/userProfile';
 
 // Backend response interfaces
 interface BackendResponse<T = any> {
@@ -204,6 +205,55 @@ export class ApiService {
   // User endpoints
   async getUser(userId: string) {
     return this.request(`/users/${userId}`);
+  }
+
+  // UserProfile endpoints
+  async createUserProfile(profileData: CreateUserProfileRequest) {
+    console.log('API Service: Making createUserProfile request to /api/UserProfile');
+    const response = await this.request<BackendResponse<UserProfileResponse>>('/api/UserProfile', {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+    console.log('API Service: createUserProfile response received:', response);
+    
+    if (response.success && response.data) {
+      console.log('API Service: Returning user profile data:', response.data);
+      return response.data;
+    }
+    
+    console.error('API Service: createUserProfile failed with response:', response);
+    throw new Error(response.message || 'Failed to create user profile');
+  }
+
+  async updateUserProfile(profileData: UpdateUserProfileRequest) {
+    console.log('API Service: Making updateUserProfile request to /api/UserProfile');
+    const response = await this.request<BackendResponse<UserProfileResponse>>('/api/UserProfile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    console.log('API Service: updateUserProfile response received:', response);
+    
+    if (response.success && response.data) {
+      console.log('API Service: Returning updated user profile data:', response.data);
+      return response.data;
+    }
+    
+    console.error('API Service: updateUserProfile failed with response:', response);
+    throw new Error(response.message || 'Failed to update user profile');
+  }
+
+  async getUserProfile() {
+    console.log('API Service: Making getUserProfile request to /api/UserProfile');
+    const response = await this.request<BackendResponse<UserProfileResponse>>('/api/UserProfile');
+    console.log('API Service: getUserProfile response received:', response);
+    
+    if (response.success && response.data) {
+      console.log('API Service: Returning user profile data:', response.data);
+      return response.data;
+    }
+    
+    console.error('API Service: getUserProfile failed with response:', response);
+    throw new Error(response.message || 'Failed to get user profile');
   }
 
   // Loan endpoints
