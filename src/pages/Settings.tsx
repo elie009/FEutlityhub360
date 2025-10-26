@@ -1006,7 +1006,7 @@ const Settings: React.FC = () => {
                 >
                   {CURRENCY_OPTIONS.map((currencyOption) => (
                     <MenuItem key={currencyOption.code} value={currencyOption.code}>
-                      {currencyOption.symbol} - {currencyOption.name} ({currencyOption.code})
+                      {currencyOption.code} {currencyOption.name}
                     </MenuItem>
                   ))}
                 </TextField>

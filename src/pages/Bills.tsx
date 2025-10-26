@@ -31,6 +31,7 @@ import {
   Refresh,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { 
@@ -49,6 +50,7 @@ import { SimpleFinanceLoader } from '../components/Common';
 
 const Bills: React.FC = () => {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
   const [bills, setBills] = useState<Bill[]>([]);
   const [analytics, setAnalytics] = useState<BillAnalytics | null>(null);
@@ -400,7 +402,7 @@ const Bills: React.FC = () => {
                 <Receipt sx={{ mr: 2, color: 'warning.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    ${currentMonthAnalytics.totalPendingAmount.toLocaleString()}
+                    {formatCurrency(currentMonthAnalytics.totalPendingAmount)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Pending This Month ({currentMonthAnalytics.totalPendingBills})
@@ -418,7 +420,7 @@ const Bills: React.FC = () => {
                 <CheckCircle sx={{ mr: 2, color: 'success.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    ${currentMonthAnalytics.totalPaidAmount.toLocaleString()}
+                    {formatCurrency(currentMonthAnalytics.totalPaidAmount)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Paid This Month ({currentMonthAnalytics.totalPaidBills})
@@ -436,7 +438,7 @@ const Bills: React.FC = () => {
                 <Warning sx={{ mr: 2, color: 'error.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    ${currentMonthAnalytics.totalOverdueAmount.toLocaleString()}
+                    {formatCurrency(currentMonthAnalytics.totalOverdueAmount)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Overdue This Month ({currentMonthAnalytics.totalOverdueBills})

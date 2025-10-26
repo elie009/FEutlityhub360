@@ -55,6 +55,7 @@ import {
 } from '@mui/icons-material';
 import { SimpleFinanceLoader } from '../Common';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { apiService } from '../../services/api';
 import { Loan, UpcomingPayment } from '../../types/loan';
 import { getErrorMessage } from '../../utils/validation';
@@ -70,11 +71,13 @@ type SortOrder = 'asc' | 'desc';
 
 const LoanDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [loans, setLoans] = useState<Loan[]>([]);
   const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
+  const [monthlyPaymentTotal, setMonthlyPaymentTotal] = useState<number>(0);
   const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
   const [monthlyPaymentData, setMonthlyPaymentData] = useState<{
     totalMonthlyPayment: number;
@@ -597,10 +600,10 @@ const LoanDashboard: React.FC = () => {
                 <AccountBalance sx={{ mr: 2, color: 'primary.main' }} />
                 <Box>
                   <Typography variant="h6">
-                    ${outstandingAmount.toLocaleString()}
+                    {formatCurrency(monthlyPaymentData?.totalMonthlyPayment || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Total Outstanding
+                    Total Monthly Payments
                   </Typography>
                 </Box>
               </Box>
@@ -657,10 +660,7 @@ const LoanDashboard: React.FC = () => {
                 <CalendarMonth sx={{ mr: 2, color: 'info.main' }} />
                 <Box sx={{ width: '100%' }}>
                   <Typography variant="h6">
-                    ${(monthlyPaymentData?.totalMonthlyPayment || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
+                    {formatCurrency(monthlyPaymentData?.totalMonthlyPayment || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Due This Month
@@ -888,17 +888,17 @@ const LoanDashboard: React.FC = () => {
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      ${loan.principal.toLocaleString()}
+                      {formatCurrency(loan.principal)}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2" sx={{ color: loan.remainingBalance > 0 ? 'warning.main' : 'success.main', fontWeight: 600 }}>
-                      ${loan.remainingBalance.toLocaleString()}
+                      {formatCurrency(loan.remainingBalance)}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2">
-                      ${loan.monthlyPayment.toLocaleString()}
+                      {formatCurrency(loan.monthlyPayment)}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
@@ -1147,10 +1147,7 @@ const LoanDashboard: React.FC = () => {
                 <Grid item xs={12} sm={4}>
                   <Paper elevation={0} sx={{ p: 2, bgcolor: 'info.lighter', textAlign: 'center' }}>
                     <Typography variant="h5" color="info.main" sx={{ fontWeight: 600 }}>
-                      ${monthlyPaymentData.totalMonthlyPayment.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
+                      {formatCurrency(monthlyPaymentData.totalMonthlyPayment)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Total Monthly Payment
@@ -1160,10 +1157,7 @@ const LoanDashboard: React.FC = () => {
                 <Grid item xs={12} sm={4}>
                   <Paper elevation={0} sx={{ p: 2, bgcolor: 'warning.lighter', textAlign: 'center' }}>
                     <Typography variant="h5" color="warning.main" sx={{ fontWeight: 600 }}>
-                      ${monthlyPaymentData.totalRemainingBalance.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
+                      {formatCurrency(monthlyPaymentData.totalRemainingBalance)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Total Remaining Balance
@@ -1233,10 +1227,7 @@ const LoanDashboard: React.FC = () => {
                               Monthly Payment
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 600, color: 'info.main' }}>
-                              ${loan.monthlyPayment.toLocaleString(undefined, { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                              })}
+                              {formatCurrency(loan.monthlyPayment)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               {loan.totalInstallments && loan.installmentsRemaining !== undefined
@@ -1249,10 +1240,7 @@ const LoanDashboard: React.FC = () => {
                               Remaining Balance
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                              ${loan.remainingBalance.toLocaleString(undefined, { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                              })}
+                              {formatCurrency(loan.remainingBalance)}
                             </Typography>
                           </Grid>
                         </Grid>
