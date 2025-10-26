@@ -57,10 +57,12 @@ import {
   Support,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const LandingPage: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -117,7 +119,7 @@ const LandingPage: React.FC = () => {
 
   const stats = [
     { number: '10K+', label: 'Active Users' },
-    { number: '$50M+', label: 'Assets Managed' },
+    { number: formatCurrency(50000000, { showSymbol: true, decimals: 0 }).replace(/[0-9,]/g, '') + '50M+', label: 'Assets Managed' },
     { number: '99.9%', label: 'Uptime' },
     { number: '4.9/5', label: 'User Rating' },
   ];

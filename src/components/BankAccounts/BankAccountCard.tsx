@@ -9,6 +9,7 @@ import {
   AccountBalanceWallet, CreditCard, Savings, Assessment,
 } from '@mui/icons-material';
 import { BankAccount } from '../../types/bankAccount';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 interface BankAccountCardProps {
   account: BankAccount;
@@ -62,12 +63,6 @@ const getSyncFrequencyLabel = (frequency: string): string => {
   }
 };
 
-const formatCurrency = (amount: number, currency: string = 'USD'): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(amount);
-};
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
@@ -81,6 +76,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
   onDisconnect, 
   onSync 
 }) => {
+  const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -169,7 +165,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
             color: isPositiveBalance ? 'success.main' : 'error.main',
             fontWeight: 'bold'
           }}>
-            {formatCurrency(account.currentBalance, account.currency)}
+            {formatCurrency(account.currentBalance, { currencyCode: account.currency })}
           </Typography>
           {hasBalanceChange && (
             <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
@@ -182,7 +178,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
                 variant="body2" 
                 color={balanceChange > 0 ? 'success.main' : 'error.main'}
               >
-                {balanceChange > 0 ? '+' : ''}{formatCurrency(balanceChange, account.currency)} from initial
+                {balanceChange > 0 ? '+' : ''}{formatCurrency(balanceChange, { currencyCode: account.currency })} from initial
               </Typography>
             </Box>
           )}
@@ -237,12 +233,12 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
           <Grid container spacing={1}>
             <Grid item xs={6}>
               <Typography variant="caption" color="success.main" fontWeight="medium">
-                Incoming: {formatCurrency(account.totalIncoming, account.currency)}
+                Incoming: {formatCurrency(account.totalIncoming, { currencyCode: account.currency })}
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="caption" color="error.main" fontWeight="medium">
-                Outgoing: {formatCurrency(account.totalOutgoing, account.currency)}
+                Outgoing: {formatCurrency(account.totalOutgoing, { currencyCode: account.currency })}
               </Typography>
             </Grid>
           </Grid>

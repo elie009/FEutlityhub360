@@ -23,6 +23,7 @@ import {
 import { BudgetStatus, BillType, CreateBudgetRequest } from '../../types/bill';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 interface BudgetTrackerProps {
   budgetStatus?: BudgetStatus;
@@ -37,6 +38,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
   billType,
   onBudgetUpdate,
 }) => {
+  const { formatCurrency } = useCurrency();
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,12 +50,6 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
     alertThreshold: 90,
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const getStatusColor = (): 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     if (!budgetStatus) return 'primary';
@@ -293,16 +289,16 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({
               </Typography>
               <Box sx={{ mt: 1, pl: 2, borderLeft: 2, borderColor: 'info.main' }}>
                 <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                  <strong>Example:</strong> If your average {provider} bill is $2,865:
+                  <strong>Example:</strong> If your average {provider} bill is {formatCurrency(2865)}:
                 </Typography>
                 <Typography variant="caption" display="block">
-                  • Conservative: $3,000 (105% of average)
+                  • Conservative: {formatCurrency(3000)} (105% of average)
                 </Typography>
                 <Typography variant="caption" display="block">
-                  • Comfortable: $3,200 (112% of average)
+                  • Comfortable: {formatCurrency(3200)} (112% of average)
                 </Typography>
                 <Typography variant="caption" display="block">
-                  • Generous: $3,500 (122% of average)
+                  • Generous: {formatCurrency(3500)} (122% of average)
                 </Typography>
               </Box>
             </Alert>

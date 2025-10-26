@@ -44,10 +44,12 @@ import {
   History as HistoryIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { SavingsAccount, SavingsType, SavingsSummary } from '../types/savings';
 import { BankAccount } from '../types/bankAccount';
 
 const Savings: React.FC = () => {
+  const { formatCurrency } = useCurrency();
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [savingsSummary, setSavingsSummary] = useState<SavingsSummary | null>(null);
@@ -355,14 +357,6 @@ const Savings: React.FC = () => {
       [SavingsType.GENERAL]: '#6ee7b7',        // Very light emerald
     };
     return colors[type] || '#10b981';
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
   };
 
   // Get progress color
@@ -941,10 +935,10 @@ const Savings: React.FC = () => {
                         <strong>Type:</strong> {accountWithTransactions.savingsType?.replace('_', ' ')}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        <strong>Current Balance:</strong> ${accountWithTransactions.currentBalance?.toFixed(2)}
+                        <strong>Current Balance:</strong> {formatCurrency(accountWithTransactions.currentBalance || 0)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        <strong>Target Amount:</strong> ${accountWithTransactions.targetAmount?.toFixed(2)}
+                        <strong>Target Amount:</strong> {formatCurrency(accountWithTransactions.targetAmount || 0)}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
@@ -955,7 +949,7 @@ const Savings: React.FC = () => {
                         <strong>Progress:</strong> {accountWithTransactions.progressPercentage?.toFixed(1)}%
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        <strong>Remaining:</strong> ${accountWithTransactions.remainingAmount?.toFixed(2)}
+                        <strong>Remaining:</strong> {formatCurrency(accountWithTransactions.remainingAmount || 0)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         <strong>Days Left:</strong> {accountWithTransactions.daysRemaining}

@@ -41,7 +41,7 @@ export const validateAddCustomSchedule = (data: AddCustomScheduleRequest): Valid
   }
 
   if (data.monthlyPayment > 50000) {
-    errors.push('Monthly payment cannot exceed $50,000');
+    errors.push('Monthly payment cannot exceed 50,000');
   }
 
   return {
@@ -73,7 +73,7 @@ export const validateRegenerateSchedule = (data: RegenerateScheduleRequest): Val
   }
 
   if (data.newMonthlyPayment > 50000) {
-    errors.push('New monthly payment cannot exceed $50,000');
+    errors.push('New monthly payment cannot exceed 50,000');
   }
 
   if (!data.newTerm || data.newTerm < 1 || data.newTerm > 60) {
@@ -105,7 +105,7 @@ export const validateUpdateSchedule = (data: UpdateScheduleRequest): ValidationR
   }
 
   if (data.amount !== undefined && data.amount > 50000) {
-    errors.push('Amount cannot exceed $50,000');
+    errors.push('Amount cannot exceed 50,000');
   }
 
   if (data.dueDate) {
@@ -147,7 +147,7 @@ export const validateMarkAsPaid = (data: MarkAsPaidRequest): ValidationResult =>
   }
 
   if (data.amount > 50000) {
-    errors.push('Payment amount cannot exceed $50,000');
+    errors.push('Payment amount cannot exceed 50,000');
   }
 
   if (!data.method || data.method.trim() === '') {

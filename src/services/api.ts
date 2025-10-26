@@ -277,6 +277,7 @@ class ApiService {
     industry: string;
     location: string;
     notes: string;
+    preferredCurrency: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -327,6 +328,7 @@ class ApiService {
     industry: string;
     location: string;
     notes: string;
+    preferredCurrency: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -404,6 +406,7 @@ class ApiService {
     industry: string;
     location: string;
     notes: string;
+    preferredCurrency: string;
   }): Promise<{
     id: string;
     userId: string;
@@ -418,6 +421,7 @@ class ApiService {
     industry: string;
     location: string;
     notes: string;
+    preferredCurrency: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;

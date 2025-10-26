@@ -50,6 +50,7 @@ import {
 } from '@mui/icons-material';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
@@ -58,6 +59,7 @@ import { BankAccountTransaction } from '../types/transaction';
 
 const Dashboard: React.FC = () => {
   const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
+  const { formatCurrency, currency } = useCurrency();
   const [financialData, setFinancialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -425,35 +427,35 @@ const Dashboard: React.FC = () => {
   const stats = [
     {
       title: 'Current Balance',
-      value: `$${(currentBalance || 0).toLocaleString()}`,
+      value: formatCurrency(currentBalance || 0),
       change: 'Total across all accounts',
       icon: <AccountBalance sx={{ fontSize: 40, color: 'secondary.main' }} />,
       color: 'secondary.main',
     },
     {
       title: 'Total Monthly Income',
-      value: `$${(totalMonthlyIncome || 0).toLocaleString()}`,
+      value: formatCurrency(totalMonthlyIncome || 0),
       change: `${incomeSourcesCount} source${incomeSourcesCount !== 1 ? 's' : ''}`,
       icon: <TrendingUp sx={{ fontSize: 40, color: 'primary.main' }} />,
       color: 'primary.main',
     },
     {
       title: 'Monthly Expense',
-      value: `$${(monthlyExpense || 0).toLocaleString()}`,
+      value: formatCurrency(monthlyExpense || 0),
       change: 'Fixed expenses',
       icon: <Receipt sx={{ fontSize: 40, color: 'success.main' }} />,
       color: 'success.main',
     },
     {
       title: 'Monthly Goals',
-      value: `$${(totalMonthlyGoals || 0).toLocaleString()}`,
+      value: formatCurrency(totalMonthlyGoals || 0),
       change: 'Savings & Investment',
       icon: <MoneyIcon sx={{ fontSize: 40, color: 'warning.main' }} />,
       color: 'warning.main',
     },
     {
       title: 'Disposable Income',
-      value: `$${(disposableIncome || 0).toLocaleString()}`,
+      value: formatCurrency(disposableIncome || 0),
       change: 'Available to spend',
       icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
       color: 'info.main',
@@ -561,7 +563,7 @@ const Dashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']} />
+                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
                   <Bar dataKey="amount" fill="#1976d2" />
                 </BarChart>
               </ResponsiveContainer>
@@ -574,6 +576,10 @@ const Dashboard: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Account Summary
             </Typography>
+            {/* Debug: Show current currency */}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Debug: Current currency is {currency}
+            </Typography>
             {loading ? (
               <Box display="flex" justifyContent="center" alignItems="center" height={300}>
                 <Typography>Loading account data...</Typography>
@@ -582,7 +588,7 @@ const Dashboard: React.FC = () => {
               <Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Total Balance</Typography>
-                  <Typography variant="h5">${financialData.totalBalance?.toLocaleString() || 0}</Typography>
+                  <Typography variant="h5">{formatCurrency(financialData.totalBalance || 0)}</Typography>
                 </Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Active Accounts</Typography>
@@ -590,11 +596,11 @@ const Dashboard: React.FC = () => {
                 </Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Total Incoming</Typography>
-                  <Typography variant="h5" color="success.main">${financialData.totalIncoming?.toLocaleString() || 0}</Typography>
+                  <Typography variant="h5" color="success.main">{formatCurrency(financialData.totalIncoming || 0)}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="body2" color="text.secondary">Total Outgoing</Typography>
-                  <Typography variant="h5" color="error.main">${financialData.totalOutgoing?.toLocaleString() || 0}</Typography>
+                  <Typography variant="h5" color="error.main">{formatCurrency(financialData.totalOutgoing || 0)}</Typography>
                 </Box>
               </Box>
             ) : (
@@ -667,13 +673,13 @@ const Dashboard: React.FC = () => {
                     • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    • Monthly income: ${totalMonthlyIncome.toLocaleString()}
+                    • Monthly income: {formatCurrency(totalMonthlyIncome)}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    • Monthly goals: ${totalMonthlyGoals.toLocaleString()}
+                    • Monthly goals: {formatCurrency(totalMonthlyGoals)}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    • Disposable income: ${disposableIncome.toLocaleString()}
+                    • Disposable income: {formatCurrency(disposableIncome)}
                   </Typography>
                 </>
               ) : (
@@ -741,7 +747,7 @@ const Dashboard: React.FC = () => {
                 <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
                   <Typography variant="body2" color="text.secondary">Total Balance</Typography>
                   <Typography variant="h4">
-                    ${(bankAccountsResponse?.currentBalance || currentBalance || 0).toLocaleString()}
+                    {formatCurrency(bankAccountsResponse?.currentBalance || currentBalance || 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Across {bankAccounts.length} account{bankAccounts.length !== 1 ? 's' : ''}
@@ -789,7 +795,7 @@ const Dashboard: React.FC = () => {
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body1" fontWeight="bold" color="primary.main">
-                            ${(account.currentBalance || account.balance || 0).toLocaleString()}
+                            {formatCurrency(account.currentBalance || account.balance || 0)}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -882,25 +888,25 @@ const Dashboard: React.FC = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'success.light' }}>
                       <Typography variant="body2" color="text.secondary">Total Income</Typography>
-                      <Typography variant="h5">${(disposableData.totalIncome || 0).toLocaleString()}</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.totalIncome || 0)}</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'error.light' }}>
                       <Typography variant="body2" color="text.secondary">Fixed Expenses</Typography>
-                      <Typography variant="h5">${(disposableData.totalFixedExpenses || 0).toLocaleString()}</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.totalFixedExpenses || 0)}</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'warning.light' }}>
                       <Typography variant="body2" color="text.secondary">Variable Expenses</Typography>
-                      <Typography variant="h5">${(disposableData.totalVariableExpenses || 0).toLocaleString()}</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.totalVariableExpenses || 0)}</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'info.light' }}>
                       <Typography variant="body2" color="text.secondary">Disposable Amount</Typography>
-                      <Typography variant="h5">${(disposableData.disposableAmount || 0).toLocaleString()}</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.disposableAmount || 0)}</Typography>
                       <Typography variant="body2" color="text.secondary">{(disposableData.disposablePercentage || 0).toFixed(2)}% of income</Typography>
                     </Paper>
                   </Grid>
@@ -931,8 +937,8 @@ const Dashboard: React.FC = () => {
                             <Chip label={income.category || 'N/A'} size="small" color="primary" />
                           </TableCell>
                           <TableCell>{income.frequency || 'N/A'}</TableCell>
-                          <TableCell align="right">${(income.amount || 0).toLocaleString()}</TableCell>
-                          <TableCell align="right">${(income.monthlyAmount || 0).toLocaleString()}</TableCell>
+                          <TableCell align="right">{formatCurrency(income.amount || 0)}</TableCell>
+                          <TableCell align="right">{formatCurrency(income.monthlyAmount || 0)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -945,7 +951,7 @@ const Dashboard: React.FC = () => {
               {/* Bills Breakdown */}
               <Box mb={3}>
                 <Typography variant="h6" gutterBottom>
-                  Bills Breakdown (Total: ${(disposableData.totalBills || 0).toLocaleString()})
+                  Bills Breakdown (Total: {formatCurrency(disposableData.totalBills || 0)})
                 </Typography>
                 <TableContainer component={Paper}>
                   <Table size="small">
@@ -971,7 +977,7 @@ const Dashboard: React.FC = () => {
                             />
                           </TableCell>
                           <TableCell>{bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
-                          <TableCell align="right">${(bill.amount || 0).toLocaleString()}</TableCell>
+                          <TableCell align="right">{formatCurrency(bill.amount || 0)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -984,7 +990,7 @@ const Dashboard: React.FC = () => {
               {/* Loans Breakdown */}
               <Box mb={3}>
                 <Typography variant="h6" gutterBottom>
-                  Loans Breakdown (Total: ${(disposableData.totalLoans || 0).toLocaleString()})
+                  Loans Breakdown (Total: {formatCurrency(disposableData.totalLoans || 0)})
                 </Typography>
                 <TableContainer component={Paper}>
                   <Table size="small">
@@ -1004,7 +1010,7 @@ const Dashboard: React.FC = () => {
                           <TableCell>
                             <Chip label={loan.status || 'N/A'} size="small" color="info" />
                           </TableCell>
-                          <TableCell align="right">${(loan.amount || 0).toLocaleString()}</TableCell>
+                          <TableCell align="right">{formatCurrency(loan.amount || 0)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1017,7 +1023,7 @@ const Dashboard: React.FC = () => {
               {/* Variable Expenses Breakdown */}
               <Box mb={3}>
                 <Typography variant="h6" gutterBottom>
-                  Variable Expenses Breakdown (Total: ${(disposableData.totalVariableExpenses || 0).toLocaleString()})
+                  Variable Expenses Breakdown (Total: {formatCurrency(disposableData.totalVariableExpenses || 0)})
                 </Typography>
                 <TableContainer component={Paper}>
                   <Table size="small">
@@ -1036,7 +1042,7 @@ const Dashboard: React.FC = () => {
                             <Chip label={expense.category || 'N/A'} size="small" />
                           </TableCell>
                           <TableCell align="right">{expense.count || 0}</TableCell>
-                          <TableCell align="right">${(expense.totalAmount || 0).toLocaleString()}</TableCell>
+                          <TableCell align="right">{formatCurrency(expense.totalAmount || 0)}</TableCell>
                           <TableCell align="right">{(expense.percentage || 0).toFixed(2)}%</TableCell>
                         </TableRow>
                       ))}
@@ -1055,13 +1061,13 @@ const Dashboard: React.FC = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={4}>
                         <Typography variant="body2" color="text.secondary">Previous Period</Typography>
-                        <Typography variant="h6">${(disposableData.comparison.previousPeriodDisposableAmount || 0).toLocaleString()}</Typography>
+                        <Typography variant="h6">{formatCurrency(disposableData.comparison.previousPeriodDisposableAmount || 0)}</Typography>
                       </Grid>
                       <Grid item xs={12} sm={4}>
                         <Typography variant="body2" color="text.secondary">Change Amount</Typography>
                         <Box display="flex" alignItems="center" gap={1}>
                           <Typography variant="h6" color={(disposableData.comparison.changeAmount || 0) >= 0 ? 'success.main' : 'error.main'}>
-                            ${Math.abs(disposableData.comparison.changeAmount || 0).toLocaleString()}
+                            {formatCurrency(Math.abs(disposableData.comparison.changeAmount || 0))}
                           </Typography>
                           {disposableData.comparison.trend === 'UP' ? (
                             <TrendingUpIcon color="success" />

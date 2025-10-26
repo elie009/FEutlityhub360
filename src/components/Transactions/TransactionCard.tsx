@@ -8,6 +8,7 @@ import {
   Schedule, AccountBalance, AttachMoney, Category, Store,
 } from '@mui/icons-material';
 import { BankAccountTransaction } from '../../types/transaction';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 interface TransactionCardProps {
   transaction: BankAccountTransaction;
@@ -60,12 +61,6 @@ const getCategoryColor = (category: string): 'default' | 'primary' | 'secondary'
   }
 };
 
-const formatCurrency = (amount: number, currency: string = 'USD'): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(amount);
-};
 
 
 const formatDateShort = (dateString: string): string => {
@@ -76,6 +71,7 @@ const formatDateShort = (dateString: string): string => {
 };
 
 const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDetails }) => {
+  const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -177,7 +173,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
                 lineHeight: 1.2
               }}
             >
-              {amountPrefix}{formatCurrency(Math.abs(transaction.amount), transaction.currency)}
+              {amountPrefix}{formatCurrency(Math.abs(transaction.amount))}
             </Typography>
             <Typography 
               variant="caption" 
@@ -220,7 +216,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
             color="text.secondary"
             sx={{ fontSize: '0.7rem' }}
           >
-            Balance: {formatCurrency(transaction.balanceAfterTransaction, transaction.currency)}
+            Balance: {formatCurrency(transaction.balanceAfterTransaction)}
           </Typography>
           {transaction.referenceNumber && (
             <Typography 

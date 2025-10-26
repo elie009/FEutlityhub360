@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { Loan, LoanStatus } from '../../types/loan';
 import { formatDueDate, getDueDateColor, isOverdue, isDueToday, isDueSoon } from '../../utils/dateUtils';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 interface LoanCardProps {
   loan: Loan;
@@ -59,18 +60,13 @@ const getStatusColor = (status: LoanStatus): 'default' | 'primary' | 'secondary'
   }
 };
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
 const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDelete, onViewHistory }) => {
+  const { formatCurrency } = useCurrency();
   // Use the actual monthlyPayment from the loan data, or calculate it if not available
   const monthlyPayment = loan.monthlyPayment || (loan.totalAmount / loan.term);
   const remainingBalance = loan.remainingBalance || loan.outstandingBalance;

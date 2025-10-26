@@ -51,6 +51,7 @@ import {
 import { Bill, BillStatus, BillType, BillFrequency, BillAlert } from '../../types/bill';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 interface BillCardProps {
   bill: Bill;
@@ -128,12 +129,6 @@ const getFrequencyText = (frequency: BillFrequency): string => {
   }
 };
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
@@ -144,6 +139,7 @@ const isOverdue = (dueDate: string): boolean => {
 };
 
 const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount = 0, allBills = [], onEdit, onDelete, onMarkAsPaid, onViewHistory, onBillConfirmed }) => {
+  const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notificationDialogOpen, setNotificationDialogOpen] = React.useState(false);
   const [confirmingBill, setConfirmingBill] = React.useState(false);

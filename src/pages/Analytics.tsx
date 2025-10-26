@@ -28,8 +28,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const Analytics: React.FC = () => {
+  const { getCurrencySymbol } = useCurrency();
   const monthlyData = [
     { name: 'Jan', users: 4000, bills: 2400, revenue: 12000 },
     { name: 'Feb', users: 3000, bills: 1398, revenue: 15000 },
@@ -218,7 +220,7 @@ const Analytics: React.FC = () => {
                 <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
                 <Legend />
-                <Bar yAxisId="left" dataKey="revenue" fill="#1976d2" name="Revenue ($)" />
+                <Bar yAxisId="left" dataKey="revenue" fill="#1976d2" name={`Revenue (${getCurrencySymbol()})`} />
                 <Bar yAxisId="right" dataKey="users" fill="#82ca9d" name="Users" />
               </BarChart>
             </ResponsiveContainer>

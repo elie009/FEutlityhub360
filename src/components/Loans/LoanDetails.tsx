@@ -43,6 +43,7 @@ import { getErrorMessage } from '../../utils/validation';
 import PaymentScheduleManager from './PaymentScheduleManager';
 import AddScheduleDialog from './AddScheduleDialog';
 import UpdateScheduleDialog from './UpdateScheduleDialog';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 interface LoanDetailsProps {
   loanId: string;
@@ -69,12 +70,6 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
   );
 };
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
@@ -104,6 +99,7 @@ const getStatusColor = (status: LoanStatus): 'default' | 'primary' | 'secondary'
 };
 
 const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
+  const { formatCurrency } = useCurrency();
   const [loan, setLoan] = useState<Loan | null>(null);
   const [schedule, setSchedule] = useState<RepaymentSchedule[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);

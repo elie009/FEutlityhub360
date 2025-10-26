@@ -49,41 +49,8 @@ import {
   Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency, CURRENCY_OPTIONS } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
-
-// Currency options with codes and full names
-const CURRENCY_OPTIONS = [
-  { code: 'USD', name: 'US Dollar' },
-  { code: 'PHP', name: 'Philippine Peso' },
-  { code: 'SAR', name: 'Saudi Riyal' },
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  { code: 'AED', name: 'UAE Dirham' },
-  { code: 'INR', name: 'Indian Rupee' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'CAD', name: 'Canadian Dollar' },
-  { code: 'AUD', name: 'Australian Dollar' },
-  { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'CNY', name: 'Chinese Yuan' },
-  { code: 'KRW', name: 'South Korean Won' },
-  { code: 'SGD', name: 'Singapore Dollar' },
-  { code: 'HKD', name: 'Hong Kong Dollar' },
-  { code: 'NZD', name: 'New Zealand Dollar' },
-  { code: 'SEK', name: 'Swedish Krona' },
-  { code: 'NOK', name: 'Norwegian Krone' },
-  { code: 'DKK', name: 'Danish Krone' },
-  { code: 'PLN', name: 'Polish Zloty' },
-  { code: 'CZK', name: 'Czech Koruna' },
-  { code: 'HUF', name: 'Hungarian Forint' },
-  { code: 'RUB', name: 'Russian Ruble' },
-  { code: 'BRL', name: 'Brazilian Real' },
-  { code: 'MXN', name: 'Mexican Peso' },
-  { code: 'ZAR', name: 'South African Rand' },
-  { code: 'TRY', name: 'Turkish Lira' },
-  { code: 'THB', name: 'Thai Baht' },
-  { code: 'MYR', name: 'Malaysian Ringgit' },
-  { code: 'IDR', name: 'Indonesian Rupiah' },
-];
 
 interface IncomeSource {
   name: string;
@@ -113,6 +80,7 @@ interface ProfileFormData {
 
 const Settings: React.FC = () => {
   const { user, hasProfile, userProfile: contextUserProfile, updateUserProfile, logout } = useAuth();
+  const { currency, setCurrency, formatCurrency } = useCurrency();
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
@@ -124,6 +92,7 @@ const Settings: React.FC = () => {
     lastName: 'Doe',
     email: 'john.doe@example.com',
     phone: '+1 234 567 8900',
+    preferredCurrency: 'USD',
   });
 
   // Profile form state
@@ -140,14 +109,14 @@ const Settings: React.FC = () => {
     industry: '',
     location: '',
     notes: '',
-    preferredCurrency: 'USD',
+    preferredCurrency: currency,
     incomeSources: [
       {
         name: '',
         amount: 0,
         frequency: 'monthly',
         category: 'Primary',
-        currency: 'USD',
+        currency: currency,
         description: '',
         company: '',
       },
@@ -176,7 +145,7 @@ const Settings: React.FC = () => {
     industry: '',
     location: '',
     notes: '',
-    preferredCurrency: 'USD',
+    preferredCurrency: currency,
   });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -270,8 +239,52 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleSaveProfile = () => {
-    console.log('Saving profile:', profile);
+  const handleSaveProfile = async () => {
+    try {
+      setProfileLoading(true);
+      setProfileError(null);
+      setProfileSuccess(null);
+
+      // Prepare the request body according to the API specification
+      const requestBody = {
+        jobTitle: profileFormData.jobTitle,
+        company: profileFormData.company,
+        employmentType: profileFormData.employmentType,
+        monthlySavingsGoal: profileFormData.monthlySavingsGoal,
+        monthlyInvestmentGoal: profileFormData.monthlyInvestmentGoal,
+        monthlyEmergencyFundGoal: profileFormData.monthlyEmergencyFundGoal,
+        taxRate: profileFormData.taxRate,
+        monthlyTaxDeductions: profileFormData.monthlyTaxDeductions,
+        industry: profileFormData.industry,
+        location: profileFormData.location,
+        notes: profileFormData.notes,
+        preferredCurrency: currency,
+      };
+
+      console.log('Current currency from context:', currency);
+      console.log('Profile preferredCurrency:', profile.preferredCurrency);
+      console.log('Saving profile with request body:', requestBody);
+
+      // Call the API service to update the profile
+      const response = await apiService.updateUserProfile(requestBody);
+      
+      if (response) {
+        setProfileSuccess('Profile updated successfully!');
+        console.log('Profile saved successfully:', response);
+        
+        // Update the currency context with the new preferred currency
+        if (requestBody.preferredCurrency) {
+          setCurrency(requestBody.preferredCurrency);
+        }
+      } else {
+        setProfileError('Failed to update profile');
+      }
+    } catch (error: any) {
+      console.error('Error saving profile:', error);
+      setProfileError(error.message || 'Failed to update profile');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const handleSaveNotifications = () => {
@@ -347,7 +360,7 @@ const Settings: React.FC = () => {
           amount: 0,
           frequency: 'monthly',
           category: 'Primary',
-          currency: 'USD',
+          currency: currency,
           description: '',
           company: '',
         },
@@ -539,7 +552,7 @@ const Settings: React.FC = () => {
         amount: 0,
         frequency: 'monthly',
         category: 'Primary',
-        currency: 'USD',
+        currency: currency,
         description: '',
         company: '',
       });
@@ -637,7 +650,7 @@ const Settings: React.FC = () => {
         amount: 0,
         frequency: 'MONTHLY',
         category: 'PRIMARY',
-        currency: 'USD',
+        currency: currency,
         description: '',
         company: '',
       }]);
@@ -868,6 +881,37 @@ const Settings: React.FC = () => {
     }
   }, [user?.id, loadIncomeData]);
 
+  // Sync profile state with user profile data
+  useEffect(() => {
+    if (userProfile?.preferredCurrency || currency) {
+      setProfile(prev => ({
+        ...prev,
+        preferredCurrency: userProfile?.preferredCurrency || currency,
+      }));
+    }
+  }, [userProfile, currency]);
+
+  // Load profile form data from user profile
+  useEffect(() => {
+    if (userProfile) {
+      setProfileFormData(prev => ({
+        ...prev,
+        jobTitle: userProfile.jobTitle || '',
+        company: userProfile.company || '',
+        employmentType: userProfile.employmentType || '',
+        monthlySavingsGoal: userProfile.monthlySavingsGoal || 0,
+        monthlyInvestmentGoal: userProfile.monthlyInvestmentGoal || 0,
+        monthlyEmergencyFundGoal: userProfile.monthlyEmergencyFundGoal || 0,
+        taxRate: userProfile.taxRate || 0,
+        monthlyTaxDeductions: userProfile.monthlyTaxDeductions || 0,
+        industry: userProfile.industry || '',
+        location: userProfile.location || '',
+        notes: userProfile.notes || '',
+        preferredCurrency: userProfile.preferredCurrency || currency,
+      }));
+    }
+  }, [userProfile, currency]);
+
   // Check if user needs to complete profile
   useEffect(() => {
     console.log('=== Settings: Profile check useEffect ===');
@@ -946,6 +990,26 @@ const Settings: React.FC = () => {
                   value={profile.phone}
                   onChange={(e) => handleProfileChange('phone', e.target.value)}
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Preferred Currency"
+                  value={currency}
+                  onChange={(e) => {
+                    console.log('Currency selector changed to:', e.target.value);
+                    setCurrency(e.target.value);
+                    handleProfileChange('preferredCurrency', e.target.value);
+                  }}
+                  helperText="Select your preferred currency for displaying amounts"
+                >
+                  {CURRENCY_OPTIONS.map((currencyOption) => (
+                    <MenuItem key={currencyOption.code} value={currencyOption.code}>
+                      {currencyOption.symbol} - {currencyOption.name} ({currencyOption.code})
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
               <Grid item xs={12}>
                 <Button
@@ -1278,7 +1342,7 @@ const Settings: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">
-                              {source.currency} {source.amount.toLocaleString()}
+                              {formatCurrency(source.amount, { currencyCode: source.currency })}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -2357,7 +2421,7 @@ const Settings: React.FC = () => {
                         Amount
                       </Typography>
                       <Typography variant="body1" fontWeight="medium" color="success.main">
-                        {viewIncomeData.currency} {viewIncomeData.amount.toLocaleString()}
+                        {formatCurrency(viewIncomeData.amount, { currencyCode: viewIncomeData.currency })}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
@@ -2422,7 +2486,7 @@ const Settings: React.FC = () => {
                         Monthly Amount
                       </Typography>
                       <Typography variant="h6" color="success.main">
-                        {viewIncomeData.currency} {viewIncomeData.monthlyAmount.toLocaleString()}
+                        {formatCurrency(viewIncomeData.monthlyAmount, { currencyCode: viewIncomeData.currency })}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
@@ -2712,7 +2776,7 @@ const Settings: React.FC = () => {
                     <strong>Name:</strong> {incomeSourceToDelete.name}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Amount:</strong> {incomeSourceToDelete.currency} {incomeSourceToDelete.amount.toLocaleString()}
+                    <strong>Amount:</strong> {formatCurrency(incomeSourceToDelete.amount, { currencyCode: incomeSourceToDelete.currency })}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Frequency:</strong> {incomeSourceToDelete.frequency}

@@ -390,15 +390,6 @@ const Bills: React.FC = () => {
         </Alert>
       )}
 
-      {/* Debug information - remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2">
-            Debug: Bills count: {bills.length}, Loading: {isLoading.toString()}, 
-            Display bills: {displayBills.length}, Error: {error || 'None'}
-          </Typography>
-        </Alert>
-      )}
 
       {/* Analytics Cards - Current Month Only */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

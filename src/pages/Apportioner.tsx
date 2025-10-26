@@ -10,6 +10,7 @@ import {
   CalendarToday, Flag, Savings, Calculate, DragIndicator,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import { getErrorMessage } from '../utils/validation';
 import { Bill, BillStatus } from '../types/bill';
@@ -37,6 +38,7 @@ interface GoalPlan {
 
 const Apportioner: React.FC = () => {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
   const [financialData, setFinancialData] = useState<FinancialData>({
     currentBalance: 0,
@@ -218,12 +220,6 @@ const Apportioner: React.FC = () => {
     navigate(page);
   };
 
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const getFeasibilityColor = (feasibility: string) => {
     switch (feasibility) {

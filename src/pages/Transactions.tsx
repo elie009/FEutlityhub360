@@ -14,6 +14,7 @@ import {
   FilterList, FilterListOff,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import { BankAccountTransaction, TransactionFilters, TransactionAnalytics } from '../types/transaction';
 import { BankAccountAnalytics } from '../types/bankAccount';
@@ -22,6 +23,7 @@ import TransactionCard from '../components/Transactions/TransactionCard';
 
 const TransactionsPage: React.FC = () => {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<BankAccountTransaction[]>([]);
   const [analytics, setAnalytics] = useState<TransactionAnalytics | null>(null);
   const [bankAccountAnalytics, setBankAccountAnalytics] = useState<BankAccountAnalytics | null>(null);
@@ -197,12 +199,6 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD'): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount);
-  };
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -842,12 +838,12 @@ const TransactionsPage: React.FC = () => {
                       }}
                     >
                       {(transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? '+' : '-'}
-                      {formatCurrency(Math.abs(transaction.amount), transaction.currency)}
+                      {formatCurrency(Math.abs(transaction.amount))}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2">
-                      {formatCurrency(transaction.balanceAfterTransaction, transaction.currency)}
+                      {formatCurrency(transaction.balanceAfterTransaction)}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
@@ -926,7 +922,7 @@ const TransactionsPage: React.FC = () => {
                     color={selectedTransaction.transactionType === 'credit' ? 'success.main' : 'error.main'}
                   >
                     {selectedTransaction.transactionType === 'credit' ? '+' : '-'}
-                    {formatCurrency(Math.abs(selectedTransaction.amount), selectedTransaction.currency)}
+                    {formatCurrency(Math.abs(selectedTransaction.amount))}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -952,7 +948,7 @@ const TransactionsPage: React.FC = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">Balance After:</Typography>
                   <Typography variant="body2">
-                    {formatCurrency(selectedTransaction.balanceAfterTransaction, selectedTransaction.currency)}
+                    {formatCurrency(selectedTransaction.balanceAfterTransaction)}
                   </Typography>
                 </Grid>
                 {selectedTransaction.merchant && (
