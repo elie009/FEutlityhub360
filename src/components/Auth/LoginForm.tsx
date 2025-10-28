@@ -192,7 +192,26 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)',
                 maxWidth: 'none',
-                
+                transition: 'none !important',
+                transform: 'none !important',
+                '&:hover': {
+                  elevation: 24,
+                  transform: 'none !important',
+                  transition: 'none !important',
+                  boxShadow: '0px 24px 48px rgba(0, 0, 0, 0.4) !important',
+                },
+                '&:focus': {
+                  elevation: 24,
+                  transform: 'none !important',
+                  transition: 'none !important',
+                  boxShadow: '0px 24px 48px rgba(0, 0, 0, 0.4) !important',
+                },
+                '&:active': {
+                  elevation: 24,
+                  transform: 'none !important',
+                  transition: 'none !important',
+                  boxShadow: '0px 24px 48px rgba(0, 0, 0, 0.4) !important',
+                },
               }}
             >
               <CardContent sx={{ p: 5 }}>

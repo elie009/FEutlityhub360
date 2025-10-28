@@ -146,9 +146,9 @@ const LandingPage: React.FC = () => {
   ];
 
   return (
-    <Box>
+    <Box sx={{ fontFamily: 'Poppins, sans-serif' }}>
       {/* Navigation Bar */}
-      <AppBar position="fixed" sx={{ bgcolor: 'white', color: 'text.primary', boxShadow: 1 }}>
+      <AppBar position="fixed" sx={{ bgcolor: 'white', color: 'text.primary', boxShadow: 1, fontFamily: 'Poppins, sans-serif' }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold', color: 'primary.main' }}>
             UtilityHub360
@@ -219,7 +219,7 @@ const LandingPage: React.FC = () => {
           background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
           color: 'white',
           pt: 12,
-          pb: 8,
+          pb: 0,
           position: 'relative',
           overflow: 'hidden',
           '&::before': {
@@ -237,10 +237,10 @@ const LandingPage: React.FC = () => {
           <Fade in={isVisible} timeout={1000}>
             <Grid container spacing={6} alignItems="center">
               <Grid item xs={12} md={6}>
-                <Typography variant="h1" component="h1" gutterBottom fontWeight="bold" sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' } }}>
+                <Typography variant="h1" component="h1" gutterBottom fontWeight="bold" sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, fontFamily: 'Poppins, sans-serif' }}>
                   Your Financial
                   <br />
-                  <Box component="span" sx={{ color: 'warning.main' }}>
+                  <Box component="span" sx={{ color: 'warning.main', fontFamily: 'Poppins, sans-serif' }}>
                     Future Starts Here
                   </Box>
                 </Typography>
@@ -250,30 +250,14 @@ const LandingPage: React.FC = () => {
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
                   <Button
-                    variant="contained"
+                    variant="outlined"
                     size="large"
                     onClick={handleGetStarted}
                     endIcon={<ArrowForward />}
                     sx={{
-                      bgcolor: 'white',
-                      color: 'white',
-                      px: 4,
-                      py: 1.5,
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.common.white, 0.9),
-                        transform: 'translateY(-2px)',
-                      },
-                    }}
-                  >
-                    Get Started Free
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    startIcon={<PlayArrow />}
-                    sx={{
                       borderColor: 'white',
                       color: 'white',
+                      bgcolor: 'transparent',
                       px: 4,
                       py: 1.5,
                       '&:hover': {
@@ -282,51 +266,34 @@ const LandingPage: React.FC = () => {
                       },
                     }}
                   >
-                    Watch Demo
+                    Get Started Free
                   </Button>
                 </Stack>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Shield sx={{ color: 'white' }} />
-                    <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.8)' }}>Bank-Level Security</Typography>
-                  </Box>
-                </Box>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Zoom in={isVisible} timeout={1500}>
+              <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'stretch' }}>
+                <Zoom in={isVisible} timeout={1500} style={{ width: '100%', height: '100%' }}>
                   <Box
                     sx={{
                       display: 'flex',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      height: 500,
+                      width: '100%',
                       position: 'relative',
+                      py: { xs: 4, md: 0 },
                     }}
                   >
                     <Box
+                      component="img"
+                      src="/financialCards.png.png"
+                      alt="Financial Management - Credit Cards with AI Technology"
                       sx={{
-                        width: 400,
-                        height: 400,
-                        borderRadius: '50%',
-                        background: `linear-gradient(45deg, ${alpha(theme.palette.common.white, 0.1)} 0%, ${alpha(theme.palette.common.white, 0.05)} 100%)`,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        position: 'relative',
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: -20,
-                          left: -20,
-                          right: -20,
-                          bottom: -20,
-                          borderRadius: '50%',
-                          border: `2px solid ${alpha(theme.palette.common.white, 0.2)}`,
-                        },
+                        width: '130%',
+                        height: 'auto',
+                        maxHeight: '130%',
+                        objectFit: 'contain',
+                        filter: 'drop-shadow(0px 10px 30px rgba(0, 0, 0, 0.3))',
                       }}
-                    >
-                      <Dashboard sx={{ fontSize: 120, opacity: 0.8 }} />
-                    </Box>
+                    />
                   </Box>
                 </Zoom>
               </Grid>

@@ -28,7 +28,6 @@ const AuthPage: React.FC = () => {
           borderRadius: 2,
           overflow: 'hidden',
           maxWidth: 'none',
-          
           position: 'relative',
           zIndex: 1,
         }}
