@@ -55,6 +55,11 @@ import {
   Timeline,
   Shield,
   Support,
+  CameraAlt,
+  Smartphone,
+  SmartToy,
+  Sms,
+  CloudUpload,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -119,7 +124,7 @@ const LandingPage: React.FC = () => {
 
   const stats = [
     { number: '10K+', label: 'Active Users' },
-    { number: formatCurrency(50000000, { showSymbol: true, decimals: 0 }).replace(/[0-9,]/g, '') + '50M+', label: 'Assets Managed' },
+    { number: '50M+', label: 'Assets Managed' },
     { number: '99.9%', label: 'Uptime' },
     { number: '4.9/5', label: 'User Rating' },
   ];
@@ -245,8 +250,8 @@ const LandingPage: React.FC = () => {
                   </Box>
                 </Typography>
                 <Typography variant="h5" sx={{ mb: 4, opacity: 0.9, fontWeight: 300 }}>
-                  Comprehensive financial management platform that helps you take control of your money, 
-                  automate your finances, and achieve your financial goals.
+                  Comprehensive financial management platform powered by AI. Upload receipts and let AI track your 
+                  expenses automatically. Get instant SMS notifications for all transactions via mobile app integration.
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
                   <Button
@@ -321,6 +326,256 @@ const LandingPage: React.FC = () => {
               ))}
             </Grid>
           </Slide>
+        </Container>
+      </Box>
+
+      {/* AI-Powered Features Section - HIGHLIGHTED */}
+      <Box sx={{ 
+        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
+        py: 10,
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <Container maxWidth="lg">
+          <Box textAlign="center" mb={6}>
+            <Chip 
+              label="🚀 AI-POWERED INNOVATION" 
+              color="primary" 
+              sx={{ 
+                mb: 2, 
+                fontWeight: 'bold',
+                fontSize: '0.9rem',
+                py: 3,
+                px: 2,
+              }} 
+            />
+            <Typography variant="h2" component="h2" gutterBottom fontWeight="bold" color="primary.main">
+              Next-Generation Smart Features
+            </Typography>
+            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
+              Powered by cutting-edge AI technology and mobile integration
+            </Typography>
+          </Box>
+
+          <Grid container spacing={4}>
+            {/* AI Receipt Scanner */}
+            <Grid item xs={12} md={6}>
+              <Zoom in={isVisible} timeout={1200}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.1)} 100%)`,
+                    border: `3px solid ${theme.palette.success.main}`,
+                    transition: 'all 0.4s ease-in-out',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: `0 20px 60px ${alpha(theme.palette.success.main, 0.3)}`,
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -50,
+                      right: -50,
+                      width: 200,
+                      height: 200,
+                      background: `radial-gradient(circle, ${alpha(theme.palette.success.main, 0.2)} 0%, transparent 70%)`,
+                      borderRadius: '50%',
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                      <Box
+                        sx={{
+                          bgcolor: 'success.main',
+                          color: 'white',
+                          borderRadius: '50%',
+                          width: 70,
+                          height: 70,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          mr: 2,
+                          boxShadow: 3,
+                        }}
+                      >
+                        <CameraAlt sx={{ fontSize: 35 }} />
+                      </Box>
+                      <Box>
+                        <Chip 
+                          icon={<SmartToy />} 
+                          label="AI-POWERED" 
+                          color="success" 
+                          size="small" 
+                          sx={{ mb: 1, fontWeight: 'bold' }}
+                        />
+                        <Typography variant="h4" component="h3" fontWeight="bold" color="success.dark">
+                          Smart Receipt Scanner
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
+                      Upload receipts and let AI do the work! 📸✨
+                    </Typography>
+
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+                      Simply snap a photo or upload your receipt, and our advanced AI will automatically 
+                      read, extract, and add all transaction details to your records. No more manual entry!
+                    </Typography>
+
+                    <Box sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" color="success.dark" gutterBottom>
+                        ✓ How it works:
+                      </Typography>
+                      <Stack spacing={1}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <CloudUpload sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Upload or capture receipt photo</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <SmartToy sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">AI extracts amount, date, merchant & category</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <CheckCircle sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Auto-adds to your transaction records</Typography>
+                        </Box>
+                      </Stack>
+                    </Box>
+
+                    <Chip 
+                      label="Save Time • Reduce Errors • Stay Organized" 
+                      variant="outlined" 
+                      color="success"
+                      sx={{ fontWeight: 'bold' }}
+                    />
+                  </CardContent>
+                </Card>
+              </Zoom>
+            </Grid>
+
+            {/* SMS Integration */}
+            <Grid item xs={12} md={6}>
+              <Zoom in={isVisible} timeout={1400}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.1)} 100%)`,
+                    border: `3px solid ${theme.palette.info.main}`,
+                    transition: 'all 0.4s ease-in-out',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: `0 20px 60px ${alpha(theme.palette.info.main, 0.3)}`,
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -50,
+                      right: -50,
+                      width: 200,
+                      height: 200,
+                      background: `radial-gradient(circle, ${alpha(theme.palette.info.main, 0.2)} 0%, transparent 70%)`,
+                      borderRadius: '50%',
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                      <Box
+                        sx={{
+                          bgcolor: 'info.main',
+                          color: 'white',
+                          borderRadius: '50%',
+                          width: 70,
+                          height: 70,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          mr: 2,
+                          boxShadow: 3,
+                        }}
+                      >
+                        <Smartphone sx={{ fontSize: 35 }} />
+                      </Box>
+                      <Box>
+                        <Chip 
+                          icon={<Sms />} 
+                          label="MOBILE INTEGRATED" 
+                          color="info" 
+                          size="small" 
+                          sx={{ mb: 1, fontWeight: 'bold' }}
+                        />
+                        <Typography variant="h4" component="h3" fontWeight="bold" color="info.dark">
+                          SMS Transaction Alerts
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
+                      Stay updated on-the-go with real-time SMS notifications! 📱💬
+                    </Typography>
+
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+                      Our mobile app integration sends instant SMS notifications for every transaction, 
+                      keeping you informed wherever you are. Never miss a payment or suspicious activity!
+                    </Typography>
+
+                    <Box sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" color="info.dark" gutterBottom>
+                        ✓ Key Benefits:
+                      </Typography>
+                      <Stack spacing={1}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Sms sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Instant SMS alerts for all transactions</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Smartphone sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Seamless mobile app integration</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Security sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Enhanced security with real-time monitoring</Typography>
+                        </Box>
+                      </Stack>
+                    </Box>
+
+                    <Chip 
+                      label="Real-Time • Secure • Always Connected" 
+                      variant="outlined" 
+                      color="info"
+                      sx={{ fontWeight: 'bold' }}
+                    />
+                  </CardContent>
+                </Card>
+              </Zoom>
+            </Grid>
+          </Grid>
+
+          {/* Additional Feature Highlight Banner */}
+          <Box sx={{ mt: 6, textAlign: 'center' }}>
+            <Paper
+              elevation={0}
+              sx={{
+                background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                color: 'white',
+                p: 3,
+                borderRadius: 3,
+              }}
+            >
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                🎯 Experience the Future of Financial Management
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'white', opacity: 1 }}>
+                These AI-powered features are designed to save you time, reduce errors, and keep you connected to your finances 24/7
+              </Typography>
+            </Paper>
+          </Box>
         </Container>
       </Box>
 
@@ -436,18 +691,19 @@ const LandingPage: React.FC = () => {
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   size="large"
                   onClick={handleGetStarted}
                   endIcon={<ArrowForward />}
                   sx={{
-                    bgcolor: 'white',
+                    borderColor: 'white',
                     color: 'white',
+                    bgcolor: 'transparent',
                     px: 4,
                     py: 1.5,
                     '&:hover': {
-                      bgcolor: alpha(theme.palette.common.white, 0.9),
-                      transform: 'translateY(-2px)',
+                      borderColor: 'white',
+                      bgcolor: alpha(theme.palette.common.white, 0.1),
                     },
                   }}
                 >
