@@ -17,6 +17,7 @@ import {
   Analytics as AnalyticsIcon,
   Receipt as ReceiptIcon,
   Support as SupportIcon,
+  ContactMail as ContactIcon,
   CreditCard as CreditCardIcon,
   Notifications as NotificationsIcon,
   Assessment as AssessmentIcon,
@@ -63,6 +64,7 @@ const menuItems: MenuItem[] = [
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   { text: 'Support', icon: <SupportIcon />, path: '/support' },
+  { text: 'Contact', icon: <ContactIcon />, path: '/contact' },
 ];
 
 const Drawer: React.FC<DrawerProps> = ({ open, onClose }) => {

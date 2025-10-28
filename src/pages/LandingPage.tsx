@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -70,6 +70,8 @@ const LandingPage: React.FC = () => {
   const { formatCurrency } = useCurrency();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const servicesRef = useRef<HTMLDivElement>(null);
+  const aboutRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsVisible(true);
@@ -77,6 +79,20 @@ const LandingPage: React.FC = () => {
 
   const handleGetStarted = () => {
     navigate('/auth');
+  };
+
+  const handleContactClick = () => {
+    navigate('/contact');
+  };
+
+  const handleServicesClick = () => {
+    servicesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMobileOpen(false); // Close mobile drawer if open
+  };
+
+  const handleAboutClick = () => {
+    aboutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMobileOpen(false); // Close mobile drawer if open
   };
 
   const handleDrawerToggle = () => {
@@ -159,10 +175,9 @@ const LandingPage: React.FC = () => {
             UtilityHub360
           </Typography>
           <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 3 }}>
-            <Button color="inherit">Home</Button>
-            <Button color="inherit">Services</Button>
-            <Button color="inherit">About</Button>
-            <Button color="inherit">Contact</Button>
+            <Button color="inherit" onClick={handleServicesClick}>Services</Button>
+            <Button color="inherit" onClick={handleAboutClick}>About</Button>
+            <Button color="inherit" onClick={handleContactClick}>Contact</Button>
             <Button variant="contained" onClick={handleGetStarted}>
               Get Started
             </Button>
@@ -197,16 +212,13 @@ const LandingPage: React.FC = () => {
             </IconButton>
           </Box>
           <List>
-            <ListItem button>
-              <ListItemText primary="Home" />
-            </ListItem>
-            <ListItem button>
+            <ListItem button onClick={handleServicesClick}>
               <ListItemText primary="Services" />
             </ListItem>
-            <ListItem button>
+            <ListItem button onClick={handleAboutClick}>
               <ListItemText primary="About" />
             </ListItem>
-            <ListItem button>
+            <ListItem button onClick={handleContactClick}>
               <ListItemText primary="Contact" />
             </ListItem>
             <ListItem>
@@ -580,7 +592,7 @@ const LandingPage: React.FC = () => {
       </Box>
 
       {/* Services Section */}
-      <Container maxWidth="lg" sx={{ py: 10 }}>
+      <Container maxWidth="lg" sx={{ py: 10 }} ref={servicesRef}>
         <Box textAlign="center" mb={8}>
           <Typography variant="h3" component="h2" gutterBottom fontWeight="bold">
             Comprehensive Financial Services
@@ -674,12 +686,214 @@ const LandingPage: React.FC = () => {
                 </Fade>
               </Grid>
             ))}
-          </Grid>
-        </Container>
+        </Grid>
+      </Container>
+    </Box>
+
+    {/* About Us Section */}
+    <Container maxWidth="lg" sx={{ py: 10 }} ref={aboutRef}>
+      <Box textAlign="center" mb={8}>
+        <Typography variant="h3" component="h2" gutterBottom fontWeight="bold">
+          About Us
+        </Typography>
+        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 800, mx: 'auto' }}>
+          Empowering individuals and businesses to take control of their financial future
+        </Typography>
       </Box>
 
-      {/* CTA Section */}
-      <Box sx={{ py: 10, textAlign: 'center', bgcolor: 'primary.main', color: 'white' }}>
+      <Grid container spacing={6} alignItems="center">
+        {/* About Content */}
+        <Grid item xs={12} md={6}>
+          <Fade in={isVisible} timeout={1000}>
+            <Box>
+              <Typography variant="h4" gutterBottom fontWeight="bold" color="primary.main">
+                Our Mission
+              </Typography>
+              <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
+                At UtilityHub360, we believe that everyone deserves access to powerful financial management 
+                tools. Our mission is to simplify complex financial processes and make them accessible to all, 
+                helping you make informed decisions about your money.
+              </Typography>
+              
+              <Typography variant="h4" gutterBottom fontWeight="bold" color="primary.main" sx={{ mt: 4 }}>
+                Why Choose Us?
+              </Typography>
+              <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
+                We combine cutting-edge AI technology with intuitive design to deliver a financial management 
+                platform that works for you. From automated expense tracking to smart bill payments and 
+                comprehensive analytics, we've got you covered.
+              </Typography>
+            </Box>
+          </Fade>
+        </Grid>
+
+        {/* About Stats/Features */}
+        <Grid item xs={12} md={6}>
+          <Fade in={isVisible} timeout={1200}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Card sx={{ p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)` }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Shield sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
+                    <Typography variant="h6" fontWeight="bold">
+                      Security First
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Bank-level encryption and security protocols protect your sensitive financial data 24/7.
+                  </Typography>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Card sx={{ p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.05)} 100%)` }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <SmartToy sx={{ fontSize: 40, color: 'success.main', mr: 2 }} />
+                    <Typography variant="h6" fontWeight="bold">
+                      AI-Powered Intelligence
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Advanced AI automatically categorizes expenses, detects patterns, and provides actionable insights.
+                  </Typography>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Card sx={{ p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)` }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <People sx={{ fontSize: 40, color: 'info.main', mr: 2 }} />
+                    <Typography variant="h6" fontWeight="bold">
+                      Community Driven
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Built with feedback from thousands of users to ensure we meet your real-world needs.
+                  </Typography>
+                </Card>
+              </Grid>
+            </Grid>
+          </Fade>
+        </Grid>
+
+        {/* Company Values */}
+        <Grid item xs={12}>
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h4" gutterBottom fontWeight="bold" textAlign="center" sx={{ mb: 4 }}>
+              Our Core Values
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box textAlign="center">
+                  <Box
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mx: 'auto',
+                      mb: 2,
+                    }}
+                  >
+                    <CheckCircle sx={{ fontSize: 40, color: 'primary.main' }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Transparency
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    No hidden fees, clear pricing, honest communication
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Box textAlign="center">
+                  <Box
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      bgcolor: alpha(theme.palette.success.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mx: 'auto',
+                      mb: 2,
+                    }}
+                  >
+                    <Speed sx={{ fontSize: 40, color: 'success.main' }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Innovation
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Constantly evolving with latest technology
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Box textAlign="center">
+                  <Box
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      bgcolor: alpha(theme.palette.info.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mx: 'auto',
+                      mb: 2,
+                    }}
+                  >
+                    <Support sx={{ fontSize: 40, color: 'info.main' }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Support
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Dedicated team ready to help you succeed
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Box textAlign="center">
+                  <Box
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      bgcolor: alpha(theme.palette.warning.main, 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mx: 'auto',
+                      mb: 2,
+                    }}
+                  >
+                    <Star sx={{ fontSize: 40, color: 'warning.main' }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Excellence
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Committed to delivering the best experience
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        </Grid>
+      </Grid>
+    </Container>
+
+    {/* CTA Section */}
+    <Box sx={{ py: 10, textAlign: 'center', bgcolor: 'primary.main', color: 'white' }}>
         <Container maxWidth="md">
           <Fade in={isVisible} timeout={1000}>
             <Box>
@@ -712,6 +926,7 @@ const LandingPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   size="large"
+                  onClick={handleContactClick}
                   sx={{
                     borderColor: 'white',
                     color: 'white',
@@ -786,7 +1001,17 @@ const LandingPage: React.FC = () => {
               </Typography>
               <Stack spacing={1}>
                 <Typography variant="body2" sx={{ opacity: 0.8 }}>Help Center</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Contact</Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    opacity: 0.8, 
+                    cursor: 'pointer',
+                    '&:hover': { opacity: 1 }
+                  }}
+                  onClick={handleContactClick}
+                >
+                  Contact
+                </Typography>
                 <Typography variant="body2" sx={{ opacity: 0.8 }}>Privacy</Typography>
                 <Typography variant="body2" sx={{ opacity: 0.8 }}>Terms</Typography>
               </Stack>

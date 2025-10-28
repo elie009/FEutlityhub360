@@ -20,6 +20,7 @@ import BillDetails from './pages/BillDetails';
 import Analytics from './pages/Analytics';
 import Support from './pages/Support';
 import Settings from './pages/Settings';
+import Contact from './pages/Contact';
 import Transactions from './pages/Transactions';
 import Apportioner from './pages/Apportioner';
 import BankAccounts from './pages/BankAccounts';
@@ -60,6 +61,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/forgot-password" element={<ForgotPasswordForm />} />
         <Route path="/reset-password" element={<ResetPasswordForm />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/contact" element={<Contact />} />
         
         {/* Landing page for unauthenticated users, Dashboard for authenticated */}
         <Route path="/" element={
