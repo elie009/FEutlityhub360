@@ -144,9 +144,9 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
               sx={{ fontSize: '0.7rem', height: 20 }}
             />
             <Chip
-              label={transaction.category}
-              icon={getCategoryIcon(transaction.category)}
-              color={getCategoryColor(transaction.category)}
+              label={transaction.category || 'Uncategorized'}
+              icon={getCategoryIcon(transaction.category || 'default')}
+              color={getCategoryColor(transaction.category || 'default')}
               size="small"
               sx={{ fontSize: '0.7rem', height: 20 }}
             />

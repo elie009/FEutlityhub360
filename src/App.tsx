@@ -28,7 +28,7 @@ import Savings from './pages/Savings';
 import LoanDashboard from './components/Loans/LoanDashboard';
 import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
-import ReportsPage from './components/Reports/ReportsPage';
+import Documentation from './pages/Documentation';
 import { FinanceLoader } from './components/Common';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -137,11 +137,12 @@ const AppRoutes: React.FC = () => {
               <NotificationCenter />
             </ProtectedRoute>
           } />
-          <Route path="reports" element={
+          <Route path="documentation" element={
             <ProtectedRoute>
-              <ReportsPage />
+              <Documentation />
             </ProtectedRoute>
           } />
+          <Route path="reports" element={<Navigate to="/analytics" replace />} />
         </Route>
       </Routes>
     </Router>

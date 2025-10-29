@@ -129,7 +129,22 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           {/* Left Side - Branding & Features */}
           <Grid item xs={12} lg={4}>
             <Box sx={{ color: 'white', textAlign: { xs: 'center', lg: 'left' }, pr: { lg: 4 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: { xs: 'center', lg: 'flex-start' } }}>
+              <Box
+                component={Link}
+                to="/"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  mb: 4,
+                  justifyContent: { xs: 'center', lg: 'flex-start' },
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    opacity: 0.8,
+                  },
+                }}
+              >
                 <AccountBalance sx={{ fontSize: 56, mr: 2 }} />
                 <Typography variant="h2" component="h1" sx={{ fontWeight: 'bold' }}>
                   UtilityHub360

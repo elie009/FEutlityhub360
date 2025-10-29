@@ -2612,6 +2612,134 @@ class ApiService {
     throw new Error(response?.message || 'Failed to get financial context');
   }
 
+  // ==================== FINANCIAL REPORTS & ANALYTICS APIs ====================
+
+  // Get full financial report
+  async getFullFinancialReport(params?: {
+    period?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
+    startDate?: string;
+    endDate?: string;
+    includeComparison?: boolean;
+    includeInsights?: boolean;
+    includePredictions?: boolean;
+    includeTransactions?: boolean;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.period) queryParams.append('period', params.period);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.includeComparison !== undefined) queryParams.append('includeComparison', params.includeComparison.toString());
+    if (params?.includeInsights !== undefined) queryParams.append('includeInsights', params.includeInsights.toString());
+    if (params?.includePredictions !== undefined) queryParams.append('includePredictions', params.includePredictions.toString());
+    if (params?.includeTransactions !== undefined) queryParams.append('includeTransactions', params.includeTransactions.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/full${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get financial report');
+  }
+
+  // Get financial summary
+  async getFinancialSummary(date?: string): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (date) queryParams.append('date', date);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/summary${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get financial summary');
+  }
+
+  // Get income report
+  async getIncomeReport(params?: {
+    period?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.period) queryParams.append('period', params.period);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/income${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get income report');
+  }
+
+  // Get expense report
+  async getExpenseReport(params?: {
+    period?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.period) queryParams.append('period', params.period);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/expenses${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get expense report');
+  }
+
+  // Get financial insights
+  async getFinancialInsights(date?: string): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (date) queryParams.append('date', date);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/insights${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
+  // Get financial predictions
+  async getFinancialPredictions(): Promise<any> {
+    const response = await this.request<any>('/Reports/predictions');
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
+  // Get recent transactions for reports
+  async getRecentTransactionsForReports(limit: number = 20): Promise<any> {
+    const response = await this.request<any>(`/Reports/transactions/recent?limit=${limit}`);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
   // ==================== DISPOSABLE AMOUNT APIs ====================
 
   // Get disposable amount with detailed breakdown

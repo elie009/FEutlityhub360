@@ -439,7 +439,7 @@ const TransactionsPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <Receipt sx={{ fontSize: 18, color: 'primary.main', mb: 0.5 }} />
                     <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.1, mb: 0.25 }}>
-                      {analytics.totalTransactions}
+                      {analytics.totalTransactions || 0}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       Total Transactions
@@ -477,7 +477,7 @@ const TransactionsPage: React.FC = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                       <TrendingUp sx={{ fontSize: 18, color: 'success.main', mb: 0.5 }} />
                       <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.1, mb: 0.25 }}>
-                        {formatCurrency(analytics.totalIncoming)}
+                        {formatCurrency(analytics.totalIncoming || 0)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                         Transaction Incoming
@@ -516,7 +516,7 @@ const TransactionsPage: React.FC = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                       <TrendingDown sx={{ fontSize: 18, color: 'error.main', mb: 0.5 }} />
                       <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.1, mb: 0.25 }}>
-                        {formatCurrency(analytics.totalOutgoing)}
+                        {formatCurrency(analytics.totalOutgoing || 0)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                         Transaction Outgoing
@@ -532,7 +532,9 @@ const TransactionsPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <AttachMoney sx={{ fontSize: 18, color: 'info.main', mb: 0.5 }} />
                     <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.1, mb: 0.25 }}>
-                      {formatCurrency(analytics.averageTransactionAmount)}
+                      {isNaN(analytics.averageTransactionAmount) || analytics.averageTransactionAmount === null || analytics.averageTransactionAmount === undefined
+                        ? formatCurrency(0)
+                        : formatCurrency(analytics.averageTransactionAmount)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       Average Amount
@@ -547,7 +549,7 @@ const TransactionsPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <Category sx={{ fontSize: 18, color: 'warning.main', mb: 0.5 }} />
                     <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.1, mb: 0.25, textTransform: 'capitalize' }}>
-                      {analytics.mostActiveCategory}
+                      {analytics.mostActiveCategory || 'N/A'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       Top Category
@@ -816,7 +818,7 @@ const TransactionsPage: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Chip 
-                      label={transaction.category} 
+                      label={transaction.category || 'Uncategorized'} 
                       color="primary"
                       size="small"
                       variant="outlined"
@@ -936,7 +938,7 @@ const TransactionsPage: React.FC = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">Category:</Typography>
                   <Chip 
-                    label={selectedTransaction.category} 
+                    label={selectedTransaction.category || 'Uncategorized'} 
                     color="primary"
                     size="small"
                   />

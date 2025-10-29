@@ -28,6 +28,7 @@ import {
   TrendingUp as ApportionerIcon,
   AccountBalance as BankAccountIcon,
   Savings as SavingsIcon,
+  MenuBook as DocumentationIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -56,11 +57,10 @@ const menuItems: MenuItem[] = [
   },
   { text: 'Apportioner', icon: <ApportionerIcon />, path: '/apportioner' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
-  { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
-  { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+  { text: 'Reports & Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   { text: 'Support', icon: <SupportIcon />, path: '/support' },
-  { text: 'Contact', icon: <ContactIcon />, path: '/contact' },
+  { text: 'Documentation', icon: <DocumentationIcon />, path: '/documentation' },
 ];
 
 interface SidebarProps {

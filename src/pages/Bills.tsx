@@ -20,6 +20,15 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  ToggleButtonGroup,
+  ToggleButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,6 +38,11 @@ import {
   CheckCircle,
   FilterList,
   Refresh,
+  ViewModule,
+  ViewList,
+  Edit,
+  Delete,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -68,6 +82,7 @@ const Bills: React.FC = () => {
     limit: 10000,
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
 
   // Group bills by billName to show the earliest unpaid bill per group
   const groupedBills = React.useMemo(() => {
@@ -353,7 +368,25 @@ const Bills: React.FC = () => {
         <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
           Bills and Utility Management
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' }, alignItems: 'center' }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(e, newView) => newView && setViewMode(newView)}
+            size="small"
+            aria-label="view mode"
+          >
+            <ToggleButton value="card" aria-label="card view">
+              <Tooltip title="Card View">
+                <ViewModule />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="table" aria-label="table view">
+              <Tooltip title="Table View">
+                <ViewList />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
           <Tooltip title="Refresh">
             <IconButton onClick={refreshData} disabled={isLoading}>
               <Refresh />
@@ -553,7 +586,7 @@ const Bills: React.FC = () => {
         </Card>
       )}
 
-          {/* Bills Grid */}
+          {/* Bills Grid/Table */}
           {displayBills.length === 0 ? (
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
@@ -576,7 +609,7 @@ const Bills: React.FC = () => {
                 </Button>
               </CardContent>
             </Card>
-          ) : (
+          ) : viewMode === 'card' ? (
             <Grid container spacing={3}>
               {displayBills.map((bill) => {
                 // Extract base name from bill
@@ -607,6 +640,124 @@ const Bills: React.FC = () => {
                 );
               })}
             </Grid>
+          ) : (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Bill Name</TableCell>
+                    <TableCell>Provider</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell>Due Date</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {displayBills.map((bill) => {
+                    // Extract base name from bill
+                    const baseName = bill.billName?.replace(/\s*-\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*\d{4}$/i, '').trim();
+                    const groupKey = baseName || bill.billName || `${bill.provider}-${bill.billType}`;
+                    const billGroup = groupedBills[groupKey];
+                    
+                    const displayBill = {
+                      ...bill,
+                      billName: billGroup?.baseName || bill.billName
+                    };
+                    
+                    const isOverdue = new Date(bill.dueDate) < new Date() && bill.status === BillStatus.PENDING;
+                    
+                    return (
+                      <TableRow key={bill.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {displayBill.billName}
+                          </Typography>
+                          {billGroup.count > 1 && (
+                            <Typography variant="caption" color="text.secondary">
+                              ({billGroup.count} periods)
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {bill.provider || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={bill.billType}
+                            size="small"
+                            sx={{ fontSize: '0.75rem' }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography 
+                            variant="body2" 
+                            fontWeight="bold"
+                            color={isOverdue ? 'error.main' : 'text.primary'}
+                          >
+                            {formatCurrency(bill.amount)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography 
+                            variant="body2"
+                            color={isOverdue ? 'error.main' : 'text.primary'}
+                          >
+                            {new Date(bill.dueDate).toLocaleDateString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={bill.status}
+                            color={
+                              bill.status === BillStatus.PAID ? 'success' :
+                              bill.status === BillStatus.OVERDUE ? 'error' :
+                              'warning'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEditBill(bill)}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            {bill.status === BillStatus.PENDING && (
+                              <Tooltip title="Mark as Paid">
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  onClick={() => handleMarkAsPaid(bill.id)}
+                                >
+                                  <CheckCircleIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeleteBill(bill.id)}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </Grid>
       </Grid>

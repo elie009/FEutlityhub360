@@ -395,19 +395,19 @@ export class ChatbotService {
     // Bills guidance
     if (input.includes('bill') || input.includes('payment') || input.includes('expense')) {
       return {
-        message: 'I can help you manage your bills! Here are some quick actions:',
+        message: 'I can help you manage your bills! What would you like to do?',
         quickActions: [
           {
-            id: 'bills',
+            id: 'add_bill',
             label: 'Add New Bill',
-            action: 'navigate',
+            action: 'show_add_bill_form',
             icon: 'Receipt',
             description: 'Add a new bill to track'
           },
           {
-            id: 'bills',
-            label: 'View All Bills',
-            action: 'navigate',
+            id: 'view_bills',
+            label: 'View My Bills',
+            action: 'show_bills_list',
             icon: 'Assessment',
             description: 'See all your bills'
           },
@@ -417,6 +417,75 @@ export class ChatbotService {
             action: 'show_bill_reports',
             icon: 'TrendingUp',
             description: 'View bill spending insights'
+          }
+        ]
+      };
+    }
+
+    // Loans guidance
+    if (input.includes('loan')) {
+      return {
+        message: 'I can help you manage your loans! What would you like to do?',
+        quickActions: [
+          {
+            id: 'add_loan',
+            label: 'Apply for Loan',
+            action: 'show_add_loan_form',
+            icon: 'AccountBalance',
+            description: 'Submit a new loan application'
+          },
+          {
+            id: 'view_loans',
+            label: 'View My Loans',
+            action: 'show_loans_list',
+            icon: 'Assessment',
+            description: 'See all your loans'
+          }
+        ]
+      };
+    }
+
+    // Bank Accounts guidance
+    if (input.includes('bank') || input.includes('account')) {
+      return {
+        message: 'I can help you manage your bank accounts! What would you like to do?',
+        quickActions: [
+          {
+            id: 'add_bank_account',
+            label: 'Add Bank Account',
+            action: 'show_add_bank_account_form',
+            icon: 'AccountBalance',
+            description: 'Add a new bank account'
+          },
+          {
+            id: 'view_bank_accounts',
+            label: 'View Accounts',
+            action: 'show_bank_accounts_list',
+            icon: 'Assessment',
+            description: 'See all your bank accounts'
+          }
+        ]
+      };
+    }
+
+    // Savings guidance
+    if (input.includes('saving')) {
+      return {
+        message: 'I can help you manage your savings! What would you like to do?',
+        quickActions: [
+          {
+            id: 'add_savings',
+            label: 'Create Savings Goal',
+            action: 'show_add_savings_form',
+            icon: 'Savings',
+            description: 'Create a new savings goal'
+          },
+          {
+            id: 'view_savings',
+            label: 'View Savings',
+            action: 'show_savings_list',
+            icon: 'Assessment',
+            description: 'See all your savings goals'
           }
         ]
       };
