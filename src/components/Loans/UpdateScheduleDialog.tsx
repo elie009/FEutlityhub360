@@ -35,6 +35,7 @@ import {
 } from '../../types/loan';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import { BankAccount } from '../../types/bankAccount';
 
 interface UpdateScheduleDialogProps {
   open: boolean;
@@ -56,6 +57,32 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
   onError,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [loadingBankAccounts, setLoadingBankAccounts] = useState(false);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>('');
+
+  // Load bank accounts on component mount
+  useEffect(() => {
+    const loadBankAccounts = async () => {
+      setLoadingBankAccounts(true);
+      try {
+        const accounts = await apiService.getUserBankAccounts();
+        setBankAccounts(accounts);
+      } catch (err) {
+        console.error('Failed to load bank accounts:', err);
+      } finally {
+        setLoadingBankAccounts(false);
+      }
+    };
+    if (open && type === 'markPaid') {
+      loadBankAccounts();
+    }
+  }, [open, type]);
+
+  // Check if selected payment method requires bank account
+  const requiresBankAccount = (paymentMethod: string): boolean => {
+    return ['BANK_TRANSFER', 'CARD', 'WALLET'].includes(paymentMethod);
+  };
 
   // Update Schedule State
   const [updateData, setUpdateData] = useState<UpdateScheduleRequest>({
@@ -69,12 +96,13 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
   });
 
   // Mark as Paid State
-  const [markPaidData, setMarkPaidData] = useState<MarkAsPaidRequest>({
+  const [markPaidData, setMarkPaidData] = useState<MarkAsPaidRequest & { bankAccountId?: string }>({
     amount: 0,
     method: 'CASH',
     reference: '',
     paymentDate: new Date().toISOString(),
     notes: '',
+    bankAccountId: '',
   });
 
   // Update Due Date State
@@ -101,7 +129,9 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
         reference: installment.paymentReference || '',
         paymentDate: new Date().toISOString(),
         notes: installment.notes || '',
+        bankAccountId: '',
       });
+      setSelectedBankAccountId('');
 
       setUpdateDateData({
         newDueDate: installment.dueDate,
@@ -142,10 +172,23 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
 
     try {
       setIsLoading(true);
+      // Prepare the request with bank account ID if required
+      const requestData: MarkAsPaidRequest & { bankAccountId?: string } = {
+        amount: markPaidData.amount,
+        method: markPaidData.method,
+        reference: markPaidData.reference,
+        paymentDate: markPaidData.paymentDate,
+        notes: markPaidData.notes,
+      };
+      
+      if (requiresBankAccount(markPaidData.method) && selectedBankAccountId) {
+        (requestData as any).bankAccountId = selectedBankAccountId;
+      }
+      
       const response = await apiService.markInstallmentAsPaid(
         loan.id,
         installment.installmentNumber,
-        markPaidData
+        requestData
       );
       
       if (response.success) {
@@ -190,12 +233,19 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
   };
 
   const isMarkPaidValid = (): boolean => {
-    return (
+    const baseValid = (
       markPaidData.amount > 0 &&
       markPaidData.method !== '' &&
       markPaidData.reference !== '' &&
       markPaidData.paymentDate !== ''
     );
+    
+    // If payment method requires bank account, validate it's selected
+    if (requiresBankAccount(markPaidData.method)) {
+      return baseValid && !!selectedBankAccountId;
+    }
+    
+    return baseValid;
   };
 
   const isUpdateDateValid = (): boolean => {
@@ -474,10 +524,16 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
                     <Select
                       value={markPaidData.method}
                       label="Payment Method"
-                      onChange={(e) => setMarkPaidData({
-                        ...markPaidData,
-                        method: e.target.value
-                      })}
+                      onChange={(e) => {
+                        setMarkPaidData({
+                          ...markPaidData,
+                          method: e.target.value
+                        });
+                        // Reset bank account selection when payment method changes
+                        if (!requiresBankAccount(e.target.value)) {
+                          setSelectedBankAccountId('');
+                        }
+                      }}
                     >
                       <MenuItem value="CASH">Cash</MenuItem>
                       <MenuItem value="BANK_TRANSFER">Bank Transfer</MenuItem>
@@ -486,6 +542,43 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
                     </Select>
                   </FormControl>
                 </Grid>
+                
+                {/* Bank Account Selection - shown when Bank Transfer or Card is selected */}
+                {requiresBankAccount(markPaidData.method) && (
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth required>
+                      <InputLabel>Bank Account</InputLabel>
+                      <Select
+                        value={selectedBankAccountId}
+                        onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                        label="Bank Account"
+                        disabled={loadingBankAccounts}
+                      >
+                        {bankAccounts.length === 0 && !loadingBankAccounts && (
+                          <MenuItem value="" disabled>
+                            No bank accounts available
+                          </MenuItem>
+                        )}
+                        {bankAccounts.map((account) => (
+                          <MenuItem key={account.id} value={account.id}>
+                            {account.accountName} - {account.accountType} ({new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: account.currency || 'USD',
+                            }).format(account.currentBalance)})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {loadingBankAccounts && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                          <CircularProgress size={16} />
+                          <Typography variant="body2" sx={{ ml: 1 }}>
+                            Loading bank accounts...
+                          </Typography>
+                        </Box>
+                      )}
+                    </FormControl>
+                  </Grid>
+                )}
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
