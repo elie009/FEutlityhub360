@@ -207,3 +207,4 @@ A: Yes! Use projected income and bills to plan ahead.
 
 **Next Steps**: Check out Analytics for detailed financial reports, or learn about Savings and Loans to optimize your allocations!
 
+

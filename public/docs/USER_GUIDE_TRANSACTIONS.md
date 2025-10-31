@@ -221,3 +221,4 @@ A: Create a transfer transaction linking both accounts. The money moves but does
 
 **Next Steps**: Learn about Bank Accounts, Savings, or Analytics to get more insights into your finances!
 
+

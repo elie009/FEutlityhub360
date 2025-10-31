@@ -424,6 +424,10 @@ const Dashboard: React.FC = () => {
     { name: 'Active Accounts', amount: financialData.activeAccounts || 0 },
   ] : [];
   
+  const totalInitialBalanceSum = Array.isArray(financialData?.accounts)
+    ? (financialData.accounts as any[]).reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
+    : 0;
+
   const stats = [
     {
       title: 'Current Balance',
@@ -434,8 +438,8 @@ const Dashboard: React.FC = () => {
     },
     {
       title: 'Total Monthly Income',
-      value: formatCurrency(totalMonthlyIncome || 0),
-      change: `${incomeSourcesCount} source${incomeSourcesCount !== 1 ? 's' : ''}`,
+      value: formatCurrency(totalInitialBalanceSum || 0),
+      change: 'From bank accounts initial balance',
       icon: <TrendingUp sx={{ fontSize: 40, color: 'primary.main' }} />,
       color: 'primary.main',
     },
@@ -454,7 +458,7 @@ const Dashboard: React.FC = () => {
       color: 'warning.main',
     },
     {
-      title: 'Disposable Income',
+      title: 'Disposable Amount',
       value: formatCurrency(disposableIncome || 0),
       change: 'Available to spend',
       icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
@@ -512,15 +516,15 @@ const Dashboard: React.FC = () => {
           <Grid item xs={12} sm={6} md={2.4} key={index}>
             <Card 
               sx={{ 
-                cursor: (stat.title === 'Disposable Income' || stat.title === 'Current Balance') ? 'pointer' : 'default',
-                '&:hover': (stat.title === 'Disposable Income' || stat.title === 'Current Balance') ? {
+                cursor: (stat.title === 'Disposable Amount' || stat.title === 'Current Balance') ? 'pointer' : 'default',
+                '&:hover': (stat.title === 'Disposable Amount' || stat.title === 'Current Balance') ? {
                   boxShadow: 4,
                   transform: 'translateY(-2px)',
                   transition: 'all 0.3s ease'
                 } : {}
               }}
               onClick={
-                stat.title === 'Disposable Income' ? handleDisposableCardClick : 
+                stat.title === 'Disposable Amount' ? handleDisposableCardClick : 
                 stat.title === 'Current Balance' ? handleBalanceCardClick : 
                 undefined
               }
@@ -589,6 +593,12 @@ const Dashboard: React.FC = () => {
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Total Balance</Typography>
                   <Typography variant="h5">{formatCurrency(financialData.totalBalance || 0)}</Typography>
+                </Box>
+                <Box mb={2}>
+                  <Typography variant="body2" color="text.secondary">Total Initial Balance</Typography>
+                  <Typography variant="h5">
+                    {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts.reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0) : 0))}
+                  </Typography>
                 </Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Active Accounts</Typography>
@@ -679,7 +689,7 @@ const Dashboard: React.FC = () => {
                     • Monthly goals: {formatCurrency(totalMonthlyGoals)}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    • Disposable income: {formatCurrency(disposableIncome)}
+                    • Disposable amount: {formatCurrency(disposableIncome)}
                   </Typography>
                 </>
               ) : (

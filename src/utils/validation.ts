@@ -42,12 +42,12 @@ export const validatePassword = (password: string): { isValid: boolean; errors: 
   };
 };
 
-export const validateLoanAmount = (amount: number, minAmount: number = 0.01, maxAmount: number = 100000): { isValid: boolean; error?: string } => {
+export const validateLoanAmount = (amount: number, minAmount: number = 0.01, maxAmount?: number): { isValid: boolean; error?: string } => {
   if (amount <= 0) {
     return { isValid: false, error: `Loan amount must be greater than $0` };
   }
   
-  if (amount > maxAmount) {
+  if (maxAmount !== undefined && amount > maxAmount) {
     return { isValid: false, error: `Maximum loan amount is $${maxAmount.toLocaleString()}` };
   }
   

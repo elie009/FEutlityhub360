@@ -188,3 +188,4 @@ A: The bill will be marked as "Overdue" and will appear in your alerts. Mark it 
 
 **Next Steps**: Learn about managing Transactions, Bank Accounts, or Savings to get the full picture of your finances!
 
+

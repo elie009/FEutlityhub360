@@ -199,7 +199,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 helperText={validationErrors.principal || fieldErrors.principal || "Enter the amount you wish to borrow"}
                 error={!!validationErrors.principal || !!fieldErrors.principal}
                 required
-                inputProps={{ min: 0.01, max: 100000, step: 0.01 }}
+                inputProps={{ min: 0.01, step: 0.01 }}
               />
             </Grid>
             <Grid item xs={12}>

@@ -75,7 +75,7 @@ import {
 import { Loan } from '../types/loan';
 
 const Analytics: React.FC = () => {
-  const { getCurrencySymbol } = useCurrency();
+  const { getCurrencySymbol, formatCurrency: formatCurrencyWithSymbol } = useCurrency();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
@@ -85,6 +85,13 @@ const Analytics: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState('all');
+  const [bankAccountSummary, setBankAccountSummary] = useState<{
+    accounts: any[];
+    totalBalance: number;
+  } | null>(null);
+  const [savingsSummary, setSavingsSummary] = useState<{
+    totalSavingsBalance: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchFinancialData();
@@ -113,6 +120,20 @@ const Analytics: React.FC = () => {
           console.error('Error fetching loans:', loanErr);
           // Don't throw - just log, so we can still show other financial data
         }
+      }
+
+      // Fetch bank accounts and savings data for Net Worth breakdown
+      try {
+        const [bankSummary, savingsSumm] = await Promise.all([
+          apiService.getBankAccountSummary().catch(() => ({ accounts: [], totalBalance: 0 })),
+          apiService.getSavingsSummary().catch(() => ({ totalSavingsBalance: 0 })),
+        ]);
+        setBankAccountSummary(bankSummary);
+        setSavingsSummary(savingsSumm);
+      } catch (err) {
+        console.error('Error fetching accounts for Net Worth breakdown:', err);
+        setBankAccountSummary({ accounts: [], totalBalance: 0 });
+        setSavingsSummary({ totalSavingsBalance: 0 });
       }
 
       // Add default values for missing data
@@ -242,6 +263,42 @@ const Analytics: React.FC = () => {
     // This would generate and download a PDF report
     console.log(`Downloading ${type} report for period: ${selectedPeriod}`);
     // Future implementation: Generate and download PDF report
+  };
+
+  // Calculate Net Worth breakdown
+  const calculateNetWorthBreakdown = () => {
+    // Calculate Bank Accounts: Sum of CurrentBalance from all active bank accounts
+    const bankAccountsBalance = bankAccountSummary?.accounts
+      ?.filter((account: any) => account.isActive)
+      .reduce((sum: number, account: any) => sum + (account.currentBalance || 0), 0) || 0;
+
+    // Calculate Savings Accounts: Sum of savings transactions (DEPOSITs added, WITHDRAWALs subtracted)
+    // Using totalSavingsBalance which is calculated from transactions
+    const savingsBalance = savingsSummary?.totalSavingsBalance || 0;
+
+    // Total Assets
+    const totalAssets = bankAccountsBalance + savingsBalance;
+
+    // Calculate Active Loans: Sum of RemainingBalance from all active loans (excluding REJECTED and COMPLETED)
+    const activeLoans = loans.filter(
+      (loan) => loan.status !== 'REJECTED' && loan.status !== 'COMPLETED'
+    );
+    const totalLiabilities = activeLoans.reduce(
+      (sum, loan) => sum + (loan.remainingBalance || 0),
+      0
+    );
+
+    // Net Worth
+    const netWorth = totalAssets - totalLiabilities;
+
+    return {
+      bankAccountsBalance,
+      savingsBalance,
+      totalAssets,
+      totalLiabilities,
+      netWorth,
+      activeLoansCount: activeLoans.length,
+    };
   };
 
   // Loan calculation helpers
@@ -445,7 +502,7 @@ const Analytics: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <AccountBalance sx={{ color: 'white', mr: 1 }} />
                 <Typography color="white" variant="h6">
-                  Disposable Income
+                  Disposable Amount
                 </Typography>
               </Box>
               <Typography variant="h4" component="h2" color="white" gutterBottom>
@@ -470,9 +527,94 @@ const Analytics: React.FC = () => {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Savings sx={{ color: 'white', mr: 1 }} />
-                <Typography color="white" variant="h6">
+                <Typography color="white" variant="h6" sx={{ flexGrow: 1 }}>
                   Net Worth
                 </Typography>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Description
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        Net Worth is your financial position: what you own minus what you owe.
+                      </Typography>
+                      <Divider sx={{ my: 1.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Total Assets
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        Bank Accounts: {formatCurrencyWithSymbol(calculateNetWorthBreakdown().bankAccountsBalance)}
+                        <br />
+                        <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                          (Sum of CurrentBalance from all active bank accounts)
+                        </span>
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5, mt: 1 }}>
+                        Savings Accounts: {formatCurrencyWithSymbol(calculateNetWorthBreakdown().savingsBalance)}
+                        <br />
+                        <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                          (Sum of savings transactions - DEPOSITs added, WITHDRAWALs subtracted)
+                        </span>
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2, mt: 1, fontWeight: 'bold' }}>
+                        Total Assets = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalAssets)}
+                      </Typography>
+                      <Divider sx={{ my: 1.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Total Liabilities
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        Active Loans: {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
+                        <br />
+                        <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                          (Sum of RemainingBalance from {calculateNetWorthBreakdown().activeLoansCount} active loans, excluding REJECTED and COMPLETED)
+                        </span>
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 2, mt: 1, fontWeight: 'bold' }}>
+                        Total Liabilities = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
+                      </Typography>
+                      <Divider sx={{ my: 1.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Computation
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        Net Worth = Total Assets - Total Liabilities
+                        <br />
+                        <span style={{ fontSize: '1rem', marginTop: '4px', display: 'block' }}>
+                          = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalAssets)} - {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
+                          <br />
+                          = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().netWorth)}
+                        </span>
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                  componentsProps={{
+                    tooltip: {
+                      sx: {
+                        bgcolor: 'rgba(0, 0, 0, 0.95)',
+                        maxWidth: 400,
+                        fontSize: '0.875rem',
+                        '& .MuiTooltip-arrow': {
+                          color: 'rgba(0, 0, 0, 0.95)',
+                        },
+                      },
+                    },
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    sx={{
+                      color: 'white',
+                      p: 0.5,
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                    }}
+                  >
+                    <Info sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
               </Box>
               <Typography variant="h4" component="h2" color="white" gutterBottom>
                 {formatCurrency(summary.netWorth)}
@@ -519,7 +661,7 @@ const Analytics: React.FC = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
           <Tab label="📈 Income & Expenses" />
-          <Tab label="💰 Disposable Income" />
+          <Tab label="💰 Disposable Amount" />
           <Tab label="🏦 Bills & Utilities" />
           <Tab label="💳 Loans & Debt" />
           <Tab label="💎 Savings & Goals" />
@@ -672,13 +814,13 @@ const Analytics: React.FC = () => {
           </Grid>
         )}
 
-        {/* Tab 1: Disposable Income */}
+        {/* Tab 1: Disposable Amount */}
         {activeTab === 1 && (
           <Grid container spacing={3}>
             <Grid item xs={12} lg={8}>
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
-                  Disposable Income Trend
+                  Disposable Amount Trend
                 </Typography>
                 <ResponsiveContainer width="100%" height={350}>
                   <AreaChart data={reportData.disposableIncomeReport?.disposableTrend || []}>
@@ -692,7 +834,7 @@ const Analytics: React.FC = () => {
                       dataKey="value"
                       fill="#4facfe"
                       stroke="#4facfe"
-                      name="Disposable Income"
+                      name="Disposable Amount"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -702,12 +844,12 @@ const Analytics: React.FC = () => {
             <Grid item xs={12} lg={4}>
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
-                  Disposable Income Analysis
+                  Disposable Amount Analysis
                 </Typography>
                 <Box sx={{ mt: 2 }}>
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Current Disposable Income
+                      Current Disposable Amount
                     </Typography>
                     <Typography variant="h4" color="primary">
                       {formatCurrency(reportData.disposableIncomeReport?.currentDisposableIncome)}
@@ -1364,6 +1506,57 @@ const Analytics: React.FC = () => {
                     />
               </AreaChart>
             </ResponsiveContainer>
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Net Worth Trend Data
+              </Typography>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Period</strong></TableCell>
+                      <TableCell align="right"><strong>Net Worth</strong></TableCell>
+                      <TableCell align="right"><strong>Change</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {reportData.netWorthReport?.netWorthTrend && reportData.netWorthReport.netWorthTrend.length > 0 ? (
+                      reportData.netWorthReport.netWorthTrend.map((item: any, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.label || new Date(item.date).toLocaleDateString()}</TableCell>
+                          <TableCell align="right">
+                            {formatCurrencyWithSymbol(item.value || 0)}
+                          </TableCell>
+                          <TableCell align="right">
+                            {item.comparisonValue !== null && item.comparisonValue !== undefined ? (
+                              <Typography
+                                variant="body2"
+                                color={item.value - item.comparisonValue >= 0 ? 'success.main' : 'error.main'}
+                              >
+                                {item.value - item.comparisonValue >= 0 ? '+' : ''}
+                                {formatCurrencyWithSymbol(item.value - item.comparisonValue)}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                N/A
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center">
+                          <Typography variant="body2" color="text.secondary">
+                            No net worth trend data available
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
           </Paper>
         </Grid>
 

@@ -93,6 +93,19 @@ class ApiService {
         const errorData = await response.json().catch(() => ({}));
         console.error('API Service: Error response:', errorData);
         
+        // Redirect to login on unauthorized/session timeout
+        if (response.status === 401 || response.status === 440) {
+          try {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+          } catch {}
+          // Use hard redirect to ensure full app reset
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth';
+          }
+        }
+        
         // Handle 400 validation errors with detailed field errors
         if (response.status === 400 && errorData.errors) {
           const fieldErrors: string[] = [];
