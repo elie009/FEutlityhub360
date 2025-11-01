@@ -31,7 +31,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -558,8 +558,8 @@ const Dashboard: React.FC = () => {
               Financial Overview
             </Typography>
             {loading ? (
-              <Box display="flex" justifyContent="center" alignItems="center" height={300}>
-                <Typography>Loading financial data...</Typography>
+              <Box>
+                <Skeleton variant="rectangular" width="100%" height={300} sx={{ borderRadius: 1 }} />
               </Box>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
@@ -585,8 +585,15 @@ const Dashboard: React.FC = () => {
               Debug: Current currency is {currency}
             </Typography>
             {loading ? (
-              <Box display="flex" justifyContent="center" alignItems="center" height={300}>
-                <Typography>Loading account data...</Typography>
+              <Box>
+                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="40%" height={24} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="50%" height={24} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="55%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="45%" height={24} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="65%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="50%" height={24} />
               </Box>
             ) : financialData ? (
               <Box>
@@ -636,12 +643,22 @@ const Dashboard: React.FC = () => {
               </Button>
             </Box>
             {transactionsLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-                <CircularProgress size={24} />
-                <Typography variant="body2" sx={{ ml: 2 }}>
-                  Loading transactions...
-                </Typography>
-              </Box>
+              <Grid container spacing={2}>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Grid item xs={12} sm={6} md={4} key={i}>
+                    <Card>
+                      <CardContent>
+                        <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
+                        <Skeleton variant="text" width="50%" height={20} sx={{ mb: 2 }} />
+                        <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                          <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
             ) : recentTransactions.length > 0 ? (
               <Grid container spacing={2}>
                 {recentTransactions.map((transaction) => (
@@ -730,8 +747,30 @@ const Dashboard: React.FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           {balanceLoading ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
-              <CircularProgress />
+            <Box>
+              <Skeleton variant="rectangular" width="100%" height={100} sx={{ mb: 2, borderRadius: 1 }} />
+              <Divider sx={{ my: 2 }} />
+              <Skeleton variant="text" width="40%" height={28} sx={{ mb: 2 }} />
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {[1, 2, 3].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                        <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                        <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Box>
           ) : balanceError ? (
             <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight={200} p={3}>
@@ -848,8 +887,12 @@ const Dashboard: React.FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           {disposableLoading ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
-              <CircularProgress />
+            <Box>
+              <Skeleton variant="rectangular" width="100%" height={200} sx={{ mb: 2, borderRadius: 1 }} />
+              <Skeleton variant="text" width="60%" height={28} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="80%" height={24} sx={{ mb: 2 }} />
+              <Skeleton variant="text" width="70%" height={28} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="75%" height={24} />
             </Box>
           ) : disposableError ? (
             <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight={300} p={3}>

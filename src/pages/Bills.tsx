@@ -29,6 +29,7 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -60,7 +61,6 @@ import {
 import { getErrorMessage } from '../utils/validation';
 import BillCard from '../components/Bills/BillCard';
 import BillForm from '../components/Bills/BillForm';
-import { SimpleFinanceLoader } from '../components/Common';
 
 const Bills: React.FC = () => {
   const { user } = useAuth();
@@ -349,8 +349,55 @@ const Bills: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <SimpleFinanceLoader size="large" text="Loading your bills..." />
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        {/* Header Skeleton */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Skeleton variant="text" width={300} height={40} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={80} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+          </Box>
+        </Box>
+
+        {/* Analytics Cards Skeleton */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="60%" height={30} />
+                      <Skeleton variant="text" width="80%" height={20} />
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Bill Cards Skeleton */}
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Grid item xs={12} sm={6} md={4} key={i}>
+              <Card>
+                <CardContent>
+                  <Skeleton variant="text" width="70%" height={28} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="50%" height={24} sx={{ mb: 2 }} />
+                  <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 1, borderRadius: 1 }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                    <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1 }} />
+                    <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1 }} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     );
   }

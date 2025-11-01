@@ -5,7 +5,6 @@ import {
   Paper,
   Grid,
   Button,
-  CircularProgress,
   Alert,
   Dialog,
   DialogTitle,
@@ -19,6 +18,7 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Skeleton,
 } from '@mui/material';
 import { Add, Edit, Delete } from '@mui/icons-material';
 import { apiService } from '../services/api';
@@ -200,9 +200,44 @@ const IncomeSources: React.FC = () => {
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <Grid container spacing={2}>
+          {/* Summary Card Skeleton */}
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2 }}>
+              <Skeleton variant="text" width="60%" height={20} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="80%" height={40} sx={{ mb: 1 }} />
+              <Skeleton variant="rectangular" width={100} height={24} sx={{ borderRadius: 1 }} />
+            </Paper>
+          </Grid>
+
+          {/* Income Sources Cards Skeleton */}
+          <Grid item xs={12} md={8}>
+            <Paper sx={{ p: 2 }}>
+              <Grid container spacing={2}>
+                {[1, 2, 3, 4].map((i) => (
+                  <Grid item xs={12} md={6} key={i}>
+                    <Paper sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Skeleton variant="text" width={150} height={28} />
+                        <Box display="flex" gap={0.5}>
+                          <Skeleton variant="rectangular" width={32} height={32} sx={{ borderRadius: 1 }} />
+                          <Skeleton variant="rectangular" width={32} height={32} sx={{ borderRadius: 1 }} />
+                        </Box>
+                      </Box>
+                      <Skeleton variant="text" width="50%" height={20} sx={{ mb: 1 }} />
+                      <Skeleton variant="text" width="70%" height={32} sx={{ mb: 1 }} />
+                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                        <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} />
+                        <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} />
+                        <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} />
+                      </Box>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
       ) : error ? (
         <Alert severity="error">{error}</Alert>
       ) : (

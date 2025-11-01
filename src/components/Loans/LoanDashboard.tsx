@@ -34,6 +34,7 @@ import {
   Menu,
   useTheme,
   useMediaQuery,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -53,7 +54,6 @@ import {
   ArrowUpward,
   ArrowDownward,
 } from '@mui/icons-material';
-import { SimpleFinanceLoader } from '../Common';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { apiService } from '../../services/api';
@@ -461,8 +461,64 @@ const LoanDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <SimpleFinanceLoader size="large" text="Loading your loans..." />
+      <Box>
+        {/* Header Skeleton */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'flex-start', sm: 'center' }, 
+          mb: 3,
+          gap: 2
+        }}>
+          <Skeleton variant="text" width={200} height={40} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={80} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={130} height={40} sx={{ borderRadius: 1 }} />
+          </Box>
+        </Box>
+
+        {/* Summary Cards Skeleton */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Grid item xs={12} sm={6} md={2.4} key={i}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                    <Box>
+                      <Skeleton variant="text" width={100} height={28} sx={{ mb: 0.5 }} />
+                      <Skeleton variant="text" width={120} height={20} />
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Loan Cards Skeleton */}
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Grid item xs={12} md={6} key={i}>
+              <Card>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Skeleton variant="text" width={200} height={28} />
+                    <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1 }} />
+                  </Box>
+                  <Skeleton variant="text" width="60%" height={20} sx={{ mb: 2 }} />
+                  <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 1, borderRadius: 1 }} />
+                  <Box display="flex" justifyContent="space-between" mt={2}>
+                    <Skeleton variant="rectangular" width={100} height={36} sx={{ borderRadius: 1 }} />
+                    <Skeleton variant="rectangular" width={100} height={36} sx={{ borderRadius: 1 }} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     );
   }

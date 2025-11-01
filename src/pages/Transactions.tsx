@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Box, Grid, Card, CardContent, Alert,
-  CircularProgress, Button, FormControl, InputLabel, Select, MenuItem,
+  Button, FormControl, InputLabel, Select, MenuItem,
   TextField, Chip, SelectChangeEvent, Dialog, DialogTitle,
   DialogContent, DialogActions, Divider, Tooltip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   ToggleButton, ToggleButtonGroup, TableSortLabel, Pagination,
+  Skeleton,
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Receipt, AttachMoney,
@@ -258,9 +259,88 @@ const TransactionsPage: React.FC = () => {
   if (isLoading) {
     return (
       <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-          <CircularProgress />
+        {/* Header Skeleton */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Skeleton variant="text" width={250} height={40} />
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
+          </Box>
         </Box>
+
+        {/* Analytics Cards Skeleton */}
+        <Box sx={{ mb: 4 }}>
+          <Skeleton variant="text" width={300} height={32} sx={{ mb: 3 }} />
+          <Grid container spacing={1} sx={{ mb: 1.5 }}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <Grid item xs={4} sm={2.4} md={1.7} key={i}>
+                <Card>
+                  <CardContent sx={{ p: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Skeleton variant="circular" width={18} height={18} sx={{ mb: 0.5 }} />
+                      <Skeleton variant="text" width="80%" height={24} sx={{ mb: 0.25 }} />
+                      <Skeleton variant="text" width="60%" height={16} />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+
+        {/* Top Category Section Skeleton */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Skeleton variant="text" width="60%" height={28} sx={{ mb: 2 }} />
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} variant="rectangular" width={100} height={32} sx={{ borderRadius: 2 }} />
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Transactions Table Skeleton */}
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Skeleton variant="text" width={200} height={28} />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+                <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+              </Box>
+            </Box>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={60} /></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={60} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
       </Container>
     );
   }

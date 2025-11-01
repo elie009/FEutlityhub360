@@ -7,7 +7,6 @@ import {
   CardContent,
   Button,
   Alert,
-  CircularProgress,
   Chip,
   LinearProgress,
   IconButton,
@@ -29,6 +28,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -371,9 +371,58 @@ const Savings: React.FC = () => {
   if (loading) {
     return (
       <Box sx={{ mt: 4, mb: 4, px: 2 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
+        {/* Header Skeleton */}
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Box>
+            <Skeleton variant="text" width={200} height={40} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width={350} height={24} />
+          </Box>
+          <Skeleton variant="rectangular" width={180} height={40} sx={{ borderRadius: 1 }} />
         </Box>
+
+        {/* Summary Cards Skeleton */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Card>
+                <CardContent>
+                  <Box display="flex" alignItems="center" mb={1}>
+                    <Skeleton variant="circular" width={32} height={32} sx={{ mr: 1 }} />
+                    <Skeleton variant="text" width={120} height={24} />
+                  </Box>
+                  <Skeleton variant="text" width="80%" height={40} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="60%" height={20} />
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Savings Accounts Skeleton */}
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} md={6} key={i}>
+              <Card>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Skeleton variant="text" width={200} height={28} />
+                    <Box display="flex" gap={1}>
+                      <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width={40} height={40} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  </Box>
+                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="80%" height={32} sx={{ mb: 2 }} />
+                  <Skeleton variant="rectangular" width="100%" height={8} sx={{ borderRadius: 1, mb: 1 }} />
+                  <Box display="flex" justifyContent="space-between">
+                    <Skeleton variant="text" width={100} height={20} />
+                    <Skeleton variant="text" width={100} height={20} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     );
   }

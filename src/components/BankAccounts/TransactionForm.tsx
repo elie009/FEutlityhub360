@@ -13,7 +13,6 @@ import {
   Grid,
   Box,
   Alert,
-  CircularProgress,
   FormControlLabel,
   Switch,
   SelectChangeEvent,
@@ -21,6 +20,7 @@ import {
   Chip,
   Typography,
   Divider,
+  Skeleton,
 } from '@mui/material';
 import { apiService } from '../../services/api';
 import { BankAccount } from '../../types/bankAccount';
@@ -112,7 +112,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [bills, setBills] = useState<Bill[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
-  const [loadingReferences, setLoadingReferences] = useState(false);
+  
+  // Separate loading states for each data source
+  const [loadingBankAccounts, setLoadingBankAccounts] = useState(false);
+  const [loadingBills, setLoadingBills] = useState(false);
+  const [loadingLoans, setLoadingLoans] = useState(false);
+  const [loadingSavingsAccounts, setLoadingSavingsAccounts] = useState(false);
   
   // State for dynamic form fields
   const [showBillSelector, setShowBillSelector] = useState(false);
@@ -148,37 +153,94 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [open, bankAccounts]);
 
-  const loadReferenceData = useCallback(async () => {
-    setLoadingReferences(true);
+  // Load each data source asynchronously with individual loading states
+  // Added minimum delays to make skeleton screens visible
+  const loadBills = useCallback(async () => {
+    setLoadingBills(true);
     try {
-      // Load bills, loans, and savings accounts in parallel
-      const [billsResponse, loansResponse] = await Promise.all([
-        apiService.getUserBills({ status: BillStatus.PENDING }).catch(() => ({ data: [] })),
-        apiService.getUserLoans('demo-user-123').catch(() => [])
-      ]);
-
+      const startTime = Date.now();
+      const billsResponse = await apiService.getUserBills({ status: BillStatus.PENDING });
+      const elapsed = Date.now() - startTime;
+      const minDelay = 800; // Minimum 800ms to see skeleton
+      
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+      
       setBills(billsResponse.data || []);
+    } catch (error) {
+      console.error('Failed to load bills:', error);
+      setBills([]);
+      // Still show skeleton for minimum time even on error
+      await new Promise(resolve => setTimeout(resolve, 800));
+    } finally {
+      setLoadingBills(false);
+    }
+  }, []);
+
+  const loadLoans = useCallback(async () => {
+    setLoadingLoans(true);
+    try {
+      const startTime = Date.now();
+      const loansResponse = await apiService.getUserLoans('demo-user-123');
+      const elapsed = Date.now() - startTime;
+      const minDelay = 1000; // Minimum 1000ms to see skeleton
+      
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+      
       setLoans(Array.isArray(loansResponse) ? loansResponse : []);
+    } catch (error) {
+      console.error('Failed to load loans:', error);
+      setLoans([]);
+      // Still show skeleton for minimum time even on error
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } finally {
+      setLoadingLoans(false);
+    }
+  }, []);
+
+  const loadSavingsAccounts = useCallback(async () => {
+    setLoadingSavingsAccounts(true);
+    try {
       // For now, we'll use bank accounts as savings accounts
       // In a real implementation, you'd have a separate savings accounts API
-      setSavingsAccounts(bankAccounts.map(acc => ({
+      // Add delay to show skeleton screen
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      const accounts = bankAccounts.map(acc => ({
         id: acc.id,
         name: acc.accountName,
         balance: acc.currentBalance
-      })));
+      }));
+      setSavingsAccounts(accounts);
     } catch (error) {
-      console.error('Failed to load reference data:', error);
+      console.error('Failed to load savings accounts:', error);
+      setSavingsAccounts([]);
     } finally {
-      setLoadingReferences(false);
+      setLoadingSavingsAccounts(false);
     }
   }, [bankAccounts]);
 
-  // Load reference data when dialog opens
+  const loadBankAccounts = useCallback(async () => {
+    setLoadingBankAccounts(true);
+    // Bank accounts are passed as props, but we simulate loading to show skeleton
+    // Different delay to show asynchronous loading
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setLoadingBankAccounts(false);
+  }, []);
+
+  // Load all reference data asynchronously when dialog opens
   useEffect(() => {
     if (open) {
-      loadReferenceData();
+      // Load all data sources in parallel but track each separately
+      loadBankAccounts();
+      loadBills();
+      loadLoans();
+      loadSavingsAccounts();
     }
-  }, [open, loadReferenceData]);
+  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts]);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -312,20 +374,27 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Bank Account</InputLabel>
-                <Select
-                  value={formData.bankAccountId}
-                  onChange={handleSelectChange('bankAccountId')}
-                  label="Bank Account"
-                >
-                  {bankAccounts.map((account) => (
-                    <MenuItem key={account.id} value={account.id}>
-                      {account.accountName} - {formatCurrency(account.currentBalance)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              {loadingBankAccounts ? (
+                <Box>
+                  <Skeleton variant="text" width="30%" height={24} sx={{ mb: 1 }} />
+                  <Skeleton variant="rectangular" width="100%" height={56} />
+                </Box>
+              ) : (
+                <FormControl fullWidth required>
+                  <InputLabel>Bank Account</InputLabel>
+                  <Select
+                    value={formData.bankAccountId}
+                    onChange={handleSelectChange('bankAccountId')}
+                    label="Bank Account"
+                  >
+                    {bankAccounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.accountName} - {formatCurrency(account.currentBalance)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
             </Grid>
 
             <Grid item xs={12} sm={6}>
@@ -410,21 +479,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     Bill Payment
                   </Typography>
                 </Divider>
-                <FormControl fullWidth required>
-                  <InputLabel>Select Bill</InputLabel>
-                  <Select
-                    value={formData.billId}
-                    onChange={handleSelectChange('billId')}
-                    label="Select Bill"
-                    disabled={loadingReferences}
-                  >
-                    {bills.map((bill) => (
-                      <MenuItem key={bill.id} value={bill.id}>
-                        {bill.billName} - ${bill.amount.toFixed(2)} ({bill.status})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                {loadingBills ? (
+                  <Box>
+                    <Skeleton variant="text" width="25%" height={24} sx={{ mb: 1 }} />
+                    <Skeleton variant="rectangular" width="100%" height={56} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth required>
+                    <InputLabel>Select Bill</InputLabel>
+                    <Select
+                      value={formData.billId}
+                      onChange={handleSelectChange('billId')}
+                      label="Select Bill"
+                    >
+                      {bills.length > 0 ? (
+                        bills.map((bill) => (
+                          <MenuItem key={bill.id} value={bill.id}>
+                            {bill.billName} - ${bill.amount.toFixed(2)} ({bill.status})
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>No bills available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                )}
               </Grid>
             )}
 
@@ -435,21 +514,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     Savings Deposit
                   </Typography>
                 </Divider>
-                <FormControl fullWidth required>
-                  <InputLabel>Select Savings Account</InputLabel>
-                  <Select
-                    value={formData.savingsAccountId}
-                    onChange={handleSelectChange('savingsAccountId')}
-                    label="Select Savings Account"
-                    disabled={loadingReferences}
-                  >
-                    {savingsAccounts.map((account) => (
-                      <MenuItem key={account.id} value={account.id}>
-                        {account.name} - ${account.balance.toFixed(2)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                {loadingSavingsAccounts ? (
+                  <Box>
+                    <Skeleton variant="text" width="30%" height={24} sx={{ mb: 1 }} />
+                    <Skeleton variant="rectangular" width="100%" height={56} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth required>
+                    <InputLabel>Select Savings Account</InputLabel>
+                    <Select
+                      value={formData.savingsAccountId}
+                      onChange={handleSelectChange('savingsAccountId')}
+                      label="Select Savings Account"
+                    >
+                      {savingsAccounts.length > 0 ? (
+                        savingsAccounts.map((account) => (
+                          <MenuItem key={account.id} value={account.id}>
+                            {account.name} - ${account.balance.toFixed(2)}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>No savings accounts available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                )}
               </Grid>
             )}
 
@@ -460,21 +549,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     Loan Payment
                   </Typography>
                 </Divider>
-                <FormControl fullWidth required>
-                  <InputLabel>Select Loan</InputLabel>
-                  <Select
-                    value={formData.loanId}
-                    onChange={handleSelectChange('loanId')}
-                    label="Select Loan"
-                    disabled={loadingReferences}
-                  >
-                    {loans.map((loan) => (
-                      <MenuItem key={loan.id} value={loan.id}>
-                        {loan.purpose} - ${loan.principal.toFixed(2)} ({loan.status})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                {loadingLoans ? (
+                  <Box>
+                    <Skeleton variant="text" width="25%" height={24} sx={{ mb: 1 }} />
+                    <Skeleton variant="rectangular" width="100%" height={56} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth required>
+                    <InputLabel>Select Loan</InputLabel>
+                    <Select
+                      value={formData.loanId}
+                      onChange={handleSelectChange('loanId')}
+                      label="Select Loan"
+                    >
+                      {loans.length > 0 ? (
+                        loans.map((loan) => (
+                          <MenuItem key={loan.id} value={loan.id}>
+                            {loan.purpose} - ${loan.principal.toFixed(2)} ({loan.status})
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>No loans available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                )}
               </Grid>
             )}
 
@@ -566,17 +665,24 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isLoading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={isLoading}
-          startIcon={isLoading ? <CircularProgress size={20} /> : null}
-        >
-          {isLoading ? 'Creating...' : 'Create Transaction'}
-        </Button>
+        {isLoading ? (
+          <>
+            <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={140} height={36} sx={{ borderRadius: 1 }} />
+          </>
+        ) : (
+          <>
+            <Button onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              variant="contained"
+            >
+              Create Transaction
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );
