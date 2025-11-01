@@ -475,7 +475,7 @@ const Dashboard: React.FC = () => {
       {/* Profile Status Section */}
       {isAuthenticated && (
         <Box mb={3}>
-          {hasProfile ? (
+          {(hasProfile || (userProfile && userProfile.id)) ? (
             <Alert 
               severity="success" 
               icon={<CheckCircle />}
@@ -677,7 +677,7 @@ const Dashboard: React.FC = () => {
               Recent Activity
             </Typography>
             <Box>
-              {hasProfile ? (
+              {(hasProfile || (userProfile && userProfile.id)) ? (
                 <>
                   <Typography variant="body2" color="textSecondary">
                     • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}

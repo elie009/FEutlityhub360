@@ -388,6 +388,7 @@ class ApiService {
       console.log('API: ✅ Profile found - returning data');
       console.log('API: Profile ID:', response.data.id);
       console.log('API: Profile isActive:', response.data.isActive);
+      console.log('API: Profile preferredCurrency:', response.data.preferredCurrency);
       console.log('API: Income Sources count:', response.data.incomeSources?.length || 0);
       return response.data;
     } else if (response && response.success === true && response.data === null) {
@@ -1730,8 +1731,8 @@ class ApiService {
   // Utility method for formatting currency
   formatCurrency(amount: number, currency: string = 'USD'): string {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   }
 

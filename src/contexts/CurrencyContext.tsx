@@ -76,15 +76,35 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
   useEffect(() => {
     const loadCurrencyPreference = () => {
       try {
-        // First try to get from user profile
+        setIsLoading(true);
+        
+        // First priority: user profile preferredCurrency
         if (userProfile?.preferredCurrency) {
-          setCurrencyState(userProfile.preferredCurrency);
-          localStorage.setItem('preferredCurrency', userProfile.preferredCurrency);
+          const profileCurrency = userProfile.preferredCurrency.toUpperCase();
+          // Validate that the currency from profile is in our options
+          if (CURRENCY_OPTIONS.find(c => c.code === profileCurrency)) {
+            setCurrencyState(profileCurrency);
+            localStorage.setItem('preferredCurrency', profileCurrency);
+            console.log('CurrencyContext: Using preferredCurrency from profile:', profileCurrency);
+          } else {
+            console.warn('CurrencyContext: Profile has invalid currency:', userProfile.preferredCurrency);
+            // Fall through to localStorage or default
+            const savedCurrency = localStorage.getItem('preferredCurrency');
+            if (savedCurrency && CURRENCY_OPTIONS.find(c => c.code === savedCurrency)) {
+              setCurrencyState(savedCurrency);
+            } else {
+              setCurrencyState('USD');
+            }
+          }
         } else {
           // Fallback to localStorage
           const savedCurrency = localStorage.getItem('preferredCurrency');
           if (savedCurrency && CURRENCY_OPTIONS.find(c => c.code === savedCurrency)) {
             setCurrencyState(savedCurrency);
+            console.log('CurrencyContext: Using saved currency from localStorage:', savedCurrency);
+          } else {
+            setCurrencyState('USD');
+            console.log('CurrencyContext: Using default currency: USD');
           }
         }
       } catch (error) {
@@ -96,7 +116,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     };
 
     loadCurrencyPreference();
-  }, [userProfile]);
+  }, [userProfile?.preferredCurrency]); // More specific dependency - only react to preferredCurrency changes
 
   const setCurrency = (newCurrency: string) => {
     setCurrencyState(newCurrency);
@@ -105,7 +125,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
 
   const formatCurrency = (amount: number, options: CurrencyFormatOptions = {}): string => {
     const {
-      showSymbol = true,
+      showSymbol = false,
       showCode = false,
       decimals = 2,
       locale = 'en-US',
@@ -116,18 +136,18 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     const targetCurrency = currency;
 
     try {
+      // Format as number without currency symbol
       const formatter = new Intl.NumberFormat(locale, {
-        style: 'currency',
-        currency: targetCurrency,
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
       });
 
       let formatted = formatter.format(amount);
 
-      if (!showSymbol) {
-        // Remove currency symbol but keep the number formatting
-        formatted = formatted.replace(/[^\d.,\s-]/g, '').trim();
+      // Only add symbol if explicitly requested
+      if (showSymbol) {
+        const symbol = getCurrencySymbol(targetCurrency);
+        formatted = `${symbol}${formatted}`;
       }
 
       if (showCode) {
@@ -137,9 +157,8 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
       return formatted;
     } catch (error) {
       console.error('Error formatting currency:', error);
-      // Fallback formatting
-      const symbol = getCurrencySymbol(targetCurrency);
-      return `${symbol}${amount.toFixed(decimals)}`;
+      // Fallback formatting without symbol
+      return amount.toFixed(decimals);
     }
   };
 

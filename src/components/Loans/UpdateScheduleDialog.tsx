@@ -307,8 +307,8 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -562,8 +562,8 @@ const UpdateScheduleDialog: React.FC<UpdateScheduleDialogProps> = ({
                         {bankAccounts.map((account) => (
                           <MenuItem key={account.id} value={account.id}>
                             {account.accountName} - {account.accountType} ({new Intl.NumberFormat('en-US', {
-                              style: 'currency',
-                              currency: account.currency || 'USD',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             }).format(account.currentBalance)})
                           </MenuItem>
                         ))}

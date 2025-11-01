@@ -387,11 +387,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const profile = await apiService.getUserProfile();
 
       if (profile && profile.id) {
-      
+        console.log('AuthContext: Profile loaded with preferredCurrency:', profile.preferredCurrency);
         
         setHasProfile(true);
         setUserProfile(profile);
         sessionStorage.setItem('userProfile', JSON.stringify(profile));
+        
+        // Also save preferredCurrency to localStorage for faster access
+        if (profile.preferredCurrency) {
+          localStorage.setItem('preferredCurrency', profile.preferredCurrency);
+        }
         
         return true;
       } else {
@@ -413,10 +418,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Update user profile in state and session
   const updateUserProfile = (profile: any) => {
+    console.log('AuthContext: Updating user profile with preferredCurrency:', profile?.preferredCurrency);
     setUserProfile(profile);
     setHasProfile(!!profile);
     if (profile) {
       sessionStorage.setItem('userProfile', JSON.stringify(profile));
+      // Update preferredCurrency in localStorage when profile is updated
+      if (profile.preferredCurrency) {
+        localStorage.setItem('preferredCurrency', profile.preferredCurrency);
+      }
     } else {
       sessionStorage.removeItem('userProfile');
     }
@@ -476,7 +486,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const profile = JSON.parse(savedProfile);
         setUserProfile(profile);
         setHasProfile(true);
-        console.log('AuthContext: Loaded profile from session');
+        // Also sync preferredCurrency to localStorage
+        if (profile.preferredCurrency) {
+          localStorage.setItem('preferredCurrency', profile.preferredCurrency);
+        }
+        console.log('AuthContext: Loaded profile from session with preferredCurrency:', profile.preferredCurrency);
       } catch (error) {
         console.error('AuthContext: Error parsing saved profile:', error);
         sessionStorage.removeItem('userProfile');

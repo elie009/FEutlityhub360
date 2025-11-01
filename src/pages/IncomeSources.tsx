@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import { Add, Edit, Delete } from '@mui/icons-material';
 import { apiService } from '../services/api';
-import { useCurrency } from '../contexts/CurrencyContext';
+import { useCurrency, CURRENCY_OPTIONS } from '../contexts/CurrencyContext';
 
 interface IncomeSourceForm {
   id?: string;
@@ -327,12 +327,20 @@ const IncomeSources: React.FC = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Currency"
-                value={form.currency}
-                onChange={(e) => setForm({ ...form, currency: e.target.value })}
-              />
+              <FormControl fullWidth>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  value={form.currency}
+                  label="Currency"
+                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                >
+                  {CURRENCY_OPTIONS.map((currencyOption) => (
+                    <MenuItem key={currencyOption.code} value={currencyOption.code}>
+                      {currencyOption.code} - {currencyOption.name} ({currencyOption.symbol})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12}>
               <TextField

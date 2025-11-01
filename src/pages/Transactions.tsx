@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, Receipt, AttachMoney,
   Refresh, Clear, Category, AccountBalance, Link, Sync,
   HelpOutline, Visibility, ViewList, ViewModule,
-  FilterList, FilterListOff,
+  FilterList, FilterListOff, CloudUpload, Delete,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -57,6 +57,8 @@ const TransactionsPage: React.FC = () => {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -185,6 +187,49 @@ const TransactionsPage: React.FC = () => {
     setShowDetailsDialog(false);
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadError(null);
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB in bytes
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      // Check file type
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`${file.name}: Only JPG and PNG files are allowed.`);
+        return;
+      }
+
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: File size exceeds 5 MB limit.`);
+        return;
+      }
+
+      validFiles.push(file);
+    });
+
+    if (errors.length > 0) {
+      setUploadError(errors.join(' '));
+    }
+
+    if (validFiles.length > 0) {
+      setUploadedFiles((prev) => [...prev, ...validFiles]);
+    }
+
+    // Reset input
+    event.target.value = '';
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleDeleteTransaction = async (transactionId: string) => {
     if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
       try {
@@ -255,6 +300,12 @@ const TransactionsPage: React.FC = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
+        </Alert>
+      )}
+
+      {uploadError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setUploadError(null)}>
+          {uploadError}
         </Alert>
       )}
 
@@ -554,6 +605,126 @@ const TransactionsPage: React.FC = () => {
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                       Top Category
                     </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={4} sm={2.4} md={1.7}>
+              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 }, position: 'relative' }}>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Upload receipts and let AI do the work! 📸✨
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1.5 }}>
+                        Simply snap a photo or upload your receipt, and our advanced AI will automatically read, extract, and add all transaction details to your records. No more manual entry!
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        ✓ How it works:
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • Upload or capture receipt photo
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        • AI extracts amount, date, merchant & category
+                      </Typography>
+                      <Typography variant="body2">
+                        • Auto-adds to your transaction records
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <IconButton
+                    size="small"
+                    sx={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      p: 0.5,
+                      cursor: 'help',
+                    }}
+                  >
+                    <HelpOutline sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  </IconButton>
+                </Tooltip>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <CloudUpload sx={{ fontSize: 18, color: 'primary.main', mb: 0.5 }} />
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', mb: 0.5 }}>
+                      Upload Receipt
+                    </Typography>
+                    <input
+                      accept="image/jpeg,image/jpg,image/png"
+                      style={{ display: 'none' }}
+                      id="image-upload-input"
+                      multiple
+                      type="file"
+                      onChange={handleFileUpload}
+                    />
+                    <label htmlFor="image-upload-input">
+                      <Button
+                        component="span"
+                        size="small"
+                        variant="outlined"
+                        sx={{ 
+                          mt: 0.5,
+                          fontSize: '0.7rem',
+                          py: 0.25,
+                          px: 1,
+                          textTransform: 'none',
+                        }}
+                      >
+                        Choose Files
+                      </Button>
+                    </label>
+                    {uploadedFiles.length > 0 && (
+                      <Box sx={{ mt: 1, width: '100%' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block', mb: 0.5 }}>
+                          {uploadedFiles.length} file(s) uploaded
+                        </Typography>
+                        <Box sx={{ maxHeight: 60, overflowY: 'auto', width: '100%' }}>
+                          {uploadedFiles.map((file, index) => (
+                            <Box
+                              key={index}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                p: 0.25,
+                                mb: 0.25,
+                                bgcolor: 'action.hover',
+                                borderRadius: 0.5,
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontSize: '0.6rem',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  flex: 1,
+                                  textAlign: 'left',
+                                }}
+                                title={file.name}
+                              >
+                                {file.name}
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleRemoveFile(index)}
+                                sx={{ p: 0.25, ml: 0.5 }}
+                              >
+                                <Delete sx={{ fontSize: 12 }} />
+                              </IconButton>
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
                   </Box>
                 </CardContent>
               </Card>
