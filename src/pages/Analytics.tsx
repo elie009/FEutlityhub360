@@ -232,7 +232,10 @@ const Analytics: React.FC = () => {
       setSummary(safeReport.summary);
     } catch (err: any) {
       console.error('Error fetching financial data:', err);
-      setError(err.message || 'Failed to load financial data. The backend API may not be implemented yet.');
+      // Don't show error if request was aborted (user navigated away or request timed out)
+      if (err.name !== 'AbortError' && !err.message?.includes('aborted')) {
+        setError(err.message || 'Failed to load financial data. The backend API may not be implemented yet.');
+      }
     } finally {
       setLoading(false);
     }

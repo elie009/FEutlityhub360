@@ -1867,7 +1867,7 @@ class ApiService {
     return response;
   }
 
-  async getBankAccountSummary(): Promise<{
+  async getBankAccountSummary(year?: number, month?: number): Promise<{
     totalBalance: number;
     totalAccounts: number;
     activeAccounts: number;
@@ -1875,12 +1875,31 @@ class ApiService {
     totalIncoming: number;
     totalOutgoing: number;
     accounts: any[];
+    spendingByCategory?: {
+      LOAN_PAYMENT?: number;
+      transactions?: {
+        totalDebit?: number;
+        totalCredit?: number;
+      };
+      [key: string]: number | any | undefined;
+    };
   }> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
-      return mockBankAccountDataService.getBankAccountSummary(user?.id || 'demo-user-123');
+      return mockBankAccountDataService.getBankAccountSummary(user?.id || 'demo-user-123', year, month);
     }
-    const response = await this.request<any>('/BankAccounts/summary');
+    
+    // Build query parameters
+    const params: string[] = [];
+    if (year !== undefined) {
+      params.push(`year=${year}`);
+    }
+    if (month !== undefined) {
+      params.push(`month=${month}`);
+    }
+    const queryString = params.length > 0 ? `?${params.join('&')}` : '';
+    
+    const response = await this.request<any>(`/BankAccounts/summary${queryString}`);
     if (response && response.data) {
       return response.data;
     }
@@ -2752,6 +2771,22 @@ class ApiService {
       return response.data;
     }
     return [];
+  }
+
+  // Get monthly cash flow
+  async getMonthlyCashFlow(year?: number): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (year) queryParams.append('year', year.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Analytics/monthly-cash-flow${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get monthly cash flow');
   }
 
   // ==================== DISPOSABLE AMOUNT APIs ====================

@@ -47,8 +47,9 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Close as CloseIcon,
+  CreditCard as CreditCardIcon,
 } from '@mui/icons-material';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
@@ -56,12 +57,31 @@ import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import { BankAccountTransaction } from '../types/transaction';
 
+// Custom tick component for multi-line labels
+const CustomXAxisTick = ({ x, y, payload }: any) => {
+  const label = payload.value;
+  
+  // Default single-line label
+  return (
+    <text x={x} y={y} dy={16} textAnchor="middle" fill="#666">
+      {label}
+    </text>
+  );
+};
 
 const Dashboard: React.FC = () => {
   const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
   const { formatCurrency, currency } = useCurrency();
   const [financialData, setFinancialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Financial Overview period states
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined);
+  
+  // Monthly cash flow data
+  const [monthlyCashFlowData, setMonthlyCashFlowData] = useState<any>(null);
+  const [cashFlowLoading, setCashFlowLoading] = useState(false);
   
   // Disposable amount modal states
   const [showDisposableModal, setShowDisposableModal] = useState(false);
@@ -129,22 +149,22 @@ const Dashboard: React.FC = () => {
   }, [user, hasProfile]);
 
   // Fetch real financial data
-  useEffect(() => {
-    const loadFinancialData = async () => {
-      if (!isAuthenticated) return;
-      
-      try {
-        setLoading(true);
-        // Fetch bank account summary for real financial data
-        const summary = await apiService.getBankAccountSummary();
-        setFinancialData(summary);
-      } catch (error) {
-        console.error('Failed to load financial data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadFinancialData = async (year?: number, month?: number) => {
+    if (!isAuthenticated) return;
     
+    try {
+      setLoading(true);
+      // Fetch bank account summary for real financial data
+      const summary = await apiService.getBankAccountSummary(year, month);
+      setFinancialData(summary);
+    } catch (error) {
+      console.error('Failed to load financial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadFinancialData();
   }, [isAuthenticated]);
 
@@ -208,6 +228,27 @@ const Dashboard: React.FC = () => {
     };
     
     loadRecentTransactions();
+  }, [isAuthenticated]);
+
+  // Fetch monthly cash flow data on page load
+  useEffect(() => {
+    const loadMonthlyCashFlow = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setCashFlowLoading(true);
+        const currentYear = new Date().getFullYear();
+        const response = await apiService.getMonthlyCashFlow(currentYear);
+        setMonthlyCashFlowData(response);
+      } catch (error) {
+        console.error('Failed to load monthly cash flow:', error);
+        setMonthlyCashFlowData(null);
+      } finally {
+        setCashFlowLoading(false);
+      }
+    };
+    
+    loadMonthlyCashFlow();
   }, [isAuthenticated]);
 
   // Profile form handlers
@@ -416,17 +457,58 @@ const Dashboard: React.FC = () => {
   const disposableIncome = dashboardDisposableData ? (dashboardDisposableData.disposableAmount || 0) : 0;
   const incomeSourcesCount = dashboardDisposableData?.incomeBreakdown?.length || userProfile?.incomeSources?.length || 0;
   
-  // Real financial data for charts
+  const totalInitialBalanceSum = Array.isArray(financialData?.accounts)
+    ? (financialData.accounts as any[]).reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
+    : 0;
+
+  // Extract Total Loan Payment from spendingByCategory
+  const totalLoanPayment = financialData?.spendingByCategory?.LOAN_PAYMENT || 0;
+
+  // Transform monthly cash flow data for chart
+  const prepareCashFlowChartData = () => {
+    if (!monthlyCashFlowData || !monthlyCashFlowData.monthlyData) {
+      return [];
+    }
+
+    // Create a map of month number to data for quick lookup
+    const monthDataMap = new Map();
+    monthlyCashFlowData.monthlyData.forEach((month: any) => {
+      monthDataMap.set(month.month, month);
+    });
+
+    // Create chart data for all 12 months (January to December)
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const chartData = [];
+
+    for (let i = 1; i <= 12; i++) {
+      const monthData = monthDataMap.get(i) || {
+        month: i,
+        monthName: new Date(2024, i - 1, 1).toLocaleString('default', { month: 'long' }),
+        monthAbbreviation: monthNames[i - 1],
+        incoming: 0,
+        outgoing: 0,
+        net: 0,
+      };
+
+      chartData.push({
+        month: monthData.monthAbbreviation || monthNames[i - 1],
+        incoming: monthData.incoming || 0,
+        outgoing: monthData.outgoing || 0,
+        net: monthData.net || 0,
+      });
+    }
+
+    return chartData;
+  };
+
+  const cashFlowChartData = prepareCashFlowChartData();
+
+  // Real financial data for charts (legacy - kept for backward compatibility)
   const chartData = financialData ? [
     { name: 'Total Balance', amount: financialData.totalBalance || 0 },
     { name: 'Total Incoming', amount: financialData.totalIncoming || 0 },
     { name: 'Total Outgoing', amount: financialData.totalOutgoing || 0 },
-    { name: 'Active Accounts', amount: financialData.activeAccounts || 0 },
   ] : [];
-  
-  const totalInitialBalanceSum = Array.isArray(financialData?.accounts)
-    ? (financialData.accounts as any[]).reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
-    : 0;
 
   const stats = [
     {
@@ -513,7 +595,7 @@ const Dashboard: React.FC = () => {
       <Grid container spacing={3}>
         {/* Stats Cards */}
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={2.4} key={index}>
+          <Grid item xs={12} sm={6} md={4} lg={2.4} key={index}>
             <Card 
               sx={{ 
                 cursor: (stat.title === 'Disposable Amount' || stat.title === 'Current Balance') ? 'pointer' : 'default',
@@ -555,22 +637,37 @@ const Dashboard: React.FC = () => {
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Financial Overview
+              Financial Overview - Monthly Cash Flow
             </Typography>
-            {loading ? (
+            {cashFlowLoading || loading ? (
               <Box>
                 <Skeleton variant="rectangular" width="100%" height={300} sx={{ borderRadius: 1 }} />
               </Box>
-            ) : (
+            ) : cashFlowChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
+                <BarChart data={cashFlowChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
+                  <XAxis 
+                    dataKey="month"
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis />
-                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
-                  <Bar dataKey="amount" fill="#1976d2" />
+                  <Tooltip 
+                    formatter={(value: any) => [formatCurrency(Number(value)), '']}
+                    labelFormatter={(label) => `Month: ${label}`}
+                  />
+                  <Legend />
+                  <Bar dataKey="incoming" fill="#4caf50" name="Incoming" />
+                  <Bar dataKey="outgoing" fill="#f44336" name="Outgoing" />
+                  <Bar dataKey="net" fill="#2196f3" name="Net" />
                 </BarChart>
               </ResponsiveContainer>
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No cash flow data available
+                </Typography>
+              </Box>
             )}
           </Paper>
         </Grid>

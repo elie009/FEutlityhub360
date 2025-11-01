@@ -276,7 +276,7 @@ export const mockBankAccountDataService = {
     return updatedAccount;
   },
 
-  async getBankAccountSummary(userId: string): Promise<{
+  async getBankAccountSummary(userId: string, year?: number, month?: number): Promise<{
     totalBalance: number;
     totalAccounts: number;
     activeAccounts: number;
@@ -284,6 +284,14 @@ export const mockBankAccountDataService = {
     totalIncoming: number;
     totalOutgoing: number;
     accounts: BankAccount[];
+    spendingByCategory?: {
+      LOAN_PAYMENT?: number;
+      transactions?: {
+        totalDebit?: number;
+        totalCredit?: number;
+      };
+      [key: string]: number | any | undefined;
+    };
   }> {
     await delay(500);
     
@@ -304,6 +312,13 @@ export const mockBankAccountDataService = {
       totalIncoming,
       totalOutgoing,
       accounts: userAccounts,
+      spendingByCategory: {
+        LOAN_PAYMENT: 1250.00, // Mock data for loan payments
+        transactions: {
+          totalDebit: 8500.00, // Mock data for total debit
+          totalCredit: 12000.00, // Mock data for total credit
+        },
+      },
     };
   },
 };
