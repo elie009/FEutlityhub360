@@ -10,6 +10,8 @@ import {
   Box,
   Typography,
   Collapse,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -30,6 +32,8 @@ import {
   AccountBalance as BankAccountIcon,
   Savings as SavingsIcon,
   MenuBook as DocumentationIcon,
+  ChevronLeft,
+  ChevronRight,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -67,9 +71,10 @@ const menuItems: MenuItem[] = [
 
 interface SidebarProps {
   open: boolean;
+  onToggle?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ open }) => {
+const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
@@ -196,8 +201,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
   };
 
   const drawerContent = (
-    <Box>
-      <Box sx={{ p: open ? 2 : 1, textAlign: open ? 'left' : 'center' }}>
+    <Box sx={{ position: 'relative', height: '100%' }}>
+      <Box sx={{ 
+        p: open ? 2 : 1, 
+        textAlign: open ? 'left' : 'center',
+      }}>
         {open ? (
           <Typography variant="h6" noWrap component="div">
             Admin Panel
@@ -212,6 +220,43 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
       <List>
         {menuItems.map((item) => renderMenuItem(item))}
       </List>
+      
+      {/* Toggle button positioned on the right side */}
+      {onToggle && (
+        <Box
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 10,
+          }}
+        >
+          <Tooltip title={open ? 'Collapse sidebar' : 'Expand sidebar'} placement="left">
+            <IconButton
+              onClick={onToggle}
+              size="small"
+              sx={{
+                backgroundColor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRight: 'none',
+                borderRadius: '8px 0 0 8px',
+                color: 'text.secondary',
+                boxShadow: 2,
+                width: 32,
+                height: 48,
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  boxShadow: 4,
+                },
+              }}
+            >
+              {open ? <ChevronLeft /> : <ChevronRight />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
     </Box>
   );
 
@@ -226,6 +271,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
           boxSizing: 'border-box',
           width: open ? drawerWidth : collapsedWidth,
           overflowX: 'hidden',
+          overflowY: 'auto',
+          position: 'relative',
           transition: (theme) => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,

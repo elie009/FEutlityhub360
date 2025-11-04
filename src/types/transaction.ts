@@ -22,6 +22,7 @@ export interface BankAccountTransaction {
   billId?: string;           // For bill-related transactions
   savingsAccountId?: string; // For savings-related transactions
   loanId?: string;           // For loan-related transactions
+  accountName?: string;      // Account name for display
 }
 
 export interface TransactionFilters {

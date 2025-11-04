@@ -19,9 +19,10 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import logo from '../../logo.png';
 
 interface AppBarProps {
-  onMenuClick: () => void;
+  onMenuClick?: () => void;
 }
 
 const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
@@ -51,19 +52,33 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
   return (
     <MuiAppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
       <Toolbar>
-        <IconButton
-          color="inherit"
-          aria-label="open drawer"
-          onClick={onMenuClick}
-          edge="start"
-          sx={{ mr: 2 }}
-        >
-          <MenuIcon />
-        </IconButton>
-        
-        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-          UtilityHub360
-        </Typography>
+        {isMobile && onMenuClick && (
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            onClick={onMenuClick}
+            edge="start"
+            sx={{ mr: 2 }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
+        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <img 
+              src={logo} 
+              alt="UtilityHub360 Logo" 
+              style={{ 
+                height: '32px', 
+                width: 'auto',
+                objectFit: 'contain'
+              }} 
+            />
+          </Box>
+          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+            UtilityHub360
+          </Typography>
+        </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton color="inherit" onClick={handleNotificationsClick}>

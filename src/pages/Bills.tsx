@@ -83,6 +83,14 @@ const Bills: React.FC = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  
+  // Mark as paid dialog states
+  const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
+  const [billToMarkPaid, setBillToMarkPaid] = useState<Bill | null>(null);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [paymentNotes, setPaymentNotes] = useState<string>('');
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
 
   // Group bills by billName to show the earliest unpaid bill per group
   const groupedBills = React.useMemo(() => {
@@ -318,13 +326,72 @@ const Bills: React.FC = () => {
   };
 
   const handleMarkAsPaid = async (billId: string) => {
+    // Find the bill to mark as paid
+    const bill = bills.find(b => b.id === billId);
+    if (!bill) {
+      setError('Bill not found');
+      return;
+    }
+    
+    setBillToMarkPaid(bill);
+    setShowMarkPaidDialog(true);
+    setSelectedAccountId('');
+    setPaymentNotes('');
+    
+    // Load bank accounts
+    setLoadingAccounts(true);
     try {
-      await apiService.markBillAsPaid(billId, 'Marked as paid from dashboard');
+      const accounts = await apiService.getUserBankAccounts({ isActive: true });
+      setBankAccounts(accounts);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load bank accounts'));
+      setBankAccounts([]);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  const handleConfirmMarkAsPaid = async () => {
+    if (!billToMarkPaid) return;
+    
+    if (!selectedAccountId) {
+      setError('Please select a bank account');
+      return;
+    }
+    
+    try {
+      await apiService.markBillAsPaid(billToMarkPaid.id, {
+        notes: paymentNotes,
+        bankAccountId: selectedAccountId,
+      });
+      setShowMarkPaidDialog(false);
+      setBillToMarkPaid(null);
+      setSelectedAccountId('');
+      setPaymentNotes('');
+      setSuccessMessage('Bill marked as paid successfully');
       loadBills();
       loadAnalytics();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to mark bill as paid'));
     }
+  };
+
+  const handleCloseMarkPaidDialog = () => {
+    setShowMarkPaidDialog(false);
+    setBillToMarkPaid(null);
+    setSelectedAccountId('');
+    setPaymentNotes('');
+  };
+
+  // Filter bank accounts with sufficient balance
+  const getAvailableAccounts = () => {
+    if (!billToMarkPaid) return [];
+    
+    return bankAccounts.filter(account => {
+      const balance = account.currentBalance || 0;
+      const billAmount = billToMarkPaid.amount || 0;
+      return balance >= billAmount && account.isActive;
+    });
   };
 
   const handleFilterChange = (field: keyof BillFilters, value: any) => {
@@ -836,6 +903,98 @@ const Bills: React.FC = () => {
         onSuccess={handleBillSuccess}
         lockedFields={isEditingSpecificMonth}
       />
+
+      {/* Mark as Paid Dialog */}
+      <Dialog
+        open={showMarkPaidDialog}
+        onClose={handleCloseMarkPaidDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Mark Bill as Paid
+        </DialogTitle>
+        <DialogContent>
+          {billToMarkPaid && (
+            <Box>
+              <Box mb={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Bill Name
+                </Typography>
+                <Typography variant="h6">
+                  {billToMarkPaid.billName}
+                </Typography>
+              </Box>
+              <Box mb={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Amount
+                </Typography>
+                <Typography variant="h6" color="primary">
+                  {formatCurrency(billToMarkPaid.amount)}
+                </Typography>
+              </Box>
+              
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="bank-account-select-label">Select Bank Account</InputLabel>
+                <Select
+                  labelId="bank-account-select-label"
+                  id="bank-account-select"
+                  value={selectedAccountId}
+                  label="Select Bank Account"
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  disabled={loadingAccounts}
+                >
+                  {loadingAccounts ? (
+                    <MenuItem disabled>Loading accounts...</MenuItem>
+                  ) : getAvailableAccounts().length === 0 ? (
+                    <MenuItem disabled>No accounts with sufficient balance</MenuItem>
+                  ) : (
+                    getAvailableAccounts().map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                          <Typography>{account.accountName || 'Unnamed Account'}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                            {formatCurrency(account.currentBalance || 0)}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+                {getAvailableAccounts().length === 0 && !loadingAccounts && billToMarkPaid && (
+                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                    No accounts have sufficient balance to pay this bill ({formatCurrency(billToMarkPaid.amount)})
+                  </Typography>
+                )}
+              </FormControl>
+
+              <TextField
+                fullWidth
+                label="Payment Notes (Optional)"
+                multiline
+                rows={3}
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                placeholder="Add any notes about this payment..."
+                sx={{ mb: 2 }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseMarkPaidDialog}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmMarkAsPaid}
+            variant="contained"
+            color="primary"
+            disabled={!selectedAccountId || loadingAccounts || getAvailableAccounts().length === 0}
+          >
+            Mark as Paid
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

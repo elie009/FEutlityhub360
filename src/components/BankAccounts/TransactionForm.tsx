@@ -31,6 +31,7 @@ import {
   isBillCategory,
   isSavingsCategory,
   isLoanCategory,
+  isTransferCategory,
   validateTransactionForm,
   generateEnhancedDescription
 } from '../../utils/categoryLogic';
@@ -64,7 +65,9 @@ interface SavingsAccount {
 }
 
 // Get all category suggestions for autocomplete
+// Bank transfer appears first for easy access
 const ALL_CATEGORIES = [
+  ...categorySuggestions.transfer,
   ...categorySuggestions.bill,
   ...categorySuggestions.savings,
   ...categorySuggestions.loan,
@@ -103,6 +106,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     billId: '',
     savingsAccountId: '',
     loanId: '',
+    toBankAccountId: '', // For bank transfers
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -123,6 +127,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [showBillSelector, setShowBillSelector] = useState(false);
   const [showSavingsSelector, setShowSavingsSelector] = useState(false);
   const [showLoanSelector, setShowLoanSelector] = useState(false);
+  const [showTransferSelector, setShowTransferSelector] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -144,12 +149,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: '',
         savingsAccountId: '',
         loanId: '',
+        toBankAccountId: '',
       });
       setError('');
       // Reset dynamic selectors
       setShowBillSelector(false);
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
+      setShowTransferSelector(false);
     }
   }, [open, bankAccounts]);
 
@@ -264,10 +271,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: '',
         savingsAccountId: '',
         loanId: '',
+        toBankAccountId: '',
       }));
       setShowBillSelector(false);
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
+      setShowTransferSelector(false);
     }
   };
 
@@ -278,11 +287,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setShowBillSelector(isBillCategory(category));
     setShowSavingsSelector(isSavingsCategory(category));
     setShowLoanSelector(isLoanCategory(category));
+    setShowTransferSelector(isTransferCategory(category));
     
     // Clear other references when category changes
     if (!isBillCategory(category)) setFormData(prev => ({ ...prev, billId: '' }));
     if (!isSavingsCategory(category)) setFormData(prev => ({ ...prev, savingsAccountId: '' }));
     if (!isLoanCategory(category)) setFormData(prev => ({ ...prev, loanId: '' }));
+    if (!isTransferCategory(category)) setFormData(prev => ({ ...prev, toBankAccountId: '' }));
   };
 
   const handleSwitchChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,6 +316,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       billId: formData.billId,
       savingsAccountId: formData.savingsAccountId,
       loanId: formData.loanId,
+      toBankAccountId: formData.toBankAccountId,
       transactionType: formData.transactionType,
     });
 
@@ -325,24 +337,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         undefined // We could pass reference names here if needed
       );
 
+      // For bank transfers, use TRANSFER category and include toBankAccountId
+      const isTransfer = isTransferCategory(formData.category);
+      const finalCategory = isTransfer ? 'TRANSFER' : (formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category);
+      
       await apiService.createBankTransaction({
         bankAccountId: formData.bankAccountId,
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
-        description: enhancedDescription,
-        category: formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category,
-        merchant: formData.merchant.trim() || undefined,
-        location: formData.location.trim() || undefined,
-        transactionDate: new Date(formData.transactionDate).toISOString(),
-        notes: formData.notes.trim() || undefined,
-        isRecurring: formData.isRecurring,
-        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
-        referenceNumber: formData.referenceNumber.trim() || undefined,
+        description: isTransfer ? (formData.description.trim() || 'Transfer to Bank Account') : enhancedDescription,
+        category: finalCategory,
+        merchant: isTransfer ? undefined : (formData.merchant.trim() || undefined),
+        location: isTransfer ? undefined : (formData.location.trim() || undefined),
+        transactionDate: isTransfer ? new Date().toISOString() : new Date(formData.transactionDate).toISOString(),
+        notes: isTransfer ? undefined : (formData.notes.trim() || undefined),
+        isRecurring: isTransfer ? false : formData.isRecurring,
+        recurringFrequency: isTransfer ? undefined : (formData.isRecurring ? formData.recurringFrequency : undefined),
+        referenceNumber: isTransfer ? undefined : (formData.referenceNumber.trim() || undefined),
         currency: formData.currency,
         // NEW: Reference Fields for Smart Linking
         billId: formData.billId || undefined,
         savingsAccountId: formData.savingsAccountId || undefined,
         loanId: formData.loanId || undefined,
+        toBankAccountId: formData.toBankAccountId || undefined,
       });
 
       onSuccess();
@@ -420,9 +437,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 value={formData.amount}
                 onChange={handleInputChange('amount')}
                 inputProps={{ min: 0.01, step: 0.01 }}
-                InputProps={{
-                  startAdornment: <span style={{ marginRight: 8 }}>$</span>,
-                }}
               />
             </Grid>
 
@@ -460,16 +474,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </Grid>
             )}
 
-            {/* Reference Number Field */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Reference Number"
-                value={formData.referenceNumber}
-                onChange={handleInputChange('referenceNumber')}
-                placeholder="Optional reference number"
-              />
-            </Grid>
+            {/* Reference Number Field - Hide if Bank transfer is selected */}
+            {!showTransferSelector && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Reference Number"
+                  value={formData.referenceNumber}
+                  onChange={handleInputChange('referenceNumber')}
+                  placeholder="Optional reference number"
+                />
+              </Grid>
+            )}
 
             {/* Dynamic Reference Selectors */}
             {showBillSelector && (
@@ -577,90 +593,124 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </Grid>
             )}
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="Description"
-                value={formData.description}
-                onChange={handleInputChange('description')}
-                placeholder="e.g., Lunch at restaurant, Gas station, Salary deposit"
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Merchant"
-                value={formData.merchant}
-                onChange={handleInputChange('merchant')}
-                placeholder="e.g., McDonald's, Shell, Amazon"
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Location"
-                value={formData.location}
-                onChange={handleInputChange('location')}
-                placeholder="e.g., Downtown Mall, 123 Main St"
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Transaction Date"
-                type="datetime-local"
-                value={formData.transactionDate}
-                onChange={handleInputChange('transactionDate')}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.isRecurring}
-                    onChange={handleSwitchChange('isRecurring')}
-                  />
-                }
-                label="Recurring Transaction"
-              />
-            </Grid>
-
-            {formData.isRecurring && (
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Recurring Frequency</InputLabel>
+            {showTransferSelector && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Bank Transfer
+                  </Typography>
+                </Divider>
+                <FormControl fullWidth required>
+                  <InputLabel>To Bank Account</InputLabel>
                   <Select
-                    value={formData.recurringFrequency}
-                    onChange={handleSelectChange('recurringFrequency')}
-                    label="Recurring Frequency"
+                    value={formData.toBankAccountId}
+                    onChange={handleSelectChange('toBankAccountId')}
+                    label="To Bank Account"
                   >
-                    {RECURRING_FREQUENCIES.map((frequency) => (
-                      <MenuItem key={frequency} value={frequency.toLowerCase()}>
-                        {frequency}
-                      </MenuItem>
-                    ))}
+                    {bankAccounts
+                      .filter(account => account.id !== formData.bankAccountId)
+                      .map((account) => (
+                        <MenuItem key={account.id} value={account.id}>
+                          {account.accountName} - {formatCurrency(account.currentBalance)}
+                        </MenuItem>
+                      ))}
+                    {bankAccounts.length === 1 && (
+                      <MenuItem disabled>No other bank accounts available</MenuItem>
+                    )}
                   </Select>
                 </FormControl>
               </Grid>
             )}
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notes"
-                multiline
-                rows={3}
-                value={formData.notes}
-                onChange={handleInputChange('notes')}
-                placeholder="Additional notes about this transaction..."
-              />
-            </Grid>
+            {/* Hide these fields if Bank transfer is selected */}
+            {!showTransferSelector && (
+              <>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Description"
+                    value={formData.description}
+                    onChange={handleInputChange('description')}
+                    placeholder="e.g., Lunch at restaurant, Gas station, Salary deposit"
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Merchant"
+                    value={formData.merchant}
+                    onChange={handleInputChange('merchant')}
+                    placeholder="e.g., McDonald's, Shell, Amazon"
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Location"
+                    value={formData.location}
+                    onChange={handleInputChange('location')}
+                    placeholder="e.g., Downtown Mall, 123 Main St"
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Transaction Date"
+                    type="datetime-local"
+                    value={formData.transactionDate}
+                    onChange={handleInputChange('transactionDate')}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.isRecurring}
+                        onChange={handleSwitchChange('isRecurring')}
+                      />
+                    }
+                    label="Recurring Transaction"
+                  />
+                </Grid>
+
+                {formData.isRecurring && (
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Recurring Frequency</InputLabel>
+                      <Select
+                        value={formData.recurringFrequency}
+                        onChange={handleSelectChange('recurringFrequency')}
+                        label="Recurring Frequency"
+                      >
+                        {RECURRING_FREQUENCIES.map((frequency) => (
+                          <MenuItem key={frequency} value={frequency.toLowerCase()}>
+                            {frequency}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Notes"
+                    multiline
+                    rows={3}
+                    value={formData.notes}
+                    onChange={handleInputChange('notes')}
+                    placeholder="Additional notes about this transaction..."
+                  />
+                </Grid>
+              </>
+            )}
           </Grid>
         </Box>
       </DialogContent>

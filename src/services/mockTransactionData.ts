@@ -218,14 +218,23 @@ export const mockTransactionDataService = {
     const userTransactions = mockTransactions
       .filter(transaction => transaction.userId === userId)
       .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
-      .slice(0, limit);
+      .slice(0, limit)
+      .map(transaction => ({
+        ...transaction,
+        accountName: mockBankAccounts.find(acc => acc.id === transaction.bankAccountId)?.accountName
+      }));
     
     return userTransactions;
   },
 
   async getTransactions(userId: string, filters?: TransactionFilters): Promise<PaginatedTransactionsResponse> {
     await delay(600);
-    let filteredTransactions = mockTransactions.filter(transaction => transaction.userId === userId);
+    let filteredTransactions = mockTransactions
+      .filter(transaction => transaction.userId === userId)
+      .map(transaction => ({
+        ...transaction,
+        accountName: mockBankAccounts.find(acc => acc.id === transaction.bankAccountId)?.accountName
+      }));
 
     if (filters?.bankAccountId) {
       filteredTransactions = filteredTransactions.filter(transaction => transaction.bankAccountId === filters.bankAccountId);
@@ -272,7 +281,10 @@ export const mockTransactionDataService = {
     await delay(300);
     const transaction = mockTransactions.find(t => t.id === transactionId);
     if (!transaction) throw new Error('Transaction not found');
-    return transaction;
+    return {
+      ...transaction,
+      accountName: mockBankAccounts.find(acc => acc.id === transaction.bankAccountId)?.accountName
+    };
   },
 
   async deleteTransaction(transactionId: string): Promise<boolean> {
@@ -415,6 +427,7 @@ export const mockTransactionDataService = {
       billId: transactionData.billId || undefined,
       savingsAccountId: transactionData.savingsAccountId || undefined,
       loanId: transactionData.loanId || undefined,
+      accountName: bankAccount.accountName,
     };
 
     // Add to mock data

@@ -24,15 +24,15 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <CssBaseline />
-      <AppBar onMenuClick={handleDrawerToggle} />
+      <AppBar onMenuClick={isMobile ? handleDrawerToggle : undefined} />
       
       {/* Mobile Drawer - only shows on mobile */}
       <Drawer open={mobileOpen} onClose={handleDrawerToggle} />
       
       {/* Desktop Sidebar - only shows on desktop */}
-      <Sidebar open={desktopOpen} />
+      <Sidebar open={desktopOpen} onToggle={isMobile ? undefined : handleDrawerToggle} />
       
       <Box
         component="main"
@@ -43,6 +43,7 @@ const Layout: React.FC = () => {
             md: desktopOpen ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${collapsedWidth}px)`
           },
           mt: 8,
+          minHeight: 'calc(100vh - 64px)', // Full height minus AppBar height
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,

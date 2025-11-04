@@ -9,6 +9,7 @@ import {
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest } from '../../types/bankAccount';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
+import { CURRENCY_OPTIONS } from '../../contexts/CurrencyContext';
 
 interface BankAccountFormProps {
   open: boolean;
@@ -250,16 +251,21 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
             </Grid>
             
             <Grid item xs={12} sm={6}>
-              <TextField
-                name="currency"
-                label="Currency"
-                value={formData.currency}
-                onChange={handleChange}
-                fullWidth
-                required
-                inputProps={{ maxLength: 3 }}
-                placeholder="USD"
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  name="currency"
+                  value={formData.currency}
+                  label="Currency"
+                  onChange={handleSelectChange}
+                >
+                  {CURRENCY_OPTIONS.map((currencyOption) => (
+                    <MenuItem key={currencyOption.code} value={currencyOption.code}>
+                      {currencyOption.code} - {currencyOption.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             
             <Grid item xs={12}>

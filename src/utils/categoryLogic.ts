@@ -4,6 +4,7 @@ export interface CategorySuggestions {
   bill: string[];
   savings: string[];
   loan: string[];
+  transfer: string[];
   other: string[];
 }
 
@@ -29,6 +30,9 @@ export const categorySuggestions: CategorySuggestions = {
     'shopping', 'healthcare', 'education',
     'gas', 'groceries', 'restaurant', 'coffee',
     'clothing', 'electronics', 'travel', 'gift'
+  ],
+  transfer: [
+    'bank transfer', 'transfer'
   ]
 };
 
@@ -63,6 +67,16 @@ export const isLoanCategory = (category: string): boolean => {
 };
 
 /**
+ * Check if a category is transfer-related
+ */
+export const isTransferCategory = (category: string): boolean => {
+  const transferKeywords = ['bank transfer', 'transfer'];
+  return transferKeywords.some(keyword => 
+    category.toLowerCase().includes(keyword.toLowerCase())
+  );
+};
+
+/**
  * Get category suggestions based on input
  */
 export const getCategorySuggestions = (input: string): string[] => {
@@ -75,19 +89,20 @@ export const getCategorySuggestions = (input: string): string[] => {
 };
 
 /**
- * Get category type (bill, savings, loan, other)
+ * Get category type (bill, savings, loan, transfer, other)
  */
-export const getCategoryType = (category: string): 'bill' | 'savings' | 'loan' | 'other' => {
+export const getCategoryType = (category: string): 'bill' | 'savings' | 'loan' | 'transfer' | 'other' => {
   if (isBillCategory(category)) return 'bill';
   if (isSavingsCategory(category)) return 'savings';
   if (isLoanCategory(category)) return 'loan';
+  if (isTransferCategory(category)) return 'transfer';
   return 'other';
 };
 
 /**
  * Get all suggestions for a specific category type
  */
-export const getSuggestionsByType = (type: 'bill' | 'savings' | 'loan' | 'other'): string[] => {
+export const getSuggestionsByType = (type: 'bill' | 'savings' | 'loan' | 'transfer' | 'other'): string[] => {
   return categorySuggestions[type];
 };
 
@@ -97,11 +112,12 @@ export const getSuggestionsByType = (type: 'bill' | 'savings' | 'loan' | 'other'
 export const validateTransactionForm = (formData: {
   bankAccountId: string;
   amount: number;
-  description: string;
+  description?: string;
   category: string;
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  toBankAccountId?: string;
   transactionType?: 'DEBIT' | 'CREDIT';
 }): string[] => {
   const errors: string[] = [];
@@ -109,7 +125,11 @@ export const validateTransactionForm = (formData: {
   // Basic validation
   if (!formData.bankAccountId) errors.push('Bank account is required');
   if (!formData.amount || formData.amount <= 0) errors.push('Amount must be greater than 0');
-  if (!formData.description) errors.push('Description is required');
+  
+  // Description is only required for non-transfer transactions
+  if (!isTransferCategory(formData.category) && !formData.description) {
+    errors.push('Description is required');
+  }
   
   // Category is only required for DEBIT transactions (CREDIT transactions get category automatically set)
   if (formData.transactionType !== 'CREDIT' && !formData.category) {
@@ -129,6 +149,10 @@ export const validateTransactionForm = (formData: {
     if (isLoanCategory(formData.category) && !formData.loanId) {
       errors.push('Loan selection is required for loan-related transactions');
     }
+    
+    if (isTransferCategory(formData.category) && !formData.toBankAccountId) {
+      errors.push('Target bank account is required for bank transfer transactions');
+    }
   }
   
   return errors;
@@ -140,7 +164,7 @@ export const validateTransactionForm = (formData: {
 export const generateEnhancedDescription = (
   originalDescription: string,
   category: string,
-  referenceType?: 'bill' | 'savings' | 'loan',
+  referenceType?: 'bill' | 'savings' | 'loan' | 'transfer',
   referenceName?: string
 ): string => {
   if (referenceType === 'bill') {
@@ -151,6 +175,9 @@ export const generateEnhancedDescription = (
   }
   if (referenceType === 'loan') {
     return `Loan Payment - ${originalDescription}`;
+  }
+  if (referenceType === 'transfer') {
+    return `Bank Transfer - ${originalDescription}`;
   }
   return originalDescription;
 };

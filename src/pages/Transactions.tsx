@@ -322,6 +322,7 @@ const TransactionsPage: React.FC = () => {
                     <TableCell><Skeleton variant="text" width={80} /></TableCell>
                     <TableCell><Skeleton variant="text" width={80} /></TableCell>
                     <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
                     <TableCell><Skeleton variant="text" width={60} /></TableCell>
                   </TableRow>
                 </TableHead>
@@ -333,6 +334,7 @@ const TransactionsPage: React.FC = () => {
                       <TableCell><Skeleton variant="text" width={80} /></TableCell>
                       <TableCell><Skeleton variant="text" width={60} /></TableCell>
                       <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
                       <TableCell><Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} /></TableCell>
                     </TableRow>
                   ))}
@@ -1035,6 +1037,11 @@ const TransactionsPage: React.FC = () => {
                     </Box>
                   )}
                 </TableCell>
+                <TableCell sx={{ width: '120px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                    Account
+                  </Typography>
+                </TableCell>
                 <TableCell align="right">
                   <TableSortLabel
                     active={sortField === 'balanceAfterTransaction'}
@@ -1092,6 +1099,11 @@ const TransactionsPage: React.FC = () => {
                     >
                       {(transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? '+' : '-'}
                       {formatCurrency(Math.abs(transaction.amount))}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ width: '120px' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                      {transaction.accountName || 'N/A'}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">

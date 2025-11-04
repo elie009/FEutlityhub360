@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Grid,
   Paper,
@@ -49,7 +49,18 @@ import {
   Close as CloseIcon,
   CreditCard as CreditCardIcon,
 } from '@mui/icons-material';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend,
+  ChartOptions,
+} from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { Bar } from 'react-chartjs-2';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
@@ -57,17 +68,16 @@ import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import { BankAccountTransaction } from '../types/transaction';
 
-// Custom tick component for multi-line labels
-const CustomXAxisTick = ({ x, y, payload }: any) => {
-  const label = payload.value;
-  
-  // Default single-line label
-  return (
-    <text x={x} y={y} dy={16} textAnchor="middle" fill="#666">
-      {label}
-    </text>
-  );
-};
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  ChartTooltip,
+  Legend,
+  ChartDataLabels
+);
 
 const Dashboard: React.FC = () => {
   const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
@@ -503,8 +513,121 @@ const Dashboard: React.FC = () => {
 
   const cashFlowChartData = prepareCashFlowChartData();
 
+  // Prepare Chart.js data format - memoized to prevent unnecessary recreations
+  const chartData = useMemo(() => {
+    if (!cashFlowChartData || cashFlowChartData.length === 0) {
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
+    
+    return {
+      labels: cashFlowChartData.map((item: any) => item.month),
+      datasets: [
+        {
+          label: 'Outgoing',
+          data: cashFlowChartData.map((item: any) => -Math.abs(item.outgoing)), // Negative for outgoing
+          backgroundColor: '#f44336', // Red
+          borderColor: '#c62828',
+          borderWidth: 2,
+        },
+        {
+          label: 'Net',
+          data: cashFlowChartData.map((item: any) => item.net),
+          backgroundColor: '#4caf50', // Green
+          borderColor: '#2e7d32',
+          borderWidth: 2,
+        },
+        {
+          label: 'Incoming',
+          data: cashFlowChartData.map((item: any) => item.incoming),
+          backgroundColor: '#2196f3', // Blue
+          borderColor: '#1565c0',
+          borderWidth: 2,
+        },
+      ],
+    };
+  }, [cashFlowChartData]);
+
+  // Chart.js options - memoized to prevent unnecessary recreations
+  const chartOptions: ChartOptions<'bar'> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          padding: 15,
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const value = context.datasetIndex === 0 
+              ? Math.abs(context.parsed.y) // Outgoing is negative, show as positive in tooltip
+              : context.parsed.y;
+            return `${context.dataset.label}: ${formatCurrency(value)}`;
+          },
+        },
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        titleColor: '#333',
+        bodyColor: '#666',
+        borderColor: '#666',
+        borderWidth: 2,
+        padding: 8,
+      },
+      title: {
+        display: false,
+      },
+      datalabels: {
+        display: false, // Hide data labels for cleaner stacked chart
+      },
+    },
+    scales: {
+      x: {
+        stacked: true, // Enable stacking
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: {
+            size: 12,
+          },
+          color: '#666',
+        },
+        border: {
+          color: '#666',
+          width: 2,
+        },
+      },
+      y: {
+        stacked: true, // Enable stacking
+        grid: {
+          color: '#e0e0e0',
+          lineWidth: 1,
+          drawTicks: false,
+        },
+        ticks: {
+          font: {
+            size: 12,
+          },
+          color: '#666',
+          callback: function(value: any) {
+            return formatCurrency(Math.abs(value)); // Show absolute value for cleaner display
+          },
+        },
+        border: {
+          color: '#666',
+          width: 2,
+        },
+      },
+    },
+  }), [formatCurrency]);
+
   // Real financial data for charts (legacy - kept for backward compatibility)
-  const chartData = financialData ? [
+  const legacyChartData = financialData ? [
     { name: 'Total Balance', amount: financialData.totalBalance || 0 },
     { name: 'Total Incoming', amount: financialData.totalIncoming || 0 },
     { name: 'Total Outgoing', amount: financialData.totalOutgoing || 0 },
@@ -641,29 +764,18 @@ const Dashboard: React.FC = () => {
             </Typography>
             {cashFlowLoading || loading ? (
               <Box>
-                <Skeleton variant="rectangular" width="100%" height={300} sx={{ borderRadius: 1 }} />
+                <Skeleton variant="rectangular" width="100%" height={450} sx={{ borderRadius: 1 }} />
               </Box>
             ) : cashFlowChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={cashFlowChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="month"
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value: any) => [formatCurrency(Number(value)), '']}
-                    labelFormatter={(label) => `Month: ${label}`}
-                  />
-                  <Legend />
-                  <Bar dataKey="incoming" fill="#4caf50" name="Incoming" />
-                  <Bar dataKey="outgoing" fill="#f44336" name="Outgoing" />
-                  <Bar dataKey="net" fill="#2196f3" name="Net" />
-                </BarChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: '450px', width: '100%' }}>
+                <Bar 
+                  key="monthly-cashflow-chart"
+                  data={chartData} 
+                  options={chartOptions}
+                />
+              </Box>
             ) : (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 450 }}>
                 <Typography variant="body2" color="text.secondary">
                   No cash flow data available
                 </Typography>

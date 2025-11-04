@@ -1203,14 +1203,17 @@ class ApiService {
   }
 
   // Mark bill as paid
-  async markBillAsPaid(billId: string, notes?: string): Promise<Bill> {
+  async markBillAsPaid(billId: string, request: { notes?: string; bankAccountId?: string }): Promise<Bill> {
     if (isMockDataEnabled()) {
-      return mockBillDataService.markBillAsPaid(billId, notes);
+      return mockBillDataService.markBillAsPaid(billId, request.notes);
     }
     
     const response = await this.request<any>(`/bills/${billId}/mark-paid`, {
       method: 'PUT',
-      body: JSON.stringify(notes || ''),
+      body: JSON.stringify({
+        notes: request.notes || '',
+        bankAccountId: request.bankAccountId || '',
+      }),
     });
     
     // Handle the response structure
@@ -1852,12 +1855,13 @@ class ApiService {
     billId?: string;           // For bill-related transactions
     savingsAccountId?: string; // For savings-related transactions
     loanId?: string;           // For loan-related transactions
+    toBankAccountId?: string;  // For bank transfer transactions
   }): Promise<BankAccountTransaction> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
       return mockTransactionDataService.createBankTransaction(user?.id || 'demo-user-123', transactionData);
     }
-    const response = await this.request<any>('/bankaccounts/transactions', {
+    const response = await this.request<any>('/BankAccounts/transactions', {
       method: 'POST',
       body: JSON.stringify(transactionData),
     });
