@@ -229,3 +229,6 @@ A: Yes! Set up notifications for spending thresholds, trends, or financial healt
 **Next Steps**: Use insights from Analytics to improve your financial health. Check out guides for Bills, Savings, or the Apportioner to optimize your finances!
 
 
+
+
+

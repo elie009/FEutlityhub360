@@ -35,6 +35,7 @@ interface LoanCardProps {
   onMakePayment?: (loanId: string) => void;
   onDelete?: (loanId: string) => void;
   onViewHistory?: (loanId: string) => void;
+  onDisburse?: (loan: Loan) => void;
 }
 
 const getStatusColor = (status: LoanStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -65,7 +66,7 @@ const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
-const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDelete, onViewHistory }) => {
+const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDelete, onViewHistory, onDisburse }) => {
   const { formatCurrency } = useCurrency();
   // Use the actual monthlyPayment from the loan data, or calculate it if not available
   const monthlyPayment = loan.monthlyPayment || (loan.totalAmount / loan.term);
@@ -282,12 +283,22 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
           >
             Update
           </Button>
+          {loan.status === LoanStatus.APPROVED && onDisburse && (
+            <Button
+              variant="contained"
+              size="small"
+              color="success"
+              onClick={() => onDisburse(loan)}
+              sx={{ flex: 1, minWidth: '80px' }}
+            >
+              Disburse
+            </Button>
+          )}
           {onViewHistory && (
             <Button
               variant="outlined"
               size="small"
               onClick={() => onViewHistory(loan.id)}
-              startIcon={<History />}
               sx={{ flex: 1, minWidth: '80px' }}
             >
               History
@@ -309,8 +320,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
               size="small"
               color="error"
               onClick={() => onDelete(loan.id)}
-              startIcon={<Delete />}
-              sx={{ minWidth: 'auto', px: 1 }}
+              sx={{ flex: 1, minWidth: '80px' }}
             >
               Delete
             </Button>

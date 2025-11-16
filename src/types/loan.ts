@@ -29,6 +29,14 @@ export interface Loan {
   updatedAt: string;
   outstandingBalance: number; // Keep for backward compatibility
   nextDueDate?: string | null; // ISO date string for next payment due date
+  // New accounting system fields
+  interestComputationMethod?: 'FLAT_RATE' | 'AMORTIZED'; // Default: AMORTIZED
+  totalInterest?: number; // Total interest over loan term
+  downPayment?: number; // Optional down payment
+  processingFee?: number; // Optional processing fee
+  actualFinancedAmount?: number; // Principal - DownPayment
+  paymentFrequency?: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY' | 'QUARTERLY'; // Default: MONTHLY
+  startDate?: string | null; // Loan start date (when disbursed)
 }
 
 export enum LoanStatus {
@@ -197,6 +205,10 @@ export interface LoanApplication {
   monthlyIncome: number;
   employmentStatus: string;
   additionalInfo?: string;
+  // Optional fields for accounting system
+  downPayment?: number;
+  processingFee?: number;
+  interestComputationMethod?: 'FLAT_RATE' | 'AMORTIZED';
 }
 
 // Payment Schedule Management Interfaces
@@ -283,4 +295,28 @@ export interface RegisterData {
   phone: string;
   password: string;
   confirmPassword: string;
+}
+
+// Loan Disbursement Interfaces
+export interface DisburseLoanRequest {
+  loanId: string;
+  disbursedBy: string;
+  disbursementMethod: 'BANK_TRANSFER' | 'CASH' | 'CHECK' | 'CASH_PICKUP';
+  reference?: string;
+  bankAccountId?: string; // ✅ NEW: Optional - If provided, credits loan to this account
+}
+
+export interface DisbursementResponse {
+  success: boolean;
+  message: string;
+  data: {
+    loanId: string;
+    disbursedAmount: number;
+    disbursedAt: string;
+    disbursementMethod: string;
+    reference?: string;
+    bankAccountCredited: boolean; // ✅ NEW: Shows if bank account was credited
+    bankAccountId?: string; // ✅ NEW: Bank account ID if credited
+    message: string; // ✅ NEW: Detailed message
+  };
 }

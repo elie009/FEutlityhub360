@@ -527,17 +527,43 @@ const Dashboard: React.FC = () => {
       datasets: [
         {
           label: 'Outgoing',
-          data: cashFlowChartData.map((item: any) => -Math.abs(item.outgoing)), // Negative for outgoing
+          data: cashFlowChartData.map((item: any) => {
+            const outgoing = Math.abs(item.outgoing);
+            const net = item.net;
+            // Ensure outgoing always starts at zero
+            // If net is negative and makes total < 0, we need to offset outgoing
+            // But we want outgoing to always represent the actual value
+            // So we'll keep outgoing as is, and let net be negative
+            // The key is that outgoing should visually start at zero
+            // If outgoing + net < 0, we need to adjust
+            // Actually, we'll use a base value to ensure outgoing starts at 0
+            const total = outgoing + net;
+            // If total is negative, we need outgoing to start higher
+            // But we want outgoing to show the actual value
+            // Solution: use the absolute value of the minimum of (total, 0) as offset
+            const minOffset = total < 0 ? Math.abs(total) : 0;
+            return outgoing + minOffset; // Add offset to ensure outgoing starts at 0
+          }),
           backgroundColor: '#f44336', // Red
           borderColor: '#c62828',
           borderWidth: 2,
+          stack: 'stack1', // Group with Net
         },
         {
           label: 'Net',
-          data: cashFlowChartData.map((item: any) => item.net),
+          data: cashFlowChartData.map((item: any) => {
+            const outgoing = Math.abs(item.outgoing);
+            const net = item.net;
+            // Calculate offset to ensure outgoing starts at zero
+            const total = outgoing + net;
+            const minOffset = total < 0 ? Math.abs(total) : 0;
+            // Adjust net by adding the same offset (so total stays the same)
+            return net + minOffset;
+          }),
           backgroundColor: '#4caf50', // Green
           borderColor: '#2e7d32',
           borderWidth: 2,
+          stack: 'stack1', // Group with Outgoing
         },
         {
           label: 'Incoming',
@@ -545,6 +571,7 @@ const Dashboard: React.FC = () => {
           backgroundColor: '#2196f3', // Blue
           borderColor: '#1565c0',
           borderWidth: 2,
+          stack: 'stack2', // Separate stack
         },
       ],
     };
@@ -565,12 +592,10 @@ const Dashboard: React.FC = () => {
       tooltip: {
         callbacks: {
           label: function(context: any) {
-            const value = context.datasetIndex === 0 
-              ? Math.abs(context.parsed.y) // Outgoing is negative, show as positive in tooltip
-              : context.parsed.y;
-            return `${context.dataset.label}: ${formatCurrency(value)}`;
+            return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
           },
         },
+        mode: 'index' as const,
         backgroundColor: 'rgba(255, 255, 255, 0.98)',
         titleColor: '#333',
         bodyColor: '#666',
@@ -587,7 +612,7 @@ const Dashboard: React.FC = () => {
     },
     scales: {
       x: {
-        stacked: true, // Enable stacking
+        stacked: true, // Enable stacking for outgoing and net
         grid: {
           display: false,
         },
@@ -603,7 +628,7 @@ const Dashboard: React.FC = () => {
         },
       },
       y: {
-        stacked: true, // Enable stacking
+        stacked: true, // Enable stacking for outgoing and net
         grid: {
           color: '#e0e0e0',
           lineWidth: 1,
@@ -673,7 +698,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h3" gutterBottom sx={{ fontWeight: 'bold' }}>
         Dashboard
       </Typography>
       

@@ -65,6 +65,7 @@ import LoanApplicationForm from './LoanApplicationForm';
 import PaymentForm from './PaymentForm';
 import LoanUpdateForm from './LoanUpdateForm';
 import LoanTransactionHistory from './LoanTransactionHistory';
+import LoanDisbursementDialog from './LoanDisbursementDialog';
 
 type SortField = 'principal' | 'remainingBalance' | 'monthlyPayment' | 'term' | 'appliedAt' | 'nextDueDate';
 type SortOrder = 'asc' | 'desc';
@@ -106,10 +107,12 @@ const LoanDashboard: React.FC = () => {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showUpcomingDialog, setShowUpcomingDialog] = useState(false);
   const [showMonthlyPaymentDialog, setShowMonthlyPaymentDialog] = useState(false);
+  const [showDisbursementDialog, setShowDisbursementDialog] = useState(false);
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
   const [loanForHistory, setLoanForHistory] = useState<Loan | null>(null);
+  const [loanForDisbursement, setLoanForDisbursement] = useState<Loan | null>(null);
   
   // View mode and filter states
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
@@ -437,6 +440,22 @@ const LoanDashboard: React.FC = () => {
   const handleActionDelete = () => {
     handleDeleteLoan(actionLoanId);
     handleActionsClose();
+  };
+
+  const handleActionDisburse = () => {
+    const loan = loans.find(l => l.id === actionLoanId);
+    if (loan) {
+      setLoanForDisbursement(loan);
+      setShowDisbursementDialog(true);
+    }
+    handleActionsClose();
+  };
+
+  const handleDisbursementSuccess = async () => {
+    setShowDisbursementDialog(false);
+    setLoanForDisbursement(null);
+    // Refresh loans to get updated status
+    await loadLoans();
   };
 
   // Get status color
@@ -791,6 +810,10 @@ const LoanDashboard: React.FC = () => {
                 onMakePayment={handleMakePayment}
                 onDelete={handleDeleteLoan}
                 onViewHistory={handleViewHistory}
+                onDisburse={(loan) => {
+                  setLoanForDisbursement(loan);
+                  setShowDisbursementDialog(true);
+                }}
               />
             </Grid>
           ))}
@@ -1013,6 +1036,12 @@ const LoanDashboard: React.FC = () => {
           <Edit fontSize="small" sx={{ mr: 1 }} />
           Update Loan
         </MenuItem>
+        {loans.find(l => l.id === actionLoanId)?.status === 'APPROVED' && (
+          <MenuItem onClick={handleActionDisburse}>
+            <AccountBalance fontSize="small" sx={{ mr: 1 }} />
+            Disburse Loan
+          </MenuItem>
+        )}
         <MenuItem onClick={handleActionPayment}>
           <Payment fontSize="small" sx={{ mr: 1 }} />
           Make Payment
@@ -1119,6 +1148,17 @@ const LoanDashboard: React.FC = () => {
           loanId={loanForHistory?.id || ''}
           loanPurpose={loanForHistory?.purpose}
           loanData={loanForHistory || undefined} // Add this line to pass loan data
+        />
+
+        {/* Loan Disbursement Dialog */}
+        <LoanDisbursementDialog
+          open={showDisbursementDialog}
+          onClose={() => {
+            setShowDisbursementDialog(false);
+            setLoanForDisbursement(null);
+          }}
+          loan={loanForDisbursement}
+          onSuccess={handleDisbursementSuccess}
         />
 
       {/* Upcoming Payments Dialog */}

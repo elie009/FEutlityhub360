@@ -75,7 +75,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick }) => {
               }} 
             />
           </Box>
-          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+          <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' } }}>
             UtilityHub360
           </Typography>
         </Box>

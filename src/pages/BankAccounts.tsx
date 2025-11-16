@@ -15,6 +15,7 @@ import { getErrorMessage } from '../utils/validation';
 import BankAccountCard from '../components/BankAccounts/BankAccountCard';
 import BankAccountForm from '../components/BankAccounts/BankAccountForm';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
+import BankAccountTransactionsModal from '../components/BankAccounts/BankAccountTransactionsModal';
 
 const BankAccounts: React.FC = () => {
   const { user } = useAuth();
@@ -25,7 +26,9 @@ const BankAccounts: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [showBankAccountForm, setShowBankAccountForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | undefined>(undefined);
+  const [accountForTransactions, setAccountForTransactions] = useState<BankAccount | null>(null);
   const [filters, setFilters] = useState<BankAccountFilters>({});
 
   // Bank Account Management Functions
@@ -122,6 +125,16 @@ const BankAccounts: React.FC = () => {
   const handleTransactionFormSuccess = () => {
     setShowTransactionForm(false);
     loadBankAccounts(); // Reload to update balances
+  };
+
+  const handleViewTransactions = (account: BankAccount) => {
+    setAccountForTransactions(account);
+    setShowTransactionsModal(true);
+  };
+
+  const handleCloseTransactionsModal = () => {
+    setShowTransactionsModal(false);
+    setAccountForTransactions(null);
   };
 
   const handleFilterChange = (event: SelectChangeEvent<string>) => {
@@ -271,6 +284,7 @@ const BankAccounts: React.FC = () => {
                 onConnect={handleConnectBankAccount}
                 onDisconnect={handleDisconnectBankAccount}
                 onSync={handleSyncBankAccount}
+                onViewTransactions={handleViewTransactions}
               />
             </Grid>
           ))}
@@ -294,6 +308,13 @@ const BankAccounts: React.FC = () => {
         onClose={() => setShowTransactionForm(false)}
         onSuccess={handleTransactionFormSuccess}
         bankAccounts={bankAccounts}
+      />
+
+      {/* Bank Account Transactions Modal */}
+      <BankAccountTransactionsModal
+        open={showTransactionsModal}
+        onClose={handleCloseTransactionsModal}
+        account={accountForTransactions}
       />
     </Container>
   );

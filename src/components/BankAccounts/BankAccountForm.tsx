@@ -9,7 +9,6 @@ import {
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest } from '../../types/bankAccount';
 import { apiService } from '../../services/api';
 import { getErrorMessage } from '../../utils/validation';
-import { CURRENCY_OPTIONS } from '../../contexts/CurrencyContext';
 
 interface BankAccountFormProps {
   open: boolean;
@@ -39,6 +38,30 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
+  // Extract last 4 digits if account number is padded with zeros (0000000000001234 -> 1234)
+  const extractAccountNumberForDisplay = (accountNumber: string): string => {
+    if (!accountNumber) return '';
+    // Remove spaces
+    const cleaned = accountNumber.replace(/\s/g, '');
+    // If it's 16 digits and starts with 12 zeros, extract last 4 digits
+    if (cleaned.length === 16 && cleaned.startsWith('000000000000')) {
+      return cleaned.slice(-4);
+    }
+    return cleaned;
+  };
+
+  // Extract last 4 characters if IBAN is padded with zeros (0000000000001234 -> 1234)
+  const extractIbanForDisplay = (iban: string): string => {
+    if (!iban) return '';
+    // Remove all dashes and spaces
+    const cleaned = iban.replace(/[\s-]/g, '');
+    // If it's 16 characters and starts with 12 zeros, extract last 4 characters
+    if (cleaned.length === 16 && cleaned.startsWith('000000000000')) {
+      return cleaned.slice(-4);
+    }
+    return cleaned;
+  };
+
   useEffect(() => {
     if (account) {
       setFormData({
@@ -48,10 +71,10 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
         currency: account.currency,
         description: account.description || '',
         financialInstitution: account.financialInstitution || '',
-        accountNumber: account.accountNumber || '',
+        accountNumber: extractAccountNumberForDisplay(account.accountNumber || ''),
         routingNumber: account.routingNumber || '',
         syncFrequency: account.syncFrequency,
-        iban: account.iban || '',
+        iban: extractIbanForDisplay(account.iban || ''),
         swiftCode: account.swiftCode || '',
         isActive: account.isActive,
         isConnected: account.isConnected,
@@ -94,6 +117,72 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
     }));
   };
 
+  // Format IBAN with dashes every 4 characters
+  const formatIban = (value: string | undefined): string => {
+    if (!value) return '';
+    // Remove all spaces and dashes first
+    const cleaned = value.replace(/[\s-]/g, '');
+    // Add dash every 4 characters
+    return cleaned.replace(/(.{4})/g, '$1-').replace(/-$/, '');
+  };
+
+  const handleIbanChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    // Remove dashes, spaces and non-alphanumeric characters (keep only letters and numbers)
+    const cleaned = value.replace(/[^A-Za-z0-9]/g, '');
+    // Store unformatted value (formatting is applied in the display value)
+    setFormData(prev => ({
+      ...prev,
+      iban: cleaned,
+    }));
+  };
+
+  // Format IBAN for backend: if only 4 characters, pad with zeros to make 16 characters
+  const formatIbanForBackend = (iban: string | undefined): string => {
+    if (!iban) return '';
+    // Remove all dashes and spaces
+    const cleaned = iban.replace(/[\s-]/g, '');
+    // If only 4 characters, pad with zeros to make 16 characters
+    if (cleaned.length === 4) {
+      return `000000000000${cleaned}`;
+    }
+    // Otherwise return as is (without dashes/spaces)
+    return cleaned;
+  };
+
+  // Format account number with spaces every 4 digits
+  const formatAccountNumber = (value: string | undefined): string => {
+    if (!value) return '';
+    // Remove all spaces first
+    const cleaned = value.replace(/\s/g, '');
+    // Add space every 4 characters
+    return cleaned.replace(/(.{4})/g, '$1 ').trim();
+  };
+
+  const handleAccountNumberChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    // Remove spaces and keep only digits
+    const cleaned = value.replace(/\D/g, '');
+    // Store unformatted value (formatting is applied in the display value)
+    setFormData(prev => ({
+      ...prev,
+      accountNumber: cleaned,
+    }));
+  };
+
+  // Format account number for backend: if only 4 digits, pad with zeros to 16 digits
+  const formatAccountNumberForBackend = (accountNumber: string | undefined): string => {
+    if (!accountNumber) return '';
+    // Remove all spaces
+    const cleaned = accountNumber.replace(/\s/g, '');
+    // If only 4 digits, pad with zeros to make 16 digits
+    if (cleaned.length === 4) {
+      return `000000000000${cleaned}`;
+    }
+    // Otherwise return as is (without spaces)
+    return cleaned;
+  };
+
   const validateForm = (): boolean => {
     if (!formData.accountName.trim()) {
       setError('Account name is required');
@@ -101,10 +190,6 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
     }
     if (formData.initialBalance < 0) {
       setError('Initial balance cannot be negative');
-      return false;
-    }
-    if (!formData.currency.trim()) {
-      setError('Currency is required');
       return false;
     }
     setError('');
@@ -128,10 +213,10 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
           currency: formData.currency,
           description: formData.description,
           financialInstitution: formData.financialInstitution,
-          accountNumber: formData.accountNumber,
+          accountNumber: formatAccountNumberForBackend(formData.accountNumber),
           routingNumber: formData.routingNumber,
           syncFrequency: formData.syncFrequency,
-          iban: formData.iban,
+          iban: formatIbanForBackend(formData.iban),
           swiftCode: formData.swiftCode,
           isActive: formData.isActive,
           isConnected: formData.isConnected,
@@ -146,10 +231,10 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
           currency: formData.currency,
           description: formData.description,
           financialInstitution: formData.financialInstitution,
-          accountNumber: formData.accountNumber,
+          accountNumber: formatAccountNumberForBackend(formData.accountNumber),
           routingNumber: formData.routingNumber,
           syncFrequency: formData.syncFrequency,
-          iban: formData.iban,
+          iban: formatIbanForBackend(formData.iban),
           swiftCode: formData.swiftCode,
         };
         resultAccount = await apiService.createBankAccount(createRequest);
@@ -250,24 +335,6 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
               />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Currency</InputLabel>
-                <Select
-                  name="currency"
-                  value={formData.currency}
-                  label="Currency"
-                  onChange={handleSelectChange}
-                >
-                  {CURRENCY_OPTIONS.map((currencyOption) => (
-                    <MenuItem key={currencyOption.code} value={currencyOption.code}>
-                      {currencyOption.code} - {currencyOption.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            
             <Grid item xs={12}>
               <TextField
                 name="description"
@@ -303,11 +370,12 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
               <TextField
                 name="accountNumber"
                 label="Account Number"
-                value={formData.accountNumber}
-                onChange={handleChange}
+                value={formatAccountNumber(formData.accountNumber)}
+                onChange={handleAccountNumberChange}
                 fullWidth
-                inputProps={{ maxLength: 20 }}
-                placeholder="****1234"
+                inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
+                placeholder="1234 or full account number"
+                helperText="Enter last 4 digits or full account number"
               />
             </Grid>
             
@@ -350,11 +418,12 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
               <TextField
                 name="iban"
                 label="IBAN"
-                value={formData.iban}
-                onChange={handleChange}
+                value={formatIban(formData.iban)}
+                onChange={handleIbanChange}
                 fullWidth
-                inputProps={{ maxLength: 34 }}
-                placeholder="US64SVBKUS6S3300958879"
+                inputProps={{ maxLength: 19 }} // 16 characters + 3 dashes
+                placeholder="1234 or full IBAN"
+                helperText="Enter last 4 characters or full IBAN. Note: If you want to enable or use Transaction Analyzer"
               />
             </Grid>
             

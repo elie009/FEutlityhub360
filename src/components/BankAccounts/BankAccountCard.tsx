@@ -7,6 +7,7 @@ import {
   MoreVert, Edit, Delete, AccountBalance, Sync, Link, LinkOff,
   AttachMoney, TrendingUp, TrendingDown, CheckCircle, Warning,
   AccountBalanceWallet, CreditCard, Savings, Assessment,
+  Receipt,
 } from '@mui/icons-material';
 import { BankAccount } from '../../types/bankAccount';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -18,6 +19,7 @@ interface BankAccountCardProps {
   onConnect?: (accountId: string) => void;
   onDisconnect?: (accountId: string) => void;
   onSync?: (accountId: string) => void;
+  onViewTransactions?: (account: BankAccount) => void;
 }
 
 const getAccountTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -68,13 +70,22 @@ const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString();
 };
 
+const formatIban = (iban: string): string => {
+  if (!iban) return '';
+  // Remove all spaces and dashes first
+  const cleaned = iban.replace(/[\s-]/g, '');
+  // Add dash every 4 characters
+  return cleaned.replace(/(.{4})/g, '$1-').replace(/-$/, '');
+};
+
 const BankAccountCard: React.FC<BankAccountCardProps> = ({ 
   account, 
   onEdit, 
   onDelete, 
   onConnect, 
   onDisconnect, 
-  onSync 
+  onSync,
+  onViewTransactions 
 }) => {
   const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -257,13 +268,13 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
 
         {/* International Information */}
         {(account.iban || account.swiftCode) && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: 'darkslategray', borderRadius: 1 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Box sx={{ mt: 2, p: 1, bgcolor: 'blanchedalmond', borderRadius: 1 }}>
+            <Typography variant="body2" sx={{ color: 'black', fontWeight: 'bold' }} gutterBottom>
               International:
             </Typography>
             {account.iban && (
               <Typography variant="caption" sx={{ display: 'block', fontFamily: 'monospace' }}>
-                IBAN: {account.iban}
+                IBAN: {formatIban(account.iban)}
               </Typography>
             )}
             {account.swiftCode && (
@@ -275,16 +286,27 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
         )}
 
         {/* Action Buttons */}
-        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
             size="small"
             onClick={handleEdit}
             startIcon={<Edit />}
-            fullWidth
+            sx={{ flex: 1, minWidth: '100px' }}
           >
             Edit
           </Button>
+          {onViewTransactions && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => onViewTransactions(account)}
+              startIcon={<Receipt />}
+              sx={{ flex: 1, minWidth: '100px' }}
+            >
+              Transactions
+            </Button>
+          )}
           {account.isConnected ? (
             <Tooltip title="Disconnect from bank">
               <Button
@@ -293,7 +315,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
                 onClick={handleDisconnect}
                 startIcon={<LinkOff />}
                 color="warning"
-                fullWidth
+                sx={{ flex: 1, minWidth: '100px' }}
               >
                 Disconnect
               </Button>
@@ -306,7 +328,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
                 onClick={handleConnect}
                 startIcon={<Link />}
                 color="success"
-                fullWidth
+                sx={{ flex: 1, minWidth: '100px' }}
               >
                 Connect
               </Button>

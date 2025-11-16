@@ -20,7 +20,8 @@ import {
   UpdateScheduleRequest,
   MarkAsPaidRequest,
   UpdateDueDateRequest,
-  ScheduleOperationResponse
+  ScheduleOperationResponse,
+  DisbursementResponse
 } from '../types/loan';
 import { 
   Bill, 
@@ -571,8 +572,9 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.makeLoanPayment(loanId, paymentData);
     }
+    
+    // Use the new accounting system endpoint: POST /api/loans/{loanId}/payment
     const requestBody: any = {
-      loanId,
       amount: paymentData.amount,
       method: paymentData.method,
       reference: paymentData.reference,
@@ -583,7 +585,7 @@ class ApiService {
       requestBody.bankAccountId = paymentData.bankAccountId;
     }
 
-    const response = await this.request<any>('/Payments', {
+    const response = await this.request<any>(`/Loans/${loanId}/payment`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
@@ -959,9 +961,14 @@ class ApiService {
 
 
   // Admin APIs
-  async approveLoan(loanId: string): Promise<Loan> {
-    return this.request<Loan>(`/Loans/user/${loanId}/approve`, {
-      method: 'PUT',
+  async approveLoan(loanId: string, notes?: string): Promise<Loan> {
+    const body: any = {};
+    if (notes) {
+      body.notes = notes;
+    }
+    return this.request<Loan>(`/Loans/${loanId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
   }
 
@@ -972,11 +979,57 @@ class ApiService {
     });
   }
 
-  async disburseLoan(loanId: string): Promise<Transaction> {
-    return this.request<Transaction>('/transactions/disburse', {
+  async disburseLoan(loanId: string, disbursementData?: {
+    disbursementMethod?: 'BANK_TRANSFER' | 'CASH' | 'CHECK' | 'CASH_PICKUP';
+    reference?: string;
+    bankAccountId?: string; // ✅ NEW: Optional - If provided, credits loan to this account
+    disbursedBy?: string; // Admin user ID
+  }): Promise<DisbursementResponse> {
+    const body: any = {
+      loanId,
+    };
+    
+    if (disbursementData?.disbursementMethod) {
+      body.disbursementMethod = disbursementData.disbursementMethod;
+    }
+    
+    if (disbursementData?.reference) {
+      body.reference = disbursementData.reference;
+    }
+    
+    if (disbursementData?.bankAccountId) {
+      body.bankAccountId = disbursementData.bankAccountId;
+    }
+    
+    if (disbursementData?.disbursedBy) {
+      body.disbursedBy = disbursementData.disbursedBy;
+    }
+    
+    // Use admin endpoint as per documentation: POST /api/admin/transactions/disburse
+    const response = await this.request<any>('/admin/transactions/disburse', {
       method: 'POST',
-      body: JSON.stringify({ loanId }),
+      body: JSON.stringify(body),
     });
+    
+    // Handle the response structure
+    if (response && response.success && response.data) {
+      return response;
+    }
+    // Fallback: if response doesn't have expected structure, wrap it
+    return {
+      success: true,
+      message: response?.message || 'Loan disbursed successfully',
+      data: {
+        loanId,
+        disbursedAmount: response?.disbursedAmount || 0,
+        disbursedAt: response?.disbursedAt || new Date().toISOString(),
+        disbursementMethod: disbursementData?.disbursementMethod || 'BANK_TRANSFER',
+        reference: disbursementData?.reference,
+        bankAccountCredited: !!response?.bankAccountCredited,
+        bankAccountId: response?.bankAccountId,
+        message: response?.data?.message || response?.message || 'Loan disbursed successfully',
+      },
+    };
   }
 
   async closeLoan(loanId: string): Promise<Loan> {
@@ -1770,6 +1823,7 @@ class ApiService {
     if (filters?.bankAccountId) queryParams.append('bankAccountId', filters.bankAccountId);
     if (filters?.transactionType) queryParams.append('transactionType', filters.transactionType);
     if (filters?.category) queryParams.append('category', filters.category);
+    // Support both startDate/endDate and dateFrom/dateTo
     if (filters?.startDate) queryParams.append('startDate', filters.startDate);
     if (filters?.endDate) queryParams.append('endDate', filters.endDate);
     if (filters?.page) queryParams.append('page', filters.page.toString());
@@ -1793,6 +1847,53 @@ class ApiService {
     } else {
       console.error('Unexpected transactions response structure:', response);
       return { data: [], page: 1, limit: 10, totalCount: 0 };
+    }
+  }
+
+  // Get bank account transactions with dateFrom/dateTo parameters (for modal)
+  async getBankAccountTransactions(params: {
+    bankAccountId: string;
+    page?: number;
+    limit?: number;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: BankAccountTransaction[];
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+    if (params.dateTo) queryParams.append('dateTo', params.dateTo);
+    
+    // Use bankAccountId in the URL path instead of query parameter
+    const endpoint = `/BankAccounts/${params.bankAccountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    
+    // Handle the response format: { success: true, message: string, data: BankAccountTransaction[] }
+    if (response && response.success && Array.isArray(response.data)) {
+      return response;
+    } else if (Array.isArray(response.data)) {
+      return {
+        success: true,
+        message: 'Transactions retrieved successfully',
+        data: response.data,
+      };
+    } else if (Array.isArray(response)) {
+      return {
+        success: true,
+        message: 'Transactions retrieved successfully',
+        data: response,
+      };
+    } else {
+      console.error('Unexpected transactions response structure:', response);
+      return {
+        success: false,
+        message: 'Failed to retrieve transactions',
+        data: [],
+      };
     }
   }
 
@@ -1822,6 +1923,101 @@ class ApiService {
     }
     
     return response?.data || response || true;
+  }
+
+  async analyzeTransactionText(
+    transactionText: string, 
+    bankAccountId?: string,
+    billId?: string,
+    loanId?: string,
+    savingsAccountId?: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: BankAccountTransaction | null;
+    errors: any;
+  }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation - return a mock transaction
+      const user = this.getCurrentUserFromToken();
+      const mockTransaction: BankAccountTransaction = {
+        id: `mock-${Date.now()}`,
+        bankAccountId: bankAccountId || 'mock-bank-account-id',
+        accountName: 'Mock Bank Account',
+        userId: user?.id || 'demo-user-123',
+        amount: 9.50,
+        transactionType: 'DEBIT',
+        description: 'POS Purchase AZDEHAR A',
+        category: '',
+        referenceNumber: `SMS_${Date.now()}`,
+        externalTransactionId: undefined,
+        transactionDate: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        notes: `Parsed from SMS: ${transactionText}`,
+        merchant: 'AZDEHAR A',
+        location: undefined,
+        isRecurring: false,
+        recurringFrequency: undefined,
+        currency: 'SAR',
+        balanceAfterTransaction: 990.50,
+      };
+      return {
+        success: true,
+        message: 'Transaction created successfully',
+        data: mockTransaction,
+        errors: null,
+      };
+    }
+    
+    // Use a custom request handler to properly handle 400 errors
+    const url = `${API_BASE_URL}/BankAccounts/transactions/analyze-text`;
+    const requestBody: { 
+      transactionText: string; 
+      bankAccountId?: string;
+      billId?: string;
+      loanId?: string;
+      savingsAccountId?: string;
+    } = { transactionText };
+    
+    if (bankAccountId) {
+      requestBody.bankAccountId = bankAccountId;
+    }
+    if (billId) {
+      requestBody.billId = billId;
+    }
+    if (loanId) {
+      requestBody.loanId = loanId;
+    }
+    if (savingsAccountId) {
+      requestBody.savingsAccountId = savingsAccountId;
+    }
+    
+    const requestConfig: RequestInit = {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(requestBody),
+    };
+
+    try {
+      const response = await fetch(url, requestConfig);
+      const jsonResponse = await response.json();
+      
+      // If response is not ok, return the error response in the expected format
+      if (!response.ok) {
+        return {
+          success: false,
+          message: jsonResponse.message || `HTTP error! status: ${response.status}`,
+          data: null,
+          errors: jsonResponse.errors || null,
+        };
+      }
+      
+      return jsonResponse;
+    } catch (error: any) {
+      // Network or other errors
+      throw error;
+    }
   }
 
   async getTransactionAnalytics(): Promise<TransactionAnalytics> {
