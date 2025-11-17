@@ -53,7 +53,8 @@ const TransactionsPage: React.FC = () => {
     limit: 10,
     page: 1,
   });
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  // Default to cards view on mobile for better UX
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [columnFilters, setColumnFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -427,26 +428,30 @@ const TransactionsPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth={false} sx={{ mt: { xs: 2, sm: 4 }, mb: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
+    <Container maxWidth={false} sx={{ mt: { xs: 1, sm: 4 }, mb: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Box sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
         alignItems: { xs: 'flex-start', sm: 'center' }, 
         mb: { xs: 2, sm: 4 },
-        gap: { xs: 2, sm: 0 }
+        gap: { xs: 1.5, sm: 0 }
       }}>
         <Typography 
           variant="h4" 
           component="h1" 
           gutterBottom
-          sx={{ fontSize: { xs: '1.5rem', sm: '2rem' }, mb: { xs: 1, sm: 0 } }}
+          sx={{ 
+            fontSize: { xs: '1.25rem', sm: '2rem' }, 
+            mb: { xs: 0, sm: 0 },
+            fontWeight: { xs: 600, sm: 400 }
+          }}
         >
           Recent Transactions
         </Typography>
         <Box sx={{ 
           display: 'flex', 
-          gap: { xs: 1, sm: 2 }, 
+          gap: { xs: 0.75, sm: 2 }, 
           alignItems: 'center',
           flexWrap: 'wrap',
           width: { xs: '100%', sm: 'auto' }
@@ -460,32 +465,40 @@ const TransactionsPage: React.FC = () => {
             sx={{ 
               mr: { xs: 0, sm: 1 },
               flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' }
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              py: { xs: 0.75, sm: 1 },
+              px: { xs: 1.5, sm: 2 }
             }}
           >
             {isMobile ? 'Analyzer' : 'Transaction Analyzer'}
           </Button>
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={(_, newMode) => newMode && setViewMode(newMode)}
-            size="small"
-            aria-label="view mode"
-          >
-            <ToggleButton value="cards" aria-label="card view">
-              <ViewModule />
-            </ToggleButton>
-            <ToggleButton value="table" aria-label="table view">
-              <ViewList />
-            </ToggleButton>
-          </ToggleButtonGroup>
+          {!isMobile && (
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_, newMode) => newMode && setViewMode(newMode)}
+              size="small"
+              aria-label="view mode"
+            >
+              <ToggleButton value="cards" aria-label="card view">
+                <ViewModule />
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="table view">
+                <ViewList />
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
           <Button
             variant="outlined"
             startIcon={<Refresh />}
             onClick={handleRefresh}
             disabled={isLoading}
             size={isMobile ? 'small' : 'medium'}
-            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+            sx={{ 
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              minWidth: { xs: 'auto', sm: 100 },
+              px: { xs: 1, sm: 2 }
+            }}
           >
             {isMobile ? '' : 'Refresh'}
           </Button>
@@ -524,12 +537,13 @@ const TransactionsPage: React.FC = () => {
           sx={{ 
             display: 'flex', 
             alignItems: 'center', 
-            mb: { xs: 2, sm: 3 },
-            fontSize: { xs: '1.25rem', sm: '1.5rem' }
+            mb: { xs: 1.5, sm: 3 },
+            fontSize: { xs: '1.1rem', sm: '1.5rem' },
+            fontWeight: { xs: 600, sm: 400 }
           }}
         >
-          <AccountBalance sx={{ mr: { xs: 1, sm: 2 }, color: 'primary.main', fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
-          Bank Account Transaction
+          <AccountBalance sx={{ mr: { xs: 0.75, sm: 2 }, color: 'primary.main', fontSize: { xs: '1.1rem', sm: '1.5rem' } }} />
+          {isMobile ? 'Bank Transactions' : 'Bank Account Transaction'}
         </Typography>
 
         {/* 1st Row: Combined Account Overview & Money Flow - Uniform Width */}
@@ -955,38 +969,44 @@ const TransactionsPage: React.FC = () => {
         gap: { xs: 1, sm: 2 }, 
         mb: { xs: 2, sm: 3 }, 
         flexWrap: 'wrap', 
-        alignItems: 'center' 
+        alignItems: 'center',
+        '& > *': {
+          flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' },
+          minWidth: { xs: 'calc(50% - 8px)', sm: 'auto' }
+        }
       }}>
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-          <InputLabel>Transaction Type</InputLabel>
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transaction Type</InputLabel>
           <Select
             value={filters.transactionType || ''}
             label="Transaction Type"
             onChange={handleSelectChange('transactionType')}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
           >
-            <MenuItem value="">All Types</MenuItem>
-            <MenuItem value="credit">Credit</MenuItem>
-            <MenuItem value="debit">Debit</MenuItem>
-            <MenuItem value="transfer">Transfer</MenuItem>
+            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Types</MenuItem>
+            <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Credit</MenuItem>
+            <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Debit</MenuItem>
+            <MenuItem value="transfer" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transfer</MenuItem>
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-          <InputLabel>Category</InputLabel>
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Category</InputLabel>
           <Select
             value={filters.category || ''}
             label="Category"
             onChange={handleSelectChange('category')}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
           >
-            <MenuItem value="">All Categories</MenuItem>
-            <MenuItem value="food">Food</MenuItem>
-            <MenuItem value="utilities">Utilities</MenuItem>
-            <MenuItem value="transportation">Transportation</MenuItem>
-            <MenuItem value="income">Income</MenuItem>
-            <MenuItem value="interest">Interest</MenuItem>
-            <MenuItem value="dividend">Dividend</MenuItem>
-            <MenuItem value="payment">Payment</MenuItem>
-            <MenuItem value="cash">Cash</MenuItem>
+            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Categories</MenuItem>
+            <MenuItem value="food" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Food</MenuItem>
+            <MenuItem value="utilities" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Utilities</MenuItem>
+            <MenuItem value="transportation" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transportation</MenuItem>
+            <MenuItem value="income" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Income</MenuItem>
+            <MenuItem value="interest" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Interest</MenuItem>
+            <MenuItem value="dividend" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Dividend</MenuItem>
+            <MenuItem value="payment" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Payment</MenuItem>
+            <MenuItem value="cash" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Cash</MenuItem>
           </Select>
         </FormControl>
 
@@ -996,7 +1016,11 @@ const TransactionsPage: React.FC = () => {
           type="number"
           value={filters.limit || 10}
           onChange={handleInputChange('limit')}
-          sx={{ width: { xs: '100%', sm: 100 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
+          sx={{ 
+            width: { xs: '100%', sm: 100 },
+            '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+            '& .MuiInputLabel-root': { fontSize: { xs: '0.875rem', sm: '1rem' } }
+          }}
           inputProps={{ min: 1, max: 100 }}
         />
 
@@ -1005,21 +1029,26 @@ const TransactionsPage: React.FC = () => {
           startIcon={<Clear />}
           onClick={handleClearFilters}
           size="small"
-          sx={{ flex: { xs: '1 1 auto', sm: '0 0 auto' } }}
+          sx={{ 
+            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+            py: { xs: 0.75, sm: 1 }
+          }}
         >
           {isMobile ? 'Clear' : 'Clear Filters'}
         </Button>
 
-        <Button
-          variant="outlined"
-          startIcon={showFilters ? <FilterListOff /> : <FilterList />}
-          onClick={toggleFilters}
-          size="small"
-          color={showFilters ? "secondary" : "primary"}
-          sx={{ flex: { xs: '1 1 auto', sm: '0 0 auto' } }}
-        >
-          {isMobile ? (showFilters ? 'Hide' : 'Filters') : (showFilters ? 'Hide Column Filters' : 'Show Column Filters')}
-        </Button>
+        {!isMobile && (
+          <Button
+            variant="outlined"
+            startIcon={showFilters ? <FilterListOff /> : <FilterList />}
+            onClick={toggleFilters}
+            size="small"
+            color={showFilters ? "secondary" : "primary"}
+            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+          >
+            {showFilters ? 'Hide Column Filters' : 'Show Column Filters'}
+          </Button>
+        )}
       </Box>
 
       {/* Transactions Display */}
@@ -1038,26 +1067,34 @@ const TransactionsPage: React.FC = () => {
             </Typography>
           </CardContent>
         </Card>
-      ) : viewMode === 'cards' ? (
-        <Grid container spacing={2} sx={{ mt: 2 }}>
-          {transactions.map((transaction) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={transaction.id}>
-              <TransactionCard 
-                transaction={transaction} 
-                onViewDetails={handleViewDetails}
-              />
-            </Grid>
-          ))}
-        </Grid>
       ) : (
+        <>
+          {/* Cards view - shown on mobile and when cards mode is selected */}
+          <Box sx={{ display: { xs: 'block', sm: viewMode === 'cards' ? 'block' : 'none' } }}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mt: { xs: 1, sm: 2 } }}>
+              {transactions.map((transaction) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={transaction.id}>
+                  <TransactionCard 
+                    transaction={transaction} 
+                    onViewDetails={handleViewDetails}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+          
+          {/* Table view - hidden on mobile, shown on desktop when table mode is selected */}
+          <Box sx={{ display: { xs: 'none', sm: viewMode === 'table' ? 'block' : 'none' } }}>
         <TableContainer 
           component={Paper} 
           sx={{ 
             mt: 2,
             maxWidth: '100%',
             overflowX: 'auto',
+            // On mobile, force cards view instead of table
+            display: { xs: 'none', sm: 'block' },
             '& .MuiTable-root': {
-              minWidth: isMobile ? 800 : 'auto',
+              minWidth: 'auto',
             }
           }}
         >
@@ -1277,6 +1314,8 @@ const TransactionsPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+          </Box>
+        </>
       )}
 
       {/* Pagination Controls */}
@@ -1372,30 +1411,46 @@ const TransactionsPage: React.FC = () => {
           setAnalyzerError(null);
           setAnalyzerSuccess(null);
         }}
-        maxWidth="md"
-        fullWidth
+        maxWidth={isMobile ? false : 'md'}
+        fullWidth={!isMobile}
         fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            width: { xs: '100%', sm: 'auto' },
+            maxWidth: { xs: '100%', sm: '600px' },
+            margin: { xs: 0, sm: 'auto' },
+            height: { xs: '100%', sm: 'auto' },
+            maxHeight: { xs: '100%', sm: '90vh' }
+          }
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ 
+          pb: { xs: 1, sm: 2 },
+          fontSize: { xs: '1.1rem', sm: '1.25rem' }
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AutoAwesome sx={{ color: 'primary.main' }} />
+            <AutoAwesome sx={{ color: 'primary.main', fontSize: { xs: '1.2rem', sm: '1.5rem' } }} />
             Transaction Analyzer
           </Box>
         </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
+        <DialogContent sx={{ 
+          px: { xs: 2, sm: 3 },
+          py: { xs: 2, sm: 3 }
+        }}>
+          <Box sx={{ mt: { xs: 0, sm: 2 } }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
               Paste your transaction text (e.g., SMS notification, receipt text) and let AI analyze and create the transaction automatically.
             </Typography>
             
             {/* Bank Account Selection Dropdown */}
             <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Bank Account (Optional)</InputLabel>
+              <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Bank Account (Optional)</InputLabel>
               <Select
                 value={selectedBankAccountId}
                 onChange={(e) => setSelectedBankAccountId(e.target.value)}
                 label="Bank Account (Optional)"
                 disabled={isAnalyzing || isLoadingBankAccounts}
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
               >
                 <MenuItem value="">
                   <em>None - Match by card number</em>
@@ -1419,7 +1474,7 @@ const TransactionsPage: React.FC = () => {
 
             {/* Radio Buttons for Transaction Link Type - Only Savings option shown */}
             <FormControl component="fieldset" fullWidth sx={{ mt: 2 }}>
-              <FormLabel component="legend">Transaction Type</FormLabel>
+              <FormLabel component="legend" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transaction Type</FormLabel>
               <RadioGroup
                 row
                 value={transactionLinkType}
@@ -1431,9 +1486,22 @@ const TransactionsPage: React.FC = () => {
                   setSelectedLoanId('');
                   setSelectedSavingsAccountId('');
                 }}
+                sx={{ gap: { xs: 1, sm: 2 } }}
               >
-                <FormControlLabel value="none" control={<Radio />} label="None" disabled={isAnalyzing} />
-                <FormControlLabel value="savings" control={<Radio />} label="Savings" disabled={isAnalyzing || isLoadingLinkedData} />
+                <FormControlLabel 
+                  value="none" 
+                  control={<Radio size={isMobile ? 'small' : 'medium'} />} 
+                  label="None" 
+                  disabled={isAnalyzing}
+                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                />
+                <FormControlLabel 
+                  value="savings" 
+                  control={<Radio size={isMobile ? 'small' : 'medium'} />} 
+                  label="Savings" 
+                  disabled={isAnalyzing || isLoadingLinkedData}
+                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                />
               </RadioGroup>
             </FormControl>
 
@@ -1515,11 +1583,19 @@ const TransactionsPage: React.FC = () => {
             <TextField
               fullWidth
               multiline
-              rows={8}
+              rows={isMobile ? 6 : 8}
               value={transactionText}
               onChange={(e) => setTransactionText(e.target.value)}
               placeholder="Example:&#10;POS Purchase&#10;Amount 9.50 SAR&#10;At AZDEHAR A&#10;Mada-Apple pay *5969&#10;on 12/11/25 at 09:49"
-              sx={{ mt: 2 }}
+              sx={{ 
+                mt: 2,
+                '& .MuiInputBase-input': {
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                },
+                '& .MuiInputLabel-root': {
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }
+              }}
               disabled={isAnalyzing}
               label="Transaction Text"
             />
@@ -1530,7 +1606,11 @@ const TransactionsPage: React.FC = () => {
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ 
+          px: { xs: 2, sm: 3 },
+          py: { xs: 1.5, sm: 2 },
+          gap: { xs: 1, sm: 2 }
+        }}>
           <Button
             onClick={() => {
               setShowAnalyzerDialog(false);
@@ -1544,6 +1624,8 @@ const TransactionsPage: React.FC = () => {
               setAnalyzerSuccess(null);
             }}
             disabled={isAnalyzing}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
           >
             Cancel
           </Button>
@@ -1617,6 +1699,8 @@ const TransactionsPage: React.FC = () => {
               }
             }}
             disabled={isAnalyzing || !transactionText.trim()}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
           >
             {isAnalyzing ? 'Analyzing...' : 'Analyze & Create'}
           </Button>
