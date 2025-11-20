@@ -48,7 +48,7 @@ export const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Inter", "Poppins", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", -apple-system, BlinkMacSystemFont, "Roboto", "Inter", "Poppins", sans-serif',
     h1: {
       fontSize: '2.5rem',
       fontWeight: 700,

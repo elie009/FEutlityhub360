@@ -13,7 +13,8 @@ export enum SavingsType {
   BUSINESS = 'BUSINESS',
   HEALTH = 'HEALTH',
   TAX_SAVINGS = 'TAX_SAVINGS',
-  GENERAL = 'GENERAL'
+  GENERAL = 'GENERAL',
+  OTHERS = 'OTHERS'
 }
 
 export enum SavingsTransactionType {
@@ -81,6 +82,7 @@ export interface CreateSavingsAccountRequest {
   description?: string;
   goal?: string;
   targetDate: string;
+  startDate?: string;
   currency?: string;
 }
 
@@ -91,6 +93,7 @@ export interface UpdateSavingsAccountRequest {
   description?: string;
   goal?: string;
   targetDate?: string;
+  startDate?: string;
   currency?: string;
 }
 

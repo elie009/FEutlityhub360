@@ -73,7 +73,8 @@ const AnimatedParticlesBackground: React.FC = () => {
         // Draw particle
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(160, 195, 130, ${particle.opacity})`; // #A0C382 with opacity
+        // Updated to match professional color scheme - teal/cyan particles
+        ctx.fillStyle = `rgba(95, 155, 140, ${particle.opacity})`; // #5F9B8C with opacity
         ctx.fill();
 
         // Draw connections
@@ -83,11 +84,12 @@ const AnimatedParticlesBackground: React.FC = () => {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < 120) {
-            const opacity = (120 - distance) / 120 * 0.3;
+            const opacity = (120 - distance) / 120 * 0.2;
             ctx.beginPath();
             ctx.moveTo(particle.x, particle.y);
             ctx.lineTo(otherParticle.x, otherParticle.y);
-            ctx.strokeStyle = `rgba(160, 195, 130, ${opacity})`; // #A0C382 with opacity
+            // Updated to match professional color scheme
+            ctx.strokeStyle = `rgba(95, 155, 140, ${opacity})`; // #5F9B8C with opacity
             ctx.lineWidth = 1;
             ctx.stroke();
           }
@@ -116,7 +118,20 @@ const AnimatedParticlesBackground: React.FC = () => {
         width: '100%',
         height: '100%',
         zIndex: -1,
-        background: 'linear-gradient(135deg, #233C4B 0%, #FF7D2D 20%, #FAC846 40%, #A0C382 70%, #5F9B8C 100%)',
+        // Option 1: Professional Deep Blue to Teal (Current - Recommended for Financial Apps)
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #1e40af 75%, #5F9B8C 100%)',
+        
+        // Option 2: Sophisticated Navy to Purple (Uncomment to use)
+        // background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 30%, #2d1b4e 60%, #3b2a5e 100%)',
+        
+        // Option 3: Minimalist Gray-Blue (Uncomment to use)
+        // background: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
+        
+        // Option 4: Deep Teal to Dark Blue (Uncomment to use)
+        // background: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+        
+        // Option 5: Modern Dark with Accent (Uncomment to use)
+        // background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 80%, #5F9B8C 100%)',
       }}
     >
       <canvas

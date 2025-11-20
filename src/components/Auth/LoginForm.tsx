@@ -121,76 +121,202 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2,
+        minHeight: '100vh',
+        p: { xs: 2, sm: 3, md: 4 },
       }}
     >
-      <Container sx={{ maxWidth: '1200px' }}>
-        <Grid container spacing={6} alignItems="center">
+      <Container sx={{ maxWidth: '1400px' }}>
+        <Grid container spacing={{ xs: 4, lg: 8 }} alignItems="center">
           {/* Left Side - Branding & Features */}
-          <Grid item xs={12} lg={4}>
-            <Box sx={{ color: 'white', textAlign: { xs: 'center', lg: 'left' }, pr: { lg: 4 } }}>
+          <Grid item xs={12} lg={5}>
+            <Box 
+              sx={{ 
+                color: 'white', 
+                textAlign: { xs: 'center', lg: 'left' }, 
+                pr: { lg: 6 },
+                animation: 'fadeInLeft 0.8s ease-out',
+                '@keyframes fadeInLeft': {
+                  '0%': {
+                    opacity: 0,
+                    transform: 'translateX(-30px)',
+                  },
+                  '100%': {
+                    opacity: 1,
+                    transform: 'translateX(0)',
+                  },
+                },
+              }}
+            >
               <Box
                 component={Link}
                 to="/"
                 sx={{
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  mb: 4,
+                  mb: 5,
                   justifyContent: { xs: 'center', lg: 'flex-start' },
                   textDecoration: 'none',
                   color: 'inherit',
                   cursor: 'pointer',
+                  transition: 'all 0.3s ease',
                   '&:hover': {
-                    opacity: 0.8,
+                    opacity: 0.9,
+                    transform: 'translateY(-2px)',
                   },
                 }}
               >
-                <AccountBalance sx={{ fontSize: 56, mr: 2 }} />
-                <Typography variant="h2" component="h1" sx={{ fontWeight: 'bold' }}>
+                <Box
+                  component="img"
+                  src="/logo.png"
+                  alt="UtilityHub360 Logo"
+                  sx={{
+                    height: { xs: 48, md: 64 },
+                    width: 'auto',
+                    mr: 2,
+                    filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
+                  }}
+                />
+                <Typography 
+                  variant="h2" 
+                  component="h1" 
+                  sx={{ 
+                    fontWeight: 700,
+                    fontSize: { xs: '2rem', md: '3rem' },
+                    textShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    letterSpacing: '-0.02em',
+                    color: 'primary.main',
+                  }}
+                >
                   UtilityHub360
                 </Typography>
               </Box>
               
-              <Typography variant="h4" sx={{ mb: 4, fontWeight: 300 }}>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  mb: 3, 
+                  fontWeight: 600,
+                  fontSize: { xs: '1.5rem', md: '2rem' },
+                  lineHeight: 1.3,
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  color: 'white',
+                }}
+              >
                 Your Complete Financial Management Solution
               </Typography>
               
-              <Typography variant="h6" sx={{ mb: 5, opacity: 0.9, lineHeight: 1.6, fontWeight: 300 }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  mb: 5, 
+                  opacity: 0.95, 
+                  lineHeight: 1.8, 
+                  fontWeight: 400,
+                  fontSize: { xs: '0.95rem', md: '1.1rem' },
+                  maxWidth: { lg: '90%' },
+                  color: 'white',
+                }}
+              >
                 Take control of your finances with our comprehensive platform. Manage loans, track expenses, 
                 monitor savings, and achieve your financial goals with ease.
               </Typography>
 
               {/* Feature Icons */}
-              <Grid container spacing={4} sx={{ mb: 5 }}>
+              <Grid container spacing={3} sx={{ mb: 5 }}>
                 <Grid item xs={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Dashboard sx={{ fontSize: 40, mb: 2, color: '#34D399' }} />
-                    <Typography variant="body1" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center',
+                      transition: 'transform 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(52, 211, 153, 0.15)',
+                        mb: 2,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <Dashboard sx={{ fontSize: { xs: 32, md: 40 }, color: '#34D399' }} />
+                    </Box>
+                    <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 600, fontSize: '0.875rem', color: 'white' }}>
                       Dashboard
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Analytics sx={{ fontSize: 40, mb: 2, color: '#34D399' }} />
-                    <Typography variant="body1" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center',
+                      transition: 'transform 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(52, 211, 153, 0.15)',
+                        mb: 2,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <Analytics sx={{ fontSize: { xs: 32, md: 40 }, color: '#34D399' }} />
+                    </Box>
+                    <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 600, fontSize: '0.875rem', color: 'white' }}>
                       Analytics
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Savings sx={{ fontSize: 40, mb: 2, color: '#34D399' }} />
-                    <Typography variant="body1" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center',
+                      transition: 'transform 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(52, 211, 153, 0.15)',
+                        mb: 2,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      <Savings sx={{ fontSize: { xs: 32, md: 40 }, color: '#34D399' }} />
+                    </Box>
+                    <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 600, fontSize: '0.875rem', color: 'white' }}>
                       Savings
                     </Typography>
                   </Box>
                 </Grid>
               </Grid>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
-                <Security sx={{ mr: 1 }} />
-                <Typography variant="body2">
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: { xs: 'center', lg: 'flex-start' },
+                  opacity: 0.9,
+                  mt: 4,
+                }}
+              >
+                <Security sx={{ mr: 1.5, fontSize: 20, color: 'white' }} />
+                <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'white' }}>
                   Bank-level security & encryption
                 </Typography>
               </Box>
@@ -198,43 +324,53 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           </Grid>
 
           {/* Right Side - Login Form */}
-          <Grid item xs={12} lg={8}>
+          <Grid item xs={12} lg={7}>
             <Card
-              elevation={24}
+              elevation={0}
               sx={{
-                borderRadius: 3,
+                borderRadius: 4,
                 overflow: 'hidden',
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
                 maxWidth: 'none',
-                transition: 'none !important',
-                transform: 'none !important',
-                '&:hover': {
-                  elevation: 24,
-                  transform: 'none !important',
-                  transition: 'none !important',
-                  boxShadow: '0px 24px 48px rgba(0, 0, 0, 0.4) !important',
-                },
-                '&:focus': {
-                  elevation: 24,
-                  transform: 'none !important',
-                  transition: 'none !important',
-                  boxShadow: '0px 24px 48px rgba(0, 0, 0, 0.4) !important',
-                },
-                '&:active': {
-                  elevation: 24,
-                  transform: 'none !important',
-                  transition: 'none !important',
-                  boxShadow: '0px 24px 48px rgba(0, 0, 0, 0.4) !important',
+                animation: 'fadeInRight 0.8s ease-out',
+                '@keyframes fadeInRight': {
+                  '0%': {
+                    opacity: 0,
+                    transform: 'translateX(30px)',
+                  },
+                  '100%': {
+                    opacity: 1,
+                    transform: 'translateX(0)',
+                  },
                 },
               }}
             >
-              <CardContent sx={{ p: 5 }}>
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography variant="h4" component="h2" sx={{ fontWeight: 'bold', mb: 1, color: '#233C4B' }}>
+              <CardContent sx={{ p: { xs: 4, sm: 5, md: 6 } }}>
+                <Box sx={{ textAlign: 'center', mb: 4 }}>
+                  <Typography 
+                    variant="h4" 
+                    component="h2" 
+                    sx={{ 
+                      fontWeight: 700, 
+                      mb: 1.5, 
+                      color: '#1a2d3a',
+                      fontSize: { xs: '1.75rem', md: '2rem' },
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
                     Welcome Back
                   </Typography>
-                  <Typography variant="body1" sx={{ color: '#233C4B' }}>
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      color: '#64748b',
+                      fontSize: '1rem',
+                      fontWeight: 400,
+                    }}
+                  >
                     Sign in to access your financial dashboard
                   </Typography>
                 </Box>
@@ -244,12 +380,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                   sx={{ 
                     mb: 3,
                     borderRadius: 2,
+                    bgcolor: 'rgba(95, 155, 140, 0.1)',
+                    border: '1px solid rgba(95, 155, 140, 0.2)',
                     '& .MuiAlert-icon': {
                       color: '#5F9B8C'
-                    }
+                    },
+                    '& .MuiAlert-message': {
+                      color: '#1e293b',
+                    },
                   }}
                 >
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     <strong>Demo Account:</strong> demo@utilityhub360.com / Demo123!
                   </Typography>
                 </Alert>
@@ -260,6 +401,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     sx={{ 
                       mb: 3,
                       borderRadius: 2,
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
                     }}
                   >
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -268,7 +410,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                   </Alert>
                 )}
 
-                <Box component="form" onSubmit={handleSubmit}>
+                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
                   <TextField
                     fullWidth
                     required
@@ -281,25 +423,50 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     onChange={handleChange('email')}
                     disabled={isLoading}
                     sx={{ 
-                      mb: 2,
+                      mb: 3,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        bgcolor: '#f8fafc',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          bgcolor: '#f1f5f9',
+                        },
+                        '&.Mui-focused': {
+                          bgcolor: '#ffffff',
+                          boxShadow: '0 0 0 3px rgba(95, 155, 140, 0.1)',
+                        },
+                        '& fieldset': {
+                          borderColor: '#e2e8f0',
+                          borderWidth: '1.5px',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#cbd5e1',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#5F9B8C',
+                          borderWidth: '2px',
+                        },
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#5F9B8C',
+                      },
                       '& input:-webkit-autofill': {
-                        WebkitBoxShadow: '0 0 0 1000px white inset',
-                        WebkitTextFillColor: 'inherit',
-                        caretColor: 'inherit',
+                        WebkitBoxShadow: '0 0 0 1000px #f8fafc inset',
+                        WebkitTextFillColor: '#1e293b',
+                        caretColor: '#1e293b',
+                        borderRadius: '8px',
                       },
                       '& input:-webkit-autofill:hover': {
-                        WebkitBoxShadow: '0 0 0 1000px white inset',
-                        WebkitTextFillColor: 'inherit',
+                        WebkitBoxShadow: '0 0 0 1000px #f1f5f9 inset',
                       },
                       '& input:-webkit-autofill:focus': {
-                        WebkitBoxShadow: '0 0 0 1000px white inset',
-                        WebkitTextFillColor: 'inherit',
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset',
                       },
                     }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Email color="action" />
+                          <Email sx={{ color: '#94a3b8' }} />
                         </InputAdornment>
                       ),
                     }}
@@ -318,24 +485,49 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     disabled={isLoading}
                     sx={{ 
                       mb: 3,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        bgcolor: '#f8fafc',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          bgcolor: '#f1f5f9',
+                        },
+                        '&.Mui-focused': {
+                          bgcolor: '#ffffff',
+                          boxShadow: '0 0 0 3px rgba(95, 155, 140, 0.1)',
+                        },
+                        '& fieldset': {
+                          borderColor: '#e2e8f0',
+                          borderWidth: '1.5px',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#cbd5e1',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#5F9B8C',
+                          borderWidth: '2px',
+                        },
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: '#5F9B8C',
+                      },
                       '& input:-webkit-autofill': {
-                        WebkitBoxShadow: '0 0 0 1000px white inset',
-                        WebkitTextFillColor: 'inherit',
-                        caretColor: 'inherit',
+                        WebkitBoxShadow: '0 0 0 1000px #f8fafc inset',
+                        WebkitTextFillColor: '#1e293b',
+                        caretColor: '#1e293b',
+                        borderRadius: '8px',
                       },
                       '& input:-webkit-autofill:hover': {
-                        WebkitBoxShadow: '0 0 0 1000px white inset',
-                        WebkitTextFillColor: 'inherit',
+                        WebkitBoxShadow: '0 0 0 1000px #f1f5f9 inset',
                       },
                       '& input:-webkit-autofill:focus': {
-                        WebkitBoxShadow: '0 0 0 1000px white inset',
-                        WebkitTextFillColor: 'inherit',
+                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset',
                       },
                     }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Lock color="action" />
+                          <Lock sx={{ color: '#94a3b8' }} />
                         </InputAdornment>
                       ),
                       endAdornment: (
@@ -344,6 +536,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                             aria-label="toggle password visibility"
                             onClick={() => setShowPassword(!showPassword)}
                             edge="end"
+                            sx={{
+                              color: '#94a3b8',
+                              '&:hover': {
+                                bgcolor: 'rgba(148, 163, 184, 0.1)',
+                              },
+                            }}
                           >
                             {showPassword ? <VisibilityOff /> : <Visibility />}
                           </IconButton>
@@ -359,12 +557,26 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     size="large"
                     disabled={isLoading}
                     sx={{
-                      mb: 2,
-                      py: 1.5,
+                      mb: 2.5,
+                      py: 1.75,
                       borderRadius: 2,
-                      background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      background: 'primary.main',
+                      boxShadow: '0 4px 14px rgba(95, 155, 140, 0.4)',
+                      transition: 'all 0.3s ease',
                       '&:hover': {
-                        background: 'linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)',
+                        background: 'secondary.main',
+                        boxShadow: '0 6px 20px rgba(95, 155, 140, 0.5)',
+                        transform: 'translateY(-2px)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0)',
+                      },
+                      '&:disabled': {
+                        background: '#cbd5e1',
+                        boxShadow: 'none',
                       },
                     }}
                   >
@@ -372,23 +584,27 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                       <CircularProgress size={24} color="inherit" />
                     ) : (
                       <>
-                        <TrendingUp sx={{ mr: 1 }} />
+                        <TrendingUp sx={{ mr: 1.5, fontSize: 20 }} />
                         Sign In to Dashboard
                       </>
                     )}
                   </Button>
 
-                  <Box sx={{ textAlign: 'center', mb: 2 }}>
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
                     <Button
                       component={Link}
                       to="/forgot-password"
                       variant="text"
                       sx={{
-                        color: '#233C4B',
+                        color: '#64748b',
                         textDecoration: 'none',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
                         '&:hover': {
-                          textDecoration: 'underline',
-                          backgroundColor: 'transparent',
+                          color: '#5F9B8C',
+                          backgroundColor: 'rgba(95, 155, 140, 0.08)',
+                          textDecoration: 'none',
                         },
                       }}
                     >
@@ -396,8 +612,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     </Button>
                   </Box>
 
-                  <Divider sx={{ my: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#233C4B' }}>
+                  <Divider sx={{ my: 3 }}>
+                    <Typography variant="body2" sx={{ color: '#94a3b8', px: 2, fontSize: '0.875rem' }}>
                       New to UtilityHub360?
                     </Typography>
                   </Divider>
@@ -409,13 +625,24 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     onClick={onSwitchToRegister}
                     disabled={isLoading}
                     sx={{
-                      py: 1.5,
+                      py: 1.75,
                       borderRadius: 2,
-                      borderColor: '#233C4B',
-                      color: '#233C4B',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      borderColor: '#e2e8f0',
+                      borderWidth: '1.5px',
+                      color: '#1e293b',
+                      transition: 'all 0.3s ease',
                       '&:hover': {
-                        borderColor: '#1a2d3a',
-                        backgroundColor: 'rgba(35, 60, 75, 0.1)',
+                        borderColor: '#5F9B8C',
+                        backgroundColor: 'rgba(95, 155, 140, 0.08)',
+                        color: '#5F9B8C',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 12px rgba(95, 155, 140, 0.2)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0)',
                       },
                     }}
                   >

@@ -36,6 +36,7 @@ import {
   Chip,
   Tooltip,
   SelectChangeEvent,
+  InputAdornment,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -45,8 +46,12 @@ import {
   Work as WorkIcon,
   AttachMoney as MoneyIcon,
   Visibility as ViewIcon,
+  VisibilityOff as VisibilityOffIcon,
   Refresh as RefreshIcon,
   Logout as LogoutIcon,
+  Lock as LockIcon,
+  Info as InfoIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency, CURRENCY_OPTIONS } from '../contexts/CurrencyContext';
@@ -88,10 +93,8 @@ const Settings: React.FC = () => {
   });
 
   const [profile, setProfile] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 234 567 8900',
+    name: '',
+    phone: '',
     preferredCurrency: 'USD',
   });
 
@@ -125,6 +128,48 @@ const Settings: React.FC = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  
+  // User update state
+  const [userUpdateLoading, setUserUpdateLoading] = useState(false);
+  const [userUpdateError, setUserUpdateError] = useState<string | null>(null);
+  const [userUpdateSuccess, setUserUpdateSuccess] = useState<string | null>(null);
+  
+  // Currency update state
+  const [currencyUpdateLoading, setCurrencyUpdateLoading] = useState(false);
+  const [currencyUpdateError, setCurrencyUpdateError] = useState<string | null>(null);
+  
+  // Clear data state
+  const [showClearDataDialog, setShowClearDataDialog] = useState(false);
+  const [clearDataLoading, setClearDataLoading] = useState(false);
+  const [clearDataSuccess, setClearDataSuccess] = useState<string | null>(null);
+  const [clearDataError, setClearDataError] = useState<string | null>(null);
+  const [clearDataPassword, setClearDataPassword] = useState('');
+  const [clearDataAgreement, setClearDataAgreement] = useState(false);
+  const [clearDataShowPassword, setClearDataShowPassword] = useState(false);
+  const [clearDataResult, setClearDataResult] = useState<{
+    message: string;
+    deletedRecords: { [key: string]: number | undefined };
+    totalRecordsDeleted: number;
+  } | null>(null);
+  
+  // Feature not available modal state
+  const [showFeatureNotAvailableDialog, setShowFeatureNotAvailableDialog] = useState(false);
+  
+  // Change password state
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [passwordFormData, setPasswordFormData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
   // Use userProfile from context instead of local state
   const userProfile = contextUserProfile;
@@ -239,6 +284,65 @@ const Settings: React.FC = () => {
     }));
   };
 
+  const handleSaveUserInfo = async () => {
+    if (!user?.id) {
+      setUserUpdateError('User ID is missing. Please log in again.');
+      return;
+    }
+
+    try {
+      setUserUpdateLoading(true);
+      setUserUpdateError(null);
+      setUserUpdateSuccess(null);
+      
+      // Prepare the request body according to the API specification
+      const requestBody = {
+        name: profile.name.trim(),
+        phone: profile.phone.trim(),
+      };
+
+      console.log('Saving user info with request body:', requestBody);
+
+      // Call the API service to update the user
+      const response = await apiService.updateUser(user.id, requestBody);
+      
+      if (response && response.success) {
+        setUserUpdateSuccess('User information updated successfully!');
+        console.log('User info saved successfully:', response);
+        
+        // Optionally refresh user data from context
+        // The user data will be updated on next page refresh or login
+      } else {
+        setUserUpdateError(response?.message || 'Failed to update user information');
+      }
+    } catch (error: any) {
+      console.error('Error saving user info:', error);
+      
+      // Handle specific error status codes
+      let errorMessage = 'Failed to update user information';
+      const status = error.status;
+      
+      if (status === 400) {
+        // Validation error - show the error message and errors array from API
+        if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+          errorMessage = `${error.message || 'Validation failed'}: ${error.errors.join(', ')}`;
+        } else {
+          errorMessage = error.message || 'Validation failed. Please check your input.';
+        }
+      } else if (status === 404) {
+        errorMessage = error.message || 'User not found. Please log in again.';
+      } else if (status === 403) {
+        errorMessage = error.message || 'You do not have permission to update this user profile.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setUserUpdateError(errorMessage);
+    } finally {
+      setUserUpdateLoading(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
       setProfileLoading(true);
@@ -289,6 +393,236 @@ const Settings: React.FC = () => {
 
   const handleSaveNotifications = () => {
     console.log('Saving notifications:', notifications);
+  };
+
+  // Change password handlers
+  const handleOpenChangePasswordDialog = () => {
+    setShowChangePasswordDialog(true);
+    setPasswordFormData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setShowPasswords({
+      current: false,
+      new: false,
+      confirm: false,
+    });
+  };
+
+  const handleCloseChangePasswordDialog = () => {
+    setShowChangePasswordDialog(false);
+    setPasswordFormData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setShowPasswords({
+      current: false,
+      new: false,
+      confirm: false,
+    });
+  };
+
+  const handlePasswordInputChange = (field: keyof typeof passwordFormData, value: string) => {
+    setPasswordFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+    if (passwordError) setPasswordError(null);
+    if (passwordSuccess) setPasswordSuccess(null);
+  };
+
+  const validatePasswordForm = (): string | null => {
+    if (!passwordFormData.currentPassword.trim()) {
+      return 'Current password is required';
+    }
+    if (!passwordFormData.newPassword.trim()) {
+      return 'New password is required';
+    }
+    if (passwordFormData.newPassword.length < 6) {
+      return 'New password must be at least 6 characters long';
+    }
+    if (passwordFormData.newPassword === passwordFormData.currentPassword) {
+      return 'New password must be different from current password';
+    }
+    if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
+      return 'New password and confirm password do not match';
+    }
+    return null;
+  };
+
+  const handleChangePassword = async () => {
+    const validationError = validatePasswordForm();
+    if (validationError) {
+      setPasswordError(validationError);
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      setPasswordError(null);
+      setPasswordSuccess(null);
+
+      const response = await apiService.changePassword(passwordFormData);
+
+      if (response && response.success) {
+        setPasswordSuccess(response.message || 'Password changed successfully!');
+        console.log('Password changed successfully:', response);
+        
+        // Clear form and close dialog after a delay
+        setTimeout(() => {
+          handleCloseChangePasswordDialog();
+        }, 1500);
+      } else {
+        // Handle error response (non-success)
+        const errorMessage = response?.message || 'Failed to change password';
+        const errorDetails = response?.errors && Array.isArray(response.errors) && response.errors.length > 0
+          ? `: ${response.errors.join(', ')}`
+          : '';
+        setPasswordError(`${errorMessage}${errorDetails}`);
+      }
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      
+      let errorMessage = 'Failed to change password';
+      const status = error.status;
+      
+      if (status === 400) {
+        // For 400 errors, show the message from the API response
+        if (error.message) {
+          errorMessage = error.message;
+          // If there are specific error details, append them
+          if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+            errorMessage = `${error.message}: ${error.errors.join(', ')}`;
+          }
+        } else {
+          errorMessage = 'Validation failed. Please check your input.';
+        }
+      } else if (status === 404) {
+        errorMessage = error.message || 'User not found.';
+      } else if (status === 403) {
+        errorMessage = error.message || 'Current password is incorrect.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setPasswordError(errorMessage);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
+  // Clear data handlers
+  const handleOpenClearDataDialog = () => {
+    setShowClearDataDialog(true);
+    setClearDataError(null);
+    setClearDataSuccess(null);
+    setClearDataPassword('');
+    setClearDataAgreement(false);
+    setClearDataShowPassword(false);
+    setClearDataResult(null);
+  };
+
+  const handleCloseClearDataDialog = () => {
+    if (!clearDataLoading) {
+      setShowClearDataDialog(false);
+      setClearDataError(null);
+      setClearDataSuccess(null);
+      setClearDataPassword('');
+      setClearDataAgreement(false);
+      setClearDataShowPassword(false);
+      setClearDataResult(null);
+    }
+  };
+
+  const handleClearData = async () => {
+    // Validation
+    if (!clearDataPassword.trim()) {
+      setClearDataError('Password is required to confirm this action');
+      return;
+    }
+
+    if (!clearDataAgreement) {
+      setClearDataError('You must agree to delete all your data');
+      return;
+    }
+
+    try {
+      setClearDataLoading(true);
+      setClearDataError(null);
+      setClearDataSuccess(null);
+      setClearDataResult(null);
+
+      const response = await apiService.clearAllUserData({
+        password: clearDataPassword,
+        agreementConfirmed: clearDataAgreement,
+      });
+
+      if (response && response.success && response.data) {
+        setClearDataSuccess(response.message || 'All user data has been cleared successfully');
+        setClearDataResult(response.data);
+        
+        // Clear local storage after successful API call
+        sessionStorage.removeItem('userProfile');
+        localStorage.removeItem('preferredCurrency');
+        
+        // Clear browser cache if available
+        if ('caches' in window) {
+          try {
+            const cacheNames = await caches.keys();
+            await Promise.all(
+              cacheNames.map(cacheName => caches.delete(cacheName))
+            );
+          } catch (cacheError) {
+            console.warn('Failed to clear browser cache:', cacheError);
+          }
+        }
+
+        // Reload the page after a delay to refresh data
+        setTimeout(() => {
+          setShowClearDataDialog(false);
+          window.location.reload();
+        }, 5000);
+      } else {
+        setClearDataError(response?.message || 'Failed to clear data');
+      }
+    } catch (error: any) {
+      console.error('Error clearing data:', error);
+      
+      let errorMessage = 'Failed to clear data';
+      const status = error.status;
+      
+      if (status === 400) {
+        if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+          errorMessage = `${error.message || 'Validation failed'}: ${error.errors.join(', ')}`;
+        } else {
+          errorMessage = error.message || 'Validation failed. Please check your input.';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setClearDataError(errorMessage);
+    } finally {
+      setClearDataLoading(false);
+    }
+  };
+
+  // Feature not available handler
+  const handleFeatureNotAvailable = () => {
+    setShowFeatureNotAvailableDialog(true);
   };
 
   // Profile form constants
@@ -891,6 +1225,17 @@ const Settings: React.FC = () => {
     }
   }, [userProfile, currency]);
 
+  // Initialize profile state with user data
+  useEffect(() => {
+    if (user) {
+      setProfile(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        phone: user.phone || prev.phone,
+      }));
+    }
+  }, [user]);
+
   // Load profile form data from user profile
   useEffect(() => {
     if (userProfile) {
@@ -957,52 +1302,103 @@ const Settings: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Profile Information
             </Typography>
+            
+            {userUpdateSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setUserUpdateSuccess(null)}>
+                {userUpdateSuccess}
+              </Alert>
+            )}
+
+            {userUpdateError && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUserUpdateError(null)}>
+                {userUpdateError}
+              </Alert>
+            )}
+
+            {currencyUpdateError && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCurrencyUpdateError(null)}>
+                {currencyUpdateError}
+              </Alert>
+            )}
+
             <Grid container spacing={2} sx={{ mt: 2 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
-                  label="First Name"
-                  value={profile.firstName}
-                  onChange={(e) => handleProfileChange('firstName', e.target.value)}
+                  label="Name"
+                  value={profile.name}
+                  onChange={(e) => handleProfileChange('name', e.target.value)}
+                  required
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
-                  label="Last Name"
-                  value={profile.lastName}
-                  onChange={(e) => handleProfileChange('lastName', e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={profile.email}
-                  onChange={(e) => handleProfileChange('email', e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Phone"
+                  label="Mobile Number"
                   value={profile.phone}
                   onChange={(e) => handleProfileChange('phone', e.target.value)}
+                  required
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   select
                   fullWidth
                   label="Preferred Currency"
                   value={currency}
-                  onChange={(e) => {
-                    console.log('Currency selector changed to:', e.target.value);
-                    setCurrency(e.target.value);
-                    handleProfileChange('preferredCurrency', e.target.value);
+                  onChange={async (e) => {
+                    const newCurrency = e.target.value;
+                    const oldCurrency = currency; // Capture old value before updating
+                    console.log('Currency selector changed to:', newCurrency);
+                    
+                    // Update local state immediately for better UX
+                    setCurrency(newCurrency);
+                    handleProfileChange('preferredCurrency', newCurrency);
+                    
+                    // Call API to update currency
+                    try {
+                      setCurrencyUpdateLoading(true);
+                      setCurrencyUpdateError(null);
+                      
+                      const response = await apiService.updateUserProfileCurrency(newCurrency);
+                      
+                      if (response && response.success) {
+                        console.log('Currency updated successfully:', response);
+                        // Currency is already updated in local state
+                      } else {
+                        // Revert on error
+                        setCurrency(oldCurrency);
+                        setCurrencyUpdateError(response?.message || 'Failed to update currency');
+                      }
+                    } catch (error: any) {
+                      console.error('Error updating currency:', error);
+                      // Revert on error
+                      setCurrency(oldCurrency);
+                      
+                      let errorMessage = 'Failed to update currency';
+                      const status = error.status;
+                      
+                      if (status === 400) {
+                        if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+                          errorMessage = `${error.message || 'Validation failed'}: ${error.errors.join(', ')}`;
+                        } else {
+                          errorMessage = error.message || 'Validation failed. Please check your input.';
+                        }
+                      } else if (status === 404) {
+                        errorMessage = error.message || 'User profile not found.';
+                      } else if (status === 403) {
+                        errorMessage = error.message || 'You do not have permission to update currency.';
+                      } else if (error.message) {
+                        errorMessage = error.message;
+                      }
+                      
+                      setCurrencyUpdateError(errorMessage);
+                    } finally {
+                      setCurrencyUpdateLoading(false);
+                    }
                   }}
-                  helperText="Select your preferred currency for displaying amounts"
+                  helperText="Select your preferred currency"
+                  disabled={currencyUpdateLoading}
                 >
                   {CURRENCY_OPTIONS.map((currencyOption) => (
                     <MenuItem key={currencyOption.code} value={currencyOption.code}>
@@ -1014,11 +1410,12 @@ const Settings: React.FC = () => {
               <Grid item xs={12}>
                 <Button
                   variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSaveProfile}
+                  startIcon={userUpdateLoading ? <CircularProgress size={20} /> : <SaveIcon />}
+                  onClick={handleSaveUserInfo}
                   fullWidth
+                  disabled={userUpdateLoading}
                 >
-                  Save Profile
+                  {userUpdateLoading ? 'Saving...' : 'Save Profile'}
                 </Button>
               </Grid>
             </Grid>
@@ -1108,6 +1505,7 @@ const Settings: React.FC = () => {
                       startIcon={<EditIcon />}
                       fullWidth
                       sx={{ mb: 1 }}
+                      onClick={handleFeatureNotAvailable}
                     >
                       Export Data
                     </Button>
@@ -1116,6 +1514,7 @@ const Settings: React.FC = () => {
                       startIcon={<AddIcon />}
                       fullWidth
                       sx={{ mb: 1 }}
+                      onClick={handleFeatureNotAvailable}
                     >
                       Import Data
                     </Button>
@@ -1124,8 +1523,9 @@ const Settings: React.FC = () => {
                       color="error"
                       startIcon={<DeleteIcon />}
                       fullWidth
+                      onClick={handleOpenClearDataDialog}
                     >
-                      Clear Cache
+                      Clear data
                     </Button>
                   </CardContent>
                 </Card>
@@ -1141,6 +1541,8 @@ const Settings: React.FC = () => {
                       variant="outlined"
                       fullWidth
                       sx={{ mb: 1 }}
+                      onClick={handleOpenChangePasswordDialog}
+                      startIcon={<LockIcon />}
                     >
                       Change Password
                     </Button>
@@ -1148,12 +1550,14 @@ const Settings: React.FC = () => {
                       variant="outlined"
                       fullWidth
                       sx={{ mb: 1 }}
+                      onClick={handleFeatureNotAvailable}
                     >
                       Two-Factor Auth
                     </Button>
                     <Button
                       variant="outlined"
                       fullWidth
+                      onClick={handleFeatureNotAvailable}
                     >
                       Login History
                     </Button>
@@ -1169,58 +1573,13 @@ const Settings: React.FC = () => {
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              API Keys
+              Bank API Keys
             </Typography>
-            <List>
-              <ListItem>
-                <ListItemText
-                  primary="Payment Gateway API"
-                  secondary="Active - Last used 2 hours ago"
-                />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" aria-label="edit">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton edge="end" aria-label="delete">
-                    <DeleteIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-              <Divider />
-              <ListItem>
-                <ListItemText
-                  primary="Utility Provider API"
-                  secondary="Active - Last used 1 day ago"
-                />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" aria-label="edit">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton edge="end" aria-label="delete">
-                    <DeleteIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-              <Divider />
-              <ListItem>
-                <ListItemText
-                  primary="Notification Service API"
-                  secondary="Inactive - Last used 1 week ago"
-                />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" aria-label="edit">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton edge="end" aria-label="delete">
-                    <DeleteIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            </List>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               sx={{ mt: 2 }}
+              onClick={handleFeatureNotAvailable}
             >
               Add New API Key
             </Button>
@@ -2583,6 +2942,328 @@ const Settings: React.FC = () => {
             startIcon={deleteLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
           >
             {deleteLoading ? 'Deleting...' : deleteSuccess ? 'Deleted' : 'Delete Income Source'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog 
+        open={showChangePasswordDialog} 
+        onClose={handleCloseChangePasswordDialog}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LockIcon />
+            Change Password
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Update your account password
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {passwordSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {passwordSuccess}
+            </Alert>
+          )}
+
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Current Password"
+                type={showPasswords.current ? 'text' : 'password'}
+                value={passwordFormData.currentPassword}
+                onChange={(e) => handlePasswordInputChange('currentPassword', e.target.value)}
+                required
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => togglePasswordVisibility('current')}
+                        edge="end"
+                      >
+                        {showPasswords.current ? <VisibilityOffIcon /> : <ViewIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="New Password"
+                type={showPasswords.new ? 'text' : 'password'}
+                value={passwordFormData.newPassword}
+                onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
+                required
+                helperText="Password must be at least 6 characters long"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => togglePasswordVisibility('new')}
+                        edge="end"
+                      >
+                        {showPasswords.new ? <VisibilityOffIcon /> : <ViewIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Confirm New Password"
+                type={showPasswords.confirm ? 'text' : 'password'}
+                value={passwordFormData.confirmPassword}
+                onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                required
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => togglePasswordVisibility('confirm')}
+                        edge="end"
+                      >
+                        {showPasswords.confirm ? <VisibilityOffIcon /> : <ViewIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleCloseChangePasswordDialog}
+            disabled={passwordLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleChangePassword}
+            variant="contained"
+            disabled={passwordLoading}
+            startIcon={passwordLoading ? <CircularProgress size={20} /> : <LockIcon />}
+          >
+            {passwordLoading ? 'Changing...' : 'Change Password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Clear Data Confirmation Dialog */}
+      <Dialog 
+        open={showClearDataDialog} 
+        onClose={handleCloseClearDataDialog}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div" color="error" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <DeleteIcon />
+            Clear data
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {clearDataSuccess && (
+            <>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {clearDataSuccess}
+              </Alert>
+              {clearDataResult && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {clearDataResult.message}
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    Deleted Records Summary:
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2, mb: 1 }}>
+                    {Object.entries(clearDataResult.deletedRecords).map(([key, value]) => (
+                      value !== undefined && value > 0 && (
+                        <Typography key={key} component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}: {value} record{value !== 1 ? 's' : ''}
+                        </Typography>
+                      )
+                    ))}
+                  </Box>
+                  <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                    Total Records Deleted: {clearDataResult.totalRecordsDeleted}
+                  </Typography>
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      The page will reload automatically in a few seconds...
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+            </>
+          )}
+
+          {clearDataError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {clearDataError}
+            </Alert>
+          )}
+
+          {!clearDataSuccess && (
+            <>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                <Typography variant="body2" fontWeight="bold">
+                  ⚠️ WARNING: This is a destructive operation!
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  This will permanently delete ALL your data including:
+                </Typography>
+              </Alert>
+              <Box component="ul" sx={{ pl: 3, mb: 2 }}>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Payments, Loans, and Loan Applications
+                </Typography>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Bank Accounts and Transactions
+                </Typography>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Bills, Income Sources, and Expenses
+                </Typography>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Notifications, Profile Data, and Settings
+                </Typography>
+                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                  Journal Entries, Budgets, and Analytics
+                </Typography>
+                <Typography component="li" variant="body2">
+                  Chat Conversations and Messages
+                </Typography>
+              </Box>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>Note:</strong> Your account will remain active, but all data will be permanently deleted and cannot be recovered.
+                </Typography>
+              </Alert>
+
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Enter Password to Confirm"
+                    type={clearDataShowPassword ? 'text' : 'password'}
+                    value={clearDataPassword}
+                    onChange={(e) => {
+                      setClearDataPassword(e.target.value);
+                      if (clearDataError) setClearDataError(null);
+                    }}
+                    required
+                    disabled={clearDataLoading}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setClearDataShowPassword(!clearDataShowPassword)}
+                            edge="end"
+                          >
+                            {clearDataShowPassword ? <VisibilityOffIcon /> : <ViewIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Enter your password to confirm this action"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={clearDataAgreement}
+                        onChange={(e) => {
+                          setClearDataAgreement(e.target.checked);
+                          if (clearDataError) setClearDataError(null);
+                        }}
+                        disabled={clearDataLoading}
+                        color="error"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" color="error">
+                        I understand that this action will permanently delete all my data and cannot be undone
+                      </Typography>
+                    }
+                  />
+                </Grid>
+              </Grid>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleCloseClearDataDialog}
+            disabled={clearDataLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleClearData}
+            variant="contained"
+            color="error"
+            disabled={clearDataLoading || !!clearDataSuccess || !clearDataPassword.trim() || !clearDataAgreement}
+            startIcon={clearDataLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {clearDataLoading ? 'Clearing...' : clearDataSuccess ? 'Cleared' : 'Clear All Data'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Feature Not Available Dialog */}
+      <Dialog 
+        open={showFeatureNotAvailableDialog} 
+        onClose={() => setShowFeatureNotAvailableDialog(false)}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h5" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <InfoIcon color="warning" />
+              Feature Not Available
+            </Typography>
+            <IconButton
+              onClick={() => setShowFeatureNotAvailableDialog(false)}
+              size="small"
+              edge="end"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              This feature is not available for your account type. Please contact support.
+            </Typography>
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            If you need access to this feature, please reach out to our support team for assistance with upgrading your account.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowFeatureNotAvailableDialog(false)}
+            variant="contained"
+            fullWidth
+          >
+            Close
           </Button>
         </DialogActions>
       </Dialog>

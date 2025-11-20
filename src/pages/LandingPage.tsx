@@ -63,6 +63,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../contexts/CurrencyContext';
+import AnimatedParticlesBackground from '../components/Auth/AnimatedParticlesBackground';
 
 const LandingPage: React.FC = () => {
   const theme = useTheme();
@@ -167,9 +168,9 @@ const LandingPage: React.FC = () => {
   ];
 
   return (
-    <Box sx={{ fontFamily: 'Poppins, sans-serif' }}>
+    <Box sx={{ fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
       {/* Navigation Bar */}
-      <AppBar position="fixed" sx={{ bgcolor: 'white', color: 'text.primary', boxShadow: 1, fontFamily: 'Poppins, sans-serif' }}>
+      <AppBar position="fixed" sx={{ bgcolor: 'white', color: 'text.primary', boxShadow: 1, fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold', color: 'primary.main' }}>
             UtilityHub360
@@ -179,7 +180,7 @@ const LandingPage: React.FC = () => {
             <Button color="inherit" onClick={handleAboutClick}>About</Button>
             <Button color="inherit" onClick={handleContactClick}>Contact</Button>
             <Button variant="contained" onClick={handleGetStarted}>
-              Get Started
+              Login/Signup
             </Button>
           </Box>
           <IconButton
@@ -233,35 +234,31 @@ const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <Box
         sx={{
-          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
           color: 'white',
           pt: 12,
           pb: 0,
           position: 'relative',
           overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="4"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-          },
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
         }}
       >
-        <Container maxWidth="lg">
+        {/* Animated Particles Background */}
+        <AnimatedParticlesBackground />
+        
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Fade in={isVisible} timeout={1000}>
             <Grid container spacing={6} alignItems="center">
               <Grid item xs={12} md={6}>
-                <Typography variant="h1" component="h1" gutterBottom fontWeight="bold" sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, fontFamily: 'Poppins, sans-serif' }}>
+                <Typography variant="h1" color="primary.main" component="h1" gutterBottom fontWeight="bold" sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
                   Your Financial
                   <br />
-                  <Box component="span" sx={{ color: 'warning.main', fontFamily: 'Poppins, sans-serif' }}>
+                  <Box component="span" sx={{ color: 'warning.main', fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
                     Future Starts Here
                   </Box>
                 </Typography>
-                <Typography variant="h5" sx={{ mb: 4, opacity: 0.9, fontWeight: 300 }}>
+                <Typography variant="h5" sx={{ mb: 4, opacity: 0.9, fontWeight: 300, color: 'white' }}>
                   Comprehensive financial management platform powered by AI. Upload receipts and let AI track your 
                   expenses automatically. Get instant SMS notifications for all transactions via mobile app integration.
                 </Typography>
@@ -351,7 +348,7 @@ const LandingPage: React.FC = () => {
         <Container maxWidth="lg">
           <Box textAlign="center" mb={6}>
             <Chip 
-              label="🚀 AI-POWERED INNOVATION" 
+            label="🚀 AI-POWERED INNOVATION" 
               color="primary" 
               sx={{ 
                 mb: 2, 
@@ -364,7 +361,7 @@ const LandingPage: React.FC = () => {
             <Typography variant="h2" component="h2" gutterBottom fontWeight="bold" color="primary.main">
               Next-Generation Smart Features
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
+            <Typography variant="h6" color="White" sx={{ maxWidth: 700, mx: 'auto' }}>
               Powered by cutting-edge AI technology and mobile integration
             </Typography>
           </Box>
@@ -376,7 +373,7 @@ const LandingPage: React.FC = () => {
                 <Card
                   sx={{
                     height: '100%',
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.1)} 100%)`,
+                    backgroundColor: 'White',
                     border: `3px solid ${theme.palette.success.main}`,
                     transition: 'all 0.4s ease-in-out',
                     position: 'relative',
@@ -475,7 +472,7 @@ const LandingPage: React.FC = () => {
                 <Card
                   sx={{
                     height: '100%',
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.1)} 100%)`,
+                    backgroundColor: 'White',
                     border: `3px solid ${theme.palette.info.main}`,
                     transition: 'all 0.4s ease-in-out',
                     position: 'relative',
@@ -592,15 +589,16 @@ const LandingPage: React.FC = () => {
       </Box>
 
       {/* Services Section */}
-      <Container maxWidth="lg" sx={{ py: 10 }} ref={servicesRef}>
-        <Box textAlign="center" mb={8}>
-          <Typography variant="h3" component="h2" gutterBottom fontWeight="bold">
-            Comprehensive Financial Services
-          </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-            Everything you need to manage your finances effectively, all in one secure platform
-          </Typography>
-        </Box>
+      <Box sx={{ bgcolor: 'White', py: 10, position: 'relative' }} ref={servicesRef}>
+        <Container maxWidth="lg">
+          <Box textAlign="center" mb={8}>
+            <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" sx={{ color: 'Black' }}>
+              Comprehensive Financial Services
+            </Typography>
+            <Typography variant="h6" sx={{ maxWidth: 600, mx: 'auto', color: 'Black', opacity: 0.9 }}>
+              Everything you need to manage your finances effectively, all in one secure platform
+            </Typography>
+          </Box>
 
         <Grid container spacing={4}>
           {services.map((service, index) => (
@@ -642,25 +640,26 @@ const LandingPage: React.FC = () => {
             </Grid>
           ))}
         </Grid>
-      </Container>
+        </Container>
+      </Box>
 
       {/* Testimonials Section */}
-      <Box sx={{ bgcolor: 'grey.50', py: 10 }}>
+      <Box sx={{ bgcolor: 'transparent', py: 10, }} >
         <Container maxWidth="lg">
-          <Box textAlign="center" mb={8}>
-            <Typography variant="h3" component="h2" gutterBottom fontWeight="bold">
+          <Box textAlign="center" mb={8} >
+            <Typography variant="h3" component="h2" color="primary.main" gutterBottom fontWeight="bold">
               What Our Users Say
             </Typography>
-            <Typography variant="h6" color="text.secondary">
+            <Typography variant="h6"  color="White">
               Join thousands of satisfied customers who trust UtilityHub360
             </Typography>
           </Box>
 
           <Grid container spacing={4}>
             {testimonials.map((testimonial, index) => (
-              <Grid item xs={12} md={4} key={index}>
+              <Grid item xs={12} md={4} key={index} >
                 <Fade in={isVisible} timeout={1000 + index * 300}>
-                  <Card sx={{ height: '100%', p: 3 }}>
+                  <Card sx={{ height: '100%', p: 3, border: `1px solid ${theme.palette.primary.main}` }} >
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
                         {testimonial.avatar}
@@ -693,10 +692,10 @@ const LandingPage: React.FC = () => {
     {/* About Us Section */}
     <Container maxWidth="lg" sx={{ py: 10 }} ref={aboutRef}>
       <Box textAlign="center" mb={8}>
-        <Typography variant="h3" component="h2" gutterBottom fontWeight="bold">
+        <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" color="primary.main" >
           About Us
         </Typography>
-        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 800, mx: 'auto' }}>
+        <Typography variant="h6" color="White" sx={{ maxWidth: 800, mx: 'auto' }} >
           Empowering individuals and businesses to take control of their financial future
         </Typography>
       </Box>
@@ -709,7 +708,7 @@ const LandingPage: React.FC = () => {
               <Typography variant="h4" gutterBottom fontWeight="bold" color="primary.main">
                 Our Mission
               </Typography>
-              <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
+              <Typography variant="body1" color="White" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
                 At UtilityHub360, we believe that everyone deserves access to powerful financial management 
                 tools. Our mission is to simplify complex financial processes and make them accessible to all, 
                 helping you make informed decisions about your money.
@@ -718,7 +717,7 @@ const LandingPage: React.FC = () => {
               <Typography variant="h4" gutterBottom fontWeight="bold" color="primary.main" sx={{ mt: 4 }}>
                 Why Choose Us?
               </Typography>
-              <Typography variant="body1" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
+              <Typography variant="body1" color="White" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
                 We combine cutting-edge AI technology with intuitive design to deliver a financial management 
                 platform that works for you. From automated expense tracking to smart bill payments and 
                 comprehensive analytics, we've got you covered.
@@ -732,7 +731,7 @@ const LandingPage: React.FC = () => {
           <Fade in={isVisible} timeout={1200}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Card sx={{ p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)` }}>
+                <Card sx={{ p: 3, background: 'White', border: `1px solid ${theme.palette.primary.main}` }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <Shield sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
                     <Typography variant="h6" fontWeight="bold">
@@ -746,7 +745,7 @@ const LandingPage: React.FC = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Card sx={{ p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.05)} 100%)` }}>
+              <Card sx={{ p: 3, background: 'White', border: `1px solid ${theme.palette.primary.main}` }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <SmartToy sx={{ fontSize: 40, color: 'success.main', mr: 2 }} />
                     <Typography variant="h6" fontWeight="bold">
@@ -760,7 +759,7 @@ const LandingPage: React.FC = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Card sx={{ p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)` }}>
+              <Card sx={{ p: 3, background: 'White', border: `1px solid ${theme.palette.primary.main}` }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <People sx={{ fontSize: 40, color: 'info.main', mr: 2 }} />
                     <Typography variant="h6" fontWeight="bold">
@@ -779,7 +778,7 @@ const LandingPage: React.FC = () => {
         {/* Company Values */}
         <Grid item xs={12}>
           <Box sx={{ mt: 4 }}>
-            <Typography variant="h4" gutterBottom fontWeight="bold" textAlign="center" sx={{ mb: 4 }}>
+            <Typography variant="h4" gutterBottom fontWeight="bold" textAlign="center" sx={{ mb: 4, color: 'primary.main' }}>
               Our Core Values
             </Typography>
             <Grid container spacing={3}>
@@ -800,10 +799,10 @@ const LandingPage: React.FC = () => {
                   >
                     <CheckCircle sx={{ fontSize: 40, color: 'primary.main' }} />
                   </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
                     Transparency
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="White">
                     No hidden fees, clear pricing, honest communication
                   </Typography>
                 </Box>
@@ -826,10 +825,10 @@ const LandingPage: React.FC = () => {
                   >
                     <Speed sx={{ fontSize: 40, color: 'success.main' }} />
                   </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
                     Innovation
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="White">
                     Constantly evolving with latest technology
                   </Typography>
                 </Box>
@@ -852,10 +851,10 @@ const LandingPage: React.FC = () => {
                   >
                     <Support sx={{ fontSize: 40, color: 'info.main' }} />
                   </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
                     Support
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="White">
                     Dedicated team ready to help you succeed
                   </Typography>
                 </Box>
@@ -878,10 +877,10 @@ const LandingPage: React.FC = () => {
                   >
                     <Star sx={{ fontSize: 40, color: 'warning.main' }} />
                   </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
                     Excellence
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="White">
                     Committed to delivering the best experience
                   </Typography>
                 </Box>
@@ -897,7 +896,7 @@ const LandingPage: React.FC = () => {
         <Container maxWidth="md">
           <Fade in={isVisible} timeout={1000}>
             <Box>
-              <Typography variant="h3" component="h2" gutterBottom fontWeight="bold">
+              <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" >
                 Ready to Transform Your Financial Life?
               </Typography>
               <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>

@@ -770,6 +770,7 @@ export const mockDataService = {
     description?: string;
     goal?: string;
     targetDate: string;
+    startDate?: string;
     currency?: string;
   }): Promise<any> {
     // Import the mock savings data service
@@ -802,6 +803,7 @@ export const mockDataService = {
     description?: string;
     goal?: string;
     targetDate?: string;
+    startDate?: string;
     currency?: string;
   }): Promise<any> {
     const { mockSavingsDataService } = await import('./mockSavingsData');

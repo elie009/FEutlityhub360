@@ -367,22 +367,6 @@ const TransactionsPage: React.FC = () => {
           </Grid>
         </Box>
 
-        {/* Top Category Section Skeleton */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Skeleton variant="text" width="60%" height={28} sx={{ mb: 2 }} />
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Skeleton key={i} variant="rectangular" width={100} height={32} sx={{ borderRadius: 2 }} />
-                  ))}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
         {/* Transactions Table Skeleton */}
         <Card>
           <CardContent>
@@ -819,21 +803,6 @@ const TransactionsPage: React.FC = () => {
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
                       Average Amount
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <Category sx={{ fontSize: { xs: 20, sm: 18 }, color: 'warning.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25, textTransform: 'capitalize' }}>
-                      {analytics.mostActiveCategory || 'N/A'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                      Top Category
                     </Typography>
                   </Box>
                 </CardContent>

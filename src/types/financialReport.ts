@@ -107,6 +107,15 @@ export interface LoanReportDto {
   projectedDebtFreeDate: string | null;
 }
 
+export interface SavingsGoalDto {
+  goalName: string;
+  targetAmount: number;
+  currentAmount: number;
+  progress: number;
+  targetDate: string;
+  startDate: string;
+}
+
 export interface SavingsReportDto {
   totalSavingsBalance: number;
   monthlySavingsAmount: number;
@@ -116,6 +125,7 @@ export interface SavingsReportDto {
   savingsTrend: TrendDataPoint[];
   projectedGoalDate: string | null;
   monthsUntilGoal: number | null;
+  goals?: SavingsGoalDto[];
 }
 
 export interface NetWorthReportDto {

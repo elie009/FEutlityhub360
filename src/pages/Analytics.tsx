@@ -27,6 +27,8 @@ import {
   TableHead,
   TableRow,
   Button,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   LineChart,
@@ -73,10 +75,14 @@ import {
   FinancialPredictionDto,
 } from '../types/financialReport';
 import { Loan } from '../types/loan';
+import { SavingsGoalDto } from '../types/financialReport';
 
 const Analytics: React.FC = () => {
   const { getCurrencySymbol, formatCurrency: formatCurrencyWithSymbol } = useCurrency();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
   const [activeTab, setActiveTab] = useState(0);
@@ -211,6 +217,7 @@ const Analytics: React.FC = () => {
           savingsTrend: [],
           projectedGoalDate: null,
           monthsUntilGoal: null,
+          goals: [],
         },
         netWorthReport: report?.netWorthReport || {
           currentNetWorth: 0,
@@ -356,6 +363,76 @@ const Analytics: React.FC = () => {
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658'];
+
+  // Helper function to calculate months between two dates (inclusive of start, exclusive of end)
+  const getMonthsBetween = (startDate: Date, endDate: Date): number => {
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    return Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1);
+  };
+
+  // Helper function to get month labels between two dates with year (last 2 digits)
+  const getMonthLabelsBetween = (startDate: Date, endDate: Date): string[] => {
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months: string[] = [];
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    
+    let current = new Date(start);
+    while (current <= end) {
+      const year = current.getFullYear().toString().slice(-2); // Get last 2 digits of year
+      months.push(`${monthNames[current.getMonth()]}${year}`); // No space between month and year
+      current.setMonth(current.getMonth() + 1);
+    }
+    
+    return months;
+  };
+
+  // Helper function to generate month labels and progress bars
+  const generateProgressBar = (goal: SavingsGoalDto, earliestStartDate: Date) => {
+    const startDate = new Date(goal.startDate);
+    const targetDate = new Date(goal.targetDate);
+    
+    // Calculate total months from startDate to targetDate (inclusive)
+    const totalMonths = getMonthsBetween(startDate, targetDate);
+    
+    // Calculate offset from earliest start date (how many months before this goal starts)
+    const monthsOffset = getMonthsBetween(earliestStartDate, startDate) - 1;
+    
+    // Generate month labels for this goal's duration (from startDate to targetDate)
+    const months = getMonthLabelsBetween(startDate, targetDate);
+    
+    // Calculate filled blocks based on currentAmount vs targetAmount
+    // filledBlocks = (currentAmount / targetAmount) * totalMonths
+    // Example: 100/1000 = 10%, if totalMonths = 4, then filledBlocks = 0.4 ≈ 0 or 1
+    const progressPercentage = goal.targetAmount > 0 ? Math.min(1, goal.currentAmount / goal.targetAmount) : 0;
+    const filledBlocks = Math.max(0, Math.min(totalMonths, Math.round(totalMonths * progressPercentage)));
+    const emptyBlocks = totalMonths - filledBlocks;
+    
+    return {
+      months,
+      filledBlocks,
+      emptyBlocks,
+      totalBlocks: totalMonths,
+      monthsOffset: Math.max(0, monthsOffset),
+      startDate,
+      targetDate,
+    };
+  };
+
+  // Get all month labels across all goals
+  const getAllMonthLabels = (goals: SavingsGoalDto[]) => {
+    if (goals.length === 0) return [];
+    
+    // Find earliest start date and latest target date
+    const startDates = goals.map(g => new Date(g.startDate));
+    const targetDates = goals.map(g => new Date(g.targetDate));
+    const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
+    const latestTarget = new Date(Math.max(...targetDates.map(d => d.getTime())));
+    
+    // Generate all months from earliest start to latest target (inclusive)
+    return getMonthLabelsBetween(earliestStart, latestTarget);
+  };
 
   if (loading) {
     return (
@@ -1358,10 +1435,185 @@ const Analytics: React.FC = () => {
         {/* Tab 4: Savings & Goals */}
         {activeTab === 4 && (
           <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Paper sx={{ p: { xs: 1, sm: 2 }, px: { xs: 1, sm: 2 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, mb: { xs: 1, sm: 2 }, pb: { xs: 0.5, sm: 0 } }}>
+                  Savings Growth Trend
+                </Typography>
+                
+                {/* Progress Bar Table */}
+                {reportData.savingsReport?.goals && reportData.savingsReport.goals.length > 0 ? (
+                  <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: { xs: -0.5, sm: 0 } }}>
+                    {/* Find earliest start date for all goals */}
+                    {(() => {
+                      const goals = reportData.savingsReport.goals || [];
+                      const startDates = goals.map(g => new Date(g.startDate));
+                      const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
+                      const allMonthLabels = getAllMonthLabels(goals);
+                      // Responsive month width: smaller on mobile
+                      const monthWidth = isMobile ? 36 : isTablet ? 44 : 55;
+                      const blockSize = isMobile ? 12 : isTablet ? 14 : 20;
+                      
+                      return (
+                        <TableContainer sx={{ maxWidth: '100%' }}>
+                          <Table sx={{ minWidth: Math.max(280, allMonthLabels.length * monthWidth + (isMobile ? 80 : 150)) }}>
+                            <TableBody>
+                              {goals.map((goal, index) => {
+                                const { months, filledBlocks, emptyBlocks, monthsOffset } = generateProgressBar(goal, earliestStart);
+                                const goalLabel = goal.goalName || `Goal ${String.fromCharCode(65 + index)}`;
+                                
+                                return (
+                                  <React.Fragment key={`goal-${index}`}>
+                                    <TableRow>
+                                      <TableCell sx={{ 
+                                        minWidth: { xs: 85, sm: 120 }, 
+                                        maxWidth: { xs: 85, sm: 120 },
+                                        verticalAlign: 'top', 
+                                        pt: { xs: 1, sm: 2 }, 
+                                        pb: { xs: 0.25, sm: 1 },
+                                        px: { xs: 0.75, sm: 1.5 },
+                                        py: { xs: 0.75, sm: 1.5 },
+                                      }}>
+                                        <Typography 
+                                          variant="body1" 
+                                          fontWeight="medium"
+                                          sx={{ 
+                                            fontSize: { xs: '0.8rem', sm: '1rem' },
+                                            lineHeight: { xs: 1.3, sm: 1.5 },
+                                            wordBreak: 'break-word',
+                                          }}
+                                        >
+                                          {goalLabel}
+                                        </Typography>
+                                        <Typography 
+                                          variant="caption" 
+                                          color="text.secondary" 
+                                          sx={{ 
+                                            display: 'block', 
+                                            mt: { xs: 0.25, sm: 0.5 },
+                                            fontSize: { xs: '0.6rem', sm: '0.75rem' },
+                                            lineHeight: { xs: 1.2, sm: 1.4 },
+                                            wordBreak: 'break-word',
+                                          }}
+                                        >
+                                          {formatCurrencyWithSymbol(goal.currentAmount)} / {formatCurrencyWithSymbol(goal.targetAmount)}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell sx={{ py: { xs: 0.75, sm: 1.5 }, pl: { xs: 0.25, sm: 0 }, pr: { xs: 0.25, sm: 1 }, px: { xs: 0.5, sm: 1 } }}>
+                                        <Box sx={{ 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          fontFamily: 'monospace', 
+                                          fontSize: { xs: '11px', sm: '16px', md: '18px' }, 
+                                          lineHeight: { xs: 1.5, sm: 1.8 }, 
+                                          whiteSpace: 'nowrap', 
+                                          letterSpacing: { xs: '0.25px', sm: '1px' },
+                                        }}>
+                                          {/* Spacing before the bar starts (offset) */}
+                                          {monthsOffset > 0 && (
+                                            <Box sx={{ 
+                                              width: `${monthsOffset * monthWidth}px`, 
+                                              display: 'inline-block',
+                                              minWidth: `${monthsOffset * monthWidth}px`,
+                                              flexShrink: 0,
+                                            }} />
+                                          )}
+                                          {/* Progress bar */}
+                                          <Box sx={{ 
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: { xs: '0.5px', sm: '2px' },
+                                          }}>
+                                            {/* Filled blocks (█) representing currentAmount */}
+                                            {Array.from({ length: filledBlocks }).map((_, idx) => (
+                                              <Box
+                                                key={`filled-${idx}`}
+                                                component="span"
+                                                sx={{
+                                                  display: 'inline-block',
+                                                  width: `${blockSize}px`,
+                                                  height: `${blockSize}px`,
+                                                  bgcolor: 'success.main',
+                                                  borderRadius: { xs: '1px', sm: '2px' },
+                                                  flexShrink: 0,
+                                                }}
+                                              />
+                                            ))}
+                                            {/* Empty blocks representing remaining amount (targetAmount - currentAmount) */}
+                                            {Array.from({ length: emptyBlocks }).map((_, idx) => (
+                                              <Box
+                                                key={`empty-${idx}`}
+                                                component="span"
+                                                sx={{
+                                                  display: 'inline-block',
+                                                  width: `${blockSize}px`,
+                                                  height: `${blockSize}px`,
+                                                  bgcolor: 'secondary.main',
+                                                  border: '1px solid',
+                                                  borderColor: 'secondary.dark',
+                                                  borderRadius: { xs: '1px', sm: '2px' },
+                                                  flexShrink: 0,
+                                                }}
+                                              />
+                                            ))}
+                                          </Box>
+                                        </Box>
+                                      </TableCell>
+                                    </TableRow>
+                                    {/* Month labels row - only show once at the bottom */}
+                                    {index === goals.length - 1 && (
+                                      <TableRow>
+                                        <TableCell sx={{ pt: 0, pb: { xs: 0.25, sm: 1 }, px: { xs: 0.75, sm: 1.5 } }}></TableCell>
+                                        <TableCell sx={{ pt: { xs: 0.25, sm: 0.5 }, pb: { xs: 0.25, sm: 1 }, pl: { xs: 0.25, sm: 0 }, pr: { xs: 0.25, sm: 1 }, px: { xs: 0.5, sm: 1 } }}>
+                                          <Box sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            fontFamily: 'monospace', 
+                                            fontSize: { xs: '8px', sm: '10px', md: '11px' }, 
+                                            color: 'text.secondary',
+                                            whiteSpace: 'nowrap',
+                                            gap: { xs: '1px', sm: '4px' },
+                                          }}>
+                                            {allMonthLabels.map((month, idx) => (
+                                              <Box
+                                                key={idx}
+                                                sx={{
+                                                  display: 'inline-block',
+                                                  width: `${monthWidth}px`,
+                                                  minWidth: `${monthWidth}px`,
+                                                  textAlign: 'center',
+                                                  flexShrink: 0,
+                                                }}
+                                              >
+                                                {month}
+                                              </Box>
+                                            ))}
+                                          </Box>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      );
+                    })()}
+                  </Box>
+                ) : (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    No savings goals found. Create a savings goal to see the progress here.
+                  </Alert>
+                )}
+              </Paper>
+            </Grid>
+
+            {/* Keep the chart as additional visualization */}
             <Grid item xs={12} lg={8}>
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
-                  Savings Growth Trend
+                  Savings Balance Trend
                 </Typography>
                 <ResponsiveContainer width="100%" height={350}>
                   <AreaChart data={reportData.savingsReport?.savingsTrend || []}>

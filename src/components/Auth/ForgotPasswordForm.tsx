@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateEmail } from '../../utils/validation';
+import AnimatedParticlesBackground from './AnimatedParticlesBackground';
 
 const ForgotPasswordForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -63,11 +64,13 @@ const ForgotPasswordForm: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          position: 'relative',
+          overflow: 'hidden',
           padding: 2,
         }}
       >
-        <Card sx={{ maxWidth: 400, width: '100%' }}>
+        <AnimatedParticlesBackground />
+        <Card sx={{ maxWidth: 400, width: '100%', position: 'relative', zIndex: 1 }}>
           <CardContent sx={{ p: 4 }}>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <Box
@@ -138,11 +141,13 @@ const ForgotPasswordForm: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        position: 'relative',
+        overflow: 'hidden',
         padding: 2,
       }}
     >
-      <Card sx={{ maxWidth: 400, width: '100%' }}>
+      <AnimatedParticlesBackground />
+      <Card sx={{ maxWidth: 400, width: '100%', position: 'relative', zIndex: 1 }}>
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Box

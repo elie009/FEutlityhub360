@@ -181,6 +181,7 @@ export const mockSavingsDataService = {
     description?: string;
     goal?: string;
     targetDate: string;
+    startDate?: string;
     currency?: string;
   }): Promise<SavingsAccount> {
     await delay(800);
@@ -217,6 +218,7 @@ export const mockSavingsDataService = {
     description?: string;
     goal?: string;
     targetDate?: string;
+    startDate?: string;
     currency?: string;
   }): Promise<SavingsAccount> {
     await delay(600);

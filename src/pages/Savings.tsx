@@ -77,6 +77,7 @@ const Savings: React.FC = () => {
     description: '',
     goal: '',
     targetDate: '',
+    startDate: '',
   });
 
   const [transferData, setTransferData] = useState({
@@ -145,6 +146,7 @@ const Savings: React.FC = () => {
         description: formData.description,
         goal: formData.goal,
         targetDate: formData.targetDate,
+        startDate: formData.startDate || undefined,
         currency: 'USD',
       });
 
@@ -174,6 +176,7 @@ const Savings: React.FC = () => {
         description: formData.description,
         goal: formData.goal,
         targetDate: formData.targetDate,
+        startDate: formData.startDate || undefined,
         currency: 'USD',
       });
 
@@ -260,6 +263,7 @@ const Savings: React.FC = () => {
       description: '',
       goal: '',
       targetDate: '',
+      startDate: '',
     });
   };
 
@@ -321,6 +325,7 @@ const Savings: React.FC = () => {
       description: account.description || '',
       goal: account.goal || '',
       targetDate: account.targetDate.split('T')[0],
+      startDate: (account as any).startDate ? (account as any).startDate.split('T')[0] : '',
     });
     setShowEditDialog(true);
     handleMenuClose();
@@ -355,6 +360,7 @@ const Savings: React.FC = () => {
       [SavingsType.HEALTH]: '#4ade80',         // Light green
       [SavingsType.TAX_SAVINGS]: '#a3e635',    // Light lime
       [SavingsType.GENERAL]: '#6ee7b7',        // Very light emerald
+      [SavingsType.OTHERS]: '#86efac',         // Lightest emerald
     };
     return colors[type] || '#10b981';
   };
@@ -550,8 +556,9 @@ const Savings: React.FC = () => {
                 <TableCell>Target Amount</TableCell>
                 <TableCell>Progress</TableCell>
                 <TableCell>Goal</TableCell>
+                <TableCell>Start Date</TableCell>
                 <TableCell>Target Date</TableCell>
-                <TableCell>Days Left</TableCell>
+                <TableCell>Month Left</TableCell>
                 <TableCell>Monthly Target</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Actions</TableCell>
@@ -614,12 +621,17 @@ const Savings: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
+                      {new Date((account as any).startDate || account.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
                       {new Date(account.targetDate).toLocaleDateString()}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color={account.daysRemaining < 30 ? 'warning.main' : 'text.secondary'}>
-                      {account.daysRemaining} days
+                      {Math.ceil(account.daysRemaining / 30)}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -738,6 +750,17 @@ const Savings: React.FC = () => {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Start Date"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                helperText="Optional: When the savings goal started"
+              />
+            </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -810,6 +833,17 @@ const Savings: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, targetAmount: e.target.value })}
                 required
                 inputProps={{ min: 0, step: 0.01 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Start Date"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                helperText="Optional: When the savings goal started"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1001,7 +1035,7 @@ const Savings: React.FC = () => {
                         <strong>Remaining:</strong> {formatCurrency(accountWithTransactions.remainingAmount || 0)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        <strong>Days Left:</strong> {accountWithTransactions.daysRemaining}
+                        <strong>Month Left:</strong> {Math.ceil(accountWithTransactions.daysRemaining / 30)}
                       </Typography>
                     </Grid>
                   </Grid>

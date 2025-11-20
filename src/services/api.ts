@@ -93,6 +93,7 @@ class ApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('API Service: Error response:', errorData);
+        console.error('API Service: Error status:', response.status);
         
         // Redirect to login on unauthorized/session timeout
         if (response.status === 401 || response.status === 440) {
@@ -107,27 +108,50 @@ class ApiService {
           }
         }
         
+        // Create error with status code and error data
+        const error = new Error(errorData.message || errorData.title || `HTTP error! status: ${response.status}`);
+        (error as any).status = response.status;
+        (error as any).errorData = errorData;
+        
         // Handle 400 validation errors with detailed field errors
-        if (response.status === 400 && errorData.errors) {
-          const fieldErrors: string[] = [];
-          Object.keys(errorData.errors).forEach(field => {
-            const fieldErrorMessages = errorData.errors[field];
-            if (Array.isArray(fieldErrorMessages)) {
-              fieldErrorMessages.forEach((message: string) => {
-                fieldErrors.push(`${field}: ${message}`);
-              });
-            } else {
-              fieldErrors.push(`${field}: ${fieldErrorMessages}`);
+        if (response.status === 400) {
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            // Handle array of error messages
+            const errorMessages = errorData.errors.join(', ');
+            (error as any).message = errorData.message || 'Validation failed';
+            (error as any).errors = errorData.errors;
+            throw error;
+          } else if (errorData.errors && typeof errorData.errors === 'object') {
+            // Handle object with field errors
+            const fieldErrors: string[] = [];
+            Object.keys(errorData.errors).forEach(field => {
+              const fieldErrorMessages = errorData.errors[field];
+              if (Array.isArray(fieldErrorMessages)) {
+                fieldErrorMessages.forEach((message: string) => {
+                  fieldErrors.push(`${field}: ${message}`);
+                });
+              } else {
+                fieldErrors.push(`${field}: ${fieldErrorMessages}`);
+              }
+            });
+            
+            if (fieldErrors.length > 0) {
+              (error as any).message = errorData.message || 'Validation failed';
+              (error as any).errors = fieldErrors;
+              throw error;
             }
-          });
-          
-          if (fieldErrors.length > 0) {
-            throw new Error(fieldErrors.join(', '));
           }
         }
         
+        // Handle 404 and 403 errors
+        if (response.status === 404 || response.status === 403) {
+          (error as any).message = errorData.message || errorData.title || (response.status === 404 ? 'User not found' : 'Forbidden');
+          (error as any).errors = errorData.errors || [];
+          throw error;
+        }
+        
         // Handle other error responses
-        throw new Error(errorData.message || errorData.title || `HTTP error! status: ${response.status}`);
+        throw error;
       }
 
       const jsonResponse = await response.json();
@@ -220,6 +244,133 @@ class ApiService {
     return response;
   }
 
+  async changePassword(passwordData: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {} | null;
+    errors: string[];
+  }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        return {
+          success: false,
+          message: 'New password and confirm password do not match',
+          data: null,
+          errors: ['New password and confirm password do not match'],
+        };
+      }
+      return {
+        success: true,
+        message: 'Password changed successfully',
+        data: {},
+        errors: [],
+      };
+    }
+
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {} | null;
+      errors: string[];
+    }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword,
+      }),
+    });
+    return response;
+  }
+
+  async clearAllUserData(clearData: {
+    password: string;
+    agreementConfirmed: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      message: string;
+      deletedRecords: {
+        payments?: number;
+        loans?: number;
+        bills?: number;
+        bankAccounts?: number;
+        savingsAccounts?: number;
+        notifications?: number;
+        incomeSources?: number;
+        variableExpenses?: number;
+        [key: string]: number | undefined;
+      };
+      totalRecordsDeleted: number;
+    } | null;
+    errors: string[];
+  }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation
+      if (!clearData.agreementConfirmed) {
+        return {
+          success: false,
+          message: 'You must confirm the agreement to delete all your data',
+          data: null,
+          errors: ['You must confirm the agreement to delete all your data'],
+        };
+      }
+      return {
+        success: true,
+        message: 'Successfully deleted 150 records across 8 categories.',
+        data: {
+          message: 'All user data has been cleared successfully',
+          deletedRecords: {
+            payments: 20,
+            loans: 5,
+            bills: 10,
+            bankAccounts: 2,
+            savingsAccounts: 1,
+            notifications: 15,
+            incomeSources: 3,
+            variableExpenses: 8,
+          },
+          totalRecordsDeleted: 150,
+        },
+        errors: [],
+      };
+    }
+
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {
+        message: string;
+        deletedRecords: {
+          payments?: number;
+          loans?: number;
+          bills?: number;
+          bankAccounts?: number;
+          savingsAccounts?: number;
+          notifications?: number;
+          incomeSources?: number;
+          variableExpenses?: number;
+          [key: string]: number | undefined;
+        };
+        totalRecordsDeleted: number;
+      } | null;
+      errors: string[];
+    }>('/auth/clear-all-data', {
+      method: 'POST',
+      body: JSON.stringify({
+        password: clearData.password,
+        agreementConfirmed: clearData.agreementConfirmed,
+      }),
+    });
+    return response;
+  }
+
   async resetPassword(resetData: {
     token: string;
     email: string;
@@ -229,14 +380,39 @@ class ApiService {
     success: boolean;
     message: string;
     data: {};
+    errors: string[];
   }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation
+      if (resetData.newPassword !== resetData.confirmPassword) {
+        return {
+          success: false,
+          message: 'New password and confirm password do not match',
+          data: {},
+          errors: ['New password and confirm password do not match'],
+        };
+      }
+      return {
+        success: true,
+        message: 'Password reset successfully',
+        data: {},
+        errors: [],
+      };
+    }
+
     const response = await this.request<{
       success: boolean;
       message: string;
       data: {};
-    }>('/Auth/reset-password', {
+      errors: string[];
+    }>('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify(resetData),
+      body: JSON.stringify({
+        token: resetData.token,
+        email: resetData.email,
+        newPassword: resetData.newPassword,
+        confirmPassword: resetData.confirmPassword,
+      }),
     });
     return response;
   }
@@ -253,6 +429,43 @@ class ApiService {
   // User APIs
   async getUser(userId: string): Promise<User> {
     return this.request<User>(`/users/${userId}`);
+  }
+
+  async updateUser(userId: string, userData: { name: string; phone: string }): Promise<{
+    success: boolean;
+    message: string;
+    data: User | null;
+    errors: string[];
+  }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation
+      return {
+        success: true,
+        message: 'User updated successfully',
+        data: {
+          id: userId,
+          name: userData.name,
+          email: '',
+          phone: userData.phone,
+          kycVerified: false,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        errors: [],
+      };
+    }
+
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: User | null;
+      errors: string[];
+    }>(`/Users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+    return response;
   }
 
   // User Profile APIs
@@ -407,6 +620,33 @@ class ApiService {
       console.log('API: Response data:', response?.data);
       throw new Error(response?.message || 'Failed to get user profile');
     }
+  }
+
+  async updateUserProfileCurrency(currency: string): Promise<{
+    success: boolean;
+    message: string;
+    data: any | null;
+    errors: string[];
+  }> {
+    if (isMockDataEnabled()) {
+      return {
+        success: true,
+        message: 'Currency updated successfully',
+        data: { preferredCurrency: currency },
+        errors: [],
+      };
+    }
+
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: any | null;
+      errors: string[];
+    }>('/UserProfile/currency', {
+      method: 'PUT',
+      body: JSON.stringify({ currency }),
+    });
+    return response;
   }
 
   async updateUserProfile(profileData: {
@@ -2129,13 +2369,14 @@ class ApiService {
     description?: string;
     goal?: string;
     targetDate: string;
+    startDate?: string;
     currency?: string;
   }): Promise<any> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
       return mockDataService.createSavingsAccount(user?.id || 'demo-user-123', accountData);
     }
-    const response = await this.request<any>('/Savings/accounts', {
+    const response = await this.request<any>('/savings/accounts', {
       method: 'POST',
       body: JSON.stringify(accountData),
     });
@@ -2166,7 +2407,7 @@ class ApiService {
     if (filters?.page) queryParams.append('page', filters.page.toString());
     if (filters?.limit) queryParams.append('limit', filters.limit.toString());
     
-    const endpoint = `/Savings/accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/savings/accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     console.log('🔍 Making API request to:', endpoint);
     
     try {
@@ -2187,7 +2428,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.getSavingsAccount(accountId);
     }
-    const response = await this.request<any>(`/Savings/accounts/${accountId}`);
+    const response = await this.request<any>(`/savings/accounts/${accountId}`);
     return response.data;
   }
 
@@ -2199,12 +2440,13 @@ class ApiService {
     description?: string;
     goal?: string;
     targetDate?: string;
+    startDate?: string;
     currency?: string;
   }): Promise<any> {
     if (isMockDataEnabled()) {
       return mockDataService.updateSavingsAccount(accountId, accountData);
     }
-    const response = await this.request<any>(`/Savings/accounts/${accountId}`, {
+    const response = await this.request<any>(`/savings/accounts/${accountId}`, {
       method: 'PUT',
       body: JSON.stringify(accountData),
     });
@@ -2216,7 +2458,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.deleteSavingsAccount(accountId);
     }
-    await this.request<void>(`/Savings/accounts/${accountId}`, {
+    await this.request<void>(`/savings/accounts/${accountId}`, {
       method: 'DELETE',
     });
   }
@@ -2263,7 +2505,7 @@ class ApiService {
     if (filters?.startDate) queryParams.append('startDate', filters.startDate);
     if (filters?.endDate) queryParams.append('endDate', filters.endDate);
     
-    const endpoint = `/Savings/accounts/${accountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/savings/accounts/${accountId}/transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await this.request<any>(endpoint);
     return response.data;
   }
@@ -2480,50 +2722,50 @@ class ApiService {
     if (isMockDataEnabled()) {
       // Return mock response with income sources and summary
       return {
-        success: true,
-        message: null,
-        data: {
-          incomeSources: [
-            {
-              id: 'income-source-id-1',
-              userId: 'user-id',
-              name: 'Primary Salary',
-              amount: 4000.00,
-              frequency: 'MONTHLY',
-              category: 'PRIMARY',
-              currency: 'USD',
-              isActive: true,
-              description: 'Main job salary',
-              company: 'Tech Corp',
-              createdAt: '2024-01-01T10:00:00Z',
-              updatedAt: '2024-01-01T10:00:00Z',
-              monthlyAmount: 4000.00
-            },
-            {
-              id: 'income-source-id-2',
-              userId: 'user-id',
-              name: 'Freelance Work',
-              amount: 250.00,
-              frequency: 'WEEKLY',
-              category: 'SIDE_HUSTLE',
-              currency: 'USD',
-              isActive: true,
-              description: 'Web development projects',
-              company: 'Freelance',
-              createdAt: '2024-01-01T10:00:00Z',
-              updatedAt: '2024-01-01T10:00:00Z',
-              monthlyAmount: 1082.50
-            }
-          ],
-          totalActiveSources: 2,
-          totalPrimarySources: 1,
-          totalSources: 2,
-          totalMonthlyIncome: 5082.50
-        },
-        errors: []
+        incomeSources: [
+          {
+            id: 'income-source-id-1',
+            userId: 'user-id',
+            name: 'Primary Salary',
+            amount: 4000.00,
+            frequency: 'MONTHLY',
+            category: 'PRIMARY',
+            currency: 'USD',
+            isActive: true,
+            description: 'Main job salary',
+            company: 'Tech Corp',
+            createdAt: '2024-01-01T10:00:00Z',
+            updatedAt: '2024-01-01T10:00:00Z',
+            monthlyAmount: 4000.00
+          },
+          {
+            id: 'income-source-id-2',
+            userId: 'user-id',
+            name: 'Freelance Work',
+            amount: 250.00,
+            frequency: 'WEEKLY',
+            category: 'SIDE_HUSTLE',
+            currency: 'USD',
+            isActive: true,
+            description: 'Web development projects',
+            company: 'Freelance',
+            createdAt: '2024-01-01T10:00:00Z',
+            updatedAt: '2024-01-01T10:00:00Z',
+            monthlyAmount: 1082.50
+          }
+        ],
+        totalActiveSources: 2,
+        totalPrimarySources: 1,
+        totalSources: 2,
+        totalMonthlyIncome: 5082.50
       };
     }
-    const response = await this.request<{ success: boolean; message: string | null; data: any; errors: string[] }>(`/IncomeSource/with-summary?activeOnly=${activeOnly}`);
+    const queryString = activeOnly ? '?activeOnly=true' : '';
+    const response = await this.request<any>(`/IncomeSource/with-summary${queryString}`);
+    // Handle response structure - if wrapped in data, extract it
+    if (response && response.data) {
+      return response.data;
+    }
     return response;
   }
 

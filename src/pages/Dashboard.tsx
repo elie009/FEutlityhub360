@@ -146,6 +146,10 @@ const Dashboard: React.FC = () => {
   const [recentTransactions, setRecentTransactions] = useState<BankAccountTransaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   
+  // Income sources with summary state
+  const [incomeSourcesSummary, setIncomeSourcesSummary] = useState<any>(null);
+  const [incomeSourcesLoading, setIncomeSourcesLoading] = useState(false);
+  
   // Check if user needs to complete profile
   useEffect(() => {
     if (user && !hasProfile) {
@@ -259,6 +263,26 @@ const Dashboard: React.FC = () => {
     };
     
     loadMonthlyCashFlow();
+  }, [isAuthenticated]);
+
+  // Fetch income sources with summary on page load
+  useEffect(() => {
+    const loadIncomeSourcesSummary = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setIncomeSourcesLoading(true);
+        const response = await apiService.getIncomeSourcesWithSummary(true);
+        setIncomeSourcesSummary(response);
+      } catch (error) {
+        console.error('Failed to load income sources summary:', error);
+        setIncomeSourcesSummary(null);
+      } finally {
+        setIncomeSourcesLoading(false);
+      }
+    };
+    
+    loadIncomeSourcesSummary();
   }, [isAuthenticated]);
 
   // Profile form handlers
@@ -460,15 +484,22 @@ const Dashboard: React.FC = () => {
     setBalanceError('');
   };
   
+  // Calculate total monthly income from income sources summary
+  const totalMonthlyIncomeFromSources = incomeSourcesSummary?.incomeSources
+    ? incomeSourcesSummary.incomeSources.reduce((sum: number, source: any) => sum + (source?.amount || 0), 0)
+    : 0;
+  
   // Calculate real stats from disposable amount API or fallback to user profile data
-  const totalMonthlyIncome = dashboardDisposableData ? (dashboardDisposableData.totalIncome || 0) : 0;
+  const totalMonthlyIncome = totalMonthlyIncomeFromSources || (dashboardDisposableData ? (dashboardDisposableData.totalIncome || 0) : 0);
   const monthlyExpense = dashboardDisposableData ? (dashboardDisposableData.totalFixedExpenses || 0) : 0;
   const totalMonthlyGoals = userProfile?.totalMonthlyGoals || 0;
   const disposableIncome = dashboardDisposableData ? (dashboardDisposableData.disposableAmount || 0) : 0;
   const incomeSourcesCount = dashboardDisposableData?.incomeBreakdown?.length || userProfile?.incomeSources?.length || 0;
   
   const totalInitialBalanceSum = Array.isArray(financialData?.accounts)
-    ? (financialData.accounts as any[]).reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
+    ? (financialData.accounts as any[])
+        .filter((acc: any) => acc?.accountType?.toLowerCase() !== 'credit_card')
+        .reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
     : 0;
 
   // Extract Total Loan Payment from spendingByCategory
@@ -668,8 +699,8 @@ const Dashboard: React.FC = () => {
     },
     {
       title: 'Total Monthly Income',
-      value: formatCurrency(totalInitialBalanceSum || 0),
-      change: 'From bank accounts initial balance',
+      value: formatCurrency(totalMonthlyIncome || 0),
+      change: 'From income sources',
       icon: <TrendingUp sx={{ fontSize: 40, color: 'primary.main' }} />,
       color: 'primary.main',
     },
@@ -836,9 +867,11 @@ const Dashboard: React.FC = () => {
                   <Typography variant="h5">{formatCurrency(financialData.totalBalance || 0)}</Typography>
                 </Box>
                 <Box mb={2}>
-                  <Typography variant="body2" color="text.secondary">Total Initial Balance</Typography>
+                  <Typography variant="body2" color="text.secondary">Total Credit limit</Typography>
                   <Typography variant="h5">
-                    {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts.reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0) : 0))}
+                    {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
+                      .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
+                      .reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0) : 0))}
                   </Typography>
                 </Box>
                 <Box mb={2}>
@@ -1174,27 +1207,27 @@ const Dashboard: React.FC = () => {
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'success.light' }}>
-                      <Typography variant="body2" color="text.secondary">Total Income</Typography>
-                      <Typography variant="h5">{formatCurrency(disposableData.totalIncome || 0)}</Typography>
+                      <Typography variant="body2" sx={{ color: 'black' }}>Total Income</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.totalIncome || 0, { showSymbol: false })}</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'error.light' }}>
-                      <Typography variant="body2" color="text.secondary">Fixed Expenses</Typography>
-                      <Typography variant="h5">{formatCurrency(disposableData.totalFixedExpenses || 0)}</Typography>
+                      <Typography variant="body2" sx={{ color: 'black' }}>Fixed Expenses</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.totalFixedExpenses || 0, { showSymbol: false })}</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'warning.light' }}>
-                      <Typography variant="body2" color="text.secondary">Variable Expenses</Typography>
-                      <Typography variant="h5">{formatCurrency(disposableData.totalVariableExpenses || 0)}</Typography>
+                      <Typography variant="body2" sx={{ color: 'black' }}>Variable Expenses</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.totalVariableExpenses || 0, { showSymbol: false })}</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2, bgcolor: 'info.light' }}>
-                      <Typography variant="body2" color="text.secondary">Disposable Amount</Typography>
-                      <Typography variant="h5">{formatCurrency(disposableData.disposableAmount || 0)}</Typography>
-                      <Typography variant="body2" color="text.secondary">{(disposableData.disposablePercentage || 0).toFixed(2)}% of income</Typography>
+                      <Typography variant="body2" sx={{ color: 'black' }}>Disposable Amount</Typography>
+                      <Typography variant="h5">{formatCurrency(disposableData.disposableAmount || 0, { showSymbol: false })}</Typography>
+                      <Typography variant="body2" sx={{ color: 'black' }}>{(disposableData.disposablePercentage || 0).toFixed(2)}% of income</Typography>
                     </Paper>
                   </Grid>
                 </Grid>
@@ -1224,8 +1257,8 @@ const Dashboard: React.FC = () => {
                             <Chip label={income.category || 'N/A'} size="small" color="primary" />
                           </TableCell>
                           <TableCell>{income.frequency || 'N/A'}</TableCell>
-                          <TableCell align="right">{formatCurrency(income.amount || 0)}</TableCell>
-                          <TableCell align="right">{formatCurrency(income.monthlyAmount || 0)}</TableCell>
+                          <TableCell align="right">{formatCurrency(income.amount || 0, { showSymbol: false })}</TableCell>
+                          <TableCell align="right">{formatCurrency(income.monthlyAmount || 0, { showSymbol: false })}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1238,7 +1271,7 @@ const Dashboard: React.FC = () => {
               {/* Bills Breakdown */}
               <Box mb={3}>
                 <Typography variant="h6" gutterBottom>
-                  Bills Breakdown (Total: {formatCurrency(disposableData.totalBills || 0)})
+                  Bills Breakdown (Total: {formatCurrency(disposableData.totalBills || 0, { showSymbol: false })})
                 </Typography>
                 <TableContainer component={Paper}>
                   <Table size="small">
@@ -1264,7 +1297,7 @@ const Dashboard: React.FC = () => {
                             />
                           </TableCell>
                           <TableCell>{bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
-                          <TableCell align="right">{formatCurrency(bill.amount || 0)}</TableCell>
+                          <TableCell align="right">{formatCurrency(bill.amount || 0, { showSymbol: false })}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1277,7 +1310,7 @@ const Dashboard: React.FC = () => {
               {/* Loans Breakdown */}
               <Box mb={3}>
                 <Typography variant="h6" gutterBottom>
-                  Loans Breakdown (Total: {formatCurrency(disposableData.totalLoans || 0)})
+                  Loans Breakdown (Total: {formatCurrency(disposableData.totalLoans || 0, { showSymbol: false })})
                 </Typography>
                 <TableContainer component={Paper}>
                   <Table size="small">
@@ -1297,7 +1330,7 @@ const Dashboard: React.FC = () => {
                           <TableCell>
                             <Chip label={loan.status || 'N/A'} size="small" color="info" />
                           </TableCell>
-                          <TableCell align="right">{formatCurrency(loan.amount || 0)}</TableCell>
+                          <TableCell align="right">{formatCurrency(loan.amount || 0, { showSymbol: false })}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1310,7 +1343,7 @@ const Dashboard: React.FC = () => {
               {/* Variable Expenses Breakdown */}
               <Box mb={3}>
                 <Typography variant="h6" gutterBottom>
-                  Variable Expenses Breakdown (Total: {formatCurrency(disposableData.totalVariableExpenses || 0)})
+                  Variable Expenses Breakdown (Total: {formatCurrency(disposableData.totalVariableExpenses || 0, { showSymbol: false })})
                 </Typography>
                 <TableContainer component={Paper}>
                   <Table size="small">
@@ -1329,7 +1362,7 @@ const Dashboard: React.FC = () => {
                             <Chip label={expense.category || 'N/A'} size="small" />
                           </TableCell>
                           <TableCell align="right">{expense.count || 0}</TableCell>
-                          <TableCell align="right">{formatCurrency(expense.totalAmount || 0)}</TableCell>
+                          <TableCell align="right">{formatCurrency(expense.totalAmount || 0, { showSymbol: false })}</TableCell>
                           <TableCell align="right">{(expense.percentage || 0).toFixed(2)}%</TableCell>
                         </TableRow>
                       ))}
@@ -1348,13 +1381,13 @@ const Dashboard: React.FC = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={4}>
                         <Typography variant="body2" color="text.secondary">Previous Period</Typography>
-                        <Typography variant="h6">{formatCurrency(disposableData.comparison.previousPeriodDisposableAmount || 0)}</Typography>
+                        <Typography variant="h6">{formatCurrency(disposableData.comparison.previousPeriodDisposableAmount || 0, { showSymbol: false })}</Typography>
                       </Grid>
                       <Grid item xs={12} sm={4}>
                         <Typography variant="body2" color="text.secondary">Change Amount</Typography>
                         <Box display="flex" alignItems="center" gap={1}>
                           <Typography variant="h6" color={(disposableData.comparison.changeAmount || 0) >= 0 ? 'success.main' : 'error.main'}>
-                            {formatCurrency(Math.abs(disposableData.comparison.changeAmount || 0))}
+                            {formatCurrency(Math.abs(disposableData.comparison.changeAmount || 0), { showSymbol: false })}
                           </Typography>
                           {disposableData.comparison.trend === 'UP' ? (
                             <TrendingUpIcon color="success" />
@@ -1386,7 +1419,7 @@ const Dashboard: React.FC = () => {
                   {(disposableData.insights || []).map((insight: string, index: number) => (
                     <ListItem key={index}>
                       <ListItemText 
-                        primary={insight}
+                        primary={insight.replace(/\$/g, '')}
                         sx={{ 
                           '& .MuiListItemText-primary': {
                             fontSize: '0.95rem',
