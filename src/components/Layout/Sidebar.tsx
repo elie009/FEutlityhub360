@@ -274,7 +274,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           width: open ? drawerWidth : collapsedWidth,
           overflowX: 'hidden',
           overflowY: 'auto',
-          position: 'relative',
+          position: 'fixed',
+          top: 64, // AppBar height
+          height: 'calc(100vh - 64px)', // Full height minus AppBar
           transition: (theme) => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,

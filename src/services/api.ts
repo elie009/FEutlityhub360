@@ -3366,6 +3366,77 @@ class ApiService {
     throw new Error(response?.message || 'Failed to get balance sheet');
   }
 
+  // Get cash flow statement
+  async getCashFlowStatement(startDate?: string, endDate?: string, period: string = 'MONTHLY'): Promise<import('../types/financialReport').CashFlowStatementDto> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    queryParams.append('period', period);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/cashflow-statement${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get cash flow statement');
+  }
+
+  // Get income statement
+  async getIncomeStatement(startDate?: string, endDate?: string, period: string = 'MONTHLY', includeComparison: boolean = false): Promise<import('../types/financialReport').IncomeStatementDto> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    queryParams.append('period', period);
+    queryParams.append('includeComparison', includeComparison.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/income-statement${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get income statement');
+  }
+
+  async getFinancialRatios(asOfDate?: string): Promise<import('../types/financialReport').FinancialRatiosDto> {
+    const queryParams = new URLSearchParams();
+    if (asOfDate) queryParams.append('asOfDate', asOfDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/financial-ratios${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    
+    throw new Error(response?.message || 'Failed to get financial ratios');
+  }
+
+  async getTaxReport(taxYear: number, startDate?: string, endDate?: string): Promise<import('../types/financialReport').TaxReportDto> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('taxYear', taxYear.toString());
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/tax-report${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    
+    throw new Error(response?.message || 'Failed to get tax report');
+  }
+
   // Get financial insights
   async getFinancialInsights(date?: string): Promise<any> {
     const queryParams = new URLSearchParams();

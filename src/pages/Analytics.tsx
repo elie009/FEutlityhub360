@@ -90,7 +90,9 @@ import { Loan } from '../types/loan';
 import { SavingsGoalDto } from '../types/financialReport';
 import BalanceSheetTab from '../components/Reports/BalanceSheetTab';
 import IncomeStatementTab from '../components/Reports/IncomeStatementTab';
-import CashFlowTab from '../components/Reports/CashFlowTab';
+import CashFlowStatementTab from '../components/Reports/CashFlowStatementTab';
+import FinancialRatiosTab from '../components/Reports/FinancialRatiosTab';
+import TaxReportTab from '../components/Reports/TaxReportTab';
 import CustomReportTab from '../components/Reports/CustomReportTab';
 
 const Analytics: React.FC = () => {
@@ -877,6 +879,8 @@ const Analytics: React.FC = () => {
           <Tab label="Income Statement" />
           <Tab label="Balance Sheet" />
           <Tab label="Cash Flow" />
+          <Tab label="Financial Ratios" />
+          <Tab label="Tax Report" />
           <Tab label="Custom" />
         </Tabs>
       </Paper>
@@ -988,7 +992,7 @@ const Analytics: React.FC = () => {
 
         {/* Tab 1: Income Statement */}
         {activeTab === 1 && (
-          <IncomeStatementTab />
+          <IncomeStatementTab period={period} />
         )}
 
         {/* Tab 2: Balance Sheet */}
@@ -996,13 +1000,23 @@ const Analytics: React.FC = () => {
           <BalanceSheetTab />
         )}
 
-        {/* Tab 3: Cash Flow */}
+        {/* Tab 3: Cash Flow Statement */}
         {activeTab === 3 && (
-          <CashFlowTab />
+          <CashFlowStatementTab period={period} />
         )}
 
-        {/* Tab 4: Custom */}
+        {/* Tab 4: Financial Ratios */}
         {activeTab === 4 && (
+          <FinancialRatiosTab />
+        )}
+
+        {/* Tab 5: Tax Report */}
+        {activeTab === 5 && (
+          <TaxReportTab />
+        )}
+
+        {/* Tab 6: Custom */}
+        {activeTab === 6 && (
           <CustomReportTab />
         )}
       </Box>
