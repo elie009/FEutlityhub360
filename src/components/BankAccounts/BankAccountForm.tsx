@@ -348,64 +348,68 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
               />
             </Grid>
 
-            {/* Bank Information */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Bank Information
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                name="financialInstitution"
-                label="Financial Institution"
-                value={formData.financialInstitution}
-                onChange={handleChange}
-                fullWidth
-                inputProps={{ maxLength: 100 }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                name="accountNumber"
-                label="Account Number"
-                value={formatAccountNumber(formData.accountNumber)}
-                onChange={handleAccountNumberChange}
-                fullWidth
-                inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
-                placeholder="1234 or full account number"
-                helperText="Enter last 4 digits or full account number"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                name="routingNumber"
-                label="Routing Number"
-                value={formData.routingNumber}
-                onChange={handleChange}
-                fullWidth
-                inputProps={{ maxLength: 20 }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sync Frequency</InputLabel>
-                <Select
-                  name="syncFrequency"
-                  value={formData.syncFrequency}
-                  label="Sync Frequency"
-                  onChange={handleSelectChange}
-                >
-                  <MenuItem value="DAILY">Daily</MenuItem>
-                  <MenuItem value="WEEKLY">Weekly</MenuItem>
-                  <MenuItem value="MONTHLY">Monthly</MenuItem>
-                  <MenuItem value="MANUAL">Manual</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            {!account && (
+              <>
+                {/* Bank Information */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                    Bank Information
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    name="financialInstitution"
+                    label="Financial Institution"
+                    value={formData.financialInstitution}
+                    onChange={handleChange}
+                    fullWidth
+                    inputProps={{ maxLength: 100 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    name="accountNumber"
+                    label="Account Number"
+                    value={formatAccountNumber(formData.accountNumber)}
+                    onChange={handleAccountNumberChange}
+                    fullWidth
+                    inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
+                    placeholder="1234 or full account number"
+                    helperText="Enter last 4 digits or full account number"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    name="routingNumber"
+                    label="Routing Number"
+                    value={formData.routingNumber}
+                    onChange={handleChange}
+                    fullWidth
+                    inputProps={{ maxLength: 20 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Sync Frequency</InputLabel>
+                    <Select
+                      name="syncFrequency"
+                      value={formData.syncFrequency}
+                      label="Sync Frequency"
+                      onChange={handleSelectChange}
+                    >
+                      <MenuItem value="DAILY">Daily</MenuItem>
+                      <MenuItem value="WEEKLY">Weekly</MenuItem>
+                      <MenuItem value="MONTHLY">Monthly</MenuItem>
+                      <MenuItem value="MANUAL">Manual</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
 
             {/* International Information */}
             <Grid item xs={12}>
@@ -417,13 +421,13 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
             <Grid item xs={12} sm={6}>
               <TextField
                 name="iban"
-                label="IBAN"
+                label="Card Number"
                 value={formatIban(formData.iban)}
                 onChange={handleIbanChange}
                 fullWidth
                 inputProps={{ maxLength: 19 }} // 16 characters + 3 dashes
-                placeholder="1234 or full IBAN"
-                helperText="Enter last 4 characters or full IBAN. Note: If you want to enable or use Transaction Analyzer"
+                placeholder="1234 or full Card Number"
+                helperText="Enter last 4 characters or full Card Number. Note: If you want to enable or use Transaction Analyzer"
               />
             </Grid>
             

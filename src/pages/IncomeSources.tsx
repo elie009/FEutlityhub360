@@ -55,7 +55,7 @@ const categoryOptions = [
 ];
 
 const IncomeSources: React.FC = () => {
-  const { currency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<any[]>([]);
@@ -242,21 +242,19 @@ const IncomeSources: React.FC = () => {
         <Alert severity="error">{error}</Alert>
       ) : (
         <Grid container spacing={2}>
-          {summary && (
-            <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Total Monthly Income
-                </Typography>
-                <Typography variant="h5" color="primary">
-                  {new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(summary.totalMonthlyIncome || 0)}
-                </Typography>
-                <Chip label={`Sources: ${summary.totalSources || sources.length}`} size="small" sx={{ mt: 1 }} />
-              </Paper>
-            </Grid>
-          )}
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Total Monthly Income
+              </Typography>
+              <Typography variant="h5" color="primary">
+                {formatCurrency(summary?.totalMonthlyIncome || sources.reduce((sum, s) => sum + (s.monthlyAmount ?? s.amount ?? 0), 0), { showSymbol: false })}
+              </Typography>
+              <Chip label={`Sources: ${summary?.totalSources || sources.length}`} size="small" sx={{ mt: 1 }} />
+            </Paper>
+          </Grid>
 
-          <Grid item xs={12} md={summary ? 8 : 12}>
+          <Grid item xs={12} md={8}>
             <Paper sx={{ p: 2 }}>
               {sources.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
@@ -287,7 +285,7 @@ const IncomeSources: React.FC = () => {
                             {s.company || '—'}
                           </Typography>
                           <Typography variant="h5" sx={{ mt: 1 }}>
-                            {new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(s.monthlyAmount ?? s.amount ?? 0)}
+                            {formatCurrency(s.monthlyAmount ?? s.amount ?? 0, { showSymbol: false })}
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                             <Chip label={s.frequency} size="small" />

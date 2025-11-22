@@ -26,6 +26,7 @@ import Apportioner from './pages/Apportioner';
 import BankAccounts from './pages/BankAccounts';
 import Savings from './pages/Savings';
 import IncomeSources from './pages/IncomeSources';
+import Receivables from './pages/Receivables';
 import LoanDashboard from './components/Loans/LoanDashboard';
 import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
@@ -111,6 +112,11 @@ const AppRoutes: React.FC = () => {
           <Route path="income-sources" element={
             <ProtectedRoute>
               <IncomeSources />
+            </ProtectedRoute>
+          } />
+          <Route path="receivables" element={
+            <ProtectedRoute>
+              <Receivables />
             </ProtectedRoute>
           } />
           <Route path="apportioner" element={

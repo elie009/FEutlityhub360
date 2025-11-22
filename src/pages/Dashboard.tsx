@@ -253,6 +253,13 @@ const Dashboard: React.FC = () => {
         setCashFlowLoading(true);
         const currentYear = new Date().getFullYear();
         const response = await apiService.getMonthlyCashFlow(currentYear);
+        console.log('Monthly Cash Flow API Response:', response);
+        console.log('Monthly Data:', response?.monthlyData);
+        if (response?.monthlyData) {
+          response.monthlyData.forEach((month: any) => {
+            console.log(`Month ${month.month}: incoming=${month.incoming}, outgoing=${month.outgoing}, net=${month.net}`);
+          });
+        }
         setMonthlyCashFlowData(response);
       } catch (error) {
         console.error('Failed to load monthly cash flow:', error);
@@ -508,6 +515,7 @@ const Dashboard: React.FC = () => {
   // Transform monthly cash flow data for chart
   const prepareCashFlowChartData = () => {
     if (!monthlyCashFlowData || !monthlyCashFlowData.monthlyData) {
+      console.log('No monthly cash flow data available');
       return [];
     }
 
@@ -539,6 +547,7 @@ const Dashboard: React.FC = () => {
       });
     }
 
+    console.log('Prepared chart data:', chartData);
     return chartData;
   };
 
@@ -598,11 +607,15 @@ const Dashboard: React.FC = () => {
         },
         {
           label: 'Incoming',
-          data: cashFlowChartData.map((item: any) => item.incoming),
+          data: cashFlowChartData.map((item: any) => {
+            const incoming = item.incoming || 0;
+            console.log(`Chart data - Month: ${item.month}, Incoming: ${incoming}`);
+            return Math.abs(incoming); // Ensure positive value for display
+          }),
           backgroundColor: '#2196f3', // Blue
           borderColor: '#1565c0',
           borderWidth: 2,
-          stack: 'stack2', // Separate stack
+          stack: 'stack2', // Separate stack - appears side by side with stack1
         },
       ],
     };
@@ -659,7 +672,8 @@ const Dashboard: React.FC = () => {
         },
       },
       y: {
-        stacked: true, // Enable stacking for outgoing and net
+        stacked: true, // Enable stacking for each stack group (stack1 stacks together, stack2 stacks together)
+        beginAtZero: true, // Ensure chart starts at zero
         grid: {
           color: '#e0e0e0',
           lineWidth: 1,
@@ -871,7 +885,7 @@ const Dashboard: React.FC = () => {
                   <Typography variant="h5">
                     {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
                       .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
-                      .reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0) : 0))}
+                      .reduce((sum: number, acc: any) => sum + (acc?.currentBalance || 0), 0) : 0))}
                   </Typography>
                 </Box>
                 <Box mb={2}>

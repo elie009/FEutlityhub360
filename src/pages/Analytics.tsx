@@ -1452,14 +1452,13 @@ const Analytics: React.FC = () => {
                       const allMonthLabels = getAllMonthLabels(goals);
                       // Responsive month width: smaller on mobile
                       const monthWidth = isMobile ? 36 : isTablet ? 44 : 55;
-                      const blockSize = isMobile ? 12 : isTablet ? 14 : 20;
                       
                       return (
                         <TableContainer sx={{ maxWidth: '100%' }}>
                           <Table sx={{ minWidth: Math.max(280, allMonthLabels.length * monthWidth + (isMobile ? 80 : 150)) }}>
                             <TableBody>
                               {goals.map((goal, index) => {
-                                const { months, filledBlocks, emptyBlocks, monthsOffset } = generateProgressBar(goal, earliestStart);
+                                const { months, filledBlocks, emptyBlocks, monthsOffset, totalBlocks } = generateProgressBar(goal, earliestStart);
                                 const goalLabel = goal.goalName || `Goal ${String.fromCharCode(65 + index)}`;
                                 
                                 return (
@@ -1502,12 +1501,8 @@ const Analytics: React.FC = () => {
                                       <TableCell sx={{ py: { xs: 0.75, sm: 1.5 }, pl: { xs: 0.25, sm: 0 }, pr: { xs: 0.25, sm: 1 }, px: { xs: 0.5, sm: 1 } }}>
                                         <Box sx={{ 
                                           display: 'flex', 
-                                          alignItems: 'center', 
-                                          fontFamily: 'monospace', 
-                                          fontSize: { xs: '11px', sm: '16px', md: '18px' }, 
-                                          lineHeight: { xs: 1.5, sm: 1.8 }, 
-                                          whiteSpace: 'nowrap', 
-                                          letterSpacing: { xs: '0.25px', sm: '1px' },
+                                          alignItems: 'center',
+                                          width: '100%',
                                         }}>
                                           {/* Spacing before the bar starts (offset) */}
                                           {monthsOffset > 0 && (
@@ -1520,42 +1515,23 @@ const Analytics: React.FC = () => {
                                           )}
                                           {/* Progress bar */}
                                           <Box sx={{ 
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: { xs: '0.5px', sm: '2px' },
+                                            flex: 1,
+                                            minWidth: `${totalBlocks * monthWidth}px`,
+                                            maxWidth: `${totalBlocks * monthWidth}px`,
                                           }}>
-                                            {/* Filled blocks (█) representing currentAmount */}
-                                            {Array.from({ length: filledBlocks }).map((_, idx) => (
-                                              <Box
-                                                key={`filled-${idx}`}
-                                                component="span"
-                                                sx={{
-                                                  display: 'inline-block',
-                                                  width: `${blockSize}px`,
-                                                  height: `${blockSize}px`,
-                                                  bgcolor: 'success.main',
-                                                  borderRadius: { xs: '1px', sm: '2px' },
-                                                  flexShrink: 0,
-                                                }}
-                                              />
-                                            ))}
-                                            {/* Empty blocks representing remaining amount (targetAmount - currentAmount) */}
-                                            {Array.from({ length: emptyBlocks }).map((_, idx) => (
-                                              <Box
-                                                key={`empty-${idx}`}
-                                                component="span"
-                                                sx={{
-                                                  display: 'inline-block',
-                                                  width: `${blockSize}px`,
-                                                  height: `${blockSize}px`,
-                                                  bgcolor: 'secondary.main',
-                                                  border: '1px solid',
-                                                  borderColor: 'secondary.dark',
-                                                  borderRadius: { xs: '1px', sm: '2px' },
-                                                  flexShrink: 0,
-                                                }}
-                                              />
-                                            ))}
+                                            <LinearProgress
+                                              variant="determinate"
+                                              value={goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0}
+                                              sx={{ 
+                                                height: { xs: 8, sm: 10, md: 12 },
+                                                borderRadius: { xs: 4, sm: 5, md: 6 },
+                                                backgroundColor: 'secondary.main',
+                                                '& .MuiLinearProgress-bar': {
+                                                  borderRadius: { xs: 4, sm: 5, md: 6 },
+                                                  backgroundColor: 'success.main',
+                                                },
+                                              }}
+                                            />
                                           </Box>
                                         </Box>
                                       </TableCell>

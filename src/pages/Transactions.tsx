@@ -26,6 +26,7 @@ import { Loan, LoanStatus } from '../types/loan';
 import { SavingsAccount } from '../types/savings';
 import { getErrorMessage } from '../utils/validation';
 import TransactionCard from '../components/Transactions/TransactionCard';
+import TransactionForm from '../components/BankAccounts/TransactionForm';
 
 const TransactionsPage: React.FC = () => {
   const { user } = useAuth();
@@ -85,19 +86,23 @@ const TransactionsPage: React.FC = () => {
   const [selectedSavingsAccountId, setSelectedSavingsAccountId] = useState<string>('');
   const [isLoadingLinkedData, setIsLoadingLinkedData] = useState(false);
   const [transactionLinkType, setTransactionLinkType] = useState<'none' | 'bill' | 'loan' | 'savings'>('none');
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       loadTransactionsAndAnalytics();
+      loadBankAccounts(); // Load bank accounts on page load to check if button should be enabled
     }
   }, [user?.id, filters]);
 
   useEffect(() => {
-    if (showAnalyzerDialog) {
-      loadBankAccounts();
-      loadLinkedData();
+    if (showAnalyzerDialog || showTransactionForm) {
+      loadBankAccounts(); // Reload in case accounts were added/updated
+      if (showAnalyzerDialog) {
+        loadLinkedData();
+      }
     }
-  }, [showAnalyzerDialog, user?.id]);
+  }, [showAnalyzerDialog, showTransactionForm, user?.id]);
 
   const loadTransactionsAndAnalytics = async () => {
     if (!user?.id) return;
@@ -174,6 +179,15 @@ const TransactionsPage: React.FC = () => {
 
   const handleRefresh = () => {
     loadTransactionsAndAnalytics();
+  };
+
+  const handleCreateTransaction = () => {
+    setShowTransactionForm(true);
+  };
+
+  const handleTransactionFormSuccess = () => {
+    setShowTransactionForm(false);
+    loadTransactionsAndAnalytics(); // Reload transactions after adding
   };
 
   const handleSelectChange = (field: keyof TransactionFilters) => (
@@ -440,6 +454,23 @@ const TransactionsPage: React.FC = () => {
           flexWrap: 'wrap',
           width: { xs: '100%', sm: 'auto' }
         }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Receipt />}
+            onClick={handleCreateTransaction}
+            disabled={bankAccounts.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              mr: { xs: 0, sm: 1 },
+              flex: { xs: '1 1 auto', sm: '0 0 auto' },
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              py: { xs: 0.75, sm: 1 },
+              px: { xs: 1.5, sm: 2 }
+            }}
+          >
+            {isMobile ? 'Add' : 'Add Transaction'}
+          </Button>
           <Button
             variant="contained"
             color="primary"
@@ -1801,6 +1832,14 @@ const TransactionsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Transaction Form Dialog */}
+      <TransactionForm
+        open={showTransactionForm}
+        onClose={() => setShowTransactionForm(false)}
+        onSuccess={handleTransactionFormSuccess}
+        bankAccounts={bankAccounts}
+      />
     </Container>
   );
 };

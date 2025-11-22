@@ -49,6 +49,7 @@ import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAc
 import { mockBankAccountDataService } from './mockBankAccountData';
 import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsResponse, TransactionAnalytics } from '../types/transaction';
 import { mockTransactionDataService } from './mockTransactionData';
+import { Receivable, CreateReceivableRequest, UpdateReceivableRequest, ReceivableFilters, ReceivableAnalytics, PaginatedReceivablesResponse, ReceivablePayment, CreateReceivablePaymentRequest } from '../types/receivable';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -2030,6 +2031,141 @@ class ApiService {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+  }
+
+  // ==================== RECEIVABLES MANAGEMENT APIs ====================
+
+  async getUserReceivables(filters?: ReceivableFilters): Promise<Receivable[]> {
+    if (isMockDataEnabled()) {
+      // For now, return empty array - mock data can be added later
+      return [];
+    }
+    const queryParams = new URLSearchParams();
+    if (filters?.status) queryParams.append('status', filters.status);
+    if (filters?.borrowerName) queryParams.append('borrowerName', filters.borrowerName);
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    const queryString = queryParams.toString();
+    const endpoint = `/api/receivables${queryString ? `?${queryString}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error('Unexpected receivables response structure:', response);
+      return [];
+    }
+  }
+
+  async getReceivable(receivableId: string): Promise<Receivable> {
+    if (isMockDataEnabled()) {
+      throw new Error('Mock data not implemented for receivables');
+    }
+    const response = await this.request<any>(`/api/receivables/${receivableId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async createReceivable(receivableData: CreateReceivableRequest): Promise<Receivable> {
+    if (isMockDataEnabled()) {
+      throw new Error('Mock data not implemented for receivables');
+    }
+    const response = await this.request<any>('/api/receivables', {
+      method: 'POST',
+      body: JSON.stringify(receivableData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async updateReceivable(receivableId: string, updateData: UpdateReceivableRequest): Promise<Receivable> {
+    if (isMockDataEnabled()) {
+      throw new Error('Mock data not implemented for receivables');
+    }
+    const response = await this.request<any>(`/api/receivables/${receivableId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async deleteReceivable(receivableId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      throw new Error('Mock data not implemented for receivables');
+    }
+    const response = await this.request<any>(`/api/receivables/${receivableId}`, {
+      method: 'DELETE',
+    });
+    return response?.data || response || true;
+  }
+
+  async getReceivablePayments(receivableId: string): Promise<ReceivablePayment[]> {
+    if (isMockDataEnabled()) {
+      return [];
+    }
+    const response = await this.request<any>(`/api/receivables/${receivableId}/payments`);
+    
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    } else if (response && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    }
+    return [];
+  }
+
+  async createReceivablePayment(receivableId: string, paymentData: CreateReceivablePaymentRequest): Promise<ReceivablePayment> {
+    if (isMockDataEnabled()) {
+      throw new Error('Mock data not implemented for receivables');
+    }
+    const response = await this.request<any>(`/api/receivables/${receivableId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getReceivableAnalytics(): Promise<ReceivableAnalytics> {
+    if (isMockDataEnabled()) {
+      return {
+        totalOutstanding: 0,
+        totalPaid: 0,
+        totalReceivables: 0,
+        activeReceivables: 0,
+        completedReceivables: 0,
+        overdueReceivables: 0,
+      };
+    }
+    const response = await this.request<any>('/api/receivables/analytics');
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    } else if (response && response.data) {
+      return response.data;
+    }
+    return {
+      totalOutstanding: 0,
+      totalPaid: 0,
+      totalReceivables: 0,
+      activeReceivables: 0,
+      completedReceivables: 0,
+      overdueReceivables: 0,
+    };
   }
 
   // ==================== TRANSACTION MANAGEMENT APIs ====================

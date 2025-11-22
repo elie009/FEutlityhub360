@@ -197,24 +197,6 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
 
         <Grid container spacing={1}>
           <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">Institution:</Typography>
-            <Typography variant="body2" fontWeight="medium">
-              {account.financialInstitution || 'N/A'}
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">Account:</Typography>
-            <Typography variant="body2" fontWeight="medium" sx={{ fontFamily: 'monospace' }}>
-              {account.accountNumber || 'N/A'}
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">Sync:</Typography>
-            <Typography variant="body2" fontWeight="medium">
-              {getSyncFrequencyLabel(account.syncFrequency)}
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
             <Typography variant="body2" color="text.secondary">Updated:</Typography>
             <Typography variant="body2" fontWeight="medium">
               {formatDate(account.updatedAt)}
@@ -274,7 +256,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
             </Typography>
             {account.iban && (
               <Typography variant="caption" sx={{ display: 'block', fontFamily: 'monospace' }}>
-                IBAN: {formatIban(account.iban)}
+                Card Number: {formatIban(account.iban)}
               </Typography>
             )}
             {account.swiftCode && (

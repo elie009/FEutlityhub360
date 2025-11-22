@@ -30,6 +30,7 @@ import {
   AccountBalance as BankAccountIcon,
   Savings as SavingsIcon,
   MenuBook as DocumentationIcon,
+  AccountBalanceWallet as ReceivablesIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -59,6 +60,7 @@ const menuItems: MenuItem[] = [
       { text: 'Savings', icon: <SavingsIcon />, path: '/savings' },
       { text: 'Income Sources', icon: <IncomeIcon />, path: '/income-sources' },
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
+      { text: 'Receivables', icon: <ReceivablesIcon />, path: '/receivables' },
     ],
   },
   { text: 'Apportioner', icon: <ApportionerIcon />, path: '/apportioner' },
