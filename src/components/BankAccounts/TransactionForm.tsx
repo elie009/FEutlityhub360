@@ -28,6 +28,7 @@ import { getErrorMessage } from '../../utils/validation';
 import { 
   categorySuggestions, 
   getCategoryType,
+  validateTransactionWithDoubleEntry,
   isBillCategory,
   isSavingsCategory,
   isLoanCategory,
@@ -307,8 +308,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     e.preventDefault();
     setError('');
 
-    // Enhanced validation using category logic
-    const validationErrors = validateTransactionForm({
+    // Enhanced validation using category logic with double-entry accounting validation
+    const validationErrors = validateTransactionWithDoubleEntry({
       bankAccountId: formData.bankAccountId,
       amount: parseFloat(formData.amount),
       description: formData.description.trim(),
@@ -321,7 +322,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     });
 
     if (validationErrors.length > 0) {
-      setError(validationErrors.join(', '));
+      setError(validationErrors.join('. '));
       return;
     }
 

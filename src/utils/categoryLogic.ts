@@ -181,3 +181,159 @@ export const generateEnhancedDescription = (
   }
   return originalDescription;
 };
+
+/**
+ * Double-entry accounting validation
+ * Ensures that every transaction follows double-entry bookkeeping principles:
+ * - Every transaction must have equal debits and credits
+ * - At least one debit and one credit entry
+ */
+
+export interface DoubleEntryValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  debitTotal: number;
+  creditTotal: number;
+}
+
+/**
+ * Validate double-entry accounting rules for a transaction
+ */
+export const validateDoubleEntry = (formData: {
+  transactionType: 'DEBIT' | 'CREDIT';
+  amount: number;
+  bankAccountId: string;
+  category?: string;
+  toBankAccountId?: string;
+  billId?: string;
+  savingsAccountId?: string;
+  loanId?: string;
+}): DoubleEntryValidationResult => {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  let debitTotal = 0;
+  let creditTotal = 0;
+
+  // Basic amount validation
+  if (!formData.amount || formData.amount <= 0) {
+    errors.push('Amount must be greater than 0');
+    return { isValid: false, errors, warnings, debitTotal: 0, creditTotal: 0 };
+  }
+
+  // Determine debit and credit entries based on transaction type
+  if (formData.transactionType === 'CREDIT') {
+    // Income transaction:
+    // Debit: Bank Account (Asset) - increases
+    // Credit: Income Account (Revenue) - increases
+    debitTotal = formData.amount;
+    creditTotal = formData.amount;
+  } else if (formData.transactionType === 'DEBIT') {
+    // Check transaction type
+    const isTransfer = isTransferCategory(formData.category || '') || !!formData.toBankAccountId;
+    const isBillPayment = !!formData.billId || isBillCategory(formData.category || '');
+    const isSavingsDeposit = !!formData.savingsAccountId || isSavingsCategory(formData.category || '');
+    const isLoanPayment = !!formData.loanId || isLoanCategory(formData.category || '');
+
+    if (isTransfer && formData.toBankAccountId) {
+      // Bank transfer:
+      // Debit: Destination Bank Account (Asset) - increases
+      // Credit: Source Bank Account (Asset) - decreases
+      if (formData.bankAccountId === formData.toBankAccountId) {
+        errors.push('Source and destination accounts cannot be the same for transfers');
+      }
+      debitTotal = formData.amount;
+      creditTotal = formData.amount;
+    } else if (isBillPayment) {
+      // Bill payment:
+      // Debit: Expense Account (Expense) - increases
+      // Credit: Bank Account (Asset) - decreases
+      debitTotal = formData.amount;
+      creditTotal = formData.amount;
+    } else if (isSavingsDeposit) {
+      // Savings deposit:
+      // Debit: Savings Account (Asset) - increases
+      // Credit: Bank Account (Asset) - decreases
+      debitTotal = formData.amount;
+      creditTotal = formData.amount;
+    } else if (isLoanPayment) {
+      // Loan payment (simplified - actual may have principal + interest split):
+      // Debit: Loan Payable (Liability) - decreases
+      // Debit: Interest Expense (Expense) - increases (if applicable)
+      // Credit: Bank Account (Asset) - decreases
+      debitTotal = formData.amount;
+      creditTotal = formData.amount;
+    } else {
+      // Regular expense:
+      // Debit: Expense Account (Expense) - increases
+      // Credit: Bank Account (Asset) - decreases
+      debitTotal = formData.amount;
+      creditTotal = formData.amount;
+    }
+  }
+
+  // Validate double-entry balance
+  const difference = Math.abs(debitTotal - creditTotal);
+  if (difference > 0.01) { // Allow for floating point precision
+    errors.push(
+      `Double-entry validation failed: Debits (${debitTotal.toFixed(2)}) must equal Credits (${creditTotal.toFixed(2)}). Difference: ${difference.toFixed(2)}`
+    );
+  }
+
+  // Check minimum entries (at least one debit and one credit)
+  if (debitTotal === 0 || creditTotal === 0) {
+    errors.push('Transaction must have at least one debit and one credit entry');
+  }
+
+  // Warnings for potential issues
+  if (formData.transactionType === 'DEBIT' && !formData.category && !formData.billId && !formData.savingsAccountId && !formData.loanId) {
+    warnings.push('Consider adding a category for better accounting classification');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    debitTotal,
+    creditTotal,
+  };
+};
+
+/**
+ * Enhanced transaction validation that includes double-entry checks
+ */
+export const validateTransactionWithDoubleEntry = (formData: {
+  bankAccountId: string;
+  amount: number;
+  description?: string;
+  category: string;
+  billId?: string;
+  savingsAccountId?: string;
+  loanId?: string;
+  toBankAccountId?: string;
+  transactionType?: 'DEBIT' | 'CREDIT';
+}): string[] => {
+  const errors: string[] = [];
+  
+  // First, run standard validation
+  const standardErrors = validateTransactionForm(formData);
+  errors.push(...standardErrors);
+  
+  // Then, run double-entry validation
+  if (formData.transactionType) {
+    const doubleEntryResult = validateDoubleEntry({
+      transactionType: formData.transactionType,
+      amount: formData.amount,
+      bankAccountId: formData.bankAccountId,
+      category: formData.category,
+      toBankAccountId: formData.toBankAccountId,
+      billId: formData.billId,
+      savingsAccountId: formData.savingsAccountId,
+      loanId: formData.loanId,
+    });
+    
+    errors.push(...doubleEntryResult.errors);
+  }
+  
+  return errors;
+};

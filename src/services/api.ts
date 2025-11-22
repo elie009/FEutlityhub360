@@ -1718,6 +1718,16 @@ class ApiService {
     throw new Error(response?.message || 'Failed to get variance');
   }
 
+  // Get variance dashboard with aggregated data
+  async getVarianceDashboard(): Promise<import('../types/bill').VarianceDashboard> {
+    const response = await this.request<any>('/bills/analytics/variance-dashboard');
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get variance dashboard');
+  }
+
   // Create or update budget
   async setBillBudget(budgetData: CreateBudgetRequest): Promise<BillBudget> {
     const response = await this.request<any>('/bills/budgets', {
@@ -3315,6 +3325,47 @@ class ApiService {
     throw new Error(response?.message || 'Failed to get expense report');
   }
 
+  // Get financial predictions
+  async getFinancialPredictions(): Promise<any> {
+    const endpoint = `/Reports/predictions`;
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get financial predictions');
+  }
+
+  // Get cash flow projection
+  async getCashFlowProjection(monthsAhead: number = 6): Promise<any> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('monthsAhead', monthsAhead.toString());
+    
+    const endpoint = `/Reports/cashflow-projection?${queryParams.toString()}`;
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get cash flow projection');
+  }
+
+  // Get balance sheet
+  async getBalanceSheet(asOfDate?: string): Promise<import('../types/financialReport').BalanceSheetDto> {
+    const queryParams = new URLSearchParams();
+    if (asOfDate) queryParams.append('asOfDate', asOfDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/balance-sheet${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get balance sheet');
+  }
+
   // Get financial insights
   async getFinancialInsights(date?: string): Promise<any> {
     const queryParams = new URLSearchParams();
@@ -3324,16 +3375,6 @@ class ApiService {
     const endpoint = `/Reports/insights${queryString ? `?${queryString}` : ''}`;
     
     const response = await this.request<any>(endpoint);
-    
-    if (response && response.success && response.data) {
-      return response.data;
-    }
-    return [];
-  }
-
-  // Get financial predictions
-  async getFinancialPredictions(): Promise<any> {
-    const response = await this.request<any>('/Reports/predictions');
     
     if (response && response.success && response.data) {
       return response.data;

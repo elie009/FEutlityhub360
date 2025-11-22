@@ -18,6 +18,8 @@ import Users from './pages/Users';
 import Bills from './pages/Bills';
 import BillDetails from './pages/BillDetails';
 import Analytics from './pages/Analytics';
+import BalanceSheet from './pages/BalanceSheet';
+import VarianceDashboard from './pages/VarianceDashboard';
 import Support from './pages/Support';
 import Settings from './pages/Settings';
 import Contact from './pages/Contact';
@@ -96,6 +98,16 @@ const AppRoutes: React.FC = () => {
           <Route path="analytics" element={
             <ProtectedRoute>
               <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="variance-dashboard" element={
+            <ProtectedRoute>
+              <VarianceDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="balance-sheet" element={
+            <ProtectedRoute>
+              <BalanceSheet />
             </ProtectedRoute>
           } />
           <Route path="support" element={

@@ -105,6 +105,7 @@ export interface LoanReportDto {
   totalInterestPaid: number;
   loans: LoanDetail[];
   projectedDebtFreeDate: string | null;
+  monthsUntilDebtFree?: number;
 }
 
 export interface SavingsGoalDto {
@@ -159,6 +160,32 @@ export interface FinancialPredictionDto {
   confidence: number;
 }
 
+export interface MonthlyCashFlowDto {
+  month: string;
+  startingBalance: number;
+  income: number;
+  expenses: number;
+  bills: number;
+  loanPayments: number;
+  savings: number;
+  endingBalance: number;
+  netFlow: number;
+}
+
+export interface CashFlowProjectionDto {
+  projectionDate: string;
+  monthsAhead: number;
+  startingBalance: number;
+  projectedIncome: number;
+  projectedExpenses: number;
+  projectedBills: number;
+  projectedLoanPayments: number;
+  projectedSavings: number;
+  projectedEndingBalance: number;
+  netCashFlow: number;
+  monthlyBreakdown: MonthlyCashFlowDto[];
+}
+
 export interface RecentTransactionDto {
   date: string;
   category: string;
@@ -192,5 +219,48 @@ export interface ReportQueryParams {
   includeInsights?: boolean;
   includePredictions?: boolean;
   includeTransactions?: boolean;
+}
+
+// Balance Sheet Types
+export interface BalanceSheetItemDto {
+  accountName: string;
+  accountType: string;
+  amount: number;
+  description?: string;
+  referenceId?: string;
+}
+
+export interface AssetsSectionDto {
+  currentAssets: BalanceSheetItemDto[];
+  totalCurrentAssets: number;
+  fixedAssets: BalanceSheetItemDto[];
+  totalFixedAssets: number;
+  otherAssets: BalanceSheetItemDto[];
+  totalOtherAssets: number;
+  totalAssets: number;
+}
+
+export interface LiabilitiesSectionDto {
+  currentLiabilities: BalanceSheetItemDto[];
+  totalCurrentLiabilities: number;
+  longTermLiabilities: BalanceSheetItemDto[];
+  totalLongTermLiabilities: number;
+  totalLiabilities: number;
+}
+
+export interface EquitySectionDto {
+  ownersCapital: number;
+  retainedEarnings: number;
+  totalEquity: number;
+}
+
+export interface BalanceSheetDto {
+  asOfDate: string;
+  assets: AssetsSectionDto;
+  liabilities: LiabilitiesSectionDto;
+  equity: EquitySectionDto;
+  totalAssets: number;
+  totalLiabilitiesAndEquity: number;
+  isBalanced: boolean;
 }
 

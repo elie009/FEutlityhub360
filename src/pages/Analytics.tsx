@@ -29,7 +29,13 @@ import {
   Button,
   useTheme,
   useMediaQuery,
+  Collapse,
+  Switch,
+  FormControlLabel,
+  Checkbox,
+  TextField,
 } from '@mui/material';
+// Using simple date inputs instead of DateRangePicker to avoid module resolution issues
 import {
   LineChart,
   Line,
@@ -64,9 +70,15 @@ import {
   Download,
   Assessment,
   Schedule,
+  Settings as SettingsIcon,
+  ExpandMore,
+  ExpandLess,
+  CalendarToday,
+  Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import {
   FinancialReportDto,
@@ -76,10 +88,15 @@ import {
 } from '../types/financialReport';
 import { Loan } from '../types/loan';
 import { SavingsGoalDto } from '../types/financialReport';
+import BalanceSheetTab from '../components/Reports/BalanceSheetTab';
+import IncomeStatementTab from '../components/Reports/IncomeStatementTab';
+import CashFlowTab from '../components/Reports/CashFlowTab';
+import CustomReportTab from '../components/Reports/CustomReportTab';
 
 const Analytics: React.FC = () => {
   const { getCurrencySymbol, formatCurrency: formatCurrencyWithSymbol } = useCurrency();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -91,6 +108,20 @@ const Analytics: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [showReportSettings, setShowReportSettings] = useState(false);
+  const [reportSettings, setReportSettings] = useState({
+    includeComparison: true,
+    includeInsights: true,
+    includePredictions: true,
+    includeTransactions: true,
+    showCharts: true,
+    showTables: true,
+    showSummaryCards: true,
+    currencyFormat: 'USD',
+    dateFormat: 'MM/DD/YYYY',
+  });
   const [bankAccountSummary, setBankAccountSummary] = useState<{
     accounts: any[];
     totalBalance: number;
@@ -472,30 +503,45 @@ const Analytics: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" gutterBottom>
             📊 Financial Reports & Analytics
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Comprehensive insights into your financial health
-        </Typography>
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel>Report Period</InputLabel>
-            <Select
-              value={selectedPeriod}
-              label="Report Period"
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-            >
-              <MenuItem value="all">All Time</MenuItem>
-              <MenuItem value="year">This Year</MenuItem>
-              <MenuItem value="month">This Month</MenuItem>
-              <MenuItem value="quarter">This Quarter</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: 150 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Date Range Picker */}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <TextField
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              to
+            </Typography>
+            <TextField
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+          </Box>
+          <FormControl sx={{ minWidth: 150 }} size="small">
             <InputLabel>Data Period</InputLabel>
             <Select
               value={period}
@@ -505,17 +551,28 @@ const Analytics: React.FC = () => {
               <MenuItem value="MONTHLY">Monthly</MenuItem>
               <MenuItem value="QUARTERLY">Quarterly</MenuItem>
               <MenuItem value="YEARLY">Yearly</MenuItem>
-          </Select>
-        </FormControl>
+            </Select>
+          </FormControl>
+          {/* Variance Dashboard Button */}
+          <Button
+            variant="outlined"
+            startIcon={<AnalyticsIcon />}
+            onClick={() => navigate('/variance-dashboard')}
+            size="small"
+          >
+            Variance Dashboard
+          </Button>
+          {/* Export Button */}
           <Button
             variant="contained"
             startIcon={<Download />}
             onClick={() => downloadReport('summary')}
+            size="small"
           >
-            Download Report
+            Export
           </Button>
           <Tooltip title="Refresh Data">
-            <IconButton onClick={fetchFinancialData} color="primary">
+            <IconButton onClick={fetchFinancialData} color="primary" size="small">
               <Refresh />
             </IconButton>
           </Tooltip>
@@ -523,91 +580,91 @@ const Analytics: React.FC = () => {
       </Box>
 
       {/* Financial Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
+          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <MonetizationOn sx={{ color: 'white', mr: 1 }} />
-                <Typography color="white" variant="h6">
+                <MonetizationOn sx={{ color: 'text.primary', mr: 1 }} />
+                <Typography color="text.primary" variant="h6">
                   Total Income
                 </Typography>
               </Box>
-              <Typography variant="h4" component="h2" color="white" gutterBottom>
+              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
                 {formatCurrency(summary.totalIncome)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 {summary.incomeChange >= 0 ? (
-                  <TrendingUp sx={{ color: '#4ade80', fontSize: 20, mr: 0.5 }} />
+                  <TrendingUp sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
                 ) : (
-                  <TrendingDown sx={{ color: '#f87171', fontSize: 20, mr: 0.5 }} />
+                  <TrendingDown sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
                 )}
-                <Typography color="white" variant="body2">
+                <Typography color="text.secondary" variant="body2">
                   {formatPercentage(summary.incomeChange)} from last period
                 </Typography>
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
+          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Receipt sx={{ color: 'white', mr: 1 }} />
-                <Typography color="white" variant="h6">
+                <Receipt sx={{ color: 'text.primary', mr: 1 }} />
+                <Typography color="text.primary" variant="h6">
                   Total Expenses
                 </Typography>
               </Box>
-              <Typography variant="h4" component="h2" color="white" gutterBottom>
+              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
                 {formatCurrency(summary.totalExpenses)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 {summary.expenseChange <= 0 ? (
-                  <TrendingDown sx={{ color: '#4ade80', fontSize: 20, mr: 0.5 }} />
+                  <TrendingDown sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
                 ) : (
-                  <TrendingUp sx={{ color: '#f87171', fontSize: 20, mr: 0.5 }} />
+                  <TrendingUp sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
                 )}
-                <Typography color="white" variant="body2">
+                <Typography color="text.secondary" variant="body2">
                   {formatPercentage(summary.expenseChange)} from last period
                 </Typography>
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
+          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
               <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <AccountBalance sx={{ color: 'white', mr: 1 }} />
-                <Typography color="white" variant="h6">
+                <AccountBalance sx={{ color: 'text.primary', mr: 1 }} />
+                <Typography color="text.primary" variant="h6">
                   Disposable Amount
                 </Typography>
               </Box>
-              <Typography variant="h4" component="h2" color="white" gutterBottom>
+              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
                 {formatCurrency(summary.disposableIncome)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 {summary.disposableChange >= 0 ? (
-                  <TrendingUp sx={{ color: '#4ade80', fontSize: 20, mr: 0.5 }} />
+                  <TrendingUp sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
                 ) : (
-                  <TrendingDown sx={{ color: '#f87171', fontSize: 20, mr: 0.5 }} />
+                  <TrendingDown sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
                 )}
-                <Typography color="white" variant="body2">
+                <Typography color="text.secondary" variant="body2">
                   {formatPercentage(summary.disposableChange)} from last period
                 </Typography>
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' }}>
+        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
+          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Savings sx={{ color: 'white', mr: 1 }} />
-                <Typography color="white" variant="h6" sx={{ flexGrow: 1 }}>
+                <Savings sx={{ color: 'text.primary', mr: 1 }} />
+                <Typography color="text.primary" variant="h6" sx={{ flexGrow: 1 }}>
                   Net Worth
                 </Typography>
                 <Tooltip
@@ -619,7 +676,7 @@ const Analytics: React.FC = () => {
                       <Typography variant="body2" sx={{ mb: 2 }}>
                         Net Worth is your financial position: what you own minus what you owe.
                       </Typography>
-                      <Divider sx={{ my: 1.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                      <Divider sx={{ my: 1.5 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
                         Total Assets
                       </Typography>
@@ -640,7 +697,7 @@ const Analytics: React.FC = () => {
                       <Typography variant="body2" sx={{ mb: 2, mt: 1, fontWeight: 'bold' }}>
                         Total Assets = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalAssets)}
                       </Typography>
-                      <Divider sx={{ my: 1.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                      <Divider sx={{ my: 1.5 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
                         Total Liabilities
                       </Typography>
@@ -654,7 +711,7 @@ const Analytics: React.FC = () => {
                       <Typography variant="body2" sx={{ mb: 2, mt: 1, fontWeight: 'bold' }}>
                         Total Liabilities = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
                       </Typography>
-                      <Divider sx={{ my: 1.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                      <Divider sx={{ my: 1.5 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
                         Computation
                       </Typography>
@@ -687,32 +744,108 @@ const Analytics: React.FC = () => {
                   <IconButton
                     size="small"
                     sx={{
-                      color: 'white',
+                      color: 'text.primary',
                       p: 0.5,
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
                     <Info sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               </Box>
-              <Typography variant="h4" component="h2" color="white" gutterBottom>
+              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
                 {formatCurrency(summary.netWorth)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 {summary.netWorthChange >= 0 ? (
-                  <TrendingUp sx={{ color: '#4ade80', fontSize: 20, mr: 0.5 }} />
+                  <TrendingUp sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
                 ) : (
-                  <TrendingDown sx={{ color: '#f87171', fontSize: 20, mr: 0.5 }} />
+                  <TrendingDown sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
                 )}
-                <Typography color="white" variant="body2">
+                <Typography color="text.secondary" variant="body2">
                   {formatPercentage(summary.netWorthChange)} from last period
                 </Typography>
               </Box>
               </CardContent>
             </Card>
-          </Grid>
-      </Grid>
+          </Box>
+
+        {/* Savings Projection */}
+        {reportData.savingsReport?.projectedGoalDate && (
+          <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
+            <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Savings sx={{ color: 'text.primary', mr: 1, fontSize: 24 }} />
+                  <Typography color="text.primary" variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+                    Savings Goal
+                  </Typography>
+                </Box>
+                {reportData.savingsReport.monthsUntilGoal !== null && (
+                  <Typography variant="h5" component="h2" color="text.primary" gutterBottom sx={{ fontSize: '1.5rem' }}>
+                    {reportData.savingsReport.monthsUntilGoal} mo
+                  </Typography>
+                )}
+                <Typography color="text.secondary" variant="caption" sx={{ mb: 0.5, display: 'block' }}>
+                  Until completion
+                </Typography>
+                {reportData.savingsReport.projectedGoalDate && (
+                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    {new Date(reportData.savingsReport.projectedGoalDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </Typography>
+                )}
+                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #e0e0e0' }}>
+                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    Progress: {reportData.savingsReport.goalProgress?.toFixed(1) || 0}%
+                  </Typography>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={reportData.savingsReport.goalProgress || 0} 
+                    sx={{ mt: 0.5, bgcolor: '#e0e0e0', height: 4, '& .MuiLinearProgress-bar': { bgcolor: 'primary.main' } }}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
+        {/* Loan Payoff Projection */}
+        {reportData.loanReport?.projectedDebtFreeDate && (
+          <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
+            <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <AccountBalance sx={{ color: 'text.primary', mr: 1, fontSize: 24 }} />
+                  <Typography color="text.primary" variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+                    Loan Payoff
+                  </Typography>
+                </Box>
+                {reportData.loanReport.monthsUntilDebtFree !== undefined && (
+                  <Typography variant="h5" component="h2" color="text.primary" gutterBottom sx={{ fontSize: '1.5rem' }}>
+                    {reportData.loanReport.monthsUntilDebtFree} mo
+                  </Typography>
+                )}
+                <Typography color="text.secondary" variant="caption" sx={{ mb: 0.5, display: 'block' }}>
+                  Until debt-free
+                </Typography>
+                {reportData.loanReport.projectedDebtFreeDate && (
+                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    {new Date(reportData.loanReport.projectedDebtFreeDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </Typography>
+                )}
+                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #e0e0e0' }}>
+                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    Remaining: {formatCurrency(reportData.loanReport.totalRemainingBalance || 0)}
+                  </Typography>
+                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                    Monthly: {formatCurrency(reportData.loanReport.totalMonthlyPayment || 0)}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+      </Box>
 
       {/* Insights & Alerts */}
       {reportData.insights && Array.isArray(reportData.insights) && reportData.insights.length > 0 && (
@@ -737,1184 +870,324 @@ const Analytics: React.FC = () => {
         </Box>
       )}
 
-      {/* Tabs for Different Report Sections */}
+      {/* ReportTabs */}
       <Paper sx={{ mb: 3 }}>
         <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
-          <Tab label="📈 Income & Expenses" />
-          <Tab label="💰 Disposable Amount" />
-          <Tab label="🏦 Bills & Utilities" />
-          <Tab label="💳 Loans & Debt" />
-          <Tab label="💎 Savings & Goals" />
-          <Tab label="📊 Net Worth" />
+          <Tab label="Overview" />
+          <Tab label="Income Statement" />
+          <Tab label="Balance Sheet" />
+          <Tab label="Cash Flow" />
+          <Tab label="Custom" />
         </Tabs>
       </Paper>
 
-      {/* Tab Content */}
+      {/* ReportContent */}
       <Box sx={{ mt: 3 }}>
-        {/* Tab 0: Income & Expenses */}
+        {/* Tab 0: Overview */}
         {activeTab === 0 && (
-          <Grid container spacing={3}>
-            {/* Income vs Expenses Trend */}
-            <Grid item xs={12} lg={8}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Income vs Expenses Trend
+          <Box>
+            {/* Financial Summary Cards - Already shown above, but can be moved here if needed */}
+            
+            {/* Insights & Alerts */}
+            {reportData.insights && Array.isArray(reportData.insights) && reportData.insights.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Lightbulb sx={{ mr: 1 }} /> Financial Insights & Alerts
                 </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <ComposedChart data={reportData.incomeReport?.incomeTrend || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
-                    <YAxis />
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      fill="#8884d8"
-                      stroke="#8884d8"
-                      name="Income"
-                    />
-                    <Line
-                      type="monotone"
-                      data={reportData.expenseReport?.expenseTrend || []}
-                      dataKey="value"
-                      stroke="#ff7300"
-                      strokeWidth={2}
-                      name="Expenses"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </Paper>
-            </Grid>
-
-            {/* Income by Category */}
-            <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Income by Category
-                </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <PieChart>
-                    <Pie
-                      data={reportData.incomeReport?.incomeByCategory 
-                        ? Object.entries(reportData.incomeReport.incomeByCategory).map(([name, value]) => ({
-                            name,
-                            value,
-                          }))
-                        : []
-                      }
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {reportData.incomeReport?.incomeByCategory 
-                        ? Object.keys(reportData.incomeReport.incomeByCategory).map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))
-                        : null
-                      }
-                    </Pie>
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Paper>
-            </Grid>
-
-            {/* Expense Distribution */}
-            <Grid item xs={12} lg={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Expense Distribution
-                </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart
-                    data={reportData.expenseReport?.expenseByCategory 
-                      ? Object.entries(reportData.expenseReport.expenseByCategory).map(([category, amount]) => ({
-                          category: category.length > 15 ? category.substring(0, 15) + '...' : category,
-                          amount,
-                          percentage: reportData.expenseReport?.expensePercentage?.[category] || 0,
-                        }))
-                      : []
-                    }
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
-                    <YAxis />
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Bar dataKey="amount" fill="#ff7300" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Paper>
-            </Grid>
-
-            {/* Top Income Source */}
-            <Grid item xs={12} lg={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Income Summary
-                </Typography>
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="body1">Total Income:</Typography>
-                    <Typography variant="h6" color="primary">
-                      {formatCurrency(reportData.incomeReport?.totalIncome)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="body1">Monthly Average:</Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(reportData.incomeReport?.monthlyAverage)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="body1">Growth Rate:</Typography>
-                    <Chip
-                      label={formatPercentage(reportData.incomeReport?.growthRate)}
-                      color={(reportData.incomeReport?.growthRate || 0) >= 0 ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </Box>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Top Income Source
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h6">{reportData.incomeReport?.topIncomeSource || 'N/A'}</Typography>
-                    <Typography variant="h6" color="success.main">
-                      {formatCurrency(reportData.incomeReport?.topIncomeAmount)}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 1: Disposable Amount */}
-        {activeTab === 1 && (
-          <Grid container spacing={3}>
-            <Grid item xs={12} lg={8}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Disposable Amount Trend
-                </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <AreaChart data={reportData.disposableIncomeReport?.disposableTrend || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
-                    <YAxis />
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      fill="#4facfe"
-                      stroke="#4facfe"
-                      name="Disposable Amount"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Disposable Amount Analysis
-                </Typography>
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Current Disposable Amount
-                    </Typography>
-                    <Typography variant="h4" color="primary">
-                      {formatCurrency(reportData.disposableIncomeReport?.currentDisposableIncome)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Average
-                    </Typography>
-                    <Typography variant="h6">
-                      {formatCurrency(reportData.disposableIncomeReport?.averageDisposableIncome)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Recommended Savings (30%)
-                    </Typography>
-                    <Typography variant="h6" color="success.main">
-                      {formatCurrency(reportData.disposableIncomeReport?.recommendedSavings)}
-                    </Typography>
-                  </Box>
-                  <Divider sx={{ my: 2 }} />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Comparison with Previous Period
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="body1">
-                        {formatCurrency(
-                          reportData.disposableIncomeReport?.comparisonWithPrevious?.previousAmount
-                        )}
-                      </Typography>
-                      <Chip
-                        label={formatPercentage(
-                          reportData.disposableIncomeReport?.comparisonWithPrevious?.changePercentage
-                        )}
-                        color={
-                          (reportData.disposableIncomeReport?.comparisonWithPrevious?.changePercentage || 0) >= 0
-                            ? 'success'
-                            : 'error'
-                        }
-                        size="small"
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 2: Bills & Utilities */}
-        {activeTab === 2 && (
-      <Grid container spacing={3}>
-            <Grid item xs={12} lg={8}>
-              <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-                  Bills Trend
-            </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={reportData.billsReport?.billsTrend || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
-                <YAxis />
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                <Legend />
-                    <Line type="monotone" dataKey="value" stroke="#ff7300" strokeWidth={2} name="Bills" />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-            <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Bills Summary
-                </Typography>
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Total Monthly Bills
-                    </Typography>
-                    <Typography variant="h5" color="error">
-                      {formatCurrency(reportData.billsReport?.totalMonthlyBills)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Average Bill Amount
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(reportData.billsReport?.averageBillAmount)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Predicted Next Month
-                    </Typography>
-                    <Typography variant="body1" color="warning.main">
-                      {formatCurrency(reportData.billsReport?.predictedNextMonth)}
-                    </Typography>
-                  </Box>
-                  <Divider sx={{ my: 2 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">Unpaid Bills:</Typography>
-                    <Chip
-                      label={reportData.billsReport?.unpaidBillsCount || 0}
-                      color={(reportData.billsReport?.unpaidBillsCount || 0) > 0 ? 'warning' : 'default'}
-                      size="small"
-                    />
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2">Overdue Bills:</Typography>
-                    <Chip
-                      label={reportData.billsReport?.overdueBillsCount || 0}
-                      color={(reportData.billsReport?.overdueBillsCount || 0) > 0 ? 'error' : 'default'}
-                      size="small"
-                    />
-                  </Box>
-                </Box>
-              </Paper>
-            </Grid>
-
-            {/* Bills by Type */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-                  Bills by Type
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                      data={reportData.billsReport?.billsByType
-                        ? Object.entries(reportData.billsReport.billsByType).map(([name, value]) => ({
-                            name,
-                            value,
-                          }))
-                        : []
-                      }
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {reportData.billsReport?.billsByType
-                        ? Object.keys(reportData.billsReport.billsByType).map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))
-                        : null
-                      }
-                </Pie>
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-            {/* Upcoming Bills */}
-        <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Upcoming Bills (Next 30 Days)
-                </Typography>
-                <Box sx={{ mt: 2 }}>
-                  {reportData.billsReport?.upcomingBills && Array.isArray(reportData.billsReport.upcomingBills) && reportData.billsReport.upcomingBills.length > 0 ? (
-                    reportData.billsReport.upcomingBills.slice(0, 5).map((bill, index) => (
-                      <Box
-                        key={bill?.id || index}
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          p: 2,
-                          mb: 1,
-                          bgcolor: 'background.default',
-                          borderRadius: 1,
-                        }}
+                <Grid container spacing={2}>
+                  {reportData.insights.map((insight, index) => (
+                    <Grid item xs={12} md={6} key={index}>
+                      <Alert
+                        severity={getInsightColor(insight?.severity) as any}
+                        icon={getInsightIcon(insight?.type)}
+                        sx={{ height: '100%' }}
                       >
-                        <Box>
-                          <Typography variant="body1" fontWeight="medium">
-                            {bill?.name || 'Bill'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Due in {bill?.daysUntilDue || 0} days
-                          </Typography>
-                        </Box>
-                        <Typography variant="h6" color="error">
-                          {formatCurrency(bill?.amount)}
-                        </Typography>
-                      </Box>
-                    ))
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                      No upcoming bills
-                    </Typography>
-                  )}
-                </Box>
-              </Paper>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 3: Loans & Debt */}
-        {activeTab === 3 && (
-          <Grid container spacing={3}>
-            {/* Loan Summary Cards */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <AccountBalance sx={{ mr: 2, color: 'primary.main', fontSize: 40 }} />
-                    <Box>
-                      <Typography variant="h6">
-                        {formatCurrency(getTotalBorrowed())}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Borrowed
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <TrendingUp sx={{ mr: 2, color: 'success.main', fontSize: 40 }} />
-                    <Box>
-                      <Typography variant="h6">
-                        {formatCurrency(getTotalPaid())}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Paid
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Schedule sx={{ mr: 2, color: 'warning.main', fontSize: 40 }} />
-                    <Box>
-                      <Typography variant="h6">
-                        {formatCurrency(getTotalOutstanding())}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Outstanding Balance
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Assessment sx={{ mr: 2, color: 'info.main', fontSize: 40 }} />
-                    <Box>
-                      <Typography variant="h6">
-                        {loans.length}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Loans
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Loan Repayment Overview
-                </Typography>
-                <Grid container spacing={3} sx={{ mt: 1 }}>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Active Loans
-                      </Typography>
-                      <Typography variant="h4" color="primary">
-                        {reportData.loanReport?.activeLoansCount || getActiveLoansCount()}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Principal
-                      </Typography>
-                      <Typography variant="h4">
-                        {formatCurrency(reportData.loanReport?.totalPrincipal || getTotalBorrowed())}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Remaining Balance
-                      </Typography>
-                      <Typography variant="h4" color="error">
-                        {formatCurrency(reportData.loanReport?.totalRemainingBalance || getTotalOutstanding())}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Monthly Payment
-                      </Typography>
-                      <Typography variant="h4" color="warning.main">
-                        {formatCurrency(reportData.loanReport?.totalMonthlyPayment)}
-                      </Typography>
-                    </Box>
-                  </Grid>
+                        <AlertTitle>{insight?.title || 'Insight'}</AlertTitle>
+                        {insight?.message || ''}
+                      </Alert>
+                    </Grid>
+                  ))}
                 </Grid>
-              </Paper>
-            </Grid>
+              </Box>
+            )}
 
-            {/* Detailed Loan Table */}
-            <Grid item xs={12}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Loan Summary & Details
-                </Typography>
-                {loans.length > 0 ? (
-                  <TableContainer>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Loan ID</TableCell>
-                          <TableCell>Purpose</TableCell>
-                          <TableCell>Principal</TableCell>
-                          <TableCell>Outstanding</TableCell>
-                          <TableCell>Monthly Payment</TableCell>
-                          <TableCell>Interest Rate</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell>Created Date</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {loans.map((loan) => (
-                          <TableRow key={loan.id}>
-                            <TableCell>#{loan.id.slice(-8)}</TableCell>
-                            <TableCell>{loan.purpose}</TableCell>
-                            <TableCell>{formatCurrency(loan.principal)}</TableCell>
-                            <TableCell>{formatCurrency(loan.outstandingBalance)}</TableCell>
-                            <TableCell>{formatCurrency(loan.monthlyPayment || 0)}</TableCell>
-                            <TableCell>{loan.interestRate}%</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={loan.status}
-                                color={
-                                  loan.status === 'ACTIVE' ? 'success' :
-                                  loan.status === 'CLOSED' ? 'default' :
-                                  loan.status === 'OVERDUE' ? 'error' : 'warning'
-                                }
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>{formatDate(loan.createdAt)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                ) : (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    No loans found. Create a loan to see details here.
-                  </Alert>
-                )}
-              </Paper>
-            </Grid>
-
-            {/* Performance Metrics */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Loan Status Distribution
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="body1">Active Loans</Typography>
-                    <Chip label={getActiveLoansCount()} color="success" />
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="body1">Closed Loans</Typography>
-                    <Chip label={getClosedLoansCount()} />
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="body1">Overdue Loans</Typography>
-                    <Chip label={getOverdueLoansCount()} color="error" />
-                  </Box>
-                </Box>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Financial Summary
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="body1">Total Borrowed</Typography>
-                    <Typography variant="body1" fontWeight="bold">{formatCurrency(getTotalBorrowed())}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="body1">Total Paid</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="success.main">{formatCurrency(getTotalPaid())}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="body1">Outstanding</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="warning.main">{formatCurrency(getTotalOutstanding())}</Typography>
-                  </Box>
-                </Box>
-              </Paper>
-            </Grid>
-
-            {/* Individual Loans */}
-            {reportData.loanReport?.loans && Array.isArray(reportData.loanReport.loans) && reportData.loanReport.loans.map((loan, index) => (
-              <Grid item xs={12} md={6} key={loan?.id || index}>
+            {/* Quick Overview Charts */}
+            <Grid container spacing={3}>
+              {/* Income vs Expenses Trend */}
+              <Grid item xs={12} lg={8}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom>
-                    {loan?.purpose || 'Loan'}
+                    Income vs Expenses Trend
                   </Typography>
-                  <Box sx={{ mt: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Principal Amount
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatCurrency(loan.principalAmount)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Remaining Balance
-                      </Typography>
-                      <Typography variant="body1" color="error">
-                        {formatCurrency(loan.remainingBalance)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Monthly Payment
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatCurrency(loan.monthlyPayment)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Interest Rate
-                      </Typography>
-                      <Typography variant="body1">{loan.interestRate}%</Typography>
-                    </Box>
-                    <Box sx={{ mt: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Repayment Progress
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {loan.repaymentProgress.toFixed(1)}%
-                        </Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={loan.repaymentProgress}
-                        sx={{ height: 10, borderRadius: 5 }}
+                  <ResponsiveContainer width="100%" height={350}>
+                    <ComposedChart data={reportData.incomeReport?.incomeTrend || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis />
+                      <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        fill="#8884d8"
+                        stroke="#8884d8"
+                        name="Income"
                       />
-                    </Box>
-                  </Box>
+                      <Line
+                        type="monotone"
+                        data={reportData.expenseReport?.expenseTrend || []}
+                        dataKey="value"
+                        stroke="#ff7300"
+                        strokeWidth={2}
+                        name="Expenses"
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </Paper>
               </Grid>
-            ))}
 
-            {reportData.loanReport?.projectedDebtFreeDate && (
-              <Grid item xs={12}>
-                <Alert severity="success" icon={<TrendingUp />}>
-                  <AlertTitle>Debt-Free Projection</AlertTitle>
-                  You'll be debt-free by{' '}
-                  {new Date(reportData.loanReport.projectedDebtFreeDate).toLocaleDateString()} if you
-                  maintain current payments.
-                </Alert>
-              </Grid>
-            )}
-          </Grid>
-        )}
-
-        {/* Tab 4: Savings & Goals */}
-        {activeTab === 4 && (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Paper sx={{ p: { xs: 1, sm: 2 }, px: { xs: 1, sm: 2 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, mb: { xs: 1, sm: 2 }, pb: { xs: 0.5, sm: 0 } }}>
-                  Savings Growth Trend
-                </Typography>
-                
-                {/* Progress Bar Table */}
-                {reportData.savingsReport?.goals && reportData.savingsReport.goals.length > 0 ? (
-                  <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: { xs: -0.5, sm: 0 } }}>
-                    {/* Find earliest start date for all goals */}
-                    {(() => {
-                      const goals = reportData.savingsReport.goals || [];
-                      const startDates = goals.map(g => new Date(g.startDate));
-                      const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
-                      const allMonthLabels = getAllMonthLabels(goals);
-                      // Responsive month width: smaller on mobile
-                      const monthWidth = isMobile ? 36 : isTablet ? 44 : 55;
-                      
-                      return (
-                        <TableContainer sx={{ maxWidth: '100%' }}>
-                          <Table sx={{ minWidth: Math.max(280, allMonthLabels.length * monthWidth + (isMobile ? 80 : 150)) }}>
-                            <TableBody>
-                              {goals.map((goal, index) => {
-                                const { months, filledBlocks, emptyBlocks, monthsOffset, totalBlocks } = generateProgressBar(goal, earliestStart);
-                                const goalLabel = goal.goalName || `Goal ${String.fromCharCode(65 + index)}`;
-                                
-                                return (
-                                  <React.Fragment key={`goal-${index}`}>
-                                    <TableRow>
-                                      <TableCell sx={{ 
-                                        minWidth: { xs: 85, sm: 120 }, 
-                                        maxWidth: { xs: 85, sm: 120 },
-                                        verticalAlign: 'top', 
-                                        pt: { xs: 1, sm: 2 }, 
-                                        pb: { xs: 0.25, sm: 1 },
-                                        px: { xs: 0.75, sm: 1.5 },
-                                        py: { xs: 0.75, sm: 1.5 },
-                                      }}>
-                                        <Typography 
-                                          variant="body1" 
-                                          fontWeight="medium"
-                                          sx={{ 
-                                            fontSize: { xs: '0.8rem', sm: '1rem' },
-                                            lineHeight: { xs: 1.3, sm: 1.5 },
-                                            wordBreak: 'break-word',
-                                          }}
-                                        >
-                                          {goalLabel}
-                                        </Typography>
-                                        <Typography 
-                                          variant="caption" 
-                                          color="text.secondary" 
-                                          sx={{ 
-                                            display: 'block', 
-                                            mt: { xs: 0.25, sm: 0.5 },
-                                            fontSize: { xs: '0.6rem', sm: '0.75rem' },
-                                            lineHeight: { xs: 1.2, sm: 1.4 },
-                                            wordBreak: 'break-word',
-                                          }}
-                                        >
-                                          {formatCurrencyWithSymbol(goal.currentAmount)} / {formatCurrencyWithSymbol(goal.targetAmount)}
-                                        </Typography>
-                                      </TableCell>
-                                      <TableCell sx={{ py: { xs: 0.75, sm: 1.5 }, pl: { xs: 0.25, sm: 0 }, pr: { xs: 0.25, sm: 1 }, px: { xs: 0.5, sm: 1 } }}>
-                                        <Box sx={{ 
-                                          display: 'flex', 
-                                          alignItems: 'center',
-                                          width: '100%',
-                                        }}>
-                                          {/* Spacing before the bar starts (offset) */}
-                                          {monthsOffset > 0 && (
-                                            <Box sx={{ 
-                                              width: `${monthsOffset * monthWidth}px`, 
-                                              display: 'inline-block',
-                                              minWidth: `${monthsOffset * monthWidth}px`,
-                                              flexShrink: 0,
-                                            }} />
-                                          )}
-                                          {/* Progress bar */}
-                                          <Box sx={{ 
-                                            flex: 1,
-                                            minWidth: `${totalBlocks * monthWidth}px`,
-                                            maxWidth: `${totalBlocks * monthWidth}px`,
-                                          }}>
-                                            <LinearProgress
-                                              variant="determinate"
-                                              value={goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0}
-                                              sx={{ 
-                                                height: { xs: 8, sm: 10, md: 12 },
-                                                borderRadius: { xs: 4, sm: 5, md: 6 },
-                                                backgroundColor: 'secondary.main',
-                                                '& .MuiLinearProgress-bar': {
-                                                  borderRadius: { xs: 4, sm: 5, md: 6 },
-                                                  backgroundColor: 'success.main',
-                                                },
-                                              }}
-                                            />
-                                          </Box>
-                                        </Box>
-                                      </TableCell>
-                                    </TableRow>
-                                    {/* Month labels row - only show once at the bottom */}
-                                    {index === goals.length - 1 && (
-                                      <TableRow>
-                                        <TableCell sx={{ pt: 0, pb: { xs: 0.25, sm: 1 }, px: { xs: 0.75, sm: 1.5 } }}></TableCell>
-                                        <TableCell sx={{ pt: { xs: 0.25, sm: 0.5 }, pb: { xs: 0.25, sm: 1 }, pl: { xs: 0.25, sm: 0 }, pr: { xs: 0.25, sm: 1 }, px: { xs: 0.5, sm: 1 } }}>
-                                          <Box sx={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            fontFamily: 'monospace', 
-                                            fontSize: { xs: '8px', sm: '10px', md: '11px' }, 
-                                            color: 'text.secondary',
-                                            whiteSpace: 'nowrap',
-                                            gap: { xs: '1px', sm: '4px' },
-                                          }}>
-                                            {allMonthLabels.map((month, idx) => (
-                                              <Box
-                                                key={idx}
-                                                sx={{
-                                                  display: 'inline-block',
-                                                  width: `${monthWidth}px`,
-                                                  minWidth: `${monthWidth}px`,
-                                                  textAlign: 'center',
-                                                  flexShrink: 0,
-                                                }}
-                                              >
-                                                {month}
-                                              </Box>
-                                            ))}
-                                          </Box>
-                                        </TableCell>
-                                      </TableRow>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      );
-                    })()}
-                  </Box>
-                ) : (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    No savings goals found. Create a savings goal to see the progress here.
-                  </Alert>
-                )}
-              </Paper>
-            </Grid>
-
-            {/* Keep the chart as additional visualization */}
-            <Grid item xs={12} lg={8}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Savings Balance Trend
-                </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <AreaChart data={reportData.savingsReport?.savingsTrend || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
-                    <YAxis />
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      fill="#43e97b"
-                      stroke="#38f9d7"
-                      name="Savings Balance"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Savings Goal Progress
-                </Typography>
-                <Box sx={{ mt: 3, textAlign: 'center' }}>
-                  <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={reportData.savingsReport?.goalProgress || 0}
-                      size={150}
-                      thickness={5}
-                    />
-                    <Box
-                      sx={{
-                        top: 0,
-                        left: 0,
-                        bottom: 0,
-                        right: 0,
-                        position: 'absolute',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Typography variant="h4" component="div" color="primary">
-                        {(reportData.savingsReport?.goalProgress || 0).toFixed(0)}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Box sx={{ mt: 3 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Current Balance
-                      </Typography>
-                      <Typography variant="h5" color="success.main">
-                        {formatCurrency(reportData.savingsReport?.totalSavingsBalance)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Goal Target
-                      </Typography>
-                      <Typography variant="h6">
-                        {formatCurrency(reportData.savingsReport?.savingsGoal)}
-                      </Typography>
-                    </Box>
-                    {reportData.savingsReport?.monthsUntilGoal && (
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Months Until Goal
-                        </Typography>
-                        <Chip
-                          label={`${reportData.savingsReport.monthsUntilGoal} months`}
-                          color="primary"
-                        />
-                      </Box>
-                    )}
-                </Box>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Savings Analysis
-                </Typography>
-                <Grid container spacing={3} sx={{ mt: 1 }}>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Monthly Savings
-                      </Typography>
-                      <Typography variant="h5" color="success.main">
-                        {formatCurrency(reportData.savingsReport?.monthlySavingsAmount)}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Savings Rate
-                      </Typography>
-                      <Typography variant="h5">
-                        {(reportData.savingsReport?.savingsRate || 0).toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={6}>
-                    {reportData.savingsReport?.projectedGoalDate && (
-                      <Alert severity="info" icon={<TrendingUp />}>
-                        <AlertTitle>Goal Projection</AlertTitle>
-                        You'll reach your savings goal by{' '}
-                        {new Date(reportData.savingsReport.projectedGoalDate).toLocaleDateString()} at
-                        current rate.
-                      </Alert>
-                    )}
-                  </Grid>
-                </Grid>
-              </Paper>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Tab 5: Net Worth */}
-        {activeTab === 5 && (
-          <Grid container spacing={3}>
-            <Grid item xs={12} lg={8}>
-              <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-                  Net Worth Trend (12 Months)
-            </Typography>
-                <ResponsiveContainer width="100%" height={350}>
-                  <AreaChart data={reportData.netWorthReport?.netWorthTrend || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="label" />
-                <YAxis />
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      fill="#667eea"
-                      stroke="#764ba2"
-                      name="Net Worth"
-                    />
-              </AreaChart>
-            </ResponsiveContainer>
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Net Worth Trend Data
-              </Typography>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Period</strong></TableCell>
-                      <TableCell align="right"><strong>Net Worth</strong></TableCell>
-                      <TableCell align="right"><strong>Change</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {reportData.netWorthReport?.netWorthTrend && reportData.netWorthReport.netWorthTrend.length > 0 ? (
-                      reportData.netWorthReport.netWorthTrend.map((item: any, index: number) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.label || new Date(item.date).toLocaleDateString()}</TableCell>
-                          <TableCell align="right">
-                            {formatCurrencyWithSymbol(item.value || 0)}
-                          </TableCell>
-                          <TableCell align="right">
-                            {item.comparisonValue !== null && item.comparisonValue !== undefined ? (
-                              <Typography
-                                variant="body2"
-                                color={item.value - item.comparisonValue >= 0 ? 'success.main' : 'error.main'}
-                              >
-                                {item.value - item.comparisonValue >= 0 ? '+' : ''}
-                                {formatCurrencyWithSymbol(item.value - item.comparisonValue)}
-                              </Typography>
-                            ) : (
-                              <Typography variant="body2" color="text.secondary">
-                                N/A
-                              </Typography>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} align="center">
-                          <Typography variant="body2" color="text.secondary">
-                            No net worth trend data available
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          </Paper>
-        </Grid>
-
-            <Grid item xs={12} lg={4}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Net Worth Summary
-                </Typography>
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ mb: 3, textAlign: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Current Net Worth
-                    </Typography>
-                    <Typography variant="h3" color="primary">
-                      {formatCurrency(reportData.netWorthReport?.currentNetWorth)}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                      {(reportData.netWorthReport?.netWorthChange || 0) >= 0 ? (
-                        <TrendingUp sx={{ color: 'success.main', mr: 1 }} />
-                      ) : (
-                        <TrendingDown sx={{ color: 'error.main', mr: 1 }} />
-                      )}
-                      <Chip
-                        label={formatPercentage(reportData.netWorthReport?.netWorthChangePercentage)}
-                        color={
-                          (reportData.netWorthReport?.netWorthChangePercentage || 0) >= 0 ? 'success' : 'error'
+              {/* Income by Category */}
+              <Grid item xs={12} lg={4}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Income by Category
+                  </Typography>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <PieChart>
+                      <Pie
+                        data={reportData.incomeReport?.incomeByCategory 
+                          ? Object.entries(reportData.incomeReport.incomeByCategory).map(([name, value]) => ({
+                              name,
+                              value,
+                            }))
+                          : []
                         }
-                        size="small"
-                      />
-                    </Box>
-                  </Box>
-                  <Divider sx={{ my: 2 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="body1">Total Assets:</Typography>
-                    <Typography variant="h6" color="success.main">
-                      {formatCurrency(reportData.netWorthReport?.totalAssets)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="body1">Total Liabilities:</Typography>
-                    <Typography variant="h6" color="error">
-                      {formatCurrency(reportData.netWorthReport?.totalLiabilities)}
-                    </Typography>
-                  </Box>
-                  <Divider sx={{ my: 2 }} />
-                  <Alert severity="info" icon={<Info />}>
-                    {reportData.netWorthReport?.trendDescription || 'No data available'}
-                  </Alert>
-                </Box>
-              </Paper>
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {reportData.incomeReport?.incomeByCategory 
+                          ? Object.keys(reportData.incomeReport.incomeByCategory).map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))
+                          : null
+                        }
+                      </Pie>
+                      <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
             </Grid>
+          </Box>
+        )}
 
-            {/* Asset Breakdown */}
-        <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-                  Asset Breakdown
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={reportData.netWorthReport?.assetBreakdown
-                        ? Object.entries(reportData.netWorthReport.assetBreakdown).map(([name, value]) => ({
-                            name,
-                            value,
-                          }))
-                        : []
-                      }
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {reportData.netWorthReport?.assetBreakdown
-                        ? Object.keys(reportData.netWorthReport.assetBreakdown).map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))
-                        : null
-                      }
-                    </Pie>
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                  </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
+        {/* Tab 1: Income Statement */}
+        {activeTab === 1 && (
+          <IncomeStatementTab />
+        )}
 
-            {/* Liability Breakdown */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-                  Liability Breakdown
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={reportData.netWorthReport?.liabilityBreakdown
-                        ? Object.entries(reportData.netWorthReport.liabilityBreakdown).map(
-                            ([name, value]) => ({ name, value })
-                          )
-                        : []
-                      }
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {reportData.netWorthReport?.liabilityBreakdown
-                        ? Object.keys(reportData.netWorthReport.liabilityBreakdown).map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))
-                        : null
-                      }
-                    </Pie>
-                    <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
-                  </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
+        {/* Tab 2: Balance Sheet */}
+        {activeTab === 2 && (
+          <BalanceSheetTab />
+        )}
+
+        {/* Tab 3: Cash Flow */}
+        {activeTab === 3 && (
+          <CashFlowTab />
+        )}
+
+        {/* Tab 4: Custom */}
+        {activeTab === 4 && (
+          <CustomReportTab />
         )}
       </Box>
+
+      {/* ReportSettings */}
+      <Paper sx={{ mt: 3, mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            p: 2,
+            cursor: 'pointer',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+          }}
+          onClick={() => setShowReportSettings(!showReportSettings)}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SettingsIcon color="primary" />
+            <Typography variant="h6">Report Settings</Typography>
+          </Box>
+          <IconButton size="small">
+            {showReportSettings ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+        <Collapse in={showReportSettings}>
+          <Box sx={{ p: 3, pt: 0 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Data Inclusion
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.includeComparison}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, includeComparison: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Include Comparison Data"
+                />
+                <Box sx={{ mt: 1 }} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.includeInsights}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, includeInsights: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Include Financial Insights"
+                />
+                <Box sx={{ mt: 1 }} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.includePredictions}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, includePredictions: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Include Predictions"
+                />
+                <Box sx={{ mt: 1 }} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.includeTransactions}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, includeTransactions: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Include Recent Transactions"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Display Options
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.showCharts}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, showCharts: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Show Charts"
+                />
+                <Box sx={{ mt: 1 }} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.showTables}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, showTables: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Show Tables"
+                />
+                <Box sx={{ mt: 1 }} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reportSettings.showSummaryCards}
+                      onChange={(e) =>
+                        setReportSettings({ ...reportSettings, showSummaryCards: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Show Summary Cards"
+                />
+                <Box sx={{ mt: 2 }} />
+                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                  <InputLabel>Currency Format</InputLabel>
+                  <Select
+                    value={reportSettings.currencyFormat}
+                    label="Currency Format"
+                    onChange={(e) =>
+                      setReportSettings({ ...reportSettings, currencyFormat: e.target.value })
+                    }
+                  >
+                    <MenuItem value="USD">USD ($)</MenuItem>
+                    <MenuItem value="EUR">EUR (€)</MenuItem>
+                    <MenuItem value="GBP">GBP (£)</MenuItem>
+                    <MenuItem value="JPY">JPY (¥)</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                  <InputLabel>Date Format</InputLabel>
+                  <Select
+                    value={reportSettings.dateFormat}
+                    label="Date Format"
+                    onChange={(e) =>
+                      setReportSettings({ ...reportSettings, dateFormat: e.target.value })
+                    }
+                  >
+                    <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
+                    <MenuItem value="DD/MM/YYYY">DD/MM/YYYY</MenuItem>
+                    <MenuItem value="YYYY-MM-DD">YYYY-MM-DD</MenuItem>
+                    <MenuItem value="DD MMM YYYY">DD MMM YYYY</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setReportSettings({
+                    includeComparison: true,
+                    includeInsights: true,
+                    includePredictions: true,
+                    includeTransactions: true,
+                    showCharts: true,
+                    showTables: true,
+                    showSummaryCards: true,
+                    currencyFormat: 'USD',
+                    dateFormat: 'MM/DD/YYYY',
+                  });
+                }}
+              >
+                Reset to Defaults
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  fetchFinancialData();
+                }}
+              >
+                Apply Settings
+              </Button>
+            </Box>
+          </Box>
+        </Collapse>
+      </Paper>
 
       {/* Predictions Section */}
       {reportData.predictions && Array.isArray(reportData.predictions) && reportData.predictions.length > 0 && (

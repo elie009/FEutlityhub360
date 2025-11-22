@@ -44,6 +44,7 @@ import {
   Edit,
   Delete,
   CheckCircle as CheckCircleIcon,
+  Analytics,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -483,6 +484,15 @@ const Bills: React.FC = () => {
           Bills and Utility Management
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' }, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            startIcon={<Analytics />}
+            onClick={() => navigate('/variance-dashboard')}
+            size="small"
+            sx={{ mr: 1 }}
+          >
+            Variance Dashboard
+          </Button>
           <ToggleButtonGroup
             value={viewMode}
             exclusive

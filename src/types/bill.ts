@@ -148,9 +148,24 @@ export interface BillVariance {
   estimatedAmount: number;
   variance: number;
   variancePercentage: number;
-  status: 'over_budget' | 'slightly_over' | 'on_target' | 'under_budget';
+  status: 'over_budget' | 'slightly_over' | 'on_target' | 'under_budget' | 'no_data';
   message: string;
   recommendation: string;
+}
+
+// Variance Dashboard
+export interface VarianceDashboard {
+  totalActualAmount: number;
+  totalEstimatedAmount: number;
+  totalVariance: number;
+  totalBillsAnalyzed: number;
+  overBudgetCount: number;
+  slightlyOverCount: number;
+  onTargetCount: number;
+  underBudgetCount: number;
+  noDataCount: number;
+  variances: BillVariance[];
+  generatedAt: string;
 }
 
 // Budget Settings
