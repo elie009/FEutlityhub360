@@ -94,6 +94,7 @@ import CashFlowStatementTab from '../components/Reports/CashFlowStatementTab';
 import FinancialRatiosTab from '../components/Reports/FinancialRatiosTab';
 import TaxReportTab from '../components/Reports/TaxReportTab';
 import CustomReportTab from '../components/Reports/CustomReportTab';
+import BudgetVsActualTab from '../components/Reports/BudgetVsActualTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -1172,6 +1173,7 @@ const Analytics: React.FC = () => {
           <Tab label="Cash Flow" />
           <Tab label="Financial Ratios" />
           <Tab label="Tax Report" />
+          <Tab label="Budget vs Actual" />
           <Tab label="Custom" />
         </Tabs>
       </Paper>
@@ -1306,8 +1308,13 @@ const Analytics: React.FC = () => {
           <TaxReportTab />
         )}
 
-        {/* Tab 6: Custom */}
+        {/* Tab 6: Budget vs Actual */}
         {activeTab === 6 && (
+          <BudgetVsActualTab period={period} />
+        )}
+
+        {/* Tab 7: Custom */}
+        {activeTab === 7 && (
           <CustomReportTab />
         )}
       </Box>

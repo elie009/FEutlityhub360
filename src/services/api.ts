@@ -114,6 +114,7 @@ class ApiService {
         const error = new Error(errorData.message || errorData.title || `HTTP error! status: ${response.status}`);
         (error as any).status = response.status;
         (error as any).errorData = errorData;
+        (error as any).response = { data: errorData };
         
         // Handle 400 validation errors with detailed field errors
         if (response.status === 400) {
@@ -164,6 +165,70 @@ class ApiService {
       console.error('API Service: Request failed:', error);
       throw error;
     }
+  }
+
+  // Generic HTTP methods for flexible API calls
+  async get<T>(endpoint: string, options?: RequestInit): Promise<{ data: T }> {
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'GET',
+    });
+    return { data: response };
+  }
+
+  async post<T>(endpoint: string, body?: any, options?: RequestInit): Promise<{ data: T }> {
+    const isFormData = body instanceof FormData;
+    const authHeaders = this.getAuthHeaders();
+    
+    // For FormData, don't set Content-Type - let browser set it with boundary
+    // For JSON, set Content-Type
+    const headers: Record<string, string> = {};
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
+    // Always include Authorization header
+    if (authHeaders.Authorization) {
+      headers['Authorization'] = authHeaders.Authorization;
+    }
+
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'POST',
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+    });
+    return { data: response };
+  }
+
+  async put<T>(endpoint: string, body?: any, options?: RequestInit): Promise<{ data: T }> {
+    const isFormData = body instanceof FormData;
+    const headers: Record<string, string> = {};
+    
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'PUT',
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+    });
+    return { data: response };
+  }
+
+  async delete<T>(endpoint: string, options?: RequestInit): Promise<{ data: T }> {
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'DELETE',
+    });
+    return { data: response };
   }
 
 
@@ -4515,6 +4580,213 @@ class ApiService {
       return response.data;
     }
     throw new Error(response?.message || 'Failed to get allocation chart data');
+  }
+
+  // Get Budget vs Actual report
+  async getBudgetVsActualReport(startDate?: string, endDate?: string, period: string = 'MONTHLY'): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    queryParams.append('period', period);
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/Reports/budget-vs-actual${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get budget vs actual report');
+  }
+
+  // Generate custom report
+  async generateCustomReport(request: any): Promise<any> {
+    const response = await this.request<any>('/Reports/custom', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to generate custom report');
+  }
+
+  // Save custom report template
+  async saveCustomReportTemplate(template: any): Promise<any> {
+    const response = await this.request<any>('/Reports/custom/templates', {
+      method: 'POST',
+      body: JSON.stringify(template),
+    });
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to save template');
+  }
+
+  // Get custom report templates
+  async getCustomReportTemplates(): Promise<any[]> {
+    const response = await this.request<any>('/Reports/custom/templates');
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
+  // Get custom report template by ID
+  async getCustomReportTemplate(templateId: string): Promise<any> {
+    const response = await this.request<any>(`/Reports/custom/templates/${templateId}`);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get template');
+  }
+
+  // Delete custom report template
+  async deleteCustomReportTemplate(templateId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Reports/custom/templates/${templateId}`, {
+      method: 'DELETE',
+    });
+    
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete template');
+  }
+
+  // Export report
+  async exportReport(format: 'PDF' | 'CSV' | 'EXCEL', reportType: string, startDate?: string, endDate?: string): Promise<Blob> {
+    const url = `${API_BASE_URL}/Reports/export/${format.toLowerCase()}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        format,
+        reportType,
+        startDate,
+        endDate,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export report');
+    }
+
+    return await response.blob();
+  }
+
+  // ==========================================
+  // AUDIT LOGS API METHODS
+  // ==========================================
+
+  // Get audit logs with filtering
+  async getAuditLogs(query: any): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (query.userId) queryParams.append('userId', query.userId);
+    if (query.action) queryParams.append('action', query.action);
+    if (query.entityType) queryParams.append('entityType', query.entityType);
+    if (query.entityId) queryParams.append('entityId', query.entityId);
+    if (query.logType) queryParams.append('logType', query.logType);
+    if (query.severity) queryParams.append('severity', query.severity);
+    if (query.complianceType) queryParams.append('complianceType', query.complianceType);
+    if (query.category) queryParams.append('category', query.category);
+    if (query.startDate) queryParams.append('startDate', query.startDate);
+    if (query.endDate) queryParams.append('endDate', query.endDate);
+    if (query.searchTerm) queryParams.append('searchTerm', query.searchTerm);
+    if (query.page) queryParams.append('page', query.page.toString());
+    if (query.pageSize) queryParams.append('pageSize', query.pageSize.toString());
+    if (query.sortBy) queryParams.append('sortBy', query.sortBy);
+    if (query.sortOrder) queryParams.append('sortOrder', query.sortOrder);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/AuditLogs${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.request<any>(endpoint);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get audit logs');
+  }
+
+  // Get audit log by ID
+  async getAuditLog(logId: string): Promise<any> {
+    const response = await this.request<any>(`/AuditLogs/${logId}`);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get audit log');
+  }
+
+  // Get audit log summary
+  async getAuditLogSummary(startDate?: string, endDate?: string): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/AuditLogs/summary${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.request<any>(endpoint);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get audit log summary');
+  }
+
+  // Create audit log
+  async createAuditLog(logData: any): Promise<any> {
+    const response = await this.request<any>('/AuditLogs', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+    });
+
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create audit log');
+  }
+
+  // Export audit logs to CSV
+  async exportAuditLogsToCsv(query: any): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/AuditLogs/export/csv`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify(query),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export audit logs');
+    }
+
+    return await response.blob();
+  }
+
+  // Export audit logs to PDF
+  async exportAuditLogsToPdf(query: any): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/AuditLogs/export/pdf`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify(query),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export audit logs');
+    }
+
+    return await response.blob();
   }
 }
 

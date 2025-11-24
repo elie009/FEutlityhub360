@@ -484,6 +484,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   <li>Some categories (bills, savings, loans) will show additional options</li>
                   <li>Create new categories in the Categories page if needed</li>
                 </ul>
+                <Divider sx={{ my: 2 }} />
+                <strong>Double-Entry Accounting:</strong>
+                <Typography variant="caption" component="div" sx={{ display: 'block', mt: 1, mb: 1 }}>
+                  Every transaction automatically creates balanced entries:
+                </Typography>
+                <Box sx={{ fontFamily: 'monospace', bgcolor: 'background.default', p: 1.5, borderRadius: 1, mb: 1 }}>
+                  <Typography variant="caption" component="div">
+                    <strong>Example: Paying a $150 utility bill</strong>
+                  </Typography>
+                  <Typography variant="caption" component="div" sx={{ mt: 0.5, display: 'block' }}>
+                    Debit: Utility Expense → $150 (expense increases)
+                  </Typography>
+                  <Typography variant="caption" component="div">
+                    Credit: Bank Account → $150 (asset decreases)
+                  </Typography>
+                  <Typography variant="caption" component="div" sx={{ mt: 0.5, color: 'success.main', fontWeight: 'bold' }}>
+                    ✓ Total Debits = Total Credits
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  The system validates this automatically - you don't need to worry about it!
+                </Typography>
+                <Divider sx={{ my: 2 }} />
                 <strong>Common Examples:</strong>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
                   <Chip label="DEBIT: Grocery shopping → Category: GROCERIES" size="small" variant="outlined" />

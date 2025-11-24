@@ -37,6 +37,9 @@ import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
 import Documentation from './pages/Documentation';
 import CategoryManagement from './components/Categories/CategoryManagement';
+import AuditLogs from './pages/AuditLogs';
+import Receipts from './pages/Receipts';
+import AccountingGuide from './pages/AccountingGuide';
 import { FinanceLoader } from './components/Common';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -150,6 +153,11 @@ const AppRoutes: React.FC = () => {
               <Receivables />
             </ProtectedRoute>
           } />
+          <Route path="receipts" element={
+            <ProtectedRoute>
+              <Receipts />
+            </ProtectedRoute>
+          } />
           <Route path="apportioner" element={
             <ProtectedRoute>
               <Apportioner />
@@ -188,6 +196,16 @@ const AppRoutes: React.FC = () => {
           <Route path="documentation" element={
             <ProtectedRoute>
               <Documentation />
+            </ProtectedRoute>
+          } />
+          <Route path="audit-logs" element={
+            <ProtectedRoute>
+              <AuditLogs />
+            </ProtectedRoute>
+          } />
+          <Route path="accounting-guide" element={
+            <ProtectedRoute>
+              <AccountingGuide />
             </ProtectedRoute>
           } />
           <Route path="reports" element={<Navigate to="/analytics" replace />} />

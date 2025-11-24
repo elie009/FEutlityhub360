@@ -39,6 +39,8 @@ import {
   Category as CategoryIcon,
   Bolt as UtilitiesIcon,
   ShoppingCart as ExpensesIcon,
+  History as AuditLogsIcon,
+  School as AccountingGuideIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -74,6 +76,8 @@ const menuItems: MenuItem[] = [
   { text: 'Apportioner', icon: <ApportionerIcon />, path: '/apportioner' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
   { text: 'Reports & Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+  { text: 'Accounting Guide', icon: <AccountingGuideIcon />, path: '/accounting-guide' },
+  { text: 'Audit Logs', icon: <AuditLogsIcon />, path: '/audit-logs' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   { text: 'Support', icon: <SupportIcon />, path: '/support' },
   { text: 'Documentation', icon: <DocumentationIcon />, path: '/documentation' },
