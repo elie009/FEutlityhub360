@@ -34,6 +34,12 @@ import {
   CompareArrows as ReconciliationIcon,
   History as AuditLogsIcon,
   School as AccountingGuideIcon,
+  AccountCircle as AccountsIcon,
+  ManageAccounts as AdministrativeIcon,
+  Calculate as PlanningIcon,
+  Category as CategoryIcon,
+  Bolt as UtilitiesIcon,
+  ShoppingCart as ExpensesIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -52,36 +58,175 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+  // ============================================
+  // CATEGORY 1: OVERVIEW & DASHBOARD
+  // ============================================
+  { 
+    text: 'Dashboard', 
+    icon: <DashboardIcon />, 
+    path: '/'
+  },
+
+  // ============================================
+  // CATEGORY 2: ACCOUNT MANAGEMENT
+  // ============================================
   {
-    text: 'Finance',
-    icon: <FinanceIcon />,
+    text: 'Accounts',
+    icon: <AccountsIcon />,
     children: [
-      { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
-      { text: 'Bills and Utility', icon: <ReceiptIcon />, path: '/bills' },
-      { text: 'Bank Accounts', icon: <BankAccountIcon />, path: '/bank-accounts' },
-      { text: 'Reconciliation', icon: <ReconciliationIcon />, path: '/reconciliation' },
-      { text: 'Savings', icon: <SavingsIcon />, path: '/savings' },
-      { text: 'Income Sources', icon: <IncomeIcon />, path: '/income-sources' },
-      { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },
-      { text: 'Receivables', icon: <ReceivablesIcon />, path: '/receivables' },
+      { 
+        text: 'Bank Accounts', 
+        icon: <BankAccountIcon />, 
+        path: '/bank-accounts'
+      },
+      { 
+        text: 'Reconciliation', 
+        icon: <ReconciliationIcon />, 
+        path: '/reconciliation'
+      },
     ],
   },
-  { text: 'Apportioner', icon: <ApportionerIcon />, path: '/apportioner' },
-  { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
-  { text: 'Reports & Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-  { text: 'Accounting Guide', icon: <AccountingGuideIcon />, path: '/accounting-guide' },
-  { text: 'Audit Logs', icon: <AuditLogsIcon />, path: '/audit-logs' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-  { text: 'Support', icon: <SupportIcon />, path: '/support' },
-  { text: 'Documentation', icon: <DocumentationIcon />, path: '/documentation' },
+
+  // ============================================
+  // CATEGORY 3: INCOME MANAGEMENT
+  // ============================================
+  {
+    text: 'Income',
+    icon: <IncomeIcon />,
+    children: [
+      { 
+        text: 'Income Sources', 
+        icon: <IncomeIcon />, 
+        path: '/income-sources'
+      },
+      { 
+        text: 'Receivables', 
+        icon: <ReceivablesIcon />, 
+        path: '/receivables'
+      },
+    ],
+  },
+
+  // ============================================
+  // CATEGORY 4: EXPENSE MANAGEMENT
+  // ============================================
+  {
+    text: 'Expenses',
+    icon: <ExpensesIcon />,
+    children: [
+      { 
+        text: 'Transactions', 
+        icon: <TransactionsIcon />, 
+        path: '/transactions'
+      },
+      { 
+        text: 'Expenses', 
+        icon: <ExpensesIcon />, 
+        path: '/expenses'
+      },
+      { 
+        text: 'Categories', 
+        icon: <CategoryIcon />, 
+        path: '/categories'
+      },
+      { 
+        text: 'Bills', 
+        icon: <ReceiptIcon />, 
+        path: '/bills'
+      },
+      { 
+        text: 'Utilities', 
+        icon: <UtilitiesIcon />, 
+        path: '/utilities'
+      },
+    ],
+  },
+
+  // ============================================
+  // CATEGORY 5: FINANCIAL PLANNING
+  // ============================================
+  {
+    text: 'Planning',
+    icon: <PlanningIcon />,
+    children: [
+      { 
+        text: 'Allocation Planner', 
+        icon: <ApportionerIcon />, 
+        path: '/apportioner'
+      },
+      { 
+        text: 'Savings', 
+        icon: <SavingsIcon />, 
+        path: '/savings'
+      },
+      { 
+        text: 'Loans', 
+        icon: <CreditCardIcon />, 
+        path: '/loans'
+      },
+    ],
+  },
+
+  // ============================================
+  // CATEGORY 6: REPORTING & ANALYTICS
+  // ============================================
+  { 
+    text: 'Reports & Analytics', 
+    icon: <AnalyticsIcon />, 
+    path: '/analytics'
+  },
+
+  // ============================================
+  // CATEGORY 7: OPERATIONS
+  // ============================================
+  { 
+    text: 'Notifications', 
+    icon: <NotificationsIcon />, 
+    path: '/notifications'
+  },
+
+  // ============================================
+  // CATEGORY 8: ADMINISTRATIVE
+  // ============================================
+  {
+    text: 'Administrative',
+    icon: <AdministrativeIcon />,
+    children: [
+      { 
+        text: 'Accounting Guide', 
+        icon: <AccountingGuideIcon />, 
+        path: '/accounting-guide'
+      },
+      { 
+        text: 'Audit Logs', 
+        icon: <AuditLogsIcon />, 
+        path: '/audit-logs'
+      },
+      { 
+        text: 'Settings', 
+        icon: <SettingsIcon />, 
+        path: '/settings'
+      },
+      { 
+        text: 'Support', 
+        icon: <SupportIcon />, 
+        path: '/support'
+      },
+      { 
+        text: 'Documentation', 
+        icon: <DocumentationIcon />, 
+        path: '/documentation'
+      },
+    ],
+  },
 ];
 
 const Drawer: React.FC<DrawerProps> = ({ open, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
-    Finance: true, // Finance section open by default
+    // All sections collapsed by default for cleaner initial view
+    // Users can expand sections as needed
   });
 
   const handleNavigation = (path: string) => {
