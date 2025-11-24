@@ -3,12 +3,20 @@ import {
   Container, Typography, Box, Grid, Card, CardContent, Alert,
   TextField, Button, FormControl, InputLabel, Select, MenuItem,
   Slider, Chip, Divider, Paper, LinearProgress, Stack,
-  IconButton, Tooltip,
+  IconButton, Tooltip, Tabs, Tab, List, ListItem, ListItemText,
+  ListItemIcon, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, AccountBalance, AttachMoney,
   CalendarToday, Flag, Savings, Calculate, DragIndicator,
+  Lightbulb, PieChart, Timeline, Assessment, CheckCircle,
+  Warning, Info, Close,
 } from '@mui/icons-material';
+import {
+  PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  Legend, ResponsiveContainer, ComposedChart,
+} from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
@@ -64,11 +72,52 @@ const Apportioner: React.FC = () => {
   // Graph maximum value from total monthly income API
   const [graphMaxValue, setGraphMaxValue] = useState(1000);
 
+  // Allocation Planner State
+  const [allocationTemplates, setAllocationTemplates] = useState<any[]>([]);
+  const [activePlan, setActivePlan] = useState<any | null>(null);
+  const [allocationHistory, setAllocationHistory] = useState<any[]>([]);
+  const [allocationTrends, setAllocationTrends] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any>(null);
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
   useEffect(() => {
     if (user?.id) {
       loadFinancialData();
+      loadAllocationData();
     }
   }, [user?.id]);
+
+  const loadAllocationData = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Load templates, active plan, history, trends, and recommendations
+      const [templates, plan, history, trends, recs] = await Promise.all([
+        apiService.getAllocationTemplates().catch(() => []),
+        apiService.getActiveAllocationPlan().catch(() => null),
+        apiService.getAllocationHistory({ months: 12 }).catch(() => []),
+        apiService.getAllocationTrends(undefined, 12).catch(() => []),
+        apiService.getAllocationRecommendations().catch(() => []),
+      ]);
+
+      // Load chart data after we have the plan
+      const chart = plan 
+        ? await apiService.getAllocationChartData(plan.id).catch(() => null)
+        : null;
+
+      setAllocationTemplates(templates);
+      setActivePlan(plan);
+      setAllocationHistory(history);
+      setAllocationTrends(trends);
+      setRecommendations(recs);
+      setChartData(chart);
+    } catch (err) {
+      console.error('Failed to load allocation data:', err);
+    }
+  };
 
   useEffect(() => {
     if (targetAmount && targetDate) {
@@ -977,6 +1026,241 @@ const Apportioner: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Allocation Planner Section */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Allocation Planner
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<PieChart />}
+              onClick={() => setTemplateDialogOpen(true)}
+            >
+              Use Template
+            </Button>
+          </Box>
+          <Divider sx={{ mb: 3 }} />
+
+          <Tabs value={selectedTab} onChange={(_, v) => setSelectedTab(v)} sx={{ mb: 3 }}>
+            <Tab label="Current Plan" icon={<Assessment />} iconPosition="start" />
+            <Tab label="Charts" icon={<PieChart />} iconPosition="start" />
+            <Tab label="Trends" icon={<Timeline />} iconPosition="start" />
+            <Tab label="Recommendations" icon={<Lightbulb />} iconPosition="start" />
+          </Tabs>
+
+          {selectedTab === 0 && (
+            <Box>
+              {activePlan ? (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle1" gutterBottom>
+                      {activePlan.planName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Monthly Income: {formatCurrency(activePlan.monthlyIncome)}
+                    </Typography>
+                  </Grid>
+                  {activePlan.categories?.map((category: any) => (
+                    <Grid item xs={12} sm={6} md={4} key={category.id}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="subtitle2">{category.categoryName}</Typography>
+                            <Chip
+                              label={category.status === 'on_track' ? 'On Track' : category.status === 'over_budget' ? 'Over' : 'Under'}
+                              color={category.status === 'on_track' ? 'success' : category.status === 'over_budget' ? 'error' : 'warning'}
+                              size="small"
+                            />
+                          </Box>
+                          <Typography variant="h6">{formatCurrency(category.allocatedAmount)}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {category.percentage}% of income
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Actual: {formatCurrency(category.actualAmount || 0)}
+                          </Typography>
+                          {category.variance !== 0 && (
+                            <Typography
+                              variant="body2"
+                              color={category.variance < 0 ? 'error.main' : 'success.main'}
+                            >
+                              Variance: {formatCurrency(category.variance)}
+                            </Typography>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Alert severity="info">
+                  No active allocation plan. Create one using a template or manually.
+                </Alert>
+              )}
+            </Box>
+          )}
+
+          {selectedTab === 1 && chartData && (
+            <Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" gutterBottom>Allocation Pie Chart</Typography>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={chartData.dataPoints}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="allocatedAmount"
+                      >
+                        {chartData.dataPoints.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color || `#${Math.floor(Math.random()*16777215).toString(16)}`} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" gutterBottom>Allocated vs Actual</Typography>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData.dataPoints}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="categoryName" />
+                      <YAxis />
+                      <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                      <Bar dataKey="allocatedAmount" fill="#8884d8" name="Allocated" />
+                      <Bar dataKey="actualAmount" fill="#82ca9d" name="Actual" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+
+          {selectedTab === 2 && allocationTrends.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>Allocation Trends (Last 12 Months)</Typography>
+              <ResponsiveContainer width="100%" height={400}>
+                <ComposedChart data={allocationTrends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="periodDate" />
+                  <YAxis />
+                  <RechartsTooltip formatter={(value: any) => formatCurrency(value)} />
+                  <Legend />
+                  <Bar dataKey="totalAllocated" fill="#8884d8" name="Allocated" />
+                  <Bar dataKey="totalActual" fill="#82ca9d" name="Actual" />
+                  <Line type="monotone" dataKey="totalAllocated" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="totalActual" stroke="#82ca9d" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </Box>
+          )}
+
+          {selectedTab === 3 && (
+            <Box>
+              {recommendations.length > 0 ? (
+                <List>
+                  {recommendations.map((rec: any) => (
+                    <ListItem key={rec.id}>
+                      <ListItemIcon>
+                        {rec.priority === 'urgent' ? <Warning color="error" /> :
+                         rec.priority === 'high' ? <Warning color="warning" /> :
+                         <Info color="info" />}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={rec.title}
+                        secondary={rec.message}
+                      />
+                      <Button
+                        size="small"
+                        onClick={async () => {
+                          try {
+                            await apiService.applyRecommendation(rec.id);
+                            await loadAllocationData();
+                          } catch (err) {
+                            console.error('Failed to apply recommendation:', err);
+                          }
+                        }}
+                      >
+                        Apply
+                      </Button>
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Alert severity="info">No recommendations available. Generate recommendations to get personalized advice.</Alert>
+              )}
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Template Selection Dialog */}
+      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Select Allocation Template
+          <IconButton
+            onClick={() => setTemplateDialogOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Template</InputLabel>
+            <Select
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+            >
+              {allocationTemplates.map((template) => (
+                <MenuItem key={template.id} value={template.id}>
+                  {template.name} - {template.description}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {selectedTemplate && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>Template Breakdown:</Typography>
+              {allocationTemplates.find(t => t.id === selectedTemplate)?.categories.map((cat: any) => (
+                <Typography key={cat.id} variant="body2">
+                  {cat.categoryName}: {cat.percentage}%
+                </Typography>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemplateDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (selectedTemplate && adjustableValues.monthlyIncome > 0) {
+                try {
+                  await apiService.applyAllocationTemplate(selectedTemplate, adjustableValues.monthlyIncome);
+                  await loadAllocationData();
+                  setTemplateDialogOpen(false);
+                } catch (err) {
+                  console.error('Failed to apply template:', err);
+                }
+              }
+            }}
+            disabled={!selectedTemplate || adjustableValues.monthlyIncome <= 0}
+          >
+            Apply Template
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

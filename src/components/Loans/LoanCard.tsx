@@ -25,7 +25,7 @@ import {
   Warning,
   NotificationImportant,
 } from '@mui/icons-material';
-import { Loan, LoanStatus } from '../../types/loan';
+import { Loan, LoanStatus, LoanType } from '../../types/loan';
 import { formatDueDate, getDueDateColor, isOverdue, isDueToday, isDueSoon } from '../../utils/dateUtils';
 import { useCurrency } from '../../contexts/CurrencyContext';
 
@@ -92,9 +92,29 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
           />
         </Box>
 
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {loan.purpose}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {loan.purpose}
+          </Typography>
+          {loan.loanType && (
+            <Chip
+              label={loan.loanType.replace('_', ' ')}
+              size="small"
+              variant="outlined"
+              color="primary"
+            />
+          )}
+        </Box>
+        
+        {/* Refinancing Info */}
+        {loan.refinancedFromLoanId && (
+          <Alert severity="info" sx={{ mb: 1, py: 0.5 }}>
+            <Typography variant="caption">
+              Refinanced from Loan #{loan.refinancedFromLoanId.slice(-8).toUpperCase()}
+              {loan.refinancingDate && ` on ${formatDate(loan.refinancingDate)}`}
+            </Typography>
+          </Alert>
+        )}
 
         {/* Next Due Date Alert */}
         {showDueDateAlert && (
@@ -139,6 +159,11 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
             <Typography variant="h6">
               {loan.interestRate}%
             </Typography>
+            {loan.effectiveInterestRate && loan.effectiveInterestRate !== loan.interestRate && (
+              <Typography variant="caption" color="text.secondary">
+                APR: {loan.effectiveInterestRate.toFixed(2)}%
+              </Typography>
+            )}
           </Grid>
 
           <Grid item xs={6}>

@@ -17,6 +17,7 @@ import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Bills from './pages/Bills';
 import BillDetails from './pages/BillDetails';
+import Utilities from './pages/Utilities';
 import Analytics from './pages/Analytics';
 import BalanceSheet from './pages/BalanceSheet';
 import VarianceDashboard from './pages/VarianceDashboard';
@@ -24,15 +25,18 @@ import Support from './pages/Support';
 import Settings from './pages/Settings';
 import Contact from './pages/Contact';
 import Transactions from './pages/Transactions';
+import Expenses from './pages/Expenses';
 import Apportioner from './pages/Apportioner';
 import BankAccounts from './pages/BankAccounts';
 import Savings from './pages/Savings';
 import IncomeSources from './pages/IncomeSources';
 import Receivables from './pages/Receivables';
+import Reconciliation from './pages/Reconciliation';
 import LoanDashboard from './components/Loans/LoanDashboard';
 import LoanDetails from './components/Loans/LoanDetails';
 import NotificationCenter from './components/Notifications/NotificationCenter';
 import Documentation from './pages/Documentation';
+import CategoryManagement from './components/Categories/CategoryManagement';
 import { FinanceLoader } from './components/Common';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -95,6 +99,11 @@ const AppRoutes: React.FC = () => {
               <BillDetails />
             </ProtectedRoute>
           } />
+          <Route path="utilities" element={
+            <ProtectedRoute>
+              <Utilities />
+            </ProtectedRoute>
+          } />
           <Route path="analytics" element={
             <ProtectedRoute>
               <Analytics />
@@ -121,6 +130,16 @@ const AppRoutes: React.FC = () => {
               <Transactions />
             </ProtectedRoute>
           } />
+          <Route path="expenses" element={
+            <ProtectedRoute>
+              <Expenses />
+            </ProtectedRoute>
+          } />
+          <Route path="categories" element={
+            <ProtectedRoute>
+              <CategoryManagement />
+            </ProtectedRoute>
+          } />
           <Route path="income-sources" element={
             <ProtectedRoute>
               <IncomeSources />
@@ -144,6 +163,11 @@ const AppRoutes: React.FC = () => {
           <Route path="savings" element={
             <ProtectedRoute>
               <Savings />
+            </ProtectedRoute>
+          } />
+          <Route path="reconciliation" element={
+            <ProtectedRoute>
+              <Reconciliation />
             </ProtectedRoute>
           } />
           <Route path="loans" element={

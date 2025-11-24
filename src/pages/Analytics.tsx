@@ -94,6 +94,8 @@ import CashFlowStatementTab from '../components/Reports/CashFlowStatementTab';
 import FinancialRatiosTab from '../components/Reports/FinancialRatiosTab';
 import TaxReportTab from '../components/Reports/TaxReportTab';
 import CustomReportTab from '../components/Reports/CustomReportTab';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const Analytics: React.FC = () => {
   const { getCurrencySymbol, formatCurrency: formatCurrencyWithSymbol } = useCurrency();
@@ -302,10 +304,298 @@ const Analytics: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const downloadReport = (type: string) => {
-    // This would generate and download a PDF report
-    console.log(`Downloading ${type} report for period: ${selectedPeriod}`);
-    // Future implementation: Generate and download PDF report
+  const downloadReport = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all reports
+      const [
+        balanceSheet,
+        incomeStatement,
+        cashFlowStatement,
+        financialRatios,
+        taxReport,
+      ] = await Promise.all([
+        apiService.getBalanceSheet().catch(() => null),
+        apiService.getIncomeStatement(undefined, undefined, period).catch(() => null),
+        apiService.getCashFlowStatement(undefined, undefined, period).catch(() => null),
+        apiService.getFinancialRatios().catch(() => null),
+        apiService.getTaxReport(new Date().getFullYear()).catch(() => null),
+      ]);
+
+      // Create PDF
+      const doc = new jsPDF();
+      let yPosition = 20;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 20;
+      const lineHeight = 7;
+
+      // Helper function to add new page if needed
+      const checkPageBreak = (requiredSpace: number = 20) => {
+        if (yPosition + requiredSpace > pageHeight - margin) {
+          doc.addPage();
+          yPosition = margin;
+        }
+      };
+
+      // Helper function to add section title
+      const addSectionTitle = (title: string) => {
+        checkPageBreak(15);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, margin, yPosition);
+        yPosition += 10;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+      };
+
+      // Helper function to add text
+      const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+        checkPageBreak();
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.text(text, margin, yPosition);
+        yPosition += lineHeight;
+      };
+
+      // Helper function to add table
+      const addTable = (headers: string[], rows: string[][]) => {
+        checkPageBreak(30);
+        autoTable(doc, {
+          head: [headers],
+          body: rows,
+          startY: yPosition,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [66, 139, 202], textColor: 255, fontStyle: 'bold' },
+        });
+        yPosition = (doc as any).lastAutoTable.finalY + 10;
+      };
+
+      // Title Page
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Financial Reports', margin, yPosition);
+      yPosition += 10;
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin, yPosition);
+      yPosition += 10;
+      doc.text(`Period: ${period}`, margin, yPosition);
+      yPosition += 15;
+
+      // Financial Summary
+      if (reportData?.summary) {
+        addSectionTitle('Financial Summary');
+        const summary = reportData.summary;
+        addTable(
+          ['Metric', 'Value', 'Change'],
+          [
+            ['Total Income', formatCurrency(summary.totalIncome), `${summary.incomeChange >= 0 ? '+' : ''}${summary.incomeChange.toFixed(2)}%`],
+            ['Total Expenses', formatCurrency(summary.totalExpenses), `${summary.expenseChange >= 0 ? '+' : ''}${summary.expenseChange.toFixed(2)}%`],
+            ['Disposable Income', formatCurrency(summary.disposableIncome), `${summary.disposableChange >= 0 ? '+' : ''}${summary.disposableChange.toFixed(2)}%`],
+            ['Net Worth', formatCurrency(summary.netWorth), `${summary.netWorthChange >= 0 ? '+' : ''}${summary.netWorthChange.toFixed(2)}%`],
+            ['Total Savings', formatCurrency(summary.totalSavings), ''],
+            ['Savings Progress', `${summary.savingsProgress.toFixed(1)}%`, ''],
+          ]
+        );
+      }
+
+      // Balance Sheet
+      if (balanceSheet) {
+        addSectionTitle('Balance Sheet');
+        addText(`As of: ${new Date(balanceSheet.asOfDate).toLocaleDateString()}`, 10, true);
+        yPosition += 5;
+
+        // Assets
+        addText('ASSETS', 12, true);
+        const assetRows: string[][] = [];
+        balanceSheet.assets.currentAssets.forEach(asset => {
+          assetRows.push([asset.accountName, asset.accountType, formatCurrency(asset.amount)]);
+        });
+        if (assetRows.length > 0) {
+          addTable(['Account', 'Type', 'Amount'], assetRows);
+        }
+        addText(`Total Current Assets: ${formatCurrency(balanceSheet.assets.totalCurrentAssets)}`, 10, true);
+        yPosition += 5;
+        addText(`Total Assets: ${formatCurrency(balanceSheet.totalAssets)}`, 10, true);
+        yPosition += 10;
+
+        // Liabilities
+        addText('LIABILITIES', 12, true);
+        const liabilityRows: string[][] = [];
+        balanceSheet.liabilities.currentLiabilities.forEach(liability => {
+          liabilityRows.push([liability.accountName, liability.accountType, formatCurrency(liability.amount)]);
+        });
+        balanceSheet.liabilities.longTermLiabilities.forEach(liability => {
+          liabilityRows.push([liability.accountName, liability.accountType, formatCurrency(liability.amount)]);
+        });
+        if (liabilityRows.length > 0) {
+          addTable(['Account', 'Type', 'Amount'], liabilityRows);
+        }
+        addText(`Total Liabilities: ${formatCurrency(balanceSheet.liabilities.totalLiabilities)}`, 10, true);
+        yPosition += 10;
+
+        // Equity
+        addText('EQUITY', 12, true);
+        addText(`Owner's Capital: ${formatCurrency(balanceSheet.equity.ownersCapital)}`, 10);
+        addText(`Retained Earnings: ${formatCurrency(balanceSheet.equity.retainedEarnings)}`, 10);
+        addText(`Total Equity: ${formatCurrency(balanceSheet.equity.totalEquity)}`, 10, true);
+        yPosition += 5;
+        addText(`Total Liabilities & Equity: ${formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}`, 10, true);
+        addText(`Balanced: ${balanceSheet.isBalanced ? 'Yes' : 'No'}`, 10);
+        yPosition += 10;
+      }
+
+      // Income Statement
+      if (incomeStatement) {
+        addSectionTitle('Income Statement');
+        addText(`Period: ${new Date(incomeStatement.periodStart).toLocaleDateString()} - ${new Date(incomeStatement.periodEnd).toLocaleDateString()}`, 10);
+        yPosition += 5;
+
+        // Revenue
+        addText('REVENUE', 12, true);
+        const revenueRows: string[][] = [];
+        incomeStatement.revenue.revenueItems.forEach(item => {
+          revenueRows.push([item.accountName, item.category, formatCurrency(item.amount)]);
+        });
+        if (revenueRows.length > 0) {
+          addTable(['Source', 'Category', 'Amount'], revenueRows);
+        }
+        addText(`Total Revenue: ${formatCurrency(incomeStatement.revenue.totalRevenue)}`, 10, true);
+        yPosition += 10;
+
+        // Expenses
+        addText('EXPENSES', 12, true);
+        const expenseRows: string[][] = [];
+        incomeStatement.expenses.expenseItems.forEach(item => {
+          expenseRows.push([item.accountName, item.category, formatCurrency(item.amount)]);
+        });
+        if (expenseRows.length > 0) {
+          addTable(['Item', 'Category', 'Amount'], expenseRows);
+        }
+        addText(`Total Expenses: ${formatCurrency(incomeStatement.expenses.totalExpenses)}`, 10, true);
+        yPosition += 10;
+
+        // Net Income
+        addText(`NET INCOME: ${formatCurrency(incomeStatement.netIncome)}`, 14, true);
+        yPosition += 10;
+      }
+
+      // Cash Flow Statement
+      if (cashFlowStatement) {
+        addSectionTitle('Cash Flow Statement');
+        addText(`Period: ${new Date(cashFlowStatement.periodStart).toLocaleDateString()} - ${new Date(cashFlowStatement.periodEnd).toLocaleDateString()}`, 10);
+        yPosition += 5;
+
+        // Operating Activities
+        addText('OPERATING ACTIVITIES', 12, true);
+        addText(`Income Received: ${formatCurrency(cashFlowStatement.operatingActivities.incomeReceived)}`, 10);
+        addText(`Expenses Paid: ${formatCurrency(cashFlowStatement.operatingActivities.expensesPaid)}`, 10);
+        addText(`Bills Paid: ${formatCurrency(cashFlowStatement.operatingActivities.billsPaid)}`, 10);
+        addText(`Net Cash from Operations: ${formatCurrency(cashFlowStatement.operatingActivities.netCashFromOperations)}`, 10, true);
+        yPosition += 10;
+
+        // Investing Activities
+        addText('INVESTING ACTIVITIES', 12, true);
+        addText(`Savings Deposits: ${formatCurrency(cashFlowStatement.investingActivities.savingsDeposits)}`, 10);
+        addText(`Savings Withdrawals: ${formatCurrency(cashFlowStatement.investingActivities.savingsWithdrawals)}`, 10);
+        addText(`Net Cash from Investing: ${formatCurrency(cashFlowStatement.investingActivities.netCashFromInvesting)}`, 10, true);
+        yPosition += 10;
+
+        // Financing Activities
+        addText('FINANCING ACTIVITIES', 12, true);
+        addText(`Loan Disbursements: ${formatCurrency(cashFlowStatement.financingActivities.loanDisbursements)}`, 10);
+        addText(`Loan Payments: ${formatCurrency(cashFlowStatement.financingActivities.loanPayments)}`, 10);
+        addText(`Net Cash from Financing: ${formatCurrency(cashFlowStatement.financingActivities.netCashFromFinancing)}`, 10, true);
+        yPosition += 10;
+
+        addText(`Net Cash Flow: ${formatCurrency(cashFlowStatement.netCashFlow)}`, 12, true);
+        addText(`Beginning Cash: ${formatCurrency(cashFlowStatement.beginningCash)}`, 10);
+        addText(`Ending Cash: ${formatCurrency(cashFlowStatement.endingCash)}`, 10, true);
+        yPosition += 10;
+      }
+
+      // Financial Ratios
+      if (financialRatios) {
+        addSectionTitle('Financial Ratios');
+        addText(`As of: ${new Date(financialRatios.asOfDate).toLocaleDateString()}`, 10);
+        yPosition += 5;
+
+        // Liquidity Ratios
+        addText('LIQUIDITY RATIOS', 12, true);
+        addText(`Current Ratio: ${financialRatios.liquidity.currentRatio.toFixed(2)} (${financialRatios.liquidity.currentRatioInterpretation})`, 10);
+        addText(`Quick Ratio: ${financialRatios.liquidity.quickRatio.toFixed(2)} (${financialRatios.liquidity.quickRatioInterpretation})`, 10);
+        addText(`Cash Ratio: ${financialRatios.liquidity.cashRatio.toFixed(2)} (${financialRatios.liquidity.cashRatioInterpretation})`, 10);
+        yPosition += 10;
+
+        // Debt Ratios
+        addText('DEBT RATIOS', 12, true);
+        addText(`Debt-to-Equity: ${financialRatios.debt.debtToEquityRatio.toFixed(2)} (${financialRatios.debt.debtToEquityInterpretation})`, 10);
+        addText(`Debt-to-Assets: ${financialRatios.debt.debtToAssetsRatio.toFixed(2)} (${financialRatios.debt.debtToAssetsInterpretation})`, 10);
+        addText(`Debt Service Coverage: ${financialRatios.debt.debtServiceCoverageRatio.toFixed(2)} (${financialRatios.debt.debtServiceCoverageInterpretation})`, 10);
+        yPosition += 10;
+
+        // Profitability Ratios
+        addText('PROFITABILITY RATIOS', 12, true);
+        addText(`Net Profit Margin: ${financialRatios.profitability.netProfitMargin.toFixed(2)}% (${financialRatios.profitability.netProfitMarginInterpretation})`, 10);
+        addText(`Return on Assets (ROA): ${financialRatios.profitability.returnOnAssets.toFixed(2)}% (${financialRatios.profitability.returnOnAssetsInterpretation})`, 10);
+        addText(`Return on Equity (ROE): ${financialRatios.profitability.returnOnEquity.toFixed(2)}% (${financialRatios.profitability.returnOnEquityInterpretation})`, 10);
+        yPosition += 10;
+
+        // Efficiency Ratios
+        addText('EFFICIENCY RATIOS', 12, true);
+        addText(`Asset Turnover: ${financialRatios.efficiency.assetTurnover.toFixed(2)} (${financialRatios.efficiency.assetTurnoverInterpretation})`, 10);
+        addText(`Expense Ratio: ${financialRatios.efficiency.expenseRatio.toFixed(2)}% (${financialRatios.efficiency.expenseRatioInterpretation})`, 10);
+        addText(`Savings Rate: ${financialRatios.efficiency.savingsRate.toFixed(2)}% (${financialRatios.efficiency.savingsRateInterpretation})`, 10);
+        yPosition += 10;
+      }
+
+      // Tax Report
+      if (taxReport) {
+        addSectionTitle('Tax Report');
+        addText(`Tax Year: ${taxReport.taxYear}`, 10, true);
+        addText(`Period: ${new Date(taxReport.periodStart).toLocaleDateString()} - ${new Date(taxReport.periodEnd).toLocaleDateString()}`, 10);
+        yPosition += 5;
+
+        // Income Summary
+        addText('INCOME SUMMARY', 12, true);
+        addText(`Total Income: ${formatCurrency(taxReport.incomeSummary.totalIncome)}`, 10);
+        addText(`Taxable Income: ${formatCurrency(taxReport.incomeSummary.taxableIncome)}`, 10, true);
+        yPosition += 5;
+
+        // Deductions
+        addText('DEDUCTIONS', 12, true);
+        addText(`Business Expenses: ${formatCurrency(taxReport.deductions.businessExpenses)}`, 10);
+        addText(`Personal Deductions: ${formatCurrency(taxReport.deductions.personalDeductions)}`, 10);
+        addText(`Standard Deduction: ${formatCurrency(taxReport.deductions.standardDeduction)}`, 10);
+        addText(`Total Deductions: ${formatCurrency(taxReport.deductions.totalDeductions)}`, 10, true);
+        yPosition += 5;
+
+        // Tax Calculation
+        addText('TAX CALCULATION', 12, true);
+        addText(`Adjusted Gross Income: ${formatCurrency(taxReport.taxCalculation.adjustedGrossIncome)}`, 10);
+        addText(`Taxable Income: ${formatCurrency(taxReport.taxCalculation.taxableIncome)}`, 10);
+        addText(`Effective Tax Rate: ${taxReport.taxCalculation.effectiveTaxRate.toFixed(2)}%`, 10);
+        addText(`Marginal Tax Rate: ${taxReport.taxCalculation.marginalTaxRate.toFixed(2)}%`, 10);
+        addText(`Estimated Tax Liability: ${formatCurrency(taxReport.taxCalculation.estimatedTaxLiability)}`, 10, true);
+        yPosition += 10;
+      }
+
+      // Generate filename with timestamp including milliseconds
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}${String(now.getMilliseconds()).padStart(3, '0')}`;
+      const filename = `Financial_Reports_${timestamp}.pdf`;
+
+      // Save PDF
+      doc.save(filename);
+      
+      setLoading(false);
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      setError(`Failed to generate PDF: ${error.message}`);
+      setLoading(false);
+    }
   };
 
   // Calculate Net Worth breakdown
@@ -568,8 +858,9 @@ const Analytics: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<Download />}
-            onClick={() => downloadReport('summary')}
+            onClick={downloadReport}
             size="small"
+            disabled={loading}
           >
             Export
           </Button>

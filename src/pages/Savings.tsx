@@ -45,7 +45,7 @@ import {
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { SavingsAccount, SavingsType, SavingsSummary } from '../types/savings';
+import { SavingsAccount, SavingsType, SavingsSummary, SavingsAccountType, InterestCompoundingFrequency } from '../types/savings';
 import { BankAccount } from '../types/bankAccount';
 
 const Savings: React.FC = () => {
@@ -73,6 +73,9 @@ const Savings: React.FC = () => {
   const [formData, setFormData] = useState({
     accountName: '',
     savingsType: SavingsType.EMERGENCY,
+    accountType: SavingsAccountType.REGULAR,
+    interestRate: '',
+    interestCompoundingFrequency: InterestCompoundingFrequency.MONTHLY,
     targetAmount: '',
     description: '',
     goal: '',
@@ -142,6 +145,9 @@ const Savings: React.FC = () => {
       await apiService.createSavingsAccount({
         accountName: formData.accountName,
         savingsType: formData.savingsType,
+        accountType: formData.accountType,
+        interestRate: formData.interestRate ? parseFloat(formData.interestRate) / 100 : undefined,
+        interestCompoundingFrequency: formData.interestRate ? formData.interestCompoundingFrequency : undefined,
         targetAmount: parseFloat(formData.targetAmount),
         description: formData.description,
         goal: formData.goal,
@@ -172,6 +178,9 @@ const Savings: React.FC = () => {
       await apiService.updateSavingsAccount(selectedAccount.id, {
         accountName: formData.accountName,
         savingsType: formData.savingsType,
+        accountType: formData.accountType,
+        interestRate: formData.interestRate ? parseFloat(formData.interestRate) / 100 : undefined,
+        interestCompoundingFrequency: formData.interestRate ? formData.interestCompoundingFrequency : undefined,
         targetAmount: parseFloat(formData.targetAmount),
         description: formData.description,
         goal: formData.goal,
@@ -259,6 +268,9 @@ const Savings: React.FC = () => {
     setFormData({
       accountName: '',
       savingsType: SavingsType.EMERGENCY,
+      accountType: SavingsAccountType.REGULAR,
+      interestRate: '',
+      interestCompoundingFrequency: InterestCompoundingFrequency.MONTHLY,
       targetAmount: '',
       description: '',
       goal: '',
@@ -321,6 +333,9 @@ const Savings: React.FC = () => {
     setFormData({
       accountName: account.accountName,
       savingsType: account.savingsType,
+      accountType: account.accountType || SavingsAccountType.REGULAR,
+      interestRate: account.interestRate ? (account.interestRate * 100).toString() : '',
+      interestCompoundingFrequency: account.interestCompoundingFrequency || InterestCompoundingFrequency.MONTHLY,
       targetAmount: account.targetAmount.toString(),
       description: account.description || '',
       goal: account.goal || '',
@@ -552,6 +567,8 @@ const Savings: React.FC = () => {
               <TableRow>
                 <TableCell>Account Name</TableCell>
                 <TableCell>Type</TableCell>
+                <TableCell>Account Type</TableCell>
+                <TableCell>Interest Rate</TableCell>
                 <TableCell>Current Balance</TableCell>
                 <TableCell>Target Amount</TableCell>
                 <TableCell>Progress</TableCell>
@@ -582,6 +599,34 @@ const Savings: React.FC = () => {
                         fontWeight: 'bold',
                       }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {account.accountType ? (
+                      <Chip
+                        label={account.accountType.replace('_', ' ')}
+                        size="small"
+                        color={account.accountType === SavingsAccountType.HIGH_YIELD ? 'success' : 'default'}
+                        variant="outlined"
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">Regular</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {account.interestRate ? (
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold" color="success.main">
+                          {(account.interestRate * 100).toFixed(2)}%
+                        </Typography>
+                        {account.interestCompoundingFrequency && (
+                          <Typography variant="caption" color="text.secondary">
+                            {account.interestCompoundingFrequency.toLowerCase()}
+                          </Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">-</Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="subtitle2" color="primary" fontWeight="bold">
@@ -729,6 +774,49 @@ const Savings: React.FC = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Account Type</InputLabel>
+                <Select
+                  value={formData.accountType}
+                  onChange={(e) => setFormData({ ...formData, accountType: e.target.value as SavingsAccountType })}
+                  label="Account Type"
+                >
+                  <MenuItem value={SavingsAccountType.REGULAR}>Regular</MenuItem>
+                  <MenuItem value={SavingsAccountType.HIGH_YIELD}>High-Yield</MenuItem>
+                  <MenuItem value={SavingsAccountType.CD}>Certificate of Deposit (CD)</MenuItem>
+                  <MenuItem value={SavingsAccountType.MONEY_MARKET}>Money Market</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Interest Rate (%)"
+                type="number"
+                value={formData.interestRate}
+                onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
+                inputProps={{ min: 0, max: 100, step: 0.01 }}
+                helperText="Optional: Annual interest rate (e.g., 4.5 for 4.5%)"
+              />
+            </Grid>
+            {formData.interestRate && (
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Compounding Frequency</InputLabel>
+                  <Select
+                    value={formData.interestCompoundingFrequency}
+                    onChange={(e) => setFormData({ ...formData, interestCompoundingFrequency: e.target.value as InterestCompoundingFrequency })}
+                    label="Compounding Frequency"
+                  >
+                    <MenuItem value={InterestCompoundingFrequency.DAILY}>Daily</MenuItem>
+                    <MenuItem value={InterestCompoundingFrequency.MONTHLY}>Monthly</MenuItem>
+                    <MenuItem value={InterestCompoundingFrequency.QUARTERLY}>Quarterly</MenuItem>
+                    <MenuItem value={InterestCompoundingFrequency.ANNUALLY}>Annually</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Target Amount"
@@ -824,6 +912,49 @@ const Savings: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Account Type</InputLabel>
+                <Select
+                  value={formData.accountType}
+                  onChange={(e) => setFormData({ ...formData, accountType: e.target.value as SavingsAccountType })}
+                  label="Account Type"
+                >
+                  <MenuItem value={SavingsAccountType.REGULAR}>Regular</MenuItem>
+                  <MenuItem value={SavingsAccountType.HIGH_YIELD}>High-Yield</MenuItem>
+                  <MenuItem value={SavingsAccountType.CD}>Certificate of Deposit (CD)</MenuItem>
+                  <MenuItem value={SavingsAccountType.MONEY_MARKET}>Money Market</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Interest Rate (%)"
+                type="number"
+                value={formData.interestRate}
+                onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
+                inputProps={{ min: 0, max: 100, step: 0.01 }}
+                helperText="Optional: Annual interest rate (e.g., 4.5 for 4.5%)"
+              />
+            </Grid>
+            {formData.interestRate && (
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Compounding Frequency</InputLabel>
+                  <Select
+                    value={formData.interestCompoundingFrequency}
+                    onChange={(e) => setFormData({ ...formData, interestCompoundingFrequency: e.target.value as InterestCompoundingFrequency })}
+                    label="Compounding Frequency"
+                  >
+                    <MenuItem value={InterestCompoundingFrequency.DAILY}>Daily</MenuItem>
+                    <MenuItem value={InterestCompoundingFrequency.MONTHLY}>Monthly</MenuItem>
+                    <MenuItem value={InterestCompoundingFrequency.QUARTERLY}>Quarterly</MenuItem>
+                    <MenuItem value={InterestCompoundingFrequency.ANNUALLY}>Annually</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth

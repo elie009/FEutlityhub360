@@ -35,6 +35,10 @@ import {
   ChevronLeft,
   ChevronRight,
   AccountBalanceWallet as ReceivablesIcon,
+  CompareArrows as ReconciliationIcon,
+  Category as CategoryIcon,
+  Bolt as UtilitiesIcon,
+  ShoppingCart as ExpensesIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -55,8 +59,12 @@ const menuItems: MenuItem[] = [
     icon: <FinanceIcon />,
     children: [
       { text: 'Transactions', icon: <TransactionsIcon />, path: '/transactions' },
-      { text: 'Bills and Utility', icon: <ReceiptIcon />, path: '/bills' },
+      { text: 'Expenses', icon: <ExpensesIcon />, path: '/expenses' },
+      { text: 'Categories', icon: <CategoryIcon />, path: '/categories' },
+      { text: 'Bills', icon: <ReceiptIcon />, path: '/bills' },
+      { text: 'Utilities', icon: <UtilitiesIcon />, path: '/utilities' },
       { text: 'Bank Accounts', icon: <BankAccountIcon />, path: '/bank-accounts' },
+      { text: 'Reconciliation', icon: <ReconciliationIcon />, path: '/reconciliation' },
       { text: 'Savings', icon: <SavingsIcon />, path: '/savings' },
       { text: 'Income Sources', icon: <IncomeIcon />, path: '/income-sources' },
       { text: 'Loans', icon: <CreditCardIcon />, path: '/loans' },

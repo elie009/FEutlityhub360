@@ -359,6 +359,29 @@ const Bills: React.FC = () => {
       setError('Please select a bank account');
       return;
     }
+
+    // Double-entry validation: Check if bank account has sufficient balance
+    const selectedAccount = bankAccounts.find(acc => acc.id === selectedAccountId);
+    if (!selectedAccount) {
+      setError('Selected bank account not found');
+      return;
+    }
+
+    const accountBalance = selectedAccount.currentBalance || 0;
+    const billAmount = billToMarkPaid.amount || 0;
+
+    if (accountBalance < billAmount) {
+      setError(`Insufficient balance. Account balance: ${formatCurrency(accountBalance)}, Bill amount: ${formatCurrency(billAmount)}`);
+      return;
+    }
+
+    // Validate double-entry accounting rules
+    // Bill payment: Debit Expense, Credit Bank Account
+    // Both entries must equal the bill amount
+    if (billAmount <= 0) {
+      setError('Bill amount must be greater than zero for double-entry accounting');
+      return;
+    }
     
     try {
       await apiService.markBillAsPaid(billToMarkPaid.id, {
@@ -369,7 +392,8 @@ const Bills: React.FC = () => {
       setBillToMarkPaid(null);
       setSelectedAccountId('');
       setPaymentNotes('');
-      setSuccessMessage('Bill marked as paid successfully');
+      setError(''); // Clear any previous errors
+      setSuccessMessage('Bill marked as paid successfully with double-entry accounting');
       loadBills();
       loadAnalytics();
     } catch (err: unknown) {

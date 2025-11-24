@@ -21,7 +21,20 @@ import {
   Typography,
   Divider,
   Skeleton,
+  Tooltip,
+  IconButton,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  LinearProgress,
 } from '@mui/material';
+import {
+  Info as InfoIcon,
+  HelpOutline as HelpIcon,
+  ExpandMore as ExpandMoreIcon,
+  CheckCircle as CheckCircleIcon,
+  Close as CloseIcon,
+} from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { BankAccount } from '../../types/bankAccount';
 import { getErrorMessage } from '../../utils/validation';
@@ -65,7 +78,7 @@ interface SavingsAccount {
   balance: number;
 }
 
-// Get all category suggestions for autocomplete
+// Get all category suggestions for autocomplete (fallback)
 // Bank transfer appears first for easy access
 const ALL_CATEGORIES = [
   ...categorySuggestions.transfer,
@@ -117,18 +130,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [bills, setBills] = useState<Bill[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
   
   // Separate loading states for each data source
   const [loadingBankAccounts, setLoadingBankAccounts] = useState(false);
   const [loadingBills, setLoadingBills] = useState(false);
   const [loadingLoans, setLoadingLoans] = useState(false);
   const [loadingSavingsAccounts, setLoadingSavingsAccounts] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   
   // State for dynamic form fields
   const [showBillSelector, setShowBillSelector] = useState(false);
   const [showSavingsSelector, setShowSavingsSelector] = useState(false);
   const [showLoanSelector, setShowLoanSelector] = useState(false);
   const [showTransferSelector, setShowTransferSelector] = useState(false);
+  const [showHelpSection, setShowHelpSection] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -239,6 +255,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setLoadingBankAccounts(false);
   }, []);
 
+  const loadCategories = useCallback(async () => {
+    setLoadingCategories(true);
+    try {
+      const categoriesData = await apiService.getActiveCategories();
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
+
   // Load all reference data asynchronously when dialog opens
   useEffect(() => {
     if (open) {
@@ -247,8 +276,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       loadBills();
       loadLoans();
       loadSavingsAccounts();
+      loadCategories();
     }
-  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts]);
+  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts, loadCategories]);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -381,12 +411,88 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Add New Transaction</DialogTitle>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Add New Transaction</Typography>
+          <Tooltip title="Get help with adding transactions">
+            <IconButton size="small" onClick={() => setShowHelpSection(!showHelpSection)}>
+              <HelpIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </DialogTitle>
       <DialogContent>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => setError('')}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            }
+          >
+            <Typography variant="body2" fontWeight="medium" gutterBottom>
+              {error}
+            </Typography>
+            {error.includes('Category') && (
+              <Typography variant="caption" component="div" sx={{ mt: 1 }}>
+                <strong>Solution:</strong> Go to Categories page to create the category first, or select an existing category from the dropdown.
+              </Typography>
+            )}
+            {error.includes('balance') && (
+              <Typography variant="caption" component="div" sx={{ mt: 1 }}>
+                <strong>Solution:</strong> Check your account balance. For transfers, ensure the source account has sufficient funds.
+              </Typography>
+            )}
           </Alert>
+        )}
+        
+        {isLoading && (
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              Processing transaction...
+            </Typography>
+          </Box>
+        )}
+        
+        {/* Help Section */}
+        {showHelpSection && (
+          <Accordion sx={{ mb: 2 }} defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <HelpIcon color="primary" />
+                <Typography variant="subtitle2">Transaction Help Guide</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" component="div">
+                <strong>Transaction Types:</strong>
+                <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
+                  <li><strong>DEBIT:</strong> Money going out (expenses, payments, transfers out)</li>
+                  <li><strong>CREDIT:</strong> Money coming in (income, deposits, transfers in)</li>
+                </ul>
+                <strong>Category Selection:</strong>
+                <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
+                  <li>Select a category that matches your transaction type</li>
+                  <li>Some categories (bills, savings, loans) will show additional options</li>
+                  <li>Create new categories in the Categories page if needed</li>
+                </ul>
+                <strong>Common Examples:</strong>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
+                  <Chip label="DEBIT: Grocery shopping → Category: GROCERIES" size="small" variant="outlined" />
+                  <Chip label="DEBIT: Paying electric bill → Category: UTILITIES (select bill)" size="small" variant="outlined" />
+                  <Chip label="CREDIT: Salary deposit → Category: Automatically set to CREDIT" size="small" variant="outlined" />
+                </Box>
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
         )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
@@ -443,35 +549,74 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {formData.transactionType !== 'CREDIT' && (
               <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  freeSolo
-                  options={ALL_CATEGORIES}
-                  value={formData.category}
-                  onInputChange={(event, newValue) => {
-                    if (newValue) {
-                      handleCategoryChange(newValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Category"
-                      required
-                      placeholder="Type or select a category"
-                      helperText="Categories like 'utility', 'savings', 'loan payment' will show additional options"
-                    />
-                  )}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        variant="outlined"
-                        label={option}
-                        {...getTagProps({ index })}
-                        key={option}
-                      />
-                    ))
-                  }
-                />
+                {loadingCategories ? (
+                  <Skeleton variant="rectangular" height={56} />
+                ) : (
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                      <InputLabel required>Category</InputLabel>
+                      <Tooltip title="Select a category to organize your transaction. Some categories (bills, savings, loans) will show additional options to link to specific items.">
+                        <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                      </Tooltip>
+                    </Box>
+                    <FormControl fullWidth required>
+                      <InputLabel>Category</InputLabel>
+                      <Select
+                        value={formData.category}
+                        label="Category"
+                        onChange={(e) => handleCategoryChange(e.target.value)}
+                      >
+                        {categories.length === 0 ? (
+                          <MenuItem disabled>
+                            <Typography variant="body2" color="text.secondary">
+                              No categories available. Create categories first.
+                            </Typography>
+                          </MenuItem>
+                        ) : (
+                          categories
+                            .filter(cat => {
+                              // Filter categories based on transaction type
+                              if (formData.transactionType === 'DEBIT') {
+                                return cat.type !== 'INCOME';
+                              }
+                              return true;
+                            })
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((category) => (
+                              <MenuItem key={category.id} value={category.name}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                  {category.color && (
+                                    <Box
+                                      sx={{
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: '50%',
+                                        backgroundColor: category.color,
+                                        border: '1px solid #ddd'
+                                      }}
+                                    />
+                                  )}
+                                  <Typography variant="body2">{category.name}</Typography>
+                                  {category.type && (
+                                    <Chip 
+                                      label={category.type} 
+                                      size="small" 
+                                      sx={{ ml: 'auto', height: 18, fontSize: '0.65rem' }}
+                                    />
+                                  )}
+                                </Box>
+                              </MenuItem>
+                            ))
+                        )}
+                      </Select>
+                    </FormControl>
+                    {categories.length === 0 && (
+                      <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                        No categories found. Go to Categories page to create categories first.
+                      </Typography>
+                    )}
+                  </Box>
+                )}
               </Grid>
             )}
 

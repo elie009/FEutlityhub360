@@ -37,6 +37,23 @@ export interface Loan {
   actualFinancedAmount?: number; // Principal - DownPayment
   paymentFrequency?: 'MONTHLY' | 'WEEKLY' | 'BIWEEKLY' | 'QUARTERLY'; // Default: MONTHLY
   startDate?: string | null; // Loan start date (when disbursed)
+  // New fields for enhanced loan management
+  loanType?: LoanType; // Type of loan
+  refinancedFromLoanId?: string | null; // ID of loan that was refinanced (if this is a refinanced loan)
+  refinancedToLoanId?: string | null; // ID of loan that refinanced this loan (if this loan was refinanced)
+  refinancingDate?: string | null; // Date when refinancing occurred
+  effectiveInterestRate?: number | null; // Calculated effective interest rate (APR) including fees
+}
+
+export enum LoanType {
+  PERSONAL = 'PERSONAL',
+  MORTGAGE = 'MORTGAGE',
+  AUTO = 'AUTO',
+  STUDENT = 'STUDENT',
+  BUSINESS = 'BUSINESS',
+  CREDIT_CARD = 'CREDIT_CARD',
+  LINE_OF_CREDIT = 'LINE_OF_CREDIT',
+  OTHER = 'OTHER'
 }
 
 export enum LoanStatus {
@@ -209,6 +226,9 @@ export interface LoanApplication {
   downPayment?: number;
   processingFee?: number;
   interestComputationMethod?: 'FLAT_RATE' | 'AMORTIZED';
+  // New fields for loan type and refinancing
+  loanType?: LoanType;
+  refinancedFromLoanId?: string | null; // If this is a refinancing application
 }
 
 // Payment Schedule Management Interfaces

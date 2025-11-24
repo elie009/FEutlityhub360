@@ -8,6 +8,8 @@ import {
   AttachMoney, TrendingUp, TrendingDown, CheckCircle, Warning,
   AccountBalanceWallet, CreditCard, Savings, Assessment,
   Receipt,
+  CompareArrows as ReconcileIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { BankAccount } from '../../types/bankAccount';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -20,6 +22,7 @@ interface BankAccountCardProps {
   onDisconnect?: (accountId: string) => void;
   onSync?: (accountId: string) => void;
   onViewTransactions?: (account: BankAccount) => void;
+  onReconcile?: (account: BankAccount) => void;
 }
 
 const getAccountTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -85,7 +88,8 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
   onConnect, 
   onDisconnect, 
   onSync,
-  onViewTransactions 
+  onViewTransactions,
+  onReconcile,
 }) => {
   const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -124,6 +128,11 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
     handleMenuClose();
   };
 
+  const handleReconcile = () => {
+    onReconcile?.(account);
+    handleMenuClose();
+  };
+
   const isPositiveBalance = account.currentBalance >= 0;
   const balanceChange = account.currentBalance - account.initialBalance;
   const hasBalanceChange = Math.abs(balanceChange) > 0.01;
@@ -145,26 +154,43 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
           </IconButton>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-          <Chip
-            label={getAccountTypeLabel(account.accountType)}
-            icon={getAccountTypeIcon(account.accountType)}
-            color={getAccountTypeColor(account.accountType)}
-            size="small"
-          />
-          <Chip
-            label={account.isActive ? 'Active' : 'Inactive'}
-            icon={account.isActive ? <CheckCircle sx={{ fontSize: 16 }} /> : <Warning sx={{ fontSize: 16 }} />}
-            color={account.isActive ? 'success' : 'warning'}
-            size="small"
-          />
-          {account.isConnected && (
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <Tooltip title={`${getAccountTypeLabel(account.accountType)} account - ${account.accountType === 'checking' ? 'For daily transactions' : account.accountType === 'savings' ? 'For saving money' : account.accountType === 'credit_card' ? 'Tracks credit card debt' : 'General bank account'}`}>
             <Chip
-              label="Connected"
-              icon={<Link sx={{ fontSize: 16 }} />}
-              color="info"
+              label={getAccountTypeLabel(account.accountType)}
+              icon={getAccountTypeIcon(account.accountType)}
+              color={getAccountTypeColor(account.accountType)}
               size="small"
             />
+          </Tooltip>
+          <Tooltip title={account.isActive ? 'This account is active and appears in your dashboard' : 'This account is inactive and hidden from your main view'}>
+            <Chip
+              label={account.isActive ? 'Active' : 'Inactive'}
+              icon={account.isActive ? <CheckCircle sx={{ fontSize: 16 }} /> : <Warning sx={{ fontSize: 16 }} />}
+              color={account.isActive ? 'success' : 'warning'}
+              size="small"
+            />
+          </Tooltip>
+          {account.isConnected && (
+            <Tooltip title="This account is connected to your bank and can automatically sync transactions">
+              <Chip
+                label="Connected"
+                icon={<Link sx={{ fontSize: 16 }} />}
+                color="info"
+                size="small"
+              />
+            </Tooltip>
+          )}
+          {!account.isConnected && (
+            <Tooltip title="Connect this account to automatically import transactions from your bank">
+              <Chip
+                label="Manual"
+                icon={<LinkOff sx={{ fontSize: 16 }} />}
+                color="default"
+                size="small"
+                variant="outlined"
+              />
+            </Tooltip>
           )}
         </Box>
 
@@ -269,25 +295,29 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
 
         {/* Action Buttons */}
         <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={handleEdit}
-            startIcon={<Edit />}
-            sx={{ flex: 1, minWidth: '100px' }}
-          >
-            Edit
-          </Button>
-          {onViewTransactions && (
+          <Tooltip title="Edit account details, balance, or settings">
             <Button
               variant="outlined"
               size="small"
-              onClick={() => onViewTransactions(account)}
-              startIcon={<Receipt />}
+              onClick={handleEdit}
+              startIcon={<Edit />}
               sx={{ flex: 1, minWidth: '100px' }}
             >
-              Transactions
+              Edit
             </Button>
+          </Tooltip>
+          {onViewTransactions && (
+            <Tooltip title={`View all ${account.transactionCount} transactions for this account`}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => onViewTransactions(account)}
+                startIcon={<Receipt />}
+                sx={{ flex: 1, minWidth: '100px' }}
+              >
+                Transactions
+              </Button>
+            </Tooltip>
           )}
           {account.isConnected ? (
             <Tooltip title="Disconnect from bank">
@@ -320,15 +350,33 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
 
         {account.isConnected && onSync && (
           <Box sx={{ mt: 1 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleSync}
-              startIcon={<Sync />}
-              fullWidth
-            >
-              Sync Now
-            </Button>
+            <Tooltip title="Manually sync transactions from your bank. Last synced: {account.lastSyncedAt ? formatDate(account.lastSyncedAt) : 'Never'}">
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleSync}
+                startIcon={<Sync />}
+                fullWidth
+              >
+                Sync Now
+              </Button>
+            </Tooltip>
+          </Box>
+        )}
+        {onReconcile && (
+          <Box sx={{ mt: 1 }}>
+            <Tooltip title="Reconcile this account by matching transactions with your bank statement. This ensures your records match your bank's records.">
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleReconcile}
+                startIcon={<ReconcileIcon />}
+                fullWidth
+                color="secondary"
+              >
+                Reconcile Account
+              </Button>
+            </Tooltip>
           </Box>
         )}
       </CardContent>
@@ -366,6 +414,12 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
           <MenuItem onClick={handleSync}>
             <Sync sx={{ mr: 1, fontSize: 16 }} />
             Sync Now
+          </MenuItem>
+        )}
+        {onReconcile && (
+          <MenuItem onClick={handleReconcile}>
+            <ReconcileIcon sx={{ mr: 1, fontSize: 16 }} />
+            Reconcile
           </MenuItem>
         )}
         <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>

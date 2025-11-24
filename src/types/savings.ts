@@ -38,17 +38,38 @@ export enum SavingsCategory {
   OTHER = 'OTHER'
 }
 
+export enum SavingsAccountType {
+  REGULAR = 'REGULAR',
+  HIGH_YIELD = 'HIGH_YIELD',
+  CD = 'CD',
+  MONEY_MARKET = 'MONEY_MARKET'
+}
+
+export enum InterestCompoundingFrequency {
+  DAILY = 'DAILY',
+  MONTHLY = 'MONTHLY',
+  QUARTERLY = 'QUARTERLY',
+  ANNUALLY = 'ANNUALLY',
+  YEARLY = 'YEARLY'
+}
+
 export interface SavingsAccount {
   id: string;
   userId: string;
   accountName: string;
   savingsType: SavingsType;
+  accountType?: SavingsAccountType;
+  interestRate?: number;
+  interestCompoundingFrequency?: InterestCompoundingFrequency;
+  lastInterestCalculationDate?: string;
+  nextInterestCalculationDate?: string;
   targetAmount: number;
   currentBalance: number;
   currency: string;
   description?: string;
   goal?: string;
   targetDate: string;
+  startDate?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -78,6 +99,9 @@ export interface SavingsTransaction {
 export interface CreateSavingsAccountRequest {
   accountName: string;
   savingsType: SavingsType;
+  accountType?: SavingsAccountType;
+  interestRate?: number;
+  interestCompoundingFrequency?: InterestCompoundingFrequency;
   targetAmount: number;
   description?: string;
   goal?: string;
@@ -89,6 +113,9 @@ export interface CreateSavingsAccountRequest {
 export interface UpdateSavingsAccountRequest {
   accountName?: string;
   savingsType?: SavingsType;
+  accountType?: SavingsAccountType;
+  interestRate?: number;
+  interestCompoundingFrequency?: InterestCompoundingFrequency;
   targetAmount?: number;
   description?: string;
   goal?: string;

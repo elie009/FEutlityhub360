@@ -19,7 +19,7 @@ import {
   Paper,
   SelectChangeEvent,
 } from '@mui/material';
-import { LoanApplication } from '../../types/loan';
+import { LoanApplication, LoanType } from '../../types/loan';
 import { apiService } from '../../services/api';
 import { validateLoanAmount, validateRequired, validateEmploymentStatus, validateInterestRate, getErrorMessage, getApiErrorMessage } from '../../utils/validation';
 
@@ -40,6 +40,8 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     monthlyIncome: 0,
     employmentStatus: '',
     additionalInfo: '',
+    loanType: LoanType.PERSONAL,
+    refinancedFromLoanId: null,
   });
   const [error, setError] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -262,6 +264,25 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                 required
                 inputProps={{ min: 1, max: 360, step: 1 }}
               />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Loan Type</InputLabel>
+                <Select
+                  value={formData.loanType || LoanType.PERSONAL}
+                  onChange={(e) => setFormData(prev => ({ ...prev, loanType: e.target.value as LoanType }))}
+                  label="Loan Type"
+                >
+                  <MenuItem value={LoanType.PERSONAL}>Personal Loan</MenuItem>
+                  <MenuItem value={LoanType.MORTGAGE}>Mortgage</MenuItem>
+                  <MenuItem value={LoanType.AUTO}>Auto Loan</MenuItem>
+                  <MenuItem value={LoanType.STUDENT}>Student Loan</MenuItem>
+                  <MenuItem value={LoanType.BUSINESS}>Business Loan</MenuItem>
+                  <MenuItem value={LoanType.CREDIT_CARD}>Credit Card</MenuItem>
+                  <MenuItem value={LoanType.LINE_OF_CREDIT}>Line of Credit</MenuItem>
+                  <MenuItem value={LoanType.OTHER}>Other</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
         );

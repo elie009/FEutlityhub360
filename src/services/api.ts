@@ -50,6 +50,7 @@ import { mockBankAccountDataService } from './mockBankAccountData';
 import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsResponse, TransactionAnalytics } from '../types/transaction';
 import { mockTransactionDataService } from './mockTransactionData';
 import { Receivable, CreateReceivableRequest, UpdateReceivableRequest, ReceivableFilters, ReceivableAnalytics, PaginatedReceivablesResponse, ReceivablePayment, CreateReceivablePaymentRequest } from '../types/receivable';
+import { Utility, CreateUtilityRequest, UpdateUtilityRequest, UtilityAnalytics, UtilityConsumptionHistory, UtilityComparison, ProviderComparison } from '../types/utility';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -1502,12 +1503,17 @@ class ApiService {
       return mockBillDataService.markBillAsPaid(billId, request.notes);
     }
     
+    const requestBody: { notes?: string; bankAccountId?: string } = {};
+    if (request.notes) {
+      requestBody.notes = request.notes;
+    }
+    if (request.bankAccountId) {
+      requestBody.bankAccountId = request.bankAccountId;
+    }
+    
     const response = await this.request<any>(`/bills/${billId}/mark-paid`, {
       method: 'PUT',
-      body: JSON.stringify({
-        notes: request.notes || '',
-        bankAccountId: request.bankAccountId || '',
-      }),
+      body: JSON.stringify(requestBody),
     });
     
     // Handle the response structure
@@ -1655,6 +1661,136 @@ class ApiService {
     } catch (error) {
       return null;
     }
+  }
+
+  // ==================== UTILITY MANAGEMENT APIs ====================
+
+  // Get all utilities for the authenticated user
+  async getUserUtilities(filters?: { status?: string; utilityType?: string; page?: number; limit?: number }): Promise<{ data: Utility[]; page: number; limit: number; totalCount: number }> {
+    const queryParams = new URLSearchParams();
+    if (filters?.status) queryParams.append('status', filters.status);
+    if (filters?.utilityType) queryParams.append('utilityType', filters.utilityType);
+    if (filters?.page) queryParams.append('page', filters.page.toString());
+    if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/utilities${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.data && response.data.data) {
+      return response.data;
+    } else if (response && response.data && Array.isArray(response.data)) {
+      return {
+        data: response.data,
+        page: 1,
+        limit: response.data.length,
+        totalCount: response.data.length,
+      };
+    }
+    return {
+      data: [],
+      page: 1,
+      limit: 10,
+      totalCount: 0,
+    };
+  }
+
+  // Get a specific utility
+  async getUtility(utilityId: string): Promise<Utility> {
+    const response = await this.request<any>(`/utilities/${utilityId}`);
+    return response?.data || response;
+  }
+
+  // Create a new utility
+  async createUtility(utilityData: CreateUtilityRequest): Promise<Utility> {
+    const response = await this.request<any>('/utilities', {
+      method: 'POST',
+      body: JSON.stringify(utilityData),
+    });
+    return response?.data || response;
+  }
+
+  // Update a utility
+  async updateUtility(utilityId: string, updateData: UpdateUtilityRequest): Promise<Utility> {
+    const response = await this.request<any>(`/utilities/${utilityId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+    return response?.data || response;
+  }
+
+  // Delete a utility
+  async deleteUtility(utilityId: string): Promise<boolean> {
+    const response = await this.request<any>(`/utilities/${utilityId}`, {
+      method: 'DELETE',
+    });
+    return response?.data || response || true;
+  }
+
+  // Mark utility as paid
+  async markUtilityAsPaid(utilityId: string, request: { notes?: string; bankAccountId?: string }): Promise<Utility> {
+    const requestBody: { notes?: string; bankAccountId?: string } = {};
+    if (request.notes) requestBody.notes = request.notes;
+    if (request.bankAccountId) requestBody.bankAccountId = request.bankAccountId;
+    
+    const response = await this.request<any>(`/utilities/${utilityId}/mark-paid`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
+    return response?.data || response;
+  }
+
+  // Get utility analytics
+  async getUtilityAnalytics(): Promise<UtilityAnalytics> {
+    const response = await this.request<any>('/utilities/analytics/summary');
+    return response?.data || response;
+  }
+
+  // Get consumption history for a utility
+  async getConsumptionHistory(utilityId: string, months: number = 12): Promise<UtilityConsumptionHistory> {
+    const response = await this.request<any>(`/utilities/${utilityId}/consumption-history?months=${months}`);
+    return response?.data || response;
+  }
+
+  // Get all consumption history
+  async getAllConsumptionHistory(utilityType?: string, months: number = 12): Promise<UtilityConsumptionHistory[]> {
+    const queryParams = new URLSearchParams();
+    if (utilityType) queryParams.append('utilityType', utilityType);
+    queryParams.append('months', months.toString());
+    
+    const response = await this.request<any>(`/utilities/consumption-history?${queryParams.toString()}`);
+    return response?.data || response || [];
+  }
+
+  // Compare providers for a utility type
+  async compareProviders(utilityType: string): Promise<UtilityComparison> {
+    const response = await this.request<any>(`/utilities/compare/providers?utilityType=${utilityType}`);
+    return response?.data || response;
+  }
+
+  // Compare all utility types
+  async compareAllUtilityTypes(): Promise<UtilityComparison[]> {
+    const response = await this.request<any>('/utilities/compare/all');
+    return response?.data || response || [];
+  }
+
+  // Get provider comparison list
+  async getProviderComparison(utilityType: string): Promise<ProviderComparison[]> {
+    const response = await this.request<any>(`/utilities/compare/providers-list?utilityType=${utilityType}`);
+    return response?.data || response || [];
+  }
+
+  // Get overdue utilities
+  async getOverdueUtilities(): Promise<Utility[]> {
+    const response = await this.request<any>('/utilities/overdue');
+    return response?.data || response || [];
+  }
+
+  // Get upcoming utilities
+  async getUpcomingUtilities(days: number = 7): Promise<Utility[]> {
+    const response = await this.request<any>(`/utilities/upcoming?days=${days}`);
+    return response?.data || response || [];
   }
 
   // ==================== VARIABLE MONTHLY BILLING APIs ====================
@@ -2511,6 +2647,9 @@ class ApiService {
   async createSavingsAccount(accountData: {
     accountName: string;
     savingsType: string;
+    accountType?: string;
+    interestRate?: number;
+    interestCompoundingFrequency?: string;
     targetAmount: number;
     description?: string;
     goal?: string;
@@ -2582,6 +2721,9 @@ class ApiService {
   async updateSavingsAccount(accountId: string, accountData: {
     accountName?: string;
     savingsType?: string;
+    accountType?: string;
+    interestRate?: number;
+    interestCompoundingFrequency?: string;
     targetAmount?: number;
     description?: string;
     goal?: string;
@@ -3303,27 +3445,6 @@ class ApiService {
     throw new Error(response?.message || 'Failed to get income report');
   }
 
-  // Get expense report
-  async getExpenseReport(params?: {
-    period?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
-    startDate?: string;
-    endDate?: string;
-  }): Promise<any> {
-    const queryParams = new URLSearchParams();
-    if (params?.period) queryParams.append('period', params.period);
-    if (params?.startDate) queryParams.append('startDate', params.startDate);
-    if (params?.endDate) queryParams.append('endDate', params.endDate);
-    
-    const queryString = queryParams.toString();
-    const endpoint = `/Reports/expenses${queryString ? `?${queryString}` : ''}`;
-    
-    const response = await this.request<any>(endpoint);
-    
-    if (response && response.success && response.data) {
-      return response.data;
-    }
-    throw new Error(response?.message || 'Failed to get expense report');
-  }
 
   // Get financial predictions
   async getFinancialPredictions(): Promise<any> {
@@ -3592,6 +3713,808 @@ class ApiService {
     
     const response = await this.request<any>(`/Dashboard/disposable-amount?year=${year}&month=${month}`);
     return response;
+  }
+
+  // ==================== RECONCILIATION APIs ====================
+
+  async importBankStatement(importData: import('../types/reconciliation').ImportBankStatementRequest): Promise<import('../types/reconciliation').BankStatement> {
+    const response = await this.request<any>('/reconciliation/statements/import', {
+      method: 'POST',
+      body: JSON.stringify(importData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getBankStatement(statementId: string): Promise<import('../types/reconciliation').BankStatement> {
+    const response = await this.request<any>(`/reconciliation/statements/${statementId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getBankStatements(bankAccountId: string): Promise<import('../types/reconciliation').BankStatement[]> {
+    const response = await this.request<any>(`/reconciliation/statements/account/${bankAccountId}`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async deleteBankStatement(statementId: string): Promise<boolean> {
+    const response = await this.request<any>(`/reconciliation/statements/${statementId}`, {
+      method: 'DELETE',
+    });
+    return response?.success ?? false;
+  }
+
+  async createReconciliation(createData: import('../types/reconciliation').CreateReconciliationRequest): Promise<import('../types/reconciliation').Reconciliation> {
+    const response = await this.request<any>('/reconciliation', {
+      method: 'POST',
+      body: JSON.stringify(createData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getReconciliation(reconciliationId: string): Promise<import('../types/reconciliation').Reconciliation> {
+    const response = await this.request<any>(`/reconciliation/${reconciliationId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getReconciliations(bankAccountId: string): Promise<import('../types/reconciliation').Reconciliation[]> {
+    const response = await this.request<any>(`/reconciliation/account/${bankAccountId}`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async autoMatchTransactions(reconciliationId: string): Promise<import('../types/reconciliation').Reconciliation> {
+    const response = await this.request<any>(`/reconciliation/${reconciliationId}/auto-match`, {
+      method: 'POST',
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async matchTransaction(matchData: import('../types/reconciliation').MatchTransactionRequest): Promise<import('../types/reconciliation').ReconciliationMatch> {
+    const response = await this.request<any>('/reconciliation/match', {
+      method: 'POST',
+      body: JSON.stringify(matchData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async unmatchTransaction(unmatchData: import('../types/reconciliation').UnmatchTransactionRequest): Promise<boolean> {
+    const response = await this.request<any>('/reconciliation/unmatch', {
+      method: 'POST',
+      body: JSON.stringify(unmatchData),
+    });
+    return response?.success ?? false;
+  }
+
+  async completeReconciliation(completeData: import('../types/reconciliation').CompleteReconciliationRequest): Promise<import('../types/reconciliation').Reconciliation> {
+    const response = await this.request<any>('/reconciliation/complete', {
+      method: 'POST',
+      body: JSON.stringify(completeData),
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getMatchSuggestions(reconciliationId: string): Promise<import('../types/reconciliation').TransactionMatchSuggestion[]> {
+    const response = await this.request<any>(`/reconciliation/${reconciliationId}/suggestions`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async getReconciliationSummary(bankAccountId: string, reconciliationDate?: string): Promise<import('../types/reconciliation').ReconciliationSummary> {
+    const queryParams = reconciliationDate ? `?reconciliationDate=${reconciliationDate}` : '';
+    const response = await this.request<any>(`/reconciliation/summary/${bankAccountId}${queryParams}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  // ==================== Transaction Categories API ====================
+  async getAllCategories(type?: string): Promise<any[]> {
+    const queryParams = type ? `?type=${type}` : '';
+    const response = await this.request<any>(`/categories${queryParams}`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async getActiveCategories(type?: string): Promise<any[]> {
+    const queryParams = type ? `?type=${type}` : '';
+    const response = await this.request<any>(`/categories/active${queryParams}`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async getCategory(categoryId: string): Promise<any> {
+    const response = await this.request<any>(`/categories/${categoryId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get category');
+  }
+
+  async createCategory(categoryData: {
+    name: string;
+    description?: string;
+    type: string;
+    icon?: string;
+    color?: string;
+    displayOrder?: number;
+  }): Promise<any> {
+    const response = await this.request<any>('/categories', {
+      method: 'POST',
+      body: JSON.stringify(categoryData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create category');
+  }
+
+  async updateCategory(categoryId: string, updateData: {
+    name?: string;
+    description?: string;
+    type?: string;
+    icon?: string;
+    color?: string;
+    isActive?: boolean;
+    displayOrder?: number;
+  }): Promise<any> {
+    const response = await this.request<any>(`/categories/${categoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update category');
+  }
+
+  async deleteCategory(categoryId: string): Promise<boolean> {
+    const response = await this.request<any>(`/categories/${categoryId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete category');
+  }
+
+  async seedSystemCategories(): Promise<boolean> {
+    const response = await this.request<any>('/categories/seed-system', {
+      method: 'POST',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to seed system categories');
+  }
+
+  // ============================================
+  // Expense Management API Methods
+  // ============================================
+
+  // Expense CRUD Operations
+  async createExpense(expenseData: any): Promise<any> {
+    const response = await this.request<any>('/Expenses', {
+      method: 'POST',
+      body: JSON.stringify(expenseData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create expense');
+  }
+
+  async getExpense(expenseId: string): Promise<any> {
+    const response = await this.request<any>(`/Expenses/${expenseId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get expense');
+  }
+
+  async updateExpense(expenseId: string, expenseData: any): Promise<any> {
+    const response = await this.request<any>(`/Expenses/${expenseId}`, {
+      method: 'PUT',
+      body: JSON.stringify(expenseData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update expense');
+  }
+
+  async deleteExpense(expenseId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Expenses/${expenseId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete expense');
+  }
+
+  async getExpenses(filters?: any): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== undefined && filters[key] !== null) {
+          queryParams.append(key, filters[key].toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    const endpoint = `/Expenses${queryString ? `?${queryString}` : ''}`;
+    const response = await this.request<any>(endpoint);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get expenses');
+  }
+
+  // Category Operations
+  async createExpenseCategory(categoryData: any): Promise<any> {
+    const response = await this.request<any>('/Expenses/categories', {
+      method: 'POST',
+      body: JSON.stringify(categoryData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create category');
+  }
+
+  async getExpenseCategory(categoryId: string): Promise<any> {
+    const response = await this.request<any>(`/Expenses/categories/${categoryId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get category');
+  }
+
+  async updateExpenseCategory(categoryId: string, categoryData: any): Promise<any> {
+    const response = await this.request<any>(`/Expenses/categories/${categoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(categoryData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update category');
+  }
+
+  async deleteExpenseCategory(categoryId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Expenses/categories/${categoryId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete category');
+  }
+
+  async getExpenseCategories(includeInactive: boolean = false): Promise<any[]> {
+    const response = await this.request<any>(`/Expenses/categories?includeInactive=${includeInactive}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get categories');
+  }
+
+  // Budget Operations
+  async createExpenseBudget(budgetData: any): Promise<any> {
+    const response = await this.request<any>('/Expenses/budgets', {
+      method: 'POST',
+      body: JSON.stringify(budgetData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create budget');
+  }
+
+  async getExpenseBudget(budgetId: string): Promise<any> {
+    const response = await this.request<any>(`/Expenses/budgets/${budgetId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get budget');
+  }
+
+  async updateExpenseBudget(budgetId: string, budgetData: any): Promise<any> {
+    const response = await this.request<any>(`/Expenses/budgets/${budgetId}`, {
+      method: 'PUT',
+      body: JSON.stringify(budgetData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update budget');
+  }
+
+  async deleteExpenseBudget(budgetId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Expenses/budgets/${budgetId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete budget');
+  }
+
+  async getExpenseBudgets(categoryId?: string, includeInactive: boolean = false): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (categoryId) queryParams.append('categoryId', categoryId);
+    queryParams.append('includeInactive', includeInactive.toString());
+    const response = await this.request<any>(`/Expenses/budgets?${queryParams.toString()}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get budgets');
+  }
+
+  async getActiveExpenseBudgets(date?: string): Promise<any[]> {
+    const queryParams = date ? `?date=${date}` : '';
+    const response = await this.request<any>(`/Expenses/budgets/active${queryParams}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get active budgets');
+  }
+
+  async getExpenseBudgetsWithStatus(date?: string): Promise<any[]> {
+    const queryParams = date ? `?date=${date}` : '';
+    const response = await this.request<any>(`/Expenses/budgets/status${queryParams}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get budgets with status');
+  }
+
+  // Receipt Operations
+  async uploadExpenseReceipt(expenseId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/Expenses/${expenseId}/receipts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData?.message || 'Failed to upload receipt');
+    }
+
+    const data = await response.json();
+    if (data && data.success && data.data) {
+      return data.data;
+    }
+    throw new Error(data?.message || 'Failed to upload receipt');
+  }
+
+  async getExpenseReceipt(receiptId: string): Promise<any> {
+    const response = await this.request<any>(`/Expenses/receipts/${receiptId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get receipt');
+  }
+
+  async deleteExpenseReceipt(receiptId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Expenses/receipts/${receiptId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete receipt');
+  }
+
+  async getExpenseReceipts(expenseId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Expenses/${expenseId}/receipts`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get receipts');
+  }
+
+  // Approval Workflow Operations
+  async submitExpenseForApproval(approvalData: any): Promise<any> {
+    const response = await this.request<any>('/Expenses/approvals/submit', {
+      method: 'POST',
+      body: JSON.stringify(approvalData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to submit for approval');
+  }
+
+  async approveExpense(approvalData: any): Promise<any> {
+    const response = await this.request<any>('/Expenses/approvals/approve', {
+      method: 'POST',
+      body: JSON.stringify(approvalData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to approve expense');
+  }
+
+  async rejectExpense(approvalData: any): Promise<any> {
+    const response = await this.request<any>('/Expenses/approvals/reject', {
+      method: 'POST',
+      body: JSON.stringify(approvalData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to reject expense');
+  }
+
+  async getPendingExpenseApprovals(): Promise<any[]> {
+    const response = await this.request<any>('/Expenses/approvals/pending');
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get pending approvals');
+  }
+
+  async getExpenseApprovalHistory(expenseId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Expenses/${expenseId}/approvals`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get approval history');
+  }
+
+  // Reporting Operations
+  async getExpenseReport(startDate: string, endDate: string, categoryId?: string): Promise<any> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('startDate', startDate);
+    queryParams.append('endDate', endDate);
+    if (categoryId) queryParams.append('categoryId', categoryId);
+    const response = await this.request<any>(`/Expenses/reports?${queryParams.toString()}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get expense report');
+  }
+
+  async getCategoryExpenseSummaries(startDate: string, endDate: string): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('startDate', startDate);
+    queryParams.append('endDate', endDate);
+    const response = await this.request<any>(`/Expenses/reports/categories?${queryParams.toString()}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get category summaries');
+  }
+
+  async getExpensesByPeriod(periodType: string, startDate?: string, endDate?: string): Promise<Record<string, number>> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('periodType', periodType);
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    const response = await this.request<any>(`/Expenses/reports/period?${queryParams.toString()}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get expenses by period');
+  }
+
+  // Analytics Operations
+  async getTotalExpenses(startDate?: string, endDate?: string): Promise<number> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    const queryString = queryParams.toString();
+    const response = await this.request<any>(`/Expenses/analytics/total${queryString ? `?${queryString}` : ''}`);
+    if (response && response.success && response.data !== undefined) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get total expenses');
+  }
+
+  async getTotalTaxDeductibleExpenses(startDate?: string, endDate?: string): Promise<number> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    const queryString = queryParams.toString();
+    const response = await this.request<any>(`/Expenses/analytics/tax-deductible${queryString ? `?${queryString}` : ''}`);
+    if (response && response.success && response.data !== undefined) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get tax deductible expenses');
+  }
+
+  async getTotalReimbursableExpenses(startDate?: string, endDate?: string): Promise<number> {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    const queryString = queryParams.toString();
+    const response = await this.request<any>(`/Expenses/analytics/reimbursable${queryString ? `?${queryString}` : ''}`);
+    if (response && response.success && response.data !== undefined) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get reimbursable expenses');
+  }
+
+  // ==================== ALLOCATION PLANNER APIs ====================
+
+  // Template Operations
+  async getAllocationTemplates(): Promise<any[]> {
+    const response = await this.request<any>('/Allocation/templates');
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation templates');
+  }
+
+  async getAllocationTemplate(templateId: string): Promise<any> {
+    const response = await this.request<any>(`/Allocation/templates/${templateId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation template');
+  }
+
+  async createAllocationTemplate(templateData: any): Promise<any> {
+    const response = await this.request<any>('/Allocation/templates', {
+      method: 'POST',
+      body: JSON.stringify(templateData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create allocation template');
+  }
+
+  async deleteAllocationTemplate(templateId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Allocation/templates/${templateId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete allocation template');
+  }
+
+  // Plan Operations
+  async getActiveAllocationPlan(): Promise<any> {
+    const response = await this.request<any>('/Allocation/plans/active');
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    if (response && !response.success && response.message?.includes('No active')) {
+      return null; // No active plan is not an error
+    }
+    throw new Error(response?.message || 'Failed to get active allocation plan');
+  }
+
+  async getAllocationPlans(): Promise<any[]> {
+    const response = await this.request<any>('/Allocation/plans');
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation plans');
+  }
+
+  async getAllocationPlan(planId: string): Promise<any> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation plan');
+  }
+
+  async createAllocationPlan(planData: any): Promise<any> {
+    const response = await this.request<any>('/Allocation/plans', {
+      method: 'POST',
+      body: JSON.stringify(planData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create allocation plan');
+  }
+
+  async updateAllocationPlan(planId: string, planData: any): Promise<any> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}`, {
+      method: 'PUT',
+      body: JSON.stringify(planData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update allocation plan');
+  }
+
+  async deleteAllocationPlan(planId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}`, {
+      method: 'DELETE',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete allocation plan');
+  }
+
+  async applyAllocationTemplate(templateId: string, monthlyIncome: number): Promise<any> {
+    const response = await this.request<any>('/Allocation/plans/apply-template', {
+      method: 'POST',
+      body: JSON.stringify({ templateId, monthlyIncome }),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to apply allocation template');
+  }
+
+  // Category Operations
+  async getAllocationCategories(planId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}/categories`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation categories');
+  }
+
+  async updateAllocationCategory(categoryId: string, categoryData: any): Promise<any> {
+    const response = await this.request<any>(`/Allocation/categories/${categoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(categoryData),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update allocation category');
+  }
+
+  // History & Tracking
+  async getAllocationHistory(query?: { planId?: string; categoryId?: string; startDate?: string; endDate?: string; months?: number }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (query?.planId) queryParams.append('planId', query.planId);
+    if (query?.categoryId) queryParams.append('categoryId', query.categoryId);
+    if (query?.startDate) queryParams.append('startDate', query.startDate);
+    if (query?.endDate) queryParams.append('endDate', query.endDate);
+    if (query?.months) queryParams.append('months', query.months.toString());
+    const queryString = queryParams.toString();
+    const response = await this.request<any>(`/Allocation/history${queryString ? `?${queryString}` : ''}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation history');
+  }
+
+  async recordAllocationHistory(planId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}/record-history`, {
+      method: 'POST',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to record allocation history');
+  }
+
+  async getAllocationTrends(planId?: string, months: number = 12): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (planId) queryParams.append('planId', planId);
+    queryParams.append('months', months.toString());
+    const response = await this.request<any>(`/Allocation/trends?${queryParams.toString()}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation trends');
+  }
+
+  // Recommendations
+  async getAllocationRecommendations(planId?: string): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (planId) queryParams.append('planId', planId);
+    const queryString = queryParams.toString();
+    const response = await this.request<any>(`/Allocation/recommendations${queryString ? `?${queryString}` : ''}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation recommendations');
+  }
+
+  async markRecommendationRead(recommendationId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Allocation/recommendations/${recommendationId}/read`, {
+      method: 'POST',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to mark recommendation as read');
+  }
+
+  async applyRecommendation(recommendationId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Allocation/recommendations/${recommendationId}/apply`, {
+      method: 'POST',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to apply recommendation');
+  }
+
+  async generateAllocationRecommendations(planId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}/generate-recommendations`, {
+      method: 'POST',
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to generate allocation recommendations');
+  }
+
+  // Calculations & Charts
+  async calculateAllocation(monthlyIncome: number, categories: any[]): Promise<any> {
+    const response = await this.request<any>('/Allocation/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ monthlyIncome, categories }),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to calculate allocation');
+  }
+
+  async getAllocationSummary(planId: string): Promise<any> {
+    const response = await this.request<any>(`/Allocation/plans/${planId}/summary`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation summary');
+  }
+
+  async getAllocationChartData(planId: string, periodDate?: string): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (periodDate) queryParams.append('periodDate', periodDate);
+    const queryString = queryParams.toString();
+    const response = await this.request<any>(`/Allocation/plans/${planId}/chart-data${queryString ? `?${queryString}` : ''}`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get allocation chart data');
   }
 }
 
