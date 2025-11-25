@@ -2257,7 +2257,7 @@ class ApiService {
     if (filters?.page) queryParams.append('page', filters.page.toString());
     if (filters?.limit) queryParams.append('limit', filters.limit.toString());
     const queryString = queryParams.toString();
-    const endpoint = `/api/receivables${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/Receivables${queryString ? `?${queryString}` : ''}`;
     const response = await this.request<any>(endpoint);
     
     if (response && response.success && Array.isArray(response.data)) {
@@ -2276,7 +2276,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/api/receivables/${receivableId}`);
+    const response = await this.request<any>(`/Receivables/${receivableId}`);
     if (response && response.data) {
       return response.data;
     }
@@ -2287,7 +2287,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>('/api/receivables', {
+    const response = await this.request<any>('/Receivables', {
       method: 'POST',
       body: JSON.stringify(receivableData),
     });
@@ -2301,7 +2301,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/api/receivables/${receivableId}`, {
+    const response = await this.request<any>(`/Receivables/${receivableId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
     });
@@ -2315,7 +2315,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/api/receivables/${receivableId}`, {
+    const response = await this.request<any>(`/Receivables/${receivableId}`, {
       method: 'DELETE',
     });
     return response?.data || response || true;
@@ -2325,7 +2325,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return [];
     }
-    const response = await this.request<any>(`/api/receivables/${receivableId}/payments`);
+    const response = await this.request<any>(`/Receivables/${receivableId}/payments`);
     
     if (response && response.success && Array.isArray(response.data)) {
       return response.data;
@@ -2341,7 +2341,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/api/receivables/${receivableId}/payments`, {
+    const response = await this.request<any>(`/Receivables/${receivableId}/payments`, {
       method: 'POST',
       body: JSON.stringify(paymentData),
     });
@@ -2362,7 +2362,7 @@ class ApiService {
         overdueReceivables: 0,
       };
     }
-    const response = await this.request<any>('/api/receivables/analytics');
+    const response = await this.request<any>('/Receivables/analytics');
     
     if (response && response.success && response.data) {
       return response.data;
@@ -4787,6 +4787,173 @@ class ApiService {
     }
 
     return await response.blob();
+  }
+
+  // ==========================================
+  // TICKETS API METHODS
+  // ==========================================
+
+  // Get tickets with filters
+  async getTickets(filters?: any, page: number = 1, limit: number = 10): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (filters?.status) queryParams.append('status', filters.status);
+    if (filters?.priority) queryParams.append('priority', filters.priority);
+    if (filters?.category) queryParams.append('category', filters.category);
+    if (filters?.assignedTo) queryParams.append('assignedTo', filters.assignedTo);
+    if (filters?.search) queryParams.append('search', filters.search);
+    if (filters?.createdFrom) queryParams.append('createdFrom', filters.createdFrom);
+    if (filters?.createdTo) queryParams.append('createdTo', filters.createdTo);
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+
+    const response = await this.request<any>(`/Tickets?${queryParams.toString()}`);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get tickets');
+  }
+
+  // Get ticket by ID
+  async getTicketById(ticketId: string): Promise<any> {
+    const response = await this.request<any>(`/Tickets/${ticketId}`);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get ticket');
+  }
+
+  // Create ticket
+  async createTicket(ticketData: any): Promise<any> {
+    const response = await this.request<any>('/Tickets', {
+      method: 'POST',
+      body: JSON.stringify(ticketData),
+    });
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create ticket');
+  }
+
+  // Update ticket
+  async updateTicket(ticketId: string, ticketData: any): Promise<any> {
+    const response = await this.request<any>(`/Tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify(ticketData),
+    });
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update ticket');
+  }
+
+  // Delete ticket
+  async deleteTicket(ticketId: string): Promise<boolean> {
+    const response = await this.request<any>(`/Tickets/${ticketId}`, {
+      method: 'DELETE',
+    });
+
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to delete ticket');
+  }
+
+  // Add comment to ticket
+  async addTicketComment(ticketId: string, commentData: any): Promise<any> {
+    const response = await this.request<any>(`/Tickets/${ticketId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(commentData),
+    });
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to add comment');
+  }
+
+  // Get ticket comments
+  async getTicketComments(ticketId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Tickets/${ticketId}/comments`);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
+  // Add attachment to ticket
+  async addTicketAttachment(ticketId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/Tickets/${ticketId}/attachments`, {
+      method: 'POST',
+      headers: {
+        'Authorization': this.getAuthHeaders().Authorization || '',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData?.message || 'Failed to add attachment');
+    }
+
+    const result = await response.json();
+    if (result && result.success && result.data) {
+      return result.data;
+    }
+    throw new Error(result?.message || 'Failed to add attachment');
+  }
+
+  // Get ticket attachments
+  async getTicketAttachments(ticketId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Tickets/${ticketId}/attachments`);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
+  // Update ticket status
+  async updateTicketStatus(ticketId: string, status: string, notes?: string): Promise<any> {
+    const response = await this.request<any>(`/Tickets/${ticketId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes }),
+    });
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update ticket status');
+  }
+
+  // Get ticket status history
+  async getTicketStatusHistory(ticketId: string): Promise<any[]> {
+    const response = await this.request<any>(`/Tickets/${ticketId}/status-history`);
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  }
+
+  // Assign ticket
+  async assignTicket(ticketId: string, assignedTo?: string): Promise<any> {
+    const response = await this.request<any>(`/Tickets/${ticketId}/assign`, {
+      method: 'PUT',
+      body: JSON.stringify({ assignedTo }),
+    });
+
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to assign ticket');
   }
 }
 

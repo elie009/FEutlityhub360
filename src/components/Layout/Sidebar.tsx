@@ -36,9 +36,10 @@ import {
   ChevronRight,
   AccountBalanceWallet as ReceivablesIcon,
   CompareArrows as ReconciliationIcon,
-  Category as CategoryIcon,
+  Label as CategoryIcon,
   Bolt as UtilitiesIcon,
   ShoppingCart as ExpensesIcon,
+  Payment as PayablesIcon,
   History as AuditLogsIcon,
   School as AccountingGuideIcon,
   AccountCircle as AccountsIcon,
@@ -108,11 +109,11 @@ const menuItems: MenuItem[] = [
   },
 
   // ============================================
-  // CATEGORY 4: EXPENSE MANAGEMENT
+  // CATEGORY 4: PAYABLE MANAGEMENT
   // ============================================
   {
-    text: 'Expenses',
-    icon: <ExpensesIcon />,
+    text: 'Payables',
+    icon: <PayablesIcon />,
     children: [
       { 
         text: 'Transactions', 

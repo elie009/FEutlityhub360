@@ -540,7 +540,68 @@
 
 ---
 
-#### 12. OCR Receipt Upload
+#### 12. Support Center
+**Current Implementation:**
+- Not implemented
+
+**Scope:**
+
+1. **Ticket Creation**
+   - User able to create a ticket to report a bug
+   - Ticket creation form with bug description
+   - Ticket metadata (title, description, priority, category)
+
+2. **Ticket Status Management**
+   - Four ticket statuses:
+     - **Open** - No action yet (initial status when ticket is created)
+     - **In Progress** - Currently being worked on
+     - **Resolved** - Issue has been fixed
+     - **Closed** - Ticket is closed (after resolution confirmation)
+   - Status transitions tracking
+   - Status change history/audit trail
+
+3. **Ticket Viewing**
+   - User able to view tickets they created
+   - Ticket list/dashboard for user's tickets
+   - Ticket detail view with full information
+   - Filter and search capabilities (by status, date, priority)
+   - Ticket sorting options
+
+**Strengths:**
+- N/A (New feature)
+
+**Weaknesses:**
+- ❌ Not implemented
+- ❌ Missing ticket management system
+- ❌ No bug reporting functionality
+- ❌ No support ticket workflow
+
+**Missing Features:**
+- Ticket creation form and API
+- Ticket status management (Open, In Progress, Resolved, Closed)
+- User ticket dashboard/list view
+- Ticket detail view
+- Status transition tracking
+- Ticket filtering and search
+- Ticket priority assignment
+- Ticket category/type classification
+- Ticket attachments (screenshots, logs)
+- Ticket comments/communication thread
+- Email notifications for status changes
+- Admin/support agent ticket assignment
+- Ticket resolution notes
+
+**Rating:**
+- Accounting Accuracy: **N/A**
+- User Clarity: **N/A** (Depends on implementation)
+- Automation: **N/A** (Depends on implementation)
+- Predictive Capability: **N/A**
+
+**Recommendation:** ❌ **NOT IMPLEMENTED** - Needs development. Recommended as Phase 2 or Phase 3 feature for improving user support and system maintenance.
+
+---
+
+#### 13. OCR Receipt Upload
 **Current Implementation:**
 - Not implemented
 
@@ -1427,6 +1488,7 @@ function generateAllocationDataset(
 | Reports | ✅ APPROVE | All features implemented |
 | Logs | ❌ REJECT | Needs implementation |
 | Notifications | ✅ APPROVE | Add email/SMS, preferences |
+| Support Center | ❌ REJECT | Not implemented |
 | OCR Receipt Upload | ❌ REJECT | Not implemented |
 
 ---

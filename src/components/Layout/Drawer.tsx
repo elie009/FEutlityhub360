@@ -37,9 +37,10 @@ import {
   AccountCircle as AccountsIcon,
   ManageAccounts as AdministrativeIcon,
   Calculate as PlanningIcon,
-  Category as CategoryIcon,
+  Label as CategoryIcon,
   Bolt as UtilitiesIcon,
   ShoppingCart as ExpensesIcon,
+  Payment as PayablesIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -108,11 +109,11 @@ const menuItems: MenuItem[] = [
   },
 
   // ============================================
-  // CATEGORY 4: EXPENSE MANAGEMENT
+  // CATEGORY 4: PAYABLE MANAGEMENT
   // ============================================
   {
-    text: 'Expenses',
-    icon: <ExpensesIcon />,
+    text: 'Payables',
+    icon: <PayablesIcon />,
     children: [
       { 
         text: 'Transactions', 

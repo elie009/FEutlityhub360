@@ -5,6 +5,7 @@ export interface User {
   phone: string;
   kycVerified: boolean;
   isActive: boolean;
+  role?: string; // USER, ADMIN, etc.
   createdAt: string;
   updatedAt: string;
 }

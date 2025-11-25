@@ -1602,32 +1602,64 @@ const Chatbot: React.FC = () => {
       sx={{
         display: 'flex',
         justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
-        mb: 2,
+        mb: 1.5,
+        px: 0.5,
       }}
     >
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'flex-start',
-          maxWidth: '80%',
+          alignItems: 'flex-end',
+          maxWidth: '75%',
           flexDirection: message.type === 'user' ? 'row-reverse' : 'row',
+          gap: 0.5,
         }}
       >
-        <Avatar
-          sx={{
-            bgcolor: message.type === 'user' ? 'primary.main' : 'secondary.main',
-            width: 32,
-            height: 32,
-            mx: 1,
-          }}
-        >
-          {message.type === 'user' ? <PersonIcon /> : <BotIcon />}
-        </Avatar>
+        {message.type === 'bot' && (
+          <Avatar
+            sx={{
+              bgcolor: '#075E54',
+              width: 28,
+              height: 28,
+              mb: 0.5,
+            }}
+          >
+            <BotIcon sx={{ fontSize: 16 }} />
+          </Avatar>
+        )}
         <Paper
+          elevation={0}
           sx={{
-            p: 2,
-            bgcolor: message.type === 'user' ? 'primary.light' : 'grey.100',
-            color: message.type === 'user' ? 'primary.contrastText' : 'text.primary',
+            p: 1.5,
+            px: 2,
+            bgcolor: message.type === 'user' ? '#DCF8C6' : 'white',
+            color: message.type === 'user' ? '#000' : 'text.primary',
+            borderRadius: message.type === 'user' 
+              ? '7.5px 7.5px 0 7.5px' 
+              : '0 7.5px 7.5px 7.5px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+            position: 'relative',
+            '&::before': message.type === 'user' ? {
+              content: '""',
+              position: 'absolute',
+              right: -8,
+              bottom: 0,
+              width: 0,
+              height: 0,
+              borderStyle: 'solid',
+              borderWidth: '0 0 8px 8px',
+              borderColor: 'transparent transparent #DCF8C6 transparent',
+            } : {
+              content: '""',
+              position: 'absolute',
+              left: -8,
+              bottom: 0,
+              width: 0,
+              height: 0,
+              borderStyle: 'solid',
+              borderWidth: '0 8px 8px 0',
+              borderColor: 'transparent white transparent transparent',
+            },
           }}
         >
           {message.type === 'user' ? (
@@ -1668,23 +1700,23 @@ const Chatbot: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Button - Hide when chat is open */}
+      {/* Floating Action Button - Show when chat is closed */}
       {!isOpen && (
         <Fab
           color="secondary"
           aria-label="chat"
           sx={{
             position: 'fixed',
-            bottom: 16,
-            right: 16,
+            bottom: 24,
+            right: 24,
             zIndex: 9999,
-            backgroundColor: '#667eea',
+            backgroundColor: '#25D366',
             '&:hover': {
-              backgroundColor: '#5a6fd8',
+              backgroundColor: '#20BA5A',
             },
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-            width: 56,
-            height: 56,
+            boxShadow: '0 4px 20px rgba(37, 211, 102, 0.4)',
+            width: 60,
+            height: 60,
           }}
           onClick={() => setIsOpen(true)}
         >
@@ -1692,50 +1724,61 @@ const Chatbot: React.FC = () => {
         </Fab>
       )}
 
-      {/* Chat Panel - Slide in from right */}
+      {/* Floating Chat Window - WhatsApp style */}
       <Box
         sx={{
           position: 'fixed',
-          top: 0,
-          right: isOpen ? 0 : '-400px',
-          width: '400px',
-          height: '100vh',
+          bottom: isOpen ? 24 : -700,
+          right: 24,
+          width: '380px',
+          height: '600px',
           backgroundColor: 'white',
-          boxShadow: '-4px 0 12px rgba(0, 0, 0, 0.15)',
-          zIndex: 1000,
-          transition: 'right 0.3s ease-in-out',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
+          borderRadius: '12px 12px 0 0',
+          zIndex: 10000,
+          transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           display: 'flex',
           flexDirection: 'column',
-          borderLeft: '1px solid',
-          borderColor: 'divider',
+          overflow: 'hidden',
+          border: '1px solid rgba(0, 0, 0, 0.08)',
         }}
       >
-        {/* Header */}
+        {/* Header - WhatsApp style */}
         <Box
           sx={{
-            p: 2,
+            p: 1.5,
             borderBottom: 1,
             borderColor: 'divider',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            backgroundColor: 'primary.main',
+            backgroundColor: '#075E54',
             color: 'white',
+            borderRadius: '12px 12px 0 0',
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <BotIcon sx={{ mr: 1 }} />
-            <Typography variant="h6" sx={{ flex: 1 }}>
-              UtilityHub360 Assistant
-            </Typography>
-            {aiEnabled && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AutoAwesomeIcon sx={{ fontSize: 16 }} />
-                <Typography variant="caption">
+            <Avatar
+              sx={{
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                width: 40,
+                height: 40,
+                mr: 1.5,
+              }}
+            >
+              <BotIcon />
+            </Avatar>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                UtilityHub360 Assistant
+              </Typography>
+              {aiEnabled && (
+                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.9 }}>
+                  <AutoAwesomeIcon sx={{ fontSize: 12 }} />
                   AI Powered
                 </Typography>
-              </Box>
-            )}
+              )}
+            </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Tooltip title="Conversation History">
@@ -1765,35 +1808,97 @@ const Chatbot: React.FC = () => {
           </Box>
         </Box>
 
-        {/* Messages */}
+        {/* Messages - WhatsApp style background */}
         <Box
           sx={{
             flex: 1,
             overflow: 'auto',
             p: 2,
-            backgroundColor: '#f8f9fa',
+            backgroundColor: '#ECE5DD',
+            backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'grid\' width=\'100\' height=\'100\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 100 0 L 0 0 0 100\' fill=\'none\' stroke=\'%23D4C5B9\' stroke-width=\'0.5\' opacity=\'0.3\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100\' height=\'100\' fill=\'url(%23grid)\'/%3E%3C/svg%3E")',
+            backgroundSize: '100px 100px',
           }}
         >
           {messages && messages.map(renderMessage)}
           {isTyping && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Avatar sx={{ bgcolor: 'secondary.main', width: 32, height: 32, mr: 1 }}>
-                <BotIcon />
+            <Box sx={{ display: 'flex', alignItems: 'flex-end', mb: 1.5, px: 0.5, gap: 0.5 }}>
+              <Avatar
+                sx={{
+                  bgcolor: '#075E54',
+                  width: 28,
+                  height: 28,
+                  mb: 0.5,
+                }}
+              >
+                <BotIcon sx={{ fontSize: 16 }} />
               </Avatar>
-              <Paper sx={{ p: 2, bgcolor: 'grey.100' }}>
-                <Typography variant="body2">Assistant is typing...</Typography>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  px: 2,
+                  bgcolor: 'white',
+                  borderRadius: '0 7.5px 7.5px 7.5px',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                  position: 'relative',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: -8,
+                    bottom: 0,
+                    width: 0,
+                    height: 0,
+                    borderStyle: 'solid',
+                    borderWidth: '0 8px 8px 0',
+                    borderColor: 'transparent white transparent transparent',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: '#999',
+                      animation: 'typing 1.4s infinite',
+                      '@keyframes typing': {
+                        '0%, 60%, 100%': { opacity: 0.3 },
+                        '30%': { opacity: 1 },
+                      },
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: '#999',
+                      animation: 'typing 1.4s infinite 0.2s',
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: '#999',
+                      animation: 'typing 1.4s infinite 0.4s',
+                    }}
+                  />
+                </Box>
               </Paper>
             </Box>
           )}
           <div ref={messagesEndRef} />
         </Box>
 
-        {/* Input */}
-        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', backgroundColor: 'white' }}>
-          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+        {/* Input - WhatsApp style */}
+        <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', backgroundColor: '#F0F0F0' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
               fullWidth
-              placeholder={useAI ? "Ask me anything with AI assistance..." : "Ask me anything..."}
+              placeholder={useAI ? "Type a message..." : "Type a message..."}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => {
@@ -1802,58 +1907,73 @@ const Chatbot: React.FC = () => {
                 }
               }}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'white',
+                  borderRadius: '25px',
+                  '& fieldset': {
+                    border: 'none',
+                  },
+                  '&:hover fieldset': {
+                    border: 'none',
+                  },
+                  '&.Mui-focused fieldset': {
+                    border: 'none',
+                  },
+                },
+              }}
             />
-            <Button
-              variant="contained"
+            <IconButton
               onClick={() => handleSendMessage(inputValue)}
               disabled={!inputValue.trim()}
-              sx={{ minWidth: 'auto', px: 2 }}
+              sx={{
+                backgroundColor: '#25D366',
+                color: 'white',
+                width: 40,
+                height: 40,
+                '&:hover': {
+                  backgroundColor: '#20BA5A',
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: '#ccc',
+                  color: '#999',
+                },
+              }}
             >
-              <SendIcon />
-            </Button>
+              <SendIcon sx={{ fontSize: 20 }} />
+            </IconButton>
           </Box>
           
           {/* AI Status and Controls */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={useAI}
-                    onChange={(e) => setUseAI(e.target.checked)}
-                    size="small"
-                    color="primary"
-                  />
-                }
-                label={
-                  <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {useAI ? <AutoAwesomeIcon sx={{ fontSize: 14 }} /> : <BotIcon sx={{ fontSize: 14 }} />}
-                    {useAI ? 'AI Mode' : 'Basic Mode'}
-                  </Typography>
-                }
-                sx={{ m: 0 }}
-              />
-            </Box>
-            
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 1 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={useAI}
+                  onChange={(e) => setUseAI(e.target.checked)}
+                  size="small"
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: '#25D366',
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                      backgroundColor: '#25D366',
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem' }}>
+                  {useAI ? <AutoAwesomeIcon sx={{ fontSize: 12 }} /> : <BotIcon sx={{ fontSize: 12 }} />}
+                  {useAI ? 'AI Mode' : 'Basic Mode'}
+                </Typography>
+              }
+              sx={{ m: 0 }}
+            />
           </Box>
         </Box>
       </Box>
 
-      {/* Backdrop when chat is open */}
-      {isOpen && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-            zIndex: 999,
-          }}
-          onClick={() => setIsOpen(false)}
-        />
-      )}
 
       {/* Conversation History Dialog */}
       <Dialog

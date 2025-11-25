@@ -40,6 +40,7 @@ import CategoryManagement from './components/Categories/CategoryManagement';
 import AuditLogs from './pages/AuditLogs';
 import Receipts from './pages/Receipts';
 import AccountingGuide from './pages/AccountingGuide';
+import Tickets from './pages/Tickets';
 import { FinanceLoader } from './components/Common';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -206,6 +207,11 @@ const AppRoutes: React.FC = () => {
           <Route path="accounting-guide" element={
             <ProtectedRoute>
               <AccountingGuide />
+            </ProtectedRoute>
+          } />
+          <Route path="tickets" element={
+            <ProtectedRoute>
+              <Tickets />
             </ProtectedRoute>
           } />
           <Route path="reports" element={<Navigate to="/analytics" replace />} />
