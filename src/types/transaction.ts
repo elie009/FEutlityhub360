@@ -23,6 +23,11 @@ export interface BankAccountTransaction {
   savingsAccountId?: string; // For savings-related transactions
   loanId?: string;           // For loan-related transactions
   accountName?: string;      // Account name for display
+  // Soft delete fields
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deleteReason?: string;
 }
 
 export interface TransactionFilters {

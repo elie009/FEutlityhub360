@@ -81,6 +81,11 @@ const menuItems: MenuItem[] = [
         path: '/bank-accounts'
       },
       { 
+        text: 'Transactions', 
+        icon: <TransactionsIcon />, 
+        path: '/transactions'
+      },
+      { 
         text: 'Reconciliation', 
         icon: <ReconciliationIcon />, 
         path: '/reconciliation'
@@ -115,11 +120,6 @@ const menuItems: MenuItem[] = [
     text: 'Payables',
     icon: <PayablesIcon />,
     children: [
-      { 
-        text: 'Transactions', 
-        icon: <TransactionsIcon />, 
-        path: '/transactions'
-      },
       { 
         text: 'Expenses', 
         icon: <ExpensesIcon />, 

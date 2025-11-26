@@ -164,3 +164,17 @@ export interface TransactionMatchSuggestion {
   matchReason: string;
 }
 
+// AI Extraction Types
+export interface ExtractBankStatementResponse {
+  statementName: string;
+  statementStartDate?: string;
+  statementEndDate?: string;
+  openingBalance?: number;
+  closingBalance?: number;
+  importFormat: string;
+  importSource: string;
+  statementItems: BankStatementItemImport[];
+  extractedText?: string;
+  metadata?: Record<string, any>;
+}
+

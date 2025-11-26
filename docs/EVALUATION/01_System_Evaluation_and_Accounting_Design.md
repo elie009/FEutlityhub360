@@ -74,6 +74,10 @@
 - ✅ ~~Reconciliation workflow (match transactions)~~ **IMPLEMENTED** - Full workflow with auto/manual matching
 - ~~Transfer transaction double-entry~~ **IMPLEMENTED** - Full validation in frontend and backend
 - ✅ ~~Account reconciliation reports~~ **IMPLEMENTED** - Reconciliation summary and status tracking
+- ✅ **Month Closing Functionality** - **IMPLEMENTED** - Users can close months to prevent transaction modifications
+  - ✅ **Month Closing Option** - Bank account module includes "Close Month" functionality with UI dialog
+  - ✅ **Transaction Edit/Delete Restrictions** - Transactions can only be edited/deleted if their month is not closed (backend validation)
+  - ✅ **Closed Period Protection** - Prevents modifications (create/edit/delete) to transactions in closed months, maintaining data integrity
 - Bank feed integration (Plaid, Yodlee) - Future enhancement
 - Transaction rules/automation - Future enhancement
 - Duplicate transaction detection - Future enhancement
@@ -99,7 +103,42 @@
 - ✅ Enhanced empty states with guided steps
 - ✅ Contextual help in transaction forms
 
-**Recommendation:** ✅ **APPROVE** with reconciliation features - User clarity significantly improved to 9/10
+**Month Closing Functionality:**
+
+The system includes comprehensive month closing functionality to ensure data integrity and prevent unauthorized modifications to historical financial data:
+
+**Implemented Features:**
+1. **Month Closing Process:**
+   - ✅ Users can confirm and close any completed month from the bank account module via "Close Month" dialog
+   - ✅ Once a month is closed, it cannot be reopened (maintains data integrity)
+   - ✅ Closed months are clearly displayed with lock icons and listed in the Close Month dialog
+   - ✅ Visual indicators show which months are closed vs. open
+
+2. **Transaction Edit/Delete Restrictions:**
+   - ✅ Transactions can only be created/edited/deleted if their transaction month is not closed
+   - ✅ System validates the transaction date against closed months before allowing any modifications
+   - ✅ Clear error messages inform users when attempting to modify transactions in closed periods
+   - ✅ Prevents accidental or intentional tampering with finalized financial records
+
+3. **Data Integrity:**
+   - ✅ Maintains audit trail by protecting closed periods
+   - ✅ Ensures financial reports remain consistent after month closure
+   - ✅ Supports accounting best practices for period-end closing procedures
+
+**Implementation Details:**
+- ✅ **Database**: `ClosedMonth` entity with fields: Id, BankAccountId, Year, Month, ClosedBy, ClosedAt, Notes
+- ✅ **Backend API Endpoints**:
+  - `POST /api/bankaccounts/{id}/close-month` - Close a month
+  - `GET /api/bankaccounts/{id}/closed-months` - Get all closed months for an account
+  - `GET /api/bankaccounts/{id}/is-month-closed` - Check if a specific month is closed
+- ✅ **Backend Validation**: Transaction create/edit/delete methods check month closure status
+- ✅ **Frontend UI**: 
+  - Close Month dialog component with year/month selection and notes
+  - "Close Month" button in BankAccountCard menu and action buttons
+  - Visual display of closed months with lock icons
+- ✅ **Error Handling**: Clear error messages when attempting operations on closed months
+
+**Recommendation:** ✅ **APPROVE** with reconciliation features - User clarity significantly improved to 9/10. Month closing functionality adds essential data integrity controls and is fully implemented across backend and frontend.
 
 ---
 

@@ -56,6 +56,27 @@ interface TransactionFormProps {
   onClose: () => void;
   onSuccess: () => void;
   bankAccounts: BankAccount[];
+  transaction?: BankAccountTransaction | null; // Optional transaction for edit mode
+}
+
+interface BankAccountTransaction {
+  id: string;
+  bankAccountId: string;
+  amount: number;
+  transactionType: string;
+  description: string;
+  category?: string;
+  merchant?: string;
+  location?: string;
+  transactionDate: string;
+  notes?: string;
+  isRecurring?: boolean;
+  recurringFrequency?: string;
+  referenceNumber?: string;
+  externalTransactionId?: string;
+  billId?: string;
+  savingsAccountId?: string;
+  loanId?: string;
 }
 
 interface Bill {
@@ -101,7 +122,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   onClose,
   onSuccess,
   bankAccounts,
+  transaction: initialTransaction = null,
 }) => {
+  const isEditMode = !!initialTransaction;
   const [formData, setFormData] = useState({
     bankAccountId: '',
     amount: '',
@@ -148,34 +171,66 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   useEffect(() => {
     if (open) {
-      // Reset form when dialog opens
-      setFormData({
-        bankAccountId: bankAccounts.length > 0 ? bankAccounts[0].id : '',
-        amount: '',
-        transactionType: 'DEBIT',
-        description: '',
-        category: '',
-        merchant: '',
-        location: '',
-        transactionDate: new Date().toISOString().slice(0, 16),
-        notes: '',
-        isRecurring: false,
-        recurringFrequency: '',
-        referenceNumber: '',
-        currency: 'USD',
-        billId: '',
-        savingsAccountId: '',
-        loanId: '',
-        toBankAccountId: '',
-      });
+      if (initialTransaction && isEditMode) {
+        // Populate form with transaction data for edit mode
+        const transactionDate = new Date(initialTransaction.transactionDate);
+        const formattedDate = transactionDate.toISOString().slice(0, 16);
+        
+        setFormData({
+          bankAccountId: initialTransaction.bankAccountId,
+          amount: Math.abs(initialTransaction.amount).toString(),
+          transactionType: (initialTransaction.transactionType.toUpperCase() === 'CREDIT' ? 'CREDIT' : 'DEBIT') as 'DEBIT' | 'CREDIT',
+          description: initialTransaction.description || '',
+          category: initialTransaction.category || '',
+          merchant: initialTransaction.merchant || '',
+          location: initialTransaction.location || '',
+          transactionDate: formattedDate,
+          notes: initialTransaction.notes || '',
+          isRecurring: initialTransaction.isRecurring || false,
+          recurringFrequency: initialTransaction.recurringFrequency || '',
+          referenceNumber: initialTransaction.referenceNumber || '',
+          currency: (initialTransaction as any).currency || 'USD',
+          billId: initialTransaction.billId || '',
+          savingsAccountId: initialTransaction.savingsAccountId || '',
+          loanId: initialTransaction.loanId || '',
+          toBankAccountId: '',
+        });
+        
+        // Show selectors if linked to bill/savings/loan
+        setShowBillSelector(!!initialTransaction.billId);
+        setShowSavingsSelector(!!initialTransaction.savingsAccountId);
+        setShowLoanSelector(!!initialTransaction.loanId);
+        setShowTransferSelector(false); // Don't show transfer selector in edit mode
+      } else {
+        // Reset form when dialog opens for new transaction
+        setFormData({
+          bankAccountId: bankAccounts.length > 0 ? bankAccounts[0].id : '',
+          amount: '',
+          transactionType: 'DEBIT',
+          description: '',
+          category: 'Expenses', // Default category for DEBIT transactions
+          merchant: '',
+          location: '',
+          transactionDate: new Date().toISOString().slice(0, 16),
+          notes: '',
+          isRecurring: false,
+          recurringFrequency: '',
+          referenceNumber: '',
+          currency: 'USD',
+          billId: '',
+          savingsAccountId: '',
+          loanId: '',
+          toBankAccountId: '',
+        });
+        // Reset dynamic selectors
+        setShowBillSelector(false);
+        setShowSavingsSelector(false);
+        setShowLoanSelector(false);
+        setShowTransferSelector(false);
+      }
       setError('');
-      // Reset dynamic selectors
-      setShowBillSelector(false);
-      setShowSavingsSelector(false);
-      setShowLoanSelector(false);
-      setShowTransferSelector(false);
     }
-  }, [open, bankAccounts]);
+  }, [open, bankAccounts, initialTransaction, isEditMode]);
 
   // Load each data source asynchronously with individual loading states
   // Added minimum delays to make skeleton screens visible
@@ -259,10 +314,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setLoadingCategories(true);
     try {
       const categoriesData = await apiService.getActiveCategories();
+      // Ensure "Expenses" category is available as default
+      const expensesCategory = categoriesData.find((cat: any) => cat.name === 'Expenses');
+      if (!expensesCategory) {
+        // Add "Expenses" as a default category if it doesn't exist
+        categoriesData.unshift({
+          id: 'default-expenses',
+          name: 'Expenses',
+          type: 'EXPENSE',
+          icon: undefined,
+          color: undefined
+        });
+      }
       setCategories(categoriesData);
     } catch (error) {
       console.error('Failed to load categories:', error);
-      setCategories([]);
+      // Even on error, provide "Expenses" as a fallback
+      setCategories([{
+        id: 'default-expenses',
+        name: 'Expenses',
+        type: 'EXPENSE',
+        icon: undefined,
+        color: undefined
+      }]);
     } finally {
       setLoadingCategories(false);
     }
@@ -308,6 +382,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
       setShowTransferSelector(false);
+    }
+    // If transaction type changes to DEBIT and category is empty, set default to "Expenses"
+    if (field === 'transactionType' && value === 'DEBIT') {
+      setFormData(prev => ({
+        ...prev,
+        category: prev.category || 'Expenses',
+      }));
     }
   };
 
@@ -372,7 +453,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       const isTransfer = isTransferCategory(formData.category);
       const finalCategory = isTransfer ? 'TRANSFER' : (formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category);
       
-      await apiService.createBankTransaction({
+      const transactionData = {
         bankAccountId: formData.bankAccountId,
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
@@ -391,12 +472,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         savingsAccountId: formData.savingsAccountId || undefined,
         loanId: formData.loanId || undefined,
         toBankAccountId: formData.toBankAccountId || undefined,
-      });
+      };
+
+      if (isEditMode && initialTransaction) {
+        // Update existing transaction
+        await apiService.updateBankTransaction(initialTransaction.id, transactionData);
+      } else {
+        // Create new transaction
+        await apiService.createBankTransaction(transactionData);
+      }
 
       onSuccess();
       onClose();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to create transaction'));
+      } catch (err: unknown) {
+      setError(getErrorMessage(err, isEditMode ? 'Failed to update transaction' : 'Failed to create transaction'));
     } finally {
       setIsLoading(false);
     }
@@ -413,7 +502,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Add New Transaction</Typography>
+          <Typography variant="h6">{isEditMode ? 'Edit Transaction' : 'Add New Transaction'}</Typography>
           <Tooltip title="Get help with adding transactions">
             <IconButton size="small" onClick={() => setShowHelpSection(!showHelpSection)}>
               <HelpIcon />

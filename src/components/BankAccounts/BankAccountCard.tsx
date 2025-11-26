@@ -10,6 +10,7 @@ import {
   Receipt,
   CompareArrows as ReconcileIcon,
   Info as InfoIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { BankAccount } from '../../types/bankAccount';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -23,6 +24,7 @@ interface BankAccountCardProps {
   onSync?: (accountId: string) => void;
   onViewTransactions?: (account: BankAccount) => void;
   onReconcile?: (account: BankAccount) => void;
+  onCloseMonth?: (account: BankAccount) => void;
 }
 
 const getAccountTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -90,6 +92,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
   onSync,
   onViewTransactions,
   onReconcile,
+  onCloseMonth,
 }) => {
   const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -130,6 +133,11 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
 
   const handleReconcile = () => {
     onReconcile?.(account);
+    handleMenuClose();
+  };
+
+  const handleCloseMonth = () => {
+    onCloseMonth?.(account);
     handleMenuClose();
   };
 
@@ -379,6 +387,22 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
             </Tooltip>
           </Box>
         )}
+        {onCloseMonth && (
+          <Box sx={{ mt: 1 }}>
+            <Tooltip title="Close a month to prevent editing or deleting transactions in that period. This helps maintain data integrity.">
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleCloseMonth}
+                startIcon={<LockIcon />}
+                fullWidth
+                color="warning"
+              >
+                Close Month
+              </Button>
+            </Tooltip>
+          </Box>
+        )}
       </CardContent>
 
       {/* Action Menu */}
@@ -420,6 +444,12 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
           <MenuItem onClick={handleReconcile}>
             <ReconcileIcon sx={{ mr: 1, fontSize: 16 }} />
             Reconcile
+          </MenuItem>
+        )}
+        {onCloseMonth && (
+          <MenuItem onClick={handleCloseMonth}>
+            <LockIcon sx={{ mr: 1, fontSize: 16 }} />
+            Close Month
           </MenuItem>
         )}
         <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>

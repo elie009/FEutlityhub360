@@ -2236,6 +2236,34 @@ class ApiService {
     return response;
   }
 
+  // Month Closing APIs
+  async closeMonth(bankAccountId: string, year: number, month: number, notes?: string): Promise<any> {
+    const response = await this.request<any>(`/bankaccounts/${bankAccountId}/close-month`, {
+      method: 'POST',
+      body: JSON.stringify({ year, month, notes }),
+    });
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to close month');
+  }
+
+  async getClosedMonths(bankAccountId: string): Promise<any[]> {
+    const response = await this.request<any>(`/bankaccounts/${bankAccountId}/closed-months`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async isMonthClosed(bankAccountId: string, year: number, month: number): Promise<boolean> {
+    const response = await this.request<any>(`/bankaccounts/${bankAccountId}/is-month-closed?year=${year}&month=${month}`);
+    if (response && response.success && typeof response.data === 'boolean') {
+      return response.data;
+    }
+    return false;
+  }
+
   // Utility method for formatting currency
   formatCurrency(amount: number, currency: string = 'USD'): string {
     return new Intl.NumberFormat('en-US', {
@@ -2512,6 +2540,41 @@ class ApiService {
     return response?.data || response || true;
   }
 
+  async hideTransaction(transactionId: string, reason?: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      // For mock data, just return success
+      return Promise.resolve(true);
+    }
+    
+    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/hide`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason }),
+    });
+    
+    if (response && response.success) {
+      return response.data || true;
+    }
+    
+    return response?.data || response || true;
+  }
+
+  async restoreTransaction(transactionId: string): Promise<BankAccountTransaction> {
+    if (isMockDataEnabled()) {
+      // For mock data, return a mock transaction
+      throw new Error('Mock data not implemented for restore transaction');
+    }
+    
+    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/restore`, {
+      method: 'PUT',
+    });
+    
+    if (response && response.data) {
+      return response.data;
+    }
+    
+    return response;
+  }
+
   async analyzeTransactionText(
     transactionText: string, 
     bankAccountId?: string,
@@ -2613,6 +2676,38 @@ class ApiService {
       return mockTransactionDataService.getTransactionAnalytics(user?.id || 'demo-user-123');
     }
     const response = await this.request<any>('/bankaccounts/transactions/analytics');
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async updateBankTransaction(transactionId: string, transactionData: {
+    bankAccountId: string;
+    amount: number;
+    transactionType: 'DEBIT' | 'CREDIT';
+    description: string;
+    category?: string;
+    merchant?: string;
+    location?: string;
+    transactionDate: string;
+    notes?: string;
+    isRecurring?: boolean;
+    recurringFrequency?: string;
+    referenceNumber?: string;
+    currency?: string;
+    billId?: string;
+    savingsAccountId?: string;
+    loanId?: string;
+    toBankAccountId?: string;
+  }): Promise<BankAccountTransaction> {
+    if (isMockDataEnabled()) {
+      throw new Error('Mock data not implemented for updating transactions');
+    }
+    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(transactionData),
+    });
     if (response && response.data) {
       return response.data;
     }
@@ -3781,6 +3876,58 @@ class ApiService {
   }
 
   // ==================== RECONCILIATION APIs ====================
+
+  async extractBankStatement(file: File, bankAccountId: string): Promise<import('../types/reconciliation').ExtractBankStatementResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bankAccountId', bankAccountId);
+
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/reconciliation/statements/extract`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to extract bank statement');
+    }
+
+    const result = await response.json();
+    if (result && result.success && result.data) {
+      return result.data;
+    }
+    throw new Error(result.message || 'Failed to extract bank statement');
+  }
+
+  async analyzePDFWithAI(file: File, bankAccountId: string): Promise<import('../types/reconciliation').ExtractBankStatementResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bankAccountId', bankAccountId);
+
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/reconciliation/statements/analyze-pdf`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to analyze PDF with AI');
+    }
+
+    const result = await response.json();
+    if (result && result.success && result.data) {
+      return result.data;
+    }
+    throw new Error(result.message || 'Failed to analyze PDF with AI');
+  }
 
   async importBankStatement(importData: import('../types/reconciliation').ImportBankStatementRequest): Promise<import('../types/reconciliation').BankStatement> {
     const response = await this.request<any>('/reconciliation/statements/import', {

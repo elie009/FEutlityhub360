@@ -24,6 +24,7 @@ import BankAccountForm from '../components/BankAccounts/BankAccountForm';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
 import BankAccountTransactionsModal from '../components/BankAccounts/BankAccountTransactionsModal';
 import ReconciliationGuide from '../components/BankAccounts/ReconciliationGuide';
+import CloseMonthDialog from '../components/BankAccounts/CloseMonthDialog';
 
 const BankAccounts: React.FC = () => {
   const { user } = useAuth();
@@ -43,6 +44,8 @@ const BankAccounts: React.FC = () => {
   const [showHelpSection, setShowHelpSection] = useState(false);
   const [showReconciliationGuide, setShowReconciliationGuide] = useState(false);
   const [accountForReconciliation, setAccountForReconciliation] = useState<BankAccount | null>(null);
+  const [showCloseMonthDialog, setShowCloseMonthDialog] = useState(false);
+  const [accountForCloseMonth, setAccountForCloseMonth] = useState<BankAccount | null>(null);
 
   // Bank Account Management Functions
   const loadBankAccounts = useCallback(async () => {
@@ -139,6 +142,16 @@ const BankAccounts: React.FC = () => {
   const handleReconcile = (account: BankAccount) => {
     setAccountForReconciliation(account);
     setShowReconciliationGuide(true);
+  };
+
+  const handleCloseMonth = (account: BankAccount) => {
+    setAccountForCloseMonth(account);
+    setShowCloseMonthDialog(true);
+  };
+
+  const handleMonthClosed = () => {
+    // Reload accounts if needed
+    loadBankAccounts();
   };
 
   const handleStartReconciliation = () => {
@@ -532,6 +545,7 @@ const BankAccounts: React.FC = () => {
                 onSync={handleSyncBankAccount}
                 onViewTransactions={handleViewTransactions}
                 onReconcile={handleReconcile}
+                onCloseMonth={handleCloseMonth}
               />
             </Grid>
           ))}
@@ -616,6 +630,17 @@ const BankAccounts: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Close Month Dialog */}
+      <CloseMonthDialog
+        open={showCloseMonthDialog}
+        onClose={() => {
+          setShowCloseMonthDialog(false);
+          setAccountForCloseMonth(null);
+        }}
+        account={accountForCloseMonth}
+        onMonthClosed={handleMonthClosed}
+      />
     </Container>
   );
 };

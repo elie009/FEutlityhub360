@@ -85,8 +85,10 @@ const TransactionsPage: React.FC = () => {
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedSavingsAccountId, setSelectedSavingsAccountId] = useState<string>('');
   const [isLoadingLinkedData, setIsLoadingLinkedData] = useState(false);
+  const [closedMonthsMap, setClosedMonthsMap] = useState<Map<string, Set<string>>>(new Map()); // Map<bankAccountId, Set<"YYYY-MM">>
   const [transactionLinkType, setTransactionLinkType] = useState<'none' | 'bill' | 'loan' | 'savings'>('none');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [transactionToEdit, setTransactionToEdit] = useState<BankAccountTransaction | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -122,6 +124,11 @@ const TransactionsPage: React.FC = () => {
       setAnalytics(analyticsData);
       setBankAccountAnalytics(bankAccountAnalyticsData);
       setBankAccountSummary(bankAccountSummaryData);
+      
+      // Reload closed months to keep them up to date
+      if (bankAccounts.length > 0) {
+        await loadClosedMonthsForAccounts(bankAccounts);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -134,11 +141,65 @@ const TransactionsPage: React.FC = () => {
     try {
       const accounts = await apiService.getUserBankAccounts();
       setBankAccounts(accounts);
+      
+      // Load closed months for all bank accounts
+      await loadClosedMonthsForAccounts(accounts);
     } catch (err) {
       console.error('Failed to load bank accounts:', err);
     } finally {
       setIsLoadingBankAccounts(false);
     }
+  };
+
+  const loadClosedMonthsForAccounts = async (accounts: BankAccount[]) => {
+    const closedMonths = new Map<string, Set<string>>();
+    
+    for (const account of accounts) {
+      try {
+        const closed = await apiService.getClosedMonths(account.id);
+        // Create a Set of "YYYY-MM" strings for quick lookup
+        const monthSet = new Set<string>();
+        closed.forEach((cm: any) => {
+          const monthKey = `${cm.year}-${String(cm.month).padStart(2, '0')}`;
+          monthSet.add(monthKey);
+        });
+        closedMonths.set(account.id, monthSet);
+      } catch (err) {
+        console.error(`Failed to load closed months for account ${account.id}:`, err);
+      }
+    }
+    
+    setClosedMonthsMap(closedMonths);
+  };
+
+  const isTransactionMonthClosed = (transaction: BankAccountTransaction): boolean => {
+    if (!transaction.bankAccountId || !transaction.transactionDate) {
+      return false;
+    }
+    
+    const closedMonths = closedMonthsMap.get(transaction.bankAccountId);
+    if (!closedMonths) {
+      return false;
+    }
+    
+    const transactionDate = new Date(transaction.transactionDate);
+    const monthKey = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    return closedMonths.has(monthKey);
+  };
+
+  const getClosedMonthMessage = (transaction: BankAccountTransaction): string | null => {
+    if (!isTransactionMonthClosed(transaction)) {
+      return null;
+    }
+    
+    const transactionDate = new Date(transaction.transactionDate);
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthName = monthNames[transactionDate.getMonth()];
+    const year = transactionDate.getFullYear();
+    
+    return `This transaction cannot be edited or deleted because ${monthName} ${year} is closed for this account.`;
   };
 
   const loadLinkedData = async () => {
@@ -326,7 +387,16 @@ const TransactionsPage: React.FC = () => {
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
-    if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    // Check if month is closed before attempting delete
+    if (transaction && isTransactionMonthClosed(transaction)) {
+      const message = getClosedMonthMessage(transaction);
+      setError(message || 'Cannot delete transaction: Month is closed');
+      return;
+    }
+
+    if (window.confirm('Are you sure you want to delete this transaction? Transactions older than 24 hours will be hidden (soft deleted) and can be restored.')) {
       try {
         await apiService.deleteTransaction(transactionId);
         // Close the details dialog
@@ -334,7 +404,34 @@ const TransactionsPage: React.FC = () => {
         // Reload transactions and analytics
         loadTransactionsAndAnalytics();
       } catch (err: unknown) {
-        setError(getErrorMessage(err, 'Failed to delete transaction'));
+        const errorMessage = getErrorMessage(err, 'Failed to delete transaction');
+        // Check if error is about closed month (backend validation)
+        setError(errorMessage);
+      }
+    }
+  };
+
+  const handleHideTransaction = async (transactionId: string) => {
+    const reason = window.prompt('Enter reason for hiding this transaction (optional):');
+    if (reason !== null) { // User didn't cancel
+      try {
+        await apiService.hideTransaction(transactionId, reason || undefined);
+        handleCloseDetails();
+        loadTransactionsAndAnalytics();
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to hide transaction'));
+      }
+    }
+  };
+
+  const handleRestoreTransaction = async (transactionId: string) => {
+    if (window.confirm('Are you sure you want to restore this transaction?')) {
+      try {
+        await apiService.restoreTransaction(transactionId);
+        handleCloseDetails();
+        loadTransactionsAndAnalytics();
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to restore transaction'));
       }
     }
   };
@@ -1810,6 +1907,18 @@ const TransactionsPage: React.FC = () => {
                 </Box>
               )}
 
+              {/* Month Closed Warning */}
+              {selectedTransaction && isTransactionMonthClosed(selectedTransaction) && (
+                <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>
+                  <Typography variant="body2" fontWeight="bold" gutterBottom>
+                    Month Closed
+                  </Typography>
+                  <Typography variant="body2">
+                    {getClosedMonthMessage(selectedTransaction)}
+                  </Typography>
+                </Alert>
+              )}
+
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="body2" color="text.secondary">
@@ -1823,22 +1932,87 @@ const TransactionsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDetails}>Close</Button>
-          <Button 
-            onClick={() => selectedTransaction && handleDeleteTransaction(selectedTransaction.id)}
-            color="error"
-            variant="outlined"
-          >
-            Delete Transaction
-          </Button>
+          
+          {/* Show restore button if transaction is soft-deleted */}
+          {selectedTransaction?.isDeleted ? (
+            <Button 
+              onClick={() => selectedTransaction && handleRestoreTransaction(selectedTransaction.id)}
+              color="success"
+              variant="outlined"
+            >
+              Restore Transaction
+            </Button>
+          ) : (
+            <>
+              {/* Check if transaction month is closed */}
+              {selectedTransaction && isTransactionMonthClosed(selectedTransaction) ? (
+                <>
+                  <Tooltip title={getClosedMonthMessage(selectedTransaction) || 'Month is closed'} arrow>
+                    <span>
+                      <Button 
+                        disabled
+                        color="primary"
+                        variant="outlined"
+                        sx={{ mr: 1 }}
+                      >
+                        Edit Transaction
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title={getClosedMonthMessage(selectedTransaction) || 'Month is closed'} arrow>
+                    <span>
+                      <Button 
+                        disabled
+                        color="error"
+                        variant="outlined"
+                      >
+                        Delete Transaction
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </>
+              ) : (
+                <>
+                  {/* Edit button */}
+                  <Button 
+                    onClick={() => {
+                      if (selectedTransaction) {
+                        setTransactionToEdit(selectedTransaction);
+                        handleCloseDetails();
+                        setShowTransactionForm(true);
+                      }
+                    }}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ mr: 1 }}
+                  >
+                    Edit Transaction
+                  </Button>
+                  {/* Regular delete (auto soft-deletes if > 24 hours) */}
+                  <Button 
+                    onClick={() => selectedTransaction && handleDeleteTransaction(selectedTransaction.id)}
+                    color="error"
+                    variant="outlined"
+                  >
+                    Delete Transaction
+                  </Button>
+                </>
+              )}
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
       {/* Transaction Form Dialog */}
       <TransactionForm
         open={showTransactionForm}
-        onClose={() => setShowTransactionForm(false)}
+        onClose={() => {
+          setShowTransactionForm(false);
+          setTransactionToEdit(null);
+        }}
         onSuccess={handleTransactionFormSuccess}
         bankAccounts={bankAccounts}
+        transaction={transactionToEdit}
       />
     </Container>
   );

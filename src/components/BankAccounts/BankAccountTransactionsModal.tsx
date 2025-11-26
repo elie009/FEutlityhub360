@@ -25,6 +25,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   ExpandMore,
@@ -32,6 +33,7 @@ import {
   TrendingDown,
   Close as CloseIcon,
   CalendarMonth,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { BankAccount } from '../../types/bankAccount';
 import { BankAccountTransaction } from '../../types/transaction';
@@ -64,18 +66,49 @@ const BankAccountTransactionsModal: React.FC<BankAccountTransactionsModalProps> 
   const [error, setError] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [closedMonths, setClosedMonths] = useState<Set<string>>(new Set()); // Set of "YYYY-MM" strings
 
-  // Fetch transactions when modal opens
+  // Fetch transactions and closed months when modal opens
   useEffect(() => {
     if (open && account) {
       fetchTransactions();
+      loadClosedMonths();
     } else {
       // Reset when modal closes
       setTransactions([]);
       setSelectedMonth('all');
       setError('');
+      setClosedMonths(new Set());
     }
   }, [open, account]);
+
+  const loadClosedMonths = async () => {
+    if (!account) return;
+
+    try {
+      const closed = await apiService.getClosedMonths(account.id);
+      // Create a Set of "YYYY-MM" strings for quick lookup
+      const monthSet = new Set<string>();
+      closed.forEach((cm: any) => {
+        const monthKey = `${cm.year}-${String(cm.month).padStart(2, '0')}`;
+        monthSet.add(monthKey);
+      });
+      setClosedMonths(monthSet);
+    } catch (err) {
+      console.error('Failed to load closed months:', err);
+    }
+  };
+
+  const isTransactionMonthClosed = (transaction: BankAccountTransaction): boolean => {
+    if (!transaction.transactionDate) {
+      return false;
+    }
+    
+    const transactionDate = new Date(transaction.transactionDate);
+    const monthKey = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    return closedMonths.has(monthKey);
+  };
 
   const fetchTransactions = async () => {
     if (!account) return;
@@ -318,55 +351,81 @@ const BankAccountTransactionsModal: React.FC<BankAccountTransactionsModalProps> 
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {monthData.transactions.map((txn) => (
-                              <TableRow key={txn.id} hover>
-                                <TableCell>{formatDate(txn.transactionDate)}</TableCell>
-                                <TableCell>
-                                  <Chip
-                                    icon={getTransactionTypeIcon(txn.transactionType)}
-                                    label={txn.transactionType}
-                                    color={txn.transactionType === 'DEBIT' ? undefined : getTransactionTypeColor(txn.transactionType)}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: txn.transactionType === 'DEBIT' ? 'rgba(244, 67, 54, 0.2)' : undefined,
-                                      color: txn.transactionType === 'DEBIT' ? 'rgb(244, 67, 54)' : undefined,
-                                      border: txn.transactionType === 'DEBIT' ? '1px solid rgb(244, 67, 54)' : undefined,
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Typography variant="body2">{txn.description}</Typography>
-                                  {txn.merchant && (
-                                    <Typography variant="caption" color="text.secondary">
-                                      {txn.merchant}
+                            {monthData.transactions.map((txn) => {
+                              const isClosed = isTransactionMonthClosed(txn);
+                              return (
+                                <TableRow 
+                                  key={txn.id} 
+                                  hover
+                                  sx={{
+                                    opacity: isClosed ? 0.7 : 1,
+                                    backgroundColor: isClosed ? 'rgba(255, 152, 0, 0.05)' : 'inherit',
+                                  }}
+                                >
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {formatDate(txn.transactionDate)}
+                                      {isClosed && (
+                                        <Tooltip title="Month is closed - transaction cannot be edited or deleted">
+                                          <Chip
+                                            icon={<LockIcon />}
+                                            label="Closed"
+                                            size="small"
+                                            color="warning"
+                                            variant="outlined"
+                                            sx={{ height: 20, fontSize: '0.65rem' }}
+                                          />
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      icon={getTransactionTypeIcon(txn.transactionType)}
+                                      label={txn.transactionType}
+                                      color={txn.transactionType === 'DEBIT' ? undefined : getTransactionTypeColor(txn.transactionType)}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: txn.transactionType === 'DEBIT' ? 'rgba(244, 67, 54, 0.2)' : undefined,
+                                        color: txn.transactionType === 'DEBIT' ? 'rgb(244, 67, 54)' : undefined,
+                                        border: txn.transactionType === 'DEBIT' ? '1px solid rgb(244, 67, 54)' : undefined,
+                                      }}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">{txn.description}</Typography>
+                                    {txn.merchant && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        {txn.merchant}
+                                      </Typography>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip label={txn.category || 'N/A'} size="small" variant="outlined" />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography
+                                      variant="body2"
+                                      fontWeight="bold"
+                                      color={txn.transactionType === 'CREDIT' ? 'success.main' : 'error.main'}
+                                    >
+                                      {txn.transactionType === 'CREDIT' ? '+' : '-'}
+                                      {formatCurrency(Math.abs(txn.amount))}
                                     </Typography>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <Chip label={txn.category || 'N/A'} size="small" variant="outlined" />
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight="bold"
-                                    color={txn.transactionType === 'CREDIT' ? 'success.main' : 'error.main'}
-                                  >
-                                    {txn.transactionType === 'CREDIT' ? '+' : '-'}
-                                    {formatCurrency(Math.abs(txn.amount))}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant="body2">
-                                    {formatCurrency(txn.balanceAfterTransaction)}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell>
-                                  <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                                    {txn.referenceNumber || 'N/A'}
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography variant="body2">
+                                      {formatCurrency(txn.balanceAfterTransaction)}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                                      {txn.referenceNumber || 'N/A'}
+                                    </Typography>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </TableContainer>
