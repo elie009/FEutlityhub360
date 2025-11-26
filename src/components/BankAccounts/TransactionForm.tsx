@@ -313,30 +313,72 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const loadCategories = useCallback(async () => {
     setLoadingCategories(true);
     try {
-      const categoriesData = await apiService.getActiveCategories();
-      // Ensure "Expenses" category is available as default
-      const expensesCategory = categoriesData.find((cat: any) => cat.name === 'Expenses');
-      if (!expensesCategory) {
-        // Add "Expenses" as a default category if it doesn't exist
-        categoriesData.unshift({
-          id: 'default-expenses',
-          name: 'Expenses',
+      // Get ALL categories (active and inactive)
+      const categoriesData = await apiService.getAllCategories();
+      
+      let finalCategories: Array<{ id: string; name: string; type: string; icon?: string; color?: string }> = [];
+      
+      // If no categories exist, provide default "Expense" category
+      if (categoriesData.length === 0) {
+        finalCategories = [{
+          id: 'default-expense',
+          name: 'Expense',
           type: 'EXPENSE',
           icon: undefined,
           color: undefined
-        });
+        }];
+      } else {
+        // Ensure "Expense" category is available as default if it doesn't exist
+        const expenseCategory = categoriesData.find((cat: any) => 
+          cat.name === 'Expense' || cat.name === 'Expenses'
+        );
+        if (!expenseCategory) {
+          // Add "Expense" as a default category if it doesn't exist
+          finalCategories = [{
+            id: 'default-expense',
+            name: 'Expense',
+            type: 'EXPENSE',
+            icon: undefined,
+            color: undefined
+          }, ...categoriesData];
+        } else {
+          finalCategories = categoriesData;
+        }
       }
-      setCategories(categoriesData);
+      
+      setCategories(finalCategories);
+      
+      // Set default "Expense" category if no category is selected and transaction type is DEBIT
+      setFormData(prev => {
+        if (!prev.category && prev.transactionType === 'DEBIT') {
+          const expenseCat = finalCategories.find(cat => 
+            cat.name === 'Expense' || cat.name === 'Expenses'
+          );
+          if (expenseCat) {
+            return { ...prev, category: expenseCat.name };
+          }
+        }
+        return prev;
+      });
     } catch (error) {
       console.error('Failed to load categories:', error);
-      // Even on error, provide "Expenses" as a fallback
-      setCategories([{
-        id: 'default-expenses',
-        name: 'Expenses',
+      // Even on error, provide "Expense" as a fallback
+      const fallbackCategories = [{
+        id: 'default-expense',
+        name: 'Expense',
         type: 'EXPENSE',
         icon: undefined,
         color: undefined
-      }]);
+      }];
+      setCategories(fallbackCategories);
+      
+      // Set default "Expense" category if no category is selected
+      setFormData(prev => {
+        if (!prev.category && prev.transactionType === 'DEBIT') {
+          return { ...prev, category: 'Expense' };
+        }
+        return prev;
+      });
     } finally {
       setLoadingCategories(false);
     }
@@ -383,11 +425,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setShowLoanSelector(false);
       setShowTransferSelector(false);
     }
-    // If transaction type changes to DEBIT and category is empty, set default to "Expenses"
+    // If transaction type changes to DEBIT and category is empty, set default to "Expense"
     if (field === 'transactionType' && value === 'DEBIT') {
       setFormData(prev => ({
         ...prev,
-        category: prev.category || 'Expenses',
+        category: prev.category || 'Expense',
       }));
     }
   };
@@ -678,55 +720,43 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         label="Category"
                         onChange={(e) => handleCategoryChange(e.target.value)}
                       >
-                        {categories.length === 0 ? (
-                          <MenuItem disabled>
-                            <Typography variant="body2" color="text.secondary">
-                              No categories available. Create categories first.
-                            </Typography>
-                          </MenuItem>
-                        ) : (
-                          categories
-                            .filter(cat => {
-                              // Filter categories based on transaction type
-                              if (formData.transactionType === 'DEBIT') {
-                                return cat.type !== 'INCOME';
-                              }
-                              return true;
-                            })
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((category) => (
-                              <MenuItem key={category.id} value={category.name}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                                  {category.color && (
-                                    <Box
-                                      sx={{
-                                        width: 12,
-                                        height: 12,
-                                        borderRadius: '50%',
-                                        backgroundColor: category.color,
-                                        border: '1px solid #ddd'
-                                      }}
-                                    />
-                                  )}
-                                  <Typography variant="body2">{category.name}</Typography>
-                                  {category.type && (
-                                    <Chip 
-                                      label={category.type} 
-                                      size="small" 
-                                      sx={{ ml: 'auto', height: 18, fontSize: '0.65rem' }}
-                                    />
-                                  )}
-                                </Box>
-                              </MenuItem>
-                            ))
-                        )}
+                        {categories
+                          .filter(cat => {
+                            // Filter categories based on transaction type
+                            if (formData.transactionType === 'DEBIT') {
+                              return cat.type !== 'INCOME';
+                            }
+                            return true;
+                          })
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((category) => (
+                            <MenuItem key={category.id} value={category.name}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                {category.color && (
+                                  <Box
+                                    sx={{
+                                      width: 12,
+                                      height: 12,
+                                      borderRadius: '50%',
+                                      backgroundColor: category.color,
+                                      border: '1px solid #ddd'
+                                    }}
+                                  />
+                                )}
+                                <Typography variant="body2">{category.name}</Typography>
+                                {category.type && (
+                                  <Chip 
+                                    label={category.type} 
+                                    size="small" 
+                                    sx={{ ml: 'auto', height: 18, fontSize: '0.65rem' }}
+                                  />
+                                )}
+                              </Box>
+                            </MenuItem>
+                          ))
+                        }
                       </Select>
                     </FormControl>
-                    {categories.length === 0 && (
-                      <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                        No categories found. Go to Categories page to create categories first.
-                      </Typography>
-                    )}
                   </Box>
                 )}
               </Grid>

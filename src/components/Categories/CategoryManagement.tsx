@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -73,6 +73,7 @@ const CategoryManagement: React.FC = () => {
     isActive: true
   });
   const [filterType, setFilterType] = useState<string>('');
+  const isMountedRef = useRef(true);
 
   const categoryTypes = [
     { value: 'EXPENSE', label: 'Expense' },
@@ -95,22 +96,39 @@ const CategoryManagement: React.FC = () => {
     'swap_horiz', 'work', 'laptop', 'attach_money'
   ];
 
-  useEffect(() => {
-    loadCategories();
-  }, [filterType]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       const data = await apiService.getAllCategories(filterType || undefined);
-      setCategories(data);
+      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setCategories(data);
+        setLoading(false);
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to load categories');
-    } finally {
-      setLoading(false);
+      // Ignore abort errors (from canceled requests)
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        return;
+      }
+      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setError(err.message || 'Failed to load categories');
+        setLoading(false);
+      }
     }
-  };
+  }, [filterType]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    loadCategories();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [loadCategories]);
 
   const handleOpenDialog = (category?: TransactionCategory) => {
     if (category) {

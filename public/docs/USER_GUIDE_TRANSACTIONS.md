@@ -55,6 +55,99 @@ Each transaction shows:
 ### Step 3: Save
 Click **"Save"** to add the transaction.
 
+## 🔗 Linking Transactions to Bills or Loans
+
+You can link your transactions directly to specific bills, loans, or savings accounts. This helps you track which transactions are related to your bills and loan payments, making it easier to manage your finances.
+
+### Step-by-Step Guide
+
+#### 1. Open the "Add New Transaction" Modal
+- Go to **Bank Accounts** or **Transactions** page
+- Click **"Add New Transaction"** or the **+** button
+
+#### 2. Fill in Basic Transaction Details
+- **Select Bank Account**: Choose the account where the transaction occurred
+- **Enter Amount**: The transaction amount
+- **Set Transaction Type**: Select **DEBIT** (for payments)
+- **Enter Description**: What the transaction was for (e.g., "Monthly loan payment")
+- **Set Transaction Date**: When the transaction occurred
+
+#### 3. Select a Category That Triggers Linking
+
+The system automatically detects when you want to link a transaction based on the category name:
+
+**For Loans:**
+- Choose a category containing: "loan", "repayment", "debt", "installment", or "mortgage"
+- Examples: "Loan Payment", "Loan Repayment", "Debt Payment", "Mortgage Payment"
+
+**For Bills:**
+- Choose a category containing: "bill"
+- Examples: "Bill Payment", "Utility Bill", "Phone Bill"
+
+**For Savings:**
+- Choose a category containing: "savings"
+- Examples: "Savings Deposit", "Savings Transfer"
+
+#### 4. The Selector Appears Automatically
+
+After selecting a matching category, a dropdown section will automatically appear:
+- **"Loan Payment"** → **Select Loan** dropdown appears
+- **"Bill Payment"** → **Select Bill** dropdown appears
+- **"Savings"** → **Select Savings Account** dropdown appears
+
+#### 5. Select the Specific Bill or Loan
+
+- Choose the specific bill, loan, or savings account from the dropdown
+- The transaction will be linked to that item
+- Click **"Save"** to complete the transaction
+
+### Example: Linking a Transaction to a Loan Payment
+
+1. Open **"Add New Transaction"**
+2. Fill in the details:
+   - **Bank Account**: Your checking account
+   - **Amount**: 500
+   - **Transaction Type**: DEBIT
+   - **Description**: "Monthly loan payment"
+   - **Category**: "Loan Payment" (or any category with "loan" in the name)
+3. The **"Loan Payment"** section automatically appears below
+4. Select your loan from the **"Select Loan"** dropdown (e.g., "Car Loan - $10,000.00 (ACTIVE)")
+5. Click **"Save"** to link the transaction to your loan
+
+### Important Notes
+
+- **Category-Based Detection**: The system detects loan/bill/savings categories by keywords in the category name
+- **Automatic Linking**: Selecting a matching category automatically shows the relevant selector
+- **One Link Per Transaction**: A transaction can link to one bill, loan, or savings account at a time
+- **Edit Existing Transactions**: You can edit existing transactions and change the category to show linking options
+
+### Categories That Trigger Linking
+
+**Loan Categories:**
+- Any category containing: "loan", "repayment", "debt", "installment", or "mortgage"
+
+**Bill Categories:**
+- Any category containing: "bill"
+
+**Savings Categories:**
+- Any category containing: "savings"
+
+**Transfer Categories:**
+- Any category containing: "bank transfer" or "transfer"
+
+### Troubleshooting
+
+**If you don't see the linking options:**
+- Check that your category name includes the required keywords (loan, bill, savings, etc.)
+- You can create custom categories on the **Categories** page that include these keywords to enable linking
+- Make sure you've created bills, loans, or savings accounts first before trying to link to them
+
+**Benefits of Linking:**
+- Track which transactions are related to specific bills or loans
+- Better financial organization and reporting
+- Easier to see payment history for bills and loans
+- Improved analytics and insights
+
 ## 🔍 Finding Transactions
 
 ### Search
@@ -185,6 +278,16 @@ If you connect your bank accounts:
 ### Bills
 - When you mark a bill as paid, it can create a transaction
 - Bills and transactions work together for complete tracking
+- **Link transactions to bills**: Select a bill category when adding a transaction to link it directly to a specific bill
+
+### Loans
+- Link transactions to loan payments for better tracking
+- **Link transactions to loans**: Select a loan category (e.g., "Loan Payment") when adding a transaction to link it directly to a specific loan
+- Track payment history for each loan
+
+### Savings Accounts
+- Link transactions to savings deposits or withdrawals
+- **Link transactions to savings**: Select a savings category when adding a transaction to link it directly to a specific savings account
 
 ### Bank Accounts
 - Transactions are linked to specific accounts
@@ -193,6 +296,7 @@ If you connect your bank accounts:
 ### Analytics
 - Transactions feed into the Analytics dashboard
 - Detailed reports available in Reports & Analytics section
+- Linked transactions provide better insights into bill and loan payment patterns
 
 ## ❓ Common Questions
 
@@ -216,6 +320,15 @@ A: Yes, completed transactions automatically update your account balances.
 
 **Q: How do transfers between accounts work?**
 A: Create a transfer transaction linking both accounts. The money moves but doesn't affect your total balance.
+
+**Q: How do I link a transaction to a bill or loan?**
+A: When adding a transaction, select a category that contains keywords like "loan", "bill", or "savings" in the name. A dropdown will automatically appear where you can select the specific bill, loan, or savings account to link to.
+
+**Q: Can I link a transaction to multiple bills or loans?**
+A: No, each transaction can only be linked to one bill, loan, or savings account at a time. However, you can create separate transactions for each payment.
+
+**Q: What if I don't see the linking dropdown?**
+A: Make sure your category name includes the required keywords (loan, bill, savings, etc.). You can create custom categories on the Categories page with these keywords to enable linking.
 
 ---
 
