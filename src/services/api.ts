@@ -3304,6 +3304,25 @@ class ApiService {
   // ==================== AI CHAT APIs ====================
 
   // Send a message to AI chat
+  // Upload receipt for chat processing
+  async uploadReceipt(formData: FormData): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/chat/upload-receipt`, {
+      method: 'POST',
+      headers: {
+        'Authorization': this.getAuthHeaders().Authorization || '',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to upload receipt');
+    }
+
+    const data = await response.json();
+    return data;
+  }
+
   async sendChatMessage(request: {
     message: string;
     conversationId?: string;

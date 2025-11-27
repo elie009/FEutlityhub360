@@ -55,6 +55,7 @@ import {
   Delete as DeleteIcon,
   Psychology as PsychologyIcon,
   AutoAwesome as AutoAwesomeIcon,
+  AttachFile as AttachFileIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -555,6 +556,7 @@ const Chatbot: React.FC = () => {
   const [aiEnabled] = useState(true);
   const [tokensUsed, setTokensUsed] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, hasProfile } = useAuth();
   
@@ -744,6 +746,100 @@ const Chatbot: React.FC = () => {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: '❌ Invalid file type. Please upload a JPG or PNG image.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: '❌ File size exceeds 10MB limit. Please upload a smaller file.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
+
+    // Show user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: `📎 Uploaded receipt: ${file.name}`,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMessage]);
+    setIsTyping(true);
+
+    try {
+      // Upload receipt
+      const formData = new FormData();
+      formData.append('file', file);
+      if (chatbotService.getCurrentConversationId()) {
+        formData.append('conversationId', chatbotService.getCurrentConversationId()!);
+      }
+
+      const response = await apiService.uploadReceipt(formData);
+      
+      if (response.success && response.data) {
+        const botResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: response.data.message,
+          timestamp: new Date(),
+          quickActions: response.data.suggestedActions?.map((action: string, index: number) => ({
+            id: `receipt_action_${index}`,
+            label: action,
+            action: 'receipt_action',
+            icon: <Receipt />,
+            description: action
+          }))
+        };
+        setMessages(prev => [...prev, botResponse]);
+      } else {
+        throw new Error(response.message || 'Failed to upload receipt');
+      }
+    } catch (error: any) {
+      console.error('Error uploading receipt:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: `❌ Failed to upload receipt: ${error.message || 'Unknown error'}`,
+        timestamp: new Date(),
+        quickActions: [
+          {
+            id: 'retry',
+            label: 'Try Again',
+            action: 'retry',
+            icon: <Help />,
+            description: 'Retry uploading the receipt'
+          }
+        ]
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -1895,22 +1991,49 @@ const Chatbot: React.FC = () => {
 
         {/* Input - WhatsApp style */}
         <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', backgroundColor: '#F0F0F0' }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/jpeg,image/jpg,image/png"
+            style={{ display: 'none' }}
+            onChange={handleFileUpload}
+          />
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <IconButton
+              onClick={() => fileInputRef.current?.click()}
+              sx={{
+                color: '#666',
+                width: 40,
+                height: 40,
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                },
+              }}
+              title="Upload receipt (JPG/PNG)"
+            >
+              <AttachFileIcon sx={{ fontSize: 20 }} />
+            </IconButton>
             <TextField
               fullWidth
-              placeholder={useAI ? "Type a message..." : "Type a message..."}
+              multiline
+              maxRows={4}
+              placeholder={useAI ? "Type a message or upload a receipt..." : "Type a message..."}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSendMessage(inputValue);
+              onKeyDown={(e) => {
+                // Send message on Enter (without Shift), new line on Shift+Enter
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (inputValue.trim()) {
+                    handleSendMessage(inputValue);
+                  }
                 }
               }}
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {
                   backgroundColor: 'white',
-                  borderRadius: '25px',
+                  borderRadius: '12px',
                   '& fieldset': {
                     border: 'none',
                   },
@@ -1920,6 +2043,11 @@ const Chatbot: React.FC = () => {
                   '&.Mui-focused fieldset': {
                     border: 'none',
                   },
+                },
+                '& .MuiInputBase-input': {
+                  maxHeight: '100px',
+                  overflowY: 'auto',
+                  padding: '8px 12px',
                 },
               }}
             />
