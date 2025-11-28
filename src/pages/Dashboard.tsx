@@ -742,8 +742,8 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <Box>
-      <Typography variant="h3" gutterBottom sx={{ fontWeight: 'bold' }}>
+    <Box sx={{ pl: { md: 1.5 } }}>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1a1a1a', mb: 3 }}>
         Dashboard
       </Typography>
       
@@ -792,8 +792,10 @@ const Dashboard: React.FC = () => {
             <Card 
               sx={{ 
                 cursor: (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? 'pointer' : 'default',
+                height: '100%',
+                border: '1px solid #e5e5e5',
                 '&:hover': (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? {
-                  boxShadow: 4,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                   transform: 'translateY(-2px)',
                   transition: 'all 0.3s ease'
                 } : {}
@@ -805,19 +807,53 @@ const Dashboard: React.FC = () => {
               }
             >
               <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
+                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                  <Box sx={{ flex: 1 }}>
+                    <Typography 
+                      color="textSecondary" 
+                      gutterBottom 
+                      variant="body2"
+                      sx={{ 
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#666666',
+                        mb: 1
+                      }}
+                    >
                       {stat.title}
                     </Typography>
-                    <Typography variant="h4" component="h2">
+                    <Typography 
+                      variant="h4" 
+                      component="h2"
+                      sx={{ 
+                        fontWeight: 700,
+                        color: '#1a1a1a',
+                        mb: 1
+                      }}
+                    >
                       {stat.value}
                     </Typography>
-                    <Typography color="textSecondary">
+                    <Typography 
+                      color="textSecondary"
+                      variant="body2"
+                      sx={{ 
+                        fontSize: '0.75rem',
+                        color: '#666666'
+                      }}
+                    >
                       {stat.change}
                     </Typography>
                   </Box>
-                  <Box>
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: 1,
+                      backgroundColor: 'rgba(144, 238, 144, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     {stat.icon}
                   </Box>
                 </Box>
@@ -827,17 +863,17 @@ const Dashboard: React.FC = () => {
         ))}
 
         {/* Charts */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
               Financial Overview - Monthly Cash Flow
             </Typography>
             {cashFlowLoading || loading ? (
               <Box>
-                <Skeleton variant="rectangular" width="100%" height={450} sx={{ borderRadius: 1 }} />
+                <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
               </Box>
             ) : cashFlowChartData.length > 0 ? (
-              <Box sx={{ height: '450px', width: '100%' }}>
+              <Box sx={{ height: '338px', width: '100%' }}>
                 <Bar 
                   key="monthly-cashflow-chart"
                   data={chartData} 
@@ -845,7 +881,7 @@ const Dashboard: React.FC = () => {
                 />
               </Box>
             ) : (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 450 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
                 <Typography variant="body2" color="text.secondary">
                   No cash flow data available
                 </Typography>
@@ -855,8 +891,8 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
               Account Summary
             </Typography>
             {/* Clear description explaining where amounts come from */}
@@ -928,9 +964,9 @@ const Dashboard: React.FC = () => {
 
         {/* Recent Transactions */}
         <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
                 Recent Transactions
               </Typography>
               <Button
@@ -989,8 +1025,8 @@ const Dashboard: React.FC = () => {
 
         {/* Recent Activity */}
         <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
               Recent Activity
             </Typography>
             <Box>

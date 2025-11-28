@@ -24,9 +24,13 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
       <CssBaseline />
-      <AppBar onMenuClick={isMobile ? handleDrawerToggle : undefined} />
+      <AppBar 
+        onMenuClick={isMobile ? handleDrawerToggle : undefined}
+        sidebarOpen={desktopOpen}
+        sidebarWidth={desktopOpen ? drawerWidth : collapsedWidth}
+      />
       
       {/* Mobile Drawer - only shows on mobile */}
       <Drawer open={mobileOpen} onClose={handleDrawerToggle} />
@@ -38,13 +42,18 @@ const Layout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          pl: { xs: 3, md: 0 }, // No left padding on desktop
+          pr: { xs: 3, md: 3 },
+          pt: { xs: 3, md: 2 }, // Reduced top padding
+          pb: 3,
+          ml: { xs: '20px', md: desktopOpen ? `20px` : `calc(${collapsedWidth}px + 20px)` },
           width: { 
-            md: desktopOpen ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${collapsedWidth}px)`
+            md: desktopOpen ? `20px` : `calc(100% - ${collapsedWidth}px - 20px)`
           },
           mt: 8,
           minHeight: 'calc(100vh - 64px)', // Full height minus AppBar height
-          transition: theme.transitions.create(['width', 'margin'], {
+          backgroundColor: '#f8f9fa', // Main body background color
+          transition: theme.transitions.create(['width', 'margin-left'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),

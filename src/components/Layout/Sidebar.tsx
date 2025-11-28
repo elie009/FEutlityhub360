@@ -12,6 +12,7 @@ import {
   Collapse,
   IconButton,
   Tooltip,
+  Badge,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -47,6 +48,7 @@ import {
   Calculate as PlanningIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import logo from '../../logo.png';
 
 const drawerWidth = 240;
 const collapsedWidth = 64;
@@ -56,6 +58,7 @@ interface MenuItem {
   icon: React.ReactNode;
   path?: string;
   children?: MenuItem[];
+  badge?: number;
 }
 
 const menuItems: MenuItem[] = [
@@ -183,7 +186,8 @@ const menuItems: MenuItem[] = [
   { 
     text: 'Notifications', 
     icon: <NotificationsIcon />, 
-    path: '/notifications'
+    path: '/notifications',
+    badge: 0, // Set to number > 0 to show badge
   },
 
   // ============================================
@@ -259,11 +263,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     const isActive = item.path ? isPathActive(item.path) : false;
     const hasActiveChild = hasChildren ? isChildPathActive(item.children!) : false;
     const isExpanded = hasChildren ? openSections[item.text] : false;
+    const isItemActive = isActive || hasActiveChild;
 
     // Don't show children when collapsed
     if (!open && hasChildren && level === 0) {
       return (
-        <ListItem key={item.text} disablePadding>
+        <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
           <ListItemButton
             selected={false}
             onClick={() => {
@@ -272,25 +277,32 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               }
             }}
             sx={{
-              pl: 2,
+              minHeight: 44,
+              pl: 1.5,
+              pr: 1.5,
               justifyContent: 'center',
-              backgroundColor: (isActive || hasActiveChild) ? 'rgba(177, 229, 153, 0.1)' : 'transparent',
+              backgroundColor: isItemActive ? '#90EE90' : 'transparent',
+              borderRadius: '8px',
+              mx: 1,
               '&:hover': {
-                backgroundColor: 'rgba(177, 229, 153, 0.15)',
+                backgroundColor: isItemActive ? '#98FB98' : 'rgba(144, 238, 144, 0.1)',
               },
               '& .MuiListItemIcon-root': {
-                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+                color: isItemActive ? '#1a1a1a' : '#666666',
+                minWidth: 0,
+                justifyContent: 'center',
               },
             }}
-            title={item.text} // Tooltip for collapsed state
+            title={item.text}
           >
-            <ListItemIcon
-              sx={{
-                minWidth: 40,
-                justifyContent: 'center',
-              }}
-            >
-              {item.icon}
+            <ListItemIcon>
+              {item.badge !== undefined && item.badge > 0 ? (
+                <Badge badgeContent={item.badge} color="error" overlap="circular">
+                  {item.icon}
+                </Badge>
+              ) : (
+                item.icon
+              )}
             </ListItemIcon>
           </ListItemButton>
         </ListItem>
@@ -304,7 +316,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
     return (
       <React.Fragment key={item.text}>
-        <ListItem disablePadding>
+        <ListItem disablePadding sx={{ mb: 0.5 }}>
           <ListItemButton
             selected={false}
             onClick={() => {
@@ -315,31 +327,42 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               }
             }}
             sx={{
-              pl: 2 + level * 2,
-              backgroundColor: (isActive || hasActiveChild) ? 'rgba(177, 229, 153, 0.1)' : 'transparent',
+              minHeight: 44,
+              pl: level > 0 ? 3 : 2,
+              pr: 2,
+              py: 0.5,
+              backgroundColor: isItemActive ? '#90EE90' : 'transparent',
+              borderRadius: '8px',
+              mx: 1,
               '&:hover': {
-                backgroundColor: 'rgba(177, 229, 153, 0.15)',
+                backgroundColor: isItemActive ? '#98FB98' : 'rgba(144, 238, 144, 0.1)',
               },
               '& .MuiListItemIcon-root': {
-                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
+                color: isItemActive ? '#1a1a1a' : '#666666',
+                minWidth: 36,
               },
               '& .MuiListItemText-primary': {
-                color: (isActive || hasActiveChild) ? 'primary.main' : 'inherit',
-                fontWeight: (isActive || hasActiveChild) ? 600 : 400,
+                color: isItemActive ? '#1a1a1a' : '#333333',
+                fontWeight: isItemActive ? 600 : 400,
+                fontSize: '0.9375rem',
               },
             }}
-            title={!open ? item.text : undefined} // Tooltip for collapsed state
+            title={!open ? item.text : undefined}
           >
-            <ListItemIcon
-              sx={{
-                minWidth: 40,
-              }}
-            >
-              {item.icon}
+            <ListItemIcon>
+              {item.badge !== undefined && item.badge > 0 ? (
+                <Badge badgeContent={item.badge} color="error" overlap="circular">
+                  {item.icon}
+                </Badge>
+              ) : (
+                item.icon
+              )}
             </ListItemIcon>
             {open && <ListItemText primary={item.text} />}
             {open && hasChildren && (
-              isExpanded ? <ExpandLess /> : <ExpandMore />
+              <Box sx={{ ml: 'auto' }}>
+                {isExpanded ? <ExpandLess sx={{ color: isItemActive ? '#1a1a1a' : '#666666' }} /> : <ExpandMore sx={{ color: isItemActive ? '#1a1a1a' : '#666666' }} />}
+              </Box>
             )}
           </ListItemButton>
         </ListItem>
@@ -355,62 +378,82 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   const drawerContent = (
-    <Box sx={{ position: 'relative', height: '100%' }}>
+    <Box sx={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
       <Box sx={{ 
-        p: open ? 2 : 1, 
-        textAlign: open ? 'left' : 'center',
+        p: open ? 2 : 1.5, 
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: open ? 'space-between' : 'center',
+        minHeight: 64,
       }}>
         {open ? (
-          <Typography variant="h6" noWrap component="div">
-            Admin Panel
-          </Typography>
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <img 
+                src={logo} 
+                alt="UtilityHub360 Logo" 
+                style={{ 
+                  height: '32px', 
+                  width: 'auto',
+                  objectFit: 'contain'
+                }} 
+              />
+              <Typography 
+                variant="h6" 
+                noWrap 
+                component="div" 
+                sx={{ 
+                  fontWeight: 700, 
+                  color: '#1a1a1a',
+                  fontSize: '1.125rem',
+                }}
+              >
+                UtilityHub360
+              </Typography>
+            </Box>
+            {onToggle && (
+              <IconButton
+                onClick={onToggle}
+                size="small"
+                sx={{
+                  color: '#666666',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                  },
+                }}
+              >
+                <ChevronLeft />
+              </IconButton>
+            )}
+          </>
         ) : (
-          <Typography variant="h6" component="div" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-            AP
-          </Typography>
+          <>
+            {onToggle && (
+              <IconButton
+                onClick={onToggle}
+                size="small"
+                sx={{
+                  color: '#666666',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                  },
+                }}
+              >
+                <ChevronRight />
+              </IconButton>
+            )}
+          </>
         )}
       </Box>
-      <Divider />
-      <List>
-        {menuItems.map((item) => renderMenuItem(item))}
-      </List>
+      <Divider sx={{ mx: 1 }} />
       
-      {/* Toggle button positioned on the right side */}
-      {onToggle && (
-        <Box
-          sx={{
-            position: 'absolute',
-            right: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-          }}
-        >
-          <Tooltip title={open ? 'Collapse sidebar' : 'Expand sidebar'} placement="left">
-            <IconButton
-              onClick={onToggle}
-              size="small"
-              sx={{
-                backgroundColor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRight: 'none',
-                borderRadius: '8px 0 0 8px',
-                color: 'text.secondary',
-                boxShadow: 2,
-                width: 32,
-                height: 48,
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                  boxShadow: 4,
-                },
-              }}
-            >
-              {open ? <ChevronLeft /> : <ChevronRight />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
+      {/* Menu Items */}
+      <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', pt: 1 }}>
+        <List sx={{ px: 0.5 }}>
+          {menuItems.map((item) => renderMenuItem(item))}
+        </List>
+      </Box>
     </Box>
   );
 
@@ -425,14 +468,29 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           boxSizing: 'border-box',
           width: open ? drawerWidth : collapsedWidth,
           overflowX: 'hidden',
-          overflowY: 'auto',
           position: 'fixed',
-          top: 64, // AppBar height
-          height: 'calc(100vh - 64px)', // Full height minus AppBar
+          top: 0, // Align to very top edge
+          height: '100vh', // Full viewport height
+          backgroundColor: '#ffffff',
+          borderRight: '1px solid #e5e5e5',
+          zIndex: (theme) => theme.zIndex.drawer - 1, // Below AppBar
           transition: (theme) => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#cccccc',
+            borderRadius: '3px',
+            '&:hover': {
+              background: '#999999',
+            },
+          },
         },
       }}
       open={true} // Always open, but with different widths
