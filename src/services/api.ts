@@ -358,6 +358,7 @@ class ApiService {
   async clearAllUserData(clearData: {
     password: string;
     agreementConfirmed: boolean;
+    category?: string;
   }): Promise<{
     success: boolean;
     message: string;
@@ -375,6 +376,7 @@ class ApiService {
         [key: string]: number | undefined;
       };
       totalRecordsDeleted: number;
+      category?: string;
     } | null;
     errors: string[];
   }> {
@@ -404,6 +406,7 @@ class ApiService {
             variableExpenses: 8,
           },
           totalRecordsDeleted: 150,
+          category: clearData.category || 'All',
         },
         errors: [],
       };
@@ -426,6 +429,7 @@ class ApiService {
           [key: string]: number | undefined;
         };
         totalRecordsDeleted: number;
+        category?: string;
       } | null;
       errors: string[];
     }>('/auth/clear-all-data', {
@@ -433,6 +437,7 @@ class ApiService {
       body: JSON.stringify({
         password: clearData.password,
         agreementConfirmed: clearData.agreementConfirmed,
+        category: clearData.category || 'All',
       }),
     });
     return response;

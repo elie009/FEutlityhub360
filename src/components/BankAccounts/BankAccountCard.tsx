@@ -260,12 +260,12 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
           <Grid container spacing={1}>
             <Grid item xs={6}>
               <Typography variant="caption" color="success.main" fontWeight="medium">
-                Incoming: {formatCurrency(account.totalIncoming, { currencyCode: account.currency })}
+                Income: {formatCurrency(account.totalIncoming, { currencyCode: account.currency })}
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="caption" color="error.main" fontWeight="medium">
-                Outgoing: {formatCurrency(account.totalOutgoing, { currencyCode: account.currency })}
+                Expense: {formatCurrency(account.totalOutgoing, { currencyCode: account.currency })}
               </Typography>
             </Grid>
           </Grid>

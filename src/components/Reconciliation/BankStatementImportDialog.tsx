@@ -20,6 +20,10 @@ import {
   TableRow,
   Paper,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Close,
@@ -33,21 +37,22 @@ import { apiService } from '../../services/api';
 import { BankStatementItemImport, ExtractBankStatementResponse } from '../../types/reconciliation';
 import { getErrorMessage } from '../../utils/validation';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { BankAccount } from '../../types/bankAccount';
 
 interface BankStatementImportDialogProps {
   open: boolean;
   onClose: () => void;
-  bankAccountId: string;
+  bankAccountId?: string; // Made optional - user can select from dropdown
   onSuccess: () => void;
 }
 
 const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
   open,
   onClose,
-  bankAccountId,
+  bankAccountId: initialBankAccountId,
   onSuccess,
 }) => {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, getCurrencySymbol } = useCurrency();
   const [formData, setFormData] = useState({
     statementName: '',
     statementStartDate: '',
@@ -66,9 +71,32 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
   const [showReview, setShowReview] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>(initialBankAccountId || '');
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
 
+  // Fetch bank accounts when dialog opens
   useEffect(() => {
     if (open) {
+      const fetchBankAccounts = async () => {
+        setIsLoadingAccounts(true);
+        try {
+          const accounts = await apiService.getUserBankAccounts({ isActive: true });
+          setBankAccounts(accounts);
+          // Set selected account: use initial prop if provided, otherwise first account
+          if (initialBankAccountId) {
+            setSelectedBankAccountId(initialBankAccountId);
+          } else if (accounts.length > 0) {
+            setSelectedBankAccountId(accounts[0].id);
+          }
+        } catch (err) {
+          setError(getErrorMessage(err, 'Failed to load bank accounts'));
+        } finally {
+          setIsLoadingAccounts(false);
+        }
+      };
+      fetchBankAccounts();
+      
       // Reset form when dialog opens
       setFormData({
         statementName: '',
@@ -83,8 +111,10 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
       setError('');
       setCsvFile(null);
       setPdfFile(null);
+      setShowReview(false);
+      setExtractedData(null);
     }
-  }, [open]);
+  }, [open, initialBankAccountId]);
 
   const handleAddItem = () => {
     setStatementItems([
@@ -323,13 +353,20 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
     try {
       let extracted: ExtractBankStatementResponse;
       
+      // Validate bank account is selected
+      if (!selectedBankAccountId) {
+        setError('Please select a target bank account before uploading the file');
+        setIsExtracting(false);
+        return;
+      }
+
       // Use analyze-pdf endpoint for PDF files, extract endpoint for CSV files
       if (!isCSV && file.name.toLowerCase().endsWith('.pdf')) {
         // Use AI-powered PDF analysis endpoint
-        extracted = await apiService.analyzePDFWithAI(file, bankAccountId);
+        extracted = await apiService.analyzePDFWithAI(file, selectedBankAccountId);
       } else {
         // Use general extraction endpoint for CSV files
-        extracted = await apiService.extractBankStatement(file, bankAccountId);
+        extracted = await apiService.extractBankStatement(file, selectedBankAccountId);
       }
       
       // Populate form with extracted data
@@ -593,6 +630,10 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
     setError('');
     
     // Validation
+    if (!selectedBankAccountId) {
+      setError('Please select a target bank account');
+      return;
+    }
     if (!formData.statementName.trim()) {
       setError('Statement name is required');
       return;
@@ -609,7 +650,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
     setIsLoading(true);
     try {
       await apiService.importBankStatement({
-        bankAccountId,
+        bankAccountId: selectedBankAccountId,
         statementName: formData.statementName,
         statementStartDate: formData.statementStartDate,
         statementEndDate: formData.statementEndDate,
@@ -650,6 +691,32 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
         )}
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12}>
+            <FormControl fullWidth required>
+              <InputLabel>Target Bank Account</InputLabel>
+              <Select
+                value={selectedBankAccountId}
+                onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                label="Target Bank Account"
+                disabled={isLoadingAccounts}
+              >
+                {isLoadingAccounts ? (
+                  <MenuItem disabled>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    Loading accounts...
+                  </MenuItem>
+                ) : bankAccounts.length === 0 ? (
+                  <MenuItem disabled>No bank accounts available</MenuItem>
+                ) : (
+                  bankAccounts.map((account) => (
+                    <MenuItem key={account.id} value={account.id}>
+                      {account.accountName} ({account.accountType}) - {getCurrencySymbol(account.currency)}{formatCurrency(account.currentBalance)}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
+          </Grid>
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth

@@ -745,10 +745,10 @@ const TransactionsPage: React.FC = () => {
                 title={
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Total Incoming"?
+                      What is "Total Income"?
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Total money flowing INTO all your bank accounts
+                      • Total money received from all income sources
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                       • Includes: deposits, transfers in, income, refunds
@@ -757,7 +757,7 @@ const TransactionsPage: React.FC = () => {
                       • Shows your total money received across all accounts
                     </Typography>
                     <Typography variant="body2">
-                      • Helps you understand your overall cash inflow
+                      • Helps you understand your overall income
                     </Typography>
                   </Box>
                 }
@@ -773,7 +773,7 @@ const TransactionsPage: React.FC = () => {
                          bankAccountAnalytics?.totalIncoming !== undefined ? formatCurrency(bankAccountAnalytics.totalIncoming) : 'N/A'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Total Incoming
+                        Total Income
                       </Typography>
                     </Box>
                   </CardContent>
@@ -785,10 +785,10 @@ const TransactionsPage: React.FC = () => {
                 title={
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Total Outgoing"?
+                      What is "Total Expense"?
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Total money flowing OUT of all your bank accounts
+                      • Total money spent on all expenses
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                       • Includes: all debits, payments, transfers, withdrawals
@@ -797,7 +797,7 @@ const TransactionsPage: React.FC = () => {
                       • Shows your total spending across all accounts
                     </Typography>
                     <Typography variant="body2">
-                      • Helps you understand your overall cash outflow
+                      • Helps you understand your overall expenses
                     </Typography>
                   </Box>
                 }
@@ -813,7 +813,7 @@ const TransactionsPage: React.FC = () => {
                          bankAccountAnalytics?.totalOutgoing !== undefined ? formatCurrency(bankAccountAnalytics.totalOutgoing) : 'N/A'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Total Outgoing
+                        Total Expense
                       </Typography>
                     </Box>
                   </CardContent>
@@ -846,10 +846,10 @@ const TransactionsPage: React.FC = () => {
                 title={
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Transaction Incoming"?
+                      What is "Transaction Income"?
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Money flowing INTO your accounts
+                      • Money received from all income sources
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                       • Includes: deposits, transfers in, income, refunds
@@ -873,7 +873,7 @@ const TransactionsPage: React.FC = () => {
                         {formatCurrency(analytics.totalIncoming || 0)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Transaction Incoming
+                        Transaction Income
                       </Typography>
                     </Box>
                   </CardContent>
@@ -885,10 +885,10 @@ const TransactionsPage: React.FC = () => {
                 title={
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Transaction Outgoing"?
+                      What is "Transaction Expense"?
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Money flowing OUT of your accounts
+                      • Money spent on all expenses
                     </Typography>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                       • Includes: purchases, payments, transfers out, withdrawals
@@ -912,7 +912,7 @@ const TransactionsPage: React.FC = () => {
                         {formatCurrency(analytics.totalOutgoing || 0)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Transaction Outgoing
+                        Transaction Expense
                       </Typography>
                     </Box>
                   </CardContent>

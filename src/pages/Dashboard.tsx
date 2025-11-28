@@ -566,7 +566,7 @@ const Dashboard: React.FC = () => {
       labels: cashFlowChartData.map((item: any) => item.month),
       datasets: [
         {
-          label: 'Outgoing',
+          label: 'Expense',
           data: cashFlowChartData.map((item: any) => {
             const outgoing = Math.abs(item.outgoing);
             const net = item.net;
@@ -603,10 +603,10 @@ const Dashboard: React.FC = () => {
           backgroundColor: '#4caf50', // Green
           borderColor: '#2e7d32',
           borderWidth: 2,
-          stack: 'stack1', // Group with Outgoing
+          stack: 'stack1', // Group with Expense
         },
         {
-          label: 'Incoming',
+          label: 'Income',
           data: cashFlowChartData.map((item: any) => {
             const incoming = item.incoming || 0;
             console.log(`Chart data - Month: ${item.month}, Incoming: ${incoming}`);
@@ -699,8 +699,8 @@ const Dashboard: React.FC = () => {
   // Real financial data for charts (legacy - kept for backward compatibility)
   const legacyChartData = financialData ? [
     { name: 'Total Balance', amount: financialData.totalBalance || 0 },
-    { name: 'Total Incoming', amount: financialData.totalIncoming || 0 },
-    { name: 'Total Outgoing', amount: financialData.totalOutgoing || 0 },
+    { name: 'Total Income', amount: financialData.totalIncoming || 0 },
+    { name: 'Total Expense', amount: financialData.totalOutgoing || 0 },
   ] : [];
 
   const stats = [
@@ -733,7 +733,7 @@ const Dashboard: React.FC = () => {
       color: 'warning.main',
     },
     {
-      title: 'Disposable Amount',
+      title: 'Net Cash Flow (This Month)',
       value: formatCurrency(disposableIncome || 0),
       change: 'Available to spend',
       icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
@@ -791,15 +791,15 @@ const Dashboard: React.FC = () => {
           <Grid item xs={12} sm={6} md={4} lg={2.4} key={index}>
             <Card 
               sx={{ 
-                cursor: (stat.title === 'Disposable Amount' || stat.title === 'Current Balance') ? 'pointer' : 'default',
-                '&:hover': (stat.title === 'Disposable Amount' || stat.title === 'Current Balance') ? {
+                cursor: (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? 'pointer' : 'default',
+                '&:hover': (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? {
                   boxShadow: 4,
                   transform: 'translateY(-2px)',
                   transition: 'all 0.3s ease'
                 } : {}
               }}
               onClick={
-                stat.title === 'Disposable Amount' ? handleDisposableCardClick : 
+                stat.title === 'Net Cash Flow (This Month)' ? handleDisposableCardClick : 
                 stat.title === 'Current Balance' ? handleBalanceCardClick : 
                 undefined
               }
@@ -859,6 +859,10 @@ const Dashboard: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Account Summary
             </Typography>
+            {/* Clear description explaining where amounts come from */}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+              This summary shows your total account balances from all bank accounts, savings accounts, and investment accounts. The amounts below represent your current financial position.
+            </Typography>
             {/* Debug: Show current currency */}
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Debug: Current currency is {currency}
@@ -878,10 +882,16 @@ const Dashboard: React.FC = () => {
               <Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Total Balance</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Sum of all your account balances
+                  </Typography>
                   <Typography variant="h5">{formatCurrency(financialData.totalBalance || 0)}</Typography>
                 </Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Total Credit limit</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Combined credit limit from all credit card accounts
+                  </Typography>
                   <Typography variant="h5">
                     {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
                       .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
@@ -890,14 +900,23 @@ const Dashboard: React.FC = () => {
                 </Box>
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">Active Accounts</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Number of accounts you have set up
+                  </Typography>
                   <Typography variant="h5">{financialData.activeAccounts || 0}</Typography>
                 </Box>
                 <Box mb={2}>
-                  <Typography variant="body2" color="text.secondary">Total Incoming</Typography>
+                  <Typography variant="body2" color="text.secondary">Total Income</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Total money received from all income sources
+                  </Typography>
                   <Typography variant="h5" color="success.main">{formatCurrency(financialData.totalIncoming || 0)}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="body2" color="text.secondary">Total Outgoing</Typography>
+                  <Typography variant="body2" color="text.secondary">Total Expense</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Total money spent on all expenses
+                  </Typography>
                   <Typography variant="h5" color="error.main">{formatCurrency(financialData.totalOutgoing || 0)}</Typography>
                 </Box>
               </Box>
@@ -1160,7 +1179,7 @@ const Dashboard: React.FC = () => {
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h5">Disposable Amount Breakdown</Typography>
+            <Typography variant="h5">Net Cash Flow Amount Breakdown</Typography>
             <Button onClick={handleCloseDisposableModal} color="inherit">
               <CloseIcon />
             </Button>

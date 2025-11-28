@@ -37,6 +37,9 @@ import {
   Tooltip,
   SelectChangeEvent,
   InputAdornment,
+  Radio,
+  RadioGroup,
+  FormLabel,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -151,6 +154,7 @@ const Settings: React.FC = () => {
     deletedRecords: { [key: string]: number | undefined };
     totalRecordsDeleted: number;
   } | null>(null);
+  const [clearDataCategory, setClearDataCategory] = useState<string>('All');
   
   // Feature not available modal state
   const [showFeatureNotAvailableDialog, setShowFeatureNotAvailableDialog] = useState(false);
@@ -533,6 +537,7 @@ const Settings: React.FC = () => {
     setClearDataAgreement(false);
     setClearDataShowPassword(false);
     setClearDataResult(null);
+    setClearDataCategory('All');
   };
 
   const handleCloseClearDataDialog = () => {
@@ -544,7 +549,25 @@ const Settings: React.FC = () => {
       setClearDataAgreement(false);
       setClearDataShowPassword(false);
       setClearDataResult(null);
+      setClearDataCategory('All');
     }
+  };
+
+  const getClearButtonText = () => {
+    if (clearDataLoading) return 'Clearing...';
+    if (clearDataSuccess) return 'Cleared';
+    
+    const categoryNames: { [key: string]: string } = {
+      'All': 'All Data',
+      'PaymentsAndTransactions': 'Payments and Transactions',
+      'BillsAndUtility': 'Bills and Utility',
+      'Loan': 'Loan Data',
+      'Savings': 'Savings Data',
+      'BankAccount': 'Bank Account Data',
+    };
+    
+    const categoryName = categoryNames[clearDataCategory] || 'Data';
+    return `Clear ${categoryName}`;
   };
 
   const handleClearData = async () => {
@@ -568,6 +591,7 @@ const Settings: React.FC = () => {
       const response = await apiService.clearAllUserData({
         password: clearDataPassword,
         agreementConfirmed: clearDataAgreement,
+        category: clearDataCategory,
       });
 
       if (response && response.success && response.data) {
@@ -3125,32 +3149,118 @@ const Settings: React.FC = () => {
                   ⚠️ WARNING: This is a destructive operation!
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 1 }}>
-                  This will permanently delete ALL your data including:
+                  {clearDataCategory === 'All' 
+                    ? 'This will permanently delete ALL your data including:'
+                    : `This will permanently delete your selected category data:`
+                  }
                 </Typography>
               </Alert>
-              <Box component="ul" sx={{ pl: 3, mb: 2 }}>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Payments, Loans, and Loan Applications
-                </Typography>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Bank Accounts and Transactions
-                </Typography>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Bills, Income Sources, and Expenses
-                </Typography>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Notifications, Profile Data, and Settings
-                </Typography>
-                <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                  Journal Entries, Budgets, and Analytics
-                </Typography>
-                <Typography component="li" variant="body2">
-                  Chat Conversations and Messages
-                </Typography>
-              </Box>
+
+              {/* Category Selection */}
+              <FormControl component="fieldset" sx={{ mb: 3, width: '100%', mt: 2 }} disabled={clearDataLoading}>
+                <FormLabel component="legend" sx={{ mb: 2, fontWeight: 'bold', fontSize: '1rem' }}>
+                  Select Data Category to Delete:
+                </FormLabel>
+                <RadioGroup
+                  value={clearDataCategory}
+                  onChange={(e) => {
+                    setClearDataCategory(e.target.value);
+                    if (clearDataError) setClearDataError(null);
+                  }}
+                  sx={{ gap: 1 }}
+                >
+                  <FormControlLabel 
+                    value="All" 
+                    control={<Radio />} 
+                    disabled={clearDataLoading}
+                    label={
+                      <Typography variant="body2">
+                        <strong>All</strong> - Delete everything (Payments, Loans, Bills, Bank Accounts, Savings, etc.)
+                      </Typography>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="PaymentsAndTransactions" 
+                    control={<Radio />} 
+                    disabled={clearDataLoading}
+                    label={
+                      <Typography variant="body2">
+                        <strong>Payment and Transaction</strong> - Payments and Bank Transactions
+                      </Typography>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="BillsAndUtility" 
+                    control={<Radio />} 
+                    disabled={clearDataLoading}
+                    label={
+                      <Typography variant="body2">
+                        <strong>Bills and Utility</strong> - Bills, Income Sources, and Variable Expenses
+                      </Typography>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="Loan" 
+                    control={<Radio />} 
+                    disabled={clearDataLoading}
+                    label={
+                      <Typography variant="body2">
+                        <strong>Loan</strong> - Loans, Loan Applications, and Repayment Schedules
+                      </Typography>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="Savings" 
+                    control={<Radio />} 
+                    disabled={clearDataLoading}
+                    label={
+                      <Typography variant="body2">
+                        <strong>Savings</strong> - Savings Accounts and Savings Transactions
+                      </Typography>
+                    } 
+                  />
+                  <FormControlLabel 
+                    value="BankAccount" 
+                    control={<Radio />} 
+                    disabled={clearDataLoading}
+                    label={
+                      <Typography variant="body2">
+                        <strong>Bank Account</strong> - Bank Accounts and Bank Transactions
+                      </Typography>
+                    } 
+                  />
+                </RadioGroup>
+              </FormControl>
+
+              {/* Show full list only when "All" is selected */}
+              {clearDataCategory === 'All' && (
+                <>
+                  <Box component="ul" sx={{ pl: 3, mb: 2 }}>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Payments, Loans, and Loan Applications
+                    </Typography>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Bank Accounts and Transactions
+                    </Typography>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Bills, Income Sources, and Expenses
+                    </Typography>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Notifications, Profile Data, and Settings
+                    </Typography>
+                    <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                      Journal Entries, Budgets, and Analytics
+                    </Typography>
+                    <Typography component="li" variant="body2">
+                      Chat Conversations and Messages
+                    </Typography>
+                  </Box>
+                </>
+              )}
+
               <Alert severity="warning" sx={{ mb: 2 }}>
                 <Typography variant="body2">
-                  <strong>Note:</strong> Your account will remain active, but all data will be permanently deleted and cannot be recovered.
+                  <strong>Note:</strong> Your account will remain active, but {clearDataCategory === 'All' ? 'all data' : 'the selected data'} will be permanently deleted and cannot be recovered.
                 </Typography>
               </Alert>
 
@@ -3220,7 +3330,7 @@ const Settings: React.FC = () => {
             disabled={clearDataLoading || !!clearDataSuccess || !clearDataPassword.trim() || !clearDataAgreement}
             startIcon={clearDataLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
           >
-            {clearDataLoading ? 'Clearing...' : clearDataSuccess ? 'Cleared' : 'Clear All Data'}
+            {getClearButtonText()}
           </Button>
         </DialogActions>
       </Dialog>

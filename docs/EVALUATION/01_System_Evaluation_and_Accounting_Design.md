@@ -40,6 +40,11 @@
 - Automation: **9/10** (Strong data aggregation, journal entry automation, automated calculations)
 - Predictive Capability: **8/10** (Bill forecasting, cash flow projections, financial predictions)
 
+**Beginner-Friendly Design Requirements:**
+- ✅ **Account Summary Card Description** - Add a clear, user-friendly description in the Account Summary card explaining where each amount came from (e.g., "This shows your total account balances from all bank accounts, savings accounts, and investment accounts")
+- ✅ **Terminology Consistency** - Use "Income" and "Expense" consistently across all pages instead of accounting terminology like "incoming" and "outgoing"
+- ✅ **Plain Language** - Since this system is simplified, make it user-friendly for beginners by avoiding complex accounting jargon
+
 **Recommendation:** ✅ **FULLY APPROVED** — System exceeds professional accounting standards with all core financial statements, ratios, and tax reporting implemented. Ready for production use.
 
 ---
@@ -759,6 +764,11 @@ The system must be:
 3. **Easy for non-accountants** - Guided workflows, helpful tooltips
 4. **Double-entry compliant** - Every transaction affects two accounts
 5. **Scalable for future features** - Modular architecture, extensible
+
+**Beginner-Friendly Design Principles:**
+- **Clear Descriptions** - All summary cards and displays should include clear descriptions explaining where amounts come from (e.g., Account Summary card should explain that balances come from bank accounts, savings, investments, etc.)
+- **Consistent Terminology** - Use "Income" and "Expense" consistently across all pages. Avoid accounting terminology like "incoming" and "outgoing" which may confuse beginners
+- **Plain Language First** - Since this system is simplified, prioritize user-friendly language for beginners over technical accounting terms
 
 ### Core Accounting Concepts Per Module
 
