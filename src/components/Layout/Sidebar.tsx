@@ -13,6 +13,8 @@ import {
   IconButton,
   Tooltip,
   Badge,
+  Button,
+  Card,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -453,6 +455,90 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           {menuItems.map((item) => renderMenuItem(item))}
         </List>
       </Box>
+
+      {/* Promotional Card */}
+      {open && (
+        <Box sx={{ p: 2, pt: 1, position: 'relative' }}>
+          {/* Floating Image */}
+          <Box
+            component="img"
+            src="/sidenav_img.png"
+            alt="Elevate Financing"
+            sx={{
+              width: '70%',
+              height: 'auto',
+              objectFit: 'contain',
+              position: 'absolute',
+              top: -100,
+              left: 35,
+              right: 0,
+              zIndex: 1,
+              filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2))',
+            }}
+          />
+          
+          <Card
+            sx={{
+              backgroundColor: '#e8f5e9', // Light green background
+              borderRadius: 2,
+              p: 2,
+              pt: 7, // Add padding top to make room for overlapping image
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              minHeight: 120, // Reduced height
+            }}
+          >
+            {/* Text Content */}
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  color: '#1a1a1a',
+                  fontSize: '0.9rem',
+                  mb: 0.5,
+                  lineHeight: 1.2,
+                }}
+              >
+                Elevate Financing
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: '#666666',
+                  fontSize: '0.7rem',
+                  lineHeight: 1.4,
+                  mb: 1,
+                }}
+              >
+                Enhance Financial reports, faster insights, & integrated financial management tools
+              </Typography>
+            </Box>
+
+            {/* Call to Action Button */}
+            <Button
+              variant="contained"
+              sx={{
+                backgroundColor: '#c5e1a5', // Light yellow-green
+                color: '#1a1a1a',
+                fontWeight: 700,
+                fontSize: '0.7rem',
+                textTransform: 'none',
+                borderRadius: 1.5,
+                py: 0.5,
+                px: 1.5,
+                '&:hover': {
+                  backgroundColor: '#aed581',
+                },
+              }}
+            >
+              Upgrade Now
+            </Button>
+          </Card>
+        </Box>
+      )}
     </Box>
   );
 

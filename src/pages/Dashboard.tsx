@@ -164,6 +164,24 @@ const Dashboard: React.FC = () => {
   // Unpaid bills state
   const [unpaidBills, setUnpaidBills] = useState<Bill[]>([]);
   const [unpaidBillsLoading, setUnpaidBillsLoading] = useState(false);
+
+  // Filter unpaid bills to show only overdue or bills with 10 days or less until due date
+  const filteredUnpaidBills = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return unpaidBills.filter((bill) => {
+      const dueDate = new Date(bill.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      // Calculate days until due date (negative if overdue)
+      const diffTime = dueDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Show if overdue (diffDays < 0) or has 10 days or less (diffDays <= 10)
+      return diffDays <= 10;
+    });
+  }, [unpaidBills]);
   
   // Savings summary state
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
@@ -579,6 +597,12 @@ const Dashboard: React.FC = () => {
   // Extract Total Loan Payment from spendingByCategory
   const totalLoanPayment = financialData?.spendingByCategory?.LOAN_PAYMENT || 0;
 
+  // Calculate total monthly payment for savings
+  const totalMonthlySavingsPayment = savingsAccounts.reduce(
+    (sum: number, account: SavingsAccount) => sum + (account.monthlyTarget || 0),
+    0
+  );
+
   // Transform monthly cash flow data for chart
   const prepareCashFlowChartData = () => {
     if (!monthlyCashFlowData || !monthlyCashFlowData.monthlyData) {
@@ -959,6 +983,13 @@ const Dashboard: React.FC = () => {
       icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
       color: 'info.main',
     },
+    {
+      title: 'Total Monthly Payment for Savings',
+      value: formatCurrency(totalMonthlySavingsPayment || 0),
+      change: 'Monthly savings target',
+      icon: <SavingsIcon sx={{ fontSize: 40, color: 'success.main' }} />,
+      color: 'success.main',
+    },
   ];
 
   return (
@@ -1008,7 +1039,7 @@ const Dashboard: React.FC = () => {
       <Grid container spacing={3}>
         {/* Stats Cards */}
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2.4} key={index}>
+          <Grid item xs={12} sm={6} md={4} lg={2.4} xl={2.4} key={index}>
             <Card 
               sx={{ 
                 cursor: (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? 'pointer' : 'default',
@@ -1082,41 +1113,135 @@ const Dashboard: React.FC = () => {
           </Grid>
         ))}
 
-        {/* Charts */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-              Financial Overview - Monthly Cash Flow
-            </Typography>
-            {cashFlowLoading || loading ? (
-              <Box>
-                <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
-              </Box>
-            ) : cashFlowChartData.length > 0 ? (
-              <Box sx={{ height: '338px', width: '100%' }}>
-                <Bar 
-                  key="monthly-cashflow-chart"
-                  data={chartData} 
-                  options={chartOptions}
-                />
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
-                <Typography variant="body2" color="text.secondary">
-                  No cash flow data available
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
+        {/* Main Content Area and Sidebar */}
+        <Grid container item xs={12} spacing={3}>
+          {/* Main Content Area */}
+          <Grid item xs={12} md={8}>
+            <Grid container spacing={3}>
+              {/* Financial Overview */}
+              <Grid item xs={12} md={8}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                    Financial Overview - Monthly Cash Flow
+                  </Typography>
+                  {cashFlowLoading || loading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : cashFlowChartData.length > 0 ? (
+                    <Box sx={{ height: '338px', width: '100%' }}>
+                      <Bar 
+                        key="monthly-cashflow-chart"
+                        data={chartData} 
+                        options={chartOptions}
+                      />
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No cash flow data available
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
 
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-              Account Summary
-            </Typography>
+              {/* Transactions by Account */}
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                    Transactions by Account
+                  </Typography>
+                  {loading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
+                    <Box sx={{ height: '338px', width: '100%' }}>
+                      <Doughnut 
+                        data={donutChartData} 
+                        options={donutChartOptions}
+                      />
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No accounts available
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+
+              {/* Recent Transactions */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Recent Transactions
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Receipt />}
+                      href="/transactions"
+                    >
+                      View All
+                    </Button>
+                  </Box>
+                  {transactionsLoading ? (
+                    <Grid container spacing={2}>
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Grid item xs={12} sm={6} md={4} key={i}>
+                          <Card>
+                            <CardContent>
+                              <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
+                              <Skeleton variant="text" width="50%" height={20} sx={{ mb: 2 }} />
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                                <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : recentTransactions.length > 0 ? (
+                    <Grid container spacing={2}>
+                      {recentTransactions.map((transaction) => (
+                        <Grid item xs={12} sm={6} md={4} key={transaction.id}>
+                          <TransactionCard 
+                            transaction={transaction} 
+                            onViewDetails={() => {
+                              // You could add a dialog here or navigate to transactions page
+                              console.log('View transaction details:', transaction);
+                            }}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No recent transactions found
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Your recent transactions will appear here
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+
+              {/* Account Summary */}
+              <Grid item xs={12} md={9}>
+                <Paper sx={{ p: 2, border: '1px solid #e5e5e5' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 1 }}>
+                    Account Summary
+                  </Typography>
             {/* Clear description explaining where amounts come from */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
               This summary shows your total account balances from all bank accounts, savings accounts, and investment accounts. The amounts below represent your current financial position.
             </Typography>
             {/* Debug: Show current currency */}
@@ -1124,362 +1249,319 @@ const Dashboard: React.FC = () => {
               Debug: Current currency is {currency}
             </Typography>
             {loading ? (
-              <Box>
-                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="40%" height={24} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="50%" height={24} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="55%" height={30} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="45%" height={24} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="65%" height={30} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="50%" height={24} />
-              </Box>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="50%" height={24} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="50%" height={24} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="50%" height={24} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="50%" height={24} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="50%" height={24} />
+                </Grid>
+              </Grid>
             ) : financialData ? (
-              <Box>
-                <Box mb={2}>
-                  <Typography variant="body2" color="text.secondary">Total Balance</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                    Sum of all your account balances
-                  </Typography>
-                  <Typography variant="h5">{formatCurrency(financialData.totalBalance || 0)}</Typography>
-                </Box>
-                <Box mb={2}>
-                  <Typography variant="body2" color="text.secondary">Total Credit limit</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                    Combined credit limit from all credit card accounts
-                  </Typography>
-                  <Typography variant="h5">
-                    {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
-                      .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
-                      .reduce((sum: number, acc: any) => sum + (acc?.currentBalance || 0), 0) : 0))}
-                  </Typography>
-                </Box>
-                <Box mb={2}>
-                  <Typography variant="body2" color="text.secondary">Active Accounts</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                    Number of accounts you have set up
-                  </Typography>
-                  <Typography variant="h5">{financialData.activeAccounts || 0}</Typography>
-                </Box>
-                <Box mb={2}>
-                  <Typography variant="body2" color="text.secondary">Total Income</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                    Total money received from all income sources
-                  </Typography>
-                  <Typography variant="h5" color="success.main">{formatCurrency(financialData.totalIncoming || 0)}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">Total Expense</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                    Total money spent on all expenses
-                  </Typography>
-                  <Typography variant="h5" color="error.main">{formatCurrency(financialData.totalOutgoing || 0)}</Typography>
-                </Box>
-              </Box>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} sm={6}>
+                  <Box mb={1}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Balance</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
+                      Sum of all your account balances
+                    </Typography>
+                    <Typography variant="h6">{formatCurrency(financialData.totalBalance || 0)}</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box mb={1}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Credit limit</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
+                      Combined credit limit from all credit card accounts
+                    </Typography>
+                    <Typography variant="h6">
+                      {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
+                        .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
+                        .reduce((sum: number, acc: any) => sum + (acc?.currentBalance || 0), 0) : 0))}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box mb={1}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Active Accounts</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
+                      Number of accounts you have set up
+                    </Typography>
+                    <Typography variant="h6">{financialData.activeAccounts || 0}</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box mb={1}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Income</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
+                      Total money received from all income sources
+                    </Typography>
+                    <Typography variant="h6" color="success.main">{formatCurrency(financialData.totalIncoming || 0)}</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Expense</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
+                      Total money spent on all expenses
+                    </Typography>
+                    <Typography variant="h6" color="error.main">{formatCurrency(financialData.totalOutgoing || 0)}</Typography>
+                  </Box>
+                </Grid>
+              </Grid>
             ) : (
               <Typography>No financial data available</Typography>
             )}
-          </Paper>
-        </Grid>
+              </Paper>
+              </Grid>
 
-        {/* Account Transaction Count Donut Chart */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-              Transactions by Account
-            </Typography>
-            {loading ? (
-              <Box>
-                <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
-              </Box>
-            ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
-              <Box sx={{ height: '338px', width: '100%' }}>
-                <Doughnut 
-                  data={donutChartData} 
-                  options={donutChartOptions}
-                />
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
-                <Typography variant="body2" color="text.secondary">
-                  No accounts available
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
+              {/* Recent Activity */}
+              <Grid item xs={12} md={3}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                    Recent Activity
+                  </Typography>
+                  <Box>
+                    {(hasProfile || (userProfile && userProfile.id)) ? (
+                      <>
+                        <Typography variant="body2" color="textSecondary">
+                          • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Monthly income: {formatCurrency(totalMonthlyIncome)}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Monthly goals: {formatCurrency(totalMonthlyGoals)}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Disposable amount: {formatCurrency(disposableIncome)}
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="body2" color="textSecondary">
+                          • Profile setup required
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Complete your profile to see financial data
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Add income sources to get started
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Set up financial goals
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Grid>
 
-        {/* Savings Summary */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                Savings
-              </Typography>
-              <MoreVertIcon sx={{ color: 'text.secondary', cursor: 'pointer' }} />
-            </Box>
-            {savingsLoading ? (
-              <Box>
-                <Skeleton variant="rectangular" width="100%" height={8} sx={{ mb: 3, borderRadius: 1 }} />
-                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="40%" height={24} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
-                <Skeleton variant="text" width="50%" height={24} />
-              </Box>
-            ) : savingsAccounts.length > 0 ? (
-              <Box>
-                {/* Calculate total and percentages for progress bar */}
-                {(() => {
-                  const totalBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
-                  
-                  // Green color palette matching the design
-                  const getAccountColor = (index: number) => {
-                    const colors = [
-                      '#86efac', // Light green (main)
-                      '#a3e635', // Light yellow-green
-                      '#bef264', // Brighter yellow-green
-                      '#d9f99d', // Lightest yellow-green
-                      '#c6f6d5', // Light emerald
-                      '#9ae6b4', // Medium emerald
-                      '#6ee7b7', // Very light emerald
-                      '#4ade80', // Light green
-                    ];
-                    return colors[index % colors.length];
-                  };
-                  
-                  return (
-                    <>
-                      {/* Horizontal Progress Bar */}
-                      <Box 
-                        sx={{ 
-                          display: 'flex', 
-                          width: '100%', 
-                          height: '12px', 
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          mb: 3,
-                          backgroundColor: '#f0f0f0'
-                        }}
-                      >
-                        {savingsAccounts.map((account, index) => {
-                          const percentage = totalBalance > 0 ? ((account.currentBalance || 0) / totalBalance) * 100 : 0;
-                          return (
-                            <Box
-                              key={account.id}
-                              sx={{
-                                width: `${percentage}%`,
-                                backgroundColor: getAccountColor(index),
-                                transition: 'width 0.3s ease',
-                                minWidth: percentage > 0 ? '2px' : '0',
-                              }}
-                            />
-                          );
-                        })}
-                      </Box>
-
-                      {/* Savings List */}
-                      {savingsAccounts.map((account, index) => {
-                        const accountColor = getAccountColor(index);
+          {/* Right Sidebar */}
+          <Grid item xs={12} md={4}>
+            <Grid container spacing={3} direction="column">
+              {/* Savings Card */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Savings
+                    </Typography>
+                    <MoreVertIcon sx={{ color: 'text.secondary', cursor: 'pointer' }} />
+                  </Box>
+                  <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
+                  {savingsLoading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={12} sx={{ mb: 3, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : savingsAccounts.length > 0 ? (
+                    <Box>
+                      {/* Calculate total and percentages for progress bar */}
+                      {(() => {
+                        const totalBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
+                        
+                        // Green color palette matching the design
+                        const getAccountColor = (idx: number) => {
+                          const colors = [
+                            '#86efac', // Light pastel green
+                            '#fef08a', // Light pastel yellow
+                            '#9ae6b4', // Slightly darker pastel green
+                            '#4ade80', // Darker saturated green
+                            '#c6f6d5', // Light emerald
+                            '#bef264', // Brighter yellow-green
+                            '#6ee7b7', // Very light emerald
+                            '#a3e635', // Light yellow-green
+                          ];
+                          return colors[idx % colors.length];
+                        };
                         
                         return (
-                          <Box 
-                            key={account.id} 
-                            sx={{ 
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              mb: 2.5,
-                              pb: 2.5,
-                              borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
-                            }}
-                          >
-                            {/* Colored Vertical Bar */}
-                            <Box
-                              sx={{
-                                width: '4px',
-                                height: '48px',
-                                backgroundColor: accountColor,
-                                borderRadius: '2px',
-                                mr: 2,
-                                flexShrink: 0,
+                          <>
+                            {/* Horizontal Progress Bar */}
+                            <Box 
+                              sx={{ 
+                                display: 'flex', 
+                                width: '100%', 
+                                height: '12px', 
+                                borderRadius: '6px',
+                                overflow: 'hidden',
+                                mb: 3,
+                                backgroundColor: '#f0f0f0'
                               }}
-                            />
-                            
-                            {/* Account Info */}
-                            <Box sx={{ flex: 1 }}>
-                              <Typography 
-                                variant="body1" 
-                                sx={{ 
-                                  fontWeight: 500,
-                                  color: '#1a1a1a',
-                                  mb: 0.5
-                                }}
-                              >
-                                {account.accountName}
-                              </Typography>
-                              <Typography 
-                                variant="h6" 
-                                sx={{ 
-                                  fontWeight: 700,
-                                  color: '#1a1a1a'
-                                }}
-                              >
-                                {formatCurrency(account.currentBalance || 0)}
-                              </Typography>
+                            >
+                              {savingsAccounts.map((account, index) => {
+                                const percentage = totalBalance > 0 ? ((account.currentBalance || 0) / totalBalance) * 100 : 0;
+                                const accountColor = getAccountColor(index);
+                                return (
+                                  <Box
+                                    key={account.id}
+                                    sx={{
+                                      width: `${percentage}%`,
+                                      backgroundColor: accountColor,
+                                      transition: 'width 0.3s ease',
+                                      minWidth: percentage > 0 ? '2px' : '0',
+                                      ...(index === savingsAccounts.length - 1 && {
+                                        borderTopRightRadius: '6px',
+                                        borderBottomRightRadius: '6px',
+                                      }),
+                                      ...(index === 0 && {
+                                        borderTopLeftRadius: '6px',
+                                        borderBottomLeftRadius: '6px',
+                                      }),
+                                    }}
+                                  />
+                                );
+                              })}
                             </Box>
-                          </Box>
+
+                            {/* Savings List */}
+                            {savingsAccounts.map((account, index) => {
+                              const accountColor = getAccountColor(index);
+                              
+                              return (
+                                <Box key={account.id}>
+                                  <Box 
+                                    sx={{ 
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      mb: 2,
+                                      pb: 2,
+                                      borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
+                                    }}
+                                  >
+                                    {/* Colored Vertical Bar */}
+                                    <Box
+                                      sx={{
+                                        width: '4px',
+                                        height: '48px',
+                                        backgroundColor: accountColor,
+                                        borderRadius: '2px',
+                                        mr: 2,
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                    
+                                    {/* Account Info */}
+                                    <Box sx={{ flex: 1 }}>
+                                      <Typography 
+                                        variant="body1" 
+                                        sx={{ 
+                                          fontWeight: 500,
+                                          color: '#1a1a1a',
+                                          mb: 0.5
+                                        }}
+                                      >
+                                        {account.accountName}
+                                      </Typography>
+                                      <Typography 
+                                        variant="h6" 
+                                        sx={{ 
+                                          fontWeight: 700,
+                                          color: '#1a1a1a'
+                                        }}
+                                      >
+                                        {formatCurrency(account.currentBalance || 0)}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              );
+                            })}
+                          </>
                         );
-                      })}
-                    </>
-                  );
-                })()}
-              </Box>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <SavingsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="body2" color="text.secondary">
-                  No savings accounts yet
-                </Typography>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                  Create a savings account to start tracking your goals
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Recent Transactions */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                Recent Transactions
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Receipt />}
-                href="/transactions"
-              >
-                View All
-              </Button>
-            </Box>
-            {transactionsLoading ? (
-              <Grid container spacing={2}>
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Grid item xs={12} sm={6} md={4} key={i}>
-                    <Card>
-                      <CardContent>
-                        <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
-                        <Skeleton variant="text" width="50%" height={20} sx={{ mb: 2 }} />
-                        <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                          <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
+                      })()}
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <SavingsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No savings accounts yet
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        Create a savings account to start tracking your goals
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
               </Grid>
-            ) : recentTransactions.length > 0 ? (
-              <Grid container spacing={2}>
-                {recentTransactions.map((transaction) => (
-                  <Grid item xs={12} sm={6} md={4} key={transaction.id}>
-                    <TransactionCard 
-                      transaction={transaction} 
-                      onViewDetails={() => {
-                        // You could add a dialog here or navigate to transactions page
-                        console.log('View transaction details:', transaction);
-                      }}
+
+              {/* Unpaid Bills & Utilities */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Unpaid Bills & Utilities
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Receipt />}
+                      href="/bills"
+                    >
+                      View All Bills
+                    </Button>
+                  </Box>
+                  {unpaidBillsLoading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : (
+                    <UnpaidBillsCard
+                      bills={filteredUnpaidBills}
+                      onViewBill={(billId) => navigate(`/bills/${billId}`)}
+                      onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
                     />
-                  </Grid>
-                ))}
+                  )}
+                </Paper>
               </Grid>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="body2" color="text.secondary">
-                  No recent transactions found
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Your recent transactions will appear here
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Unpaid Bills Section */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                Unpaid Bills & Utilities
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Receipt />}
-                href="/bills"
-              >
-                View All Bills
-              </Button>
-            </Box>
-            {unpaidBillsLoading ? (
-              <Box>
-                <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
-              </Box>
-            ) : (
-              <UnpaidBillsCard
-                bills={unpaidBills}
-                onViewBill={(billId) => navigate(`/bills/${billId}`)}
-                onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
-              />
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Recent Activity */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-              Recent Activity
-            </Typography>
-            <Box>
-              {(hasProfile || (userProfile && userProfile.id)) ? (
-                <>
-                  <Typography variant="body2" color="textSecondary">
-                    • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • Monthly income: {formatCurrency(totalMonthlyIncome)}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • Monthly goals: {formatCurrency(totalMonthlyGoals)}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • Disposable amount: {formatCurrency(disposableIncome)}
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  <Typography variant="body2" color="textSecondary">
-                    • Profile setup required
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • Complete your profile to see financial data
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • Add income sources to get started
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    • Set up financial goals
-                  </Typography>
-                </>
-              )}
-            </Box>
-          </Paper>
+            </Grid>
+          </Grid>
         </Grid>
       </Grid>
 
