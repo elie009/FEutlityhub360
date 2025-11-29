@@ -246,7 +246,7 @@ async getUpcomingBills(days: number): Promise<Bill[]>
 | `GET` | `/api/bills/analytics/total-pending` | Total pending amount |
 | `GET` | `/api/bills/analytics/total-paid` | Total paid amount |
 | `GET` | `/api/bills/analytics/total-overdue` | Total overdue amount |
-| `GET` | `/api/bills/overdue` | Get overdue bills |
+| `GET` | `/api/bills/summary` | Get bills summary (unpaid and overdue bills) |
 | `GET` | `/api/bills/upcoming` | Get upcoming bills |
 
 ### Update Bill API Details

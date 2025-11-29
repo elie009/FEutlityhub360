@@ -446,7 +446,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           </>
         )}
       </Box>
-      <Divider sx={{ mx: 1 }} />
       
       {/* Menu Items */}
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', pt: 1 }}>

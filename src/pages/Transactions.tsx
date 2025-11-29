@@ -827,19 +827,43 @@ const TransactionsPage: React.FC = () => {
         {analytics && (
           <Grid container spacing={{ xs: 1, sm: 1.5 }}>
             <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <Receipt sx={{ fontSize: { xs: 20, sm: 18 }, color: 'primary.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {analytics.totalTransactions || 0}
+              <Tooltip
+                title={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      What is "Total Transactions"?
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                      Total Transactions
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Total count of all bank transactions across all your accounts
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Includes both credit and debit transactions
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      • Shows the complete transaction history, not filtered by date
+                    </Typography>
+                    <Typography variant="body2">
+                      • Note: Summary totals (income/expenses) are calculated for the current calendar month by default
                     </Typography>
                   </Box>
-                </CardContent>
-              </Card>
+                }
+                arrow
+                placement="top"
+              >
+                <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 }, cursor: 'help' }}>
+                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                      <Receipt sx={{ fontSize: { xs: 20, sm: 18 }, color: 'primary.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                      <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                        {analytics.totalTransactions || 0}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
+                        Total Transactions
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Tooltip>
             </Grid>
             <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
               <Tooltip
@@ -1198,6 +1222,11 @@ const TransactionsPage: React.FC = () => {
           <Table stickyHeader>
             <TableHead>
               <TableRow>
+                <TableCell sx={{ width: '60px' }} align="center">
+                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                    #
+                  </Typography>
+                </TableCell>
                 <TableCell>
                   <TableSortLabel
                     active={sortField === 'transactionDate'}
@@ -1341,8 +1370,16 @@ const TransactionsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {transactions.map((transaction) => (
+              {transactions.map((transaction, index) => {
+                // Calculate row number based on pagination
+                const rowNumber = ((filters.page || 1) - 1) * (filters.limit || 10) + index + 1;
+                return (
                 <TableRow key={transaction.id} hover>
+                  <TableCell align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      {rowNumber}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Typography variant="body2">
                       {formatDate(transaction.transactionDate)}
@@ -1407,7 +1444,8 @@ const TransactionsPage: React.FC = () => {
                     </IconButton>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

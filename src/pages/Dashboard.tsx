@@ -50,6 +50,8 @@ import {
   CreditCard as CreditCardIcon,
   Warning as WarningIcon,
   Schedule as ScheduleIcon,
+  Savings as SavingsIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -69,8 +71,11 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
+import UnpaidBillsCard from '../components/Bills/UnpaidBillsCard';
 import { BankAccountTransaction } from '../types/transaction';
 import { Bill, BillStatus } from '../types/bill';
+import { SavingsAccount } from '../types/savings';
+import { useNavigate } from 'react-router-dom';
 
 // Register Chart.js components
 ChartJS.register(
@@ -87,6 +92,7 @@ ChartJS.register(
 const Dashboard: React.FC = () => {
   const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
   const { formatCurrency, currency } = useCurrency();
+  const navigate = useNavigate();
   const [financialData, setFinancialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -158,6 +164,10 @@ const Dashboard: React.FC = () => {
   // Unpaid bills state
   const [unpaidBills, setUnpaidBills] = useState<Bill[]>([]);
   const [unpaidBillsLoading, setUnpaidBillsLoading] = useState(false);
+  
+  // Savings summary state
+  const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
+  const [savingsLoading, setSavingsLoading] = useState(false);
   
   // Check if user needs to complete profile
   useEffect(() => {
@@ -299,6 +309,34 @@ const Dashboard: React.FC = () => {
     };
     
     loadIncomeSourcesSummary();
+  }, [isAuthenticated]);
+
+  // Fetch savings summary on page load
+  useEffect(() => {
+    const loadSavingsSummary = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setSavingsLoading(true);
+        // Fetch all savings accounts to show in the summary
+        const accounts = await apiService.getSavingsAccounts();
+        // Handle both array response and object with data property
+        if (Array.isArray(accounts)) {
+          setSavingsAccounts(accounts);
+        } else if (accounts && accounts.data && Array.isArray(accounts.data)) {
+          setSavingsAccounts(accounts.data);
+        } else {
+          setSavingsAccounts([]);
+        }
+      } catch (error) {
+        console.error('Failed to load savings summary:', error);
+        setSavingsAccounts([]);
+      } finally {
+        setSavingsLoading(false);
+      }
+    };
+    
+    loadSavingsSummary();
   }, [isAuthenticated]);
 
   // Fetch unpaid bills on page load
@@ -915,13 +953,6 @@ const Dashboard: React.FC = () => {
       color: 'success.main',
     },
     {
-      title: 'Monthly Goals',
-      value: formatCurrency(totalMonthlyGoals || 0),
-      change: 'Savings & Investment',
-      icon: <MoneyIcon sx={{ fontSize: 40, color: 'warning.main' }} />,
-      color: 'warning.main',
-    },
-    {
       title: 'Net Cash Flow (This Month)',
       value: formatCurrency(disposableIncome || 0),
       change: 'Available to spend',
@@ -1178,6 +1209,144 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
+        {/* Savings Summary */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                Savings
+              </Typography>
+              <MoreVertIcon sx={{ color: 'text.secondary', cursor: 'pointer' }} />
+            </Box>
+            {savingsLoading ? (
+              <Box>
+                <Skeleton variant="rectangular" width="100%" height={8} sx={{ mb: 3, borderRadius: 1 }} />
+                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="40%" height={24} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width="50%" height={24} />
+              </Box>
+            ) : savingsAccounts.length > 0 ? (
+              <Box>
+                {/* Calculate total and percentages for progress bar */}
+                {(() => {
+                  const totalBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
+                  
+                  // Green color palette matching the design
+                  const getAccountColor = (index: number) => {
+                    const colors = [
+                      '#86efac', // Light green (main)
+                      '#a3e635', // Light yellow-green
+                      '#bef264', // Brighter yellow-green
+                      '#d9f99d', // Lightest yellow-green
+                      '#c6f6d5', // Light emerald
+                      '#9ae6b4', // Medium emerald
+                      '#6ee7b7', // Very light emerald
+                      '#4ade80', // Light green
+                    ];
+                    return colors[index % colors.length];
+                  };
+                  
+                  return (
+                    <>
+                      {/* Horizontal Progress Bar */}
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          width: '100%', 
+                          height: '12px', 
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          mb: 3,
+                          backgroundColor: '#f0f0f0'
+                        }}
+                      >
+                        {savingsAccounts.map((account, index) => {
+                          const percentage = totalBalance > 0 ? ((account.currentBalance || 0) / totalBalance) * 100 : 0;
+                          return (
+                            <Box
+                              key={account.id}
+                              sx={{
+                                width: `${percentage}%`,
+                                backgroundColor: getAccountColor(index),
+                                transition: 'width 0.3s ease',
+                                minWidth: percentage > 0 ? '2px' : '0',
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+
+                      {/* Savings List */}
+                      {savingsAccounts.map((account, index) => {
+                        const accountColor = getAccountColor(index);
+                        
+                        return (
+                          <Box 
+                            key={account.id} 
+                            sx={{ 
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              mb: 2.5,
+                              pb: 2.5,
+                              borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
+                            }}
+                          >
+                            {/* Colored Vertical Bar */}
+                            <Box
+                              sx={{
+                                width: '4px',
+                                height: '48px',
+                                backgroundColor: accountColor,
+                                borderRadius: '2px',
+                                mr: 2,
+                                flexShrink: 0,
+                              }}
+                            />
+                            
+                            {/* Account Info */}
+                            <Box sx={{ flex: 1 }}>
+                              <Typography 
+                                variant="body1" 
+                                sx={{ 
+                                  fontWeight: 500,
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {account.accountName}
+                              </Typography>
+                              <Typography 
+                                variant="h6" 
+                                sx={{ 
+                                  fontWeight: 700,
+                                  color: '#1a1a1a'
+                                }}
+                              >
+                                {formatCurrency(account.currentBalance || 0)}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <SavingsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No savings accounts yet
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                  Create a savings account to start tracking your goals
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
         {/* Recent Transactions */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
@@ -1261,90 +1430,12 @@ const Dashboard: React.FC = () => {
                 <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
                 <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
               </Box>
-            ) : unpaidBills.length > 0 ? (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Bill Name</strong></TableCell>
-                      <TableCell><strong>Provider</strong></TableCell>
-                      <TableCell><strong>Type</strong></TableCell>
-                      <TableCell><strong>Amount</strong></TableCell>
-                      <TableCell><strong>Due Date</strong></TableCell>
-                      <TableCell><strong>Status</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {unpaidBills.map((bill) => (
-                      <TableRow 
-                        key={bill.id}
-                        sx={{
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                            cursor: 'pointer'
-                          }
-                        }}
-                        onClick={() => window.location.href = `/bills/${bill.id}`}
-                      >
-                        <TableCell>
-                          <Typography variant="body1" fontWeight="medium">
-                            {bill.billName}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {bill.provider || 'N/A'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={bill.billType} 
-                            size="small" 
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body1" fontWeight="bold" color="error.main">
-                            {formatCurrency(bill.amount)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <ScheduleIcon fontSize="small" color={bill.status === BillStatus.OVERDUE ? 'error' : 'warning'} />
-                            <Typography 
-                              variant="body2" 
-                              color={bill.status === BillStatus.OVERDUE ? 'error.main' : 'text.secondary'}
-                            >
-                              {new Date(bill.dueDate).toLocaleDateString()}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                              ({formatDueDate(bill.dueDate)})
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={bill.status} 
-                            size="small" 
-                            color={getBillStatusColor(bill.status) as any}
-                            icon={bill.status === BillStatus.OVERDUE ? <WarningIcon /> : undefined}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
-                <Typography variant="body1" color="text.secondary" gutterBottom>
-                  No unpaid bills
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  All your bills are paid up to date!
-                </Typography>
-              </Box>
+              <UnpaidBillsCard
+                bills={unpaidBills}
+                onViewBill={(billId) => navigate(`/bills/${billId}`)}
+                onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
+              />
             )}
           </Paper>
         </Grid>

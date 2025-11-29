@@ -44,6 +44,7 @@ import {
   Link as LinkIcon,
   LinkOff,
   Download,
+  Delete,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -82,6 +83,11 @@ const ReconciliationPage: React.FC = () => {
   const [showMatchingDialog, setShowMatchingDialog] = useState(false);
   const [selectedReconciliation, setSelectedReconciliation] = useState<Reconciliation | null>(null);
   const [selectedStatement, setSelectedStatement] = useState<BankStatement | null>(null);
+  
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [statementToDelete, setStatementToDelete] = useState<BankStatement | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load bank accounts
   useEffect(() => {
@@ -172,6 +178,29 @@ const ReconciliationPage: React.FC = () => {
       setShowMatchingDialog(true);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load reconciliation details'));
+    }
+  };
+
+  const handleDeleteClick = (statement: BankStatement) => {
+    setStatementToDelete(statement);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!statementToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await apiService.deleteBankStatement(statementToDelete.id);
+      setSuccess('Bank statement deleted successfully!');
+      loadReconciliationData();
+      setDeleteConfirmOpen(false);
+      setStatementToDelete(null);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to delete bank statement'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -477,15 +506,31 @@ const ReconciliationPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setSelectedStatement(statement);
-                              setShowMatchingDialog(true);
-                            }}
-                          >
-                            <Info />
-                          </IconButton>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Tooltip title="View Details">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setSelectedStatement(statement);
+                                  setShowMatchingDialog(true);
+                                }}
+                              >
+                                <Info />
+                              </IconButton>
+                            </Tooltip>
+                            {!statement.isReconciled && (
+                              <Tooltip title="Delete Statement">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleDeleteClick(statement)}
+                                  disabled={isDeleting}
+                                >
+                                  <Delete />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -528,6 +573,44 @@ const ReconciliationPage: React.FC = () => {
           />
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteConfirmOpen(false);
+            setStatementToDelete(null);
+          }
+        }}
+      >
+        <DialogTitle>Delete Bank Statement</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the bank statement "{statementToDelete?.statementName}"?
+            This will also delete all transactions imported from this statement. This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDeleteConfirmOpen(false);
+              setStatementToDelete(null);
+            }}
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

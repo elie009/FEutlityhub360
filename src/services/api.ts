@@ -59,13 +59,19 @@ const API_BASE_URL = config.apiBaseUrl;
 class ApiService {
   private getAuthHeaders() {
     const token = localStorage.getItem('authToken');
-    return {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
     };
+    
+    // Only add Authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}, customTimeout?: number): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     const requestConfig: RequestInit = {
       ...options,
@@ -75,9 +81,10 @@ class ApiService {
       },
     };
 
-    // Add timeout using AbortController
+    // Add timeout using AbortController - use custom timeout if provided, otherwise use default
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), config.apiTimeout);
+    const timeout = customTimeout ?? config.apiTimeout;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     requestConfig.signal = controller.signal;
 
     try {
@@ -237,16 +244,62 @@ class ApiService {
     console.log('API Service: Making login request to /Auth/login');
     console.log('API Service: Credentials:', credentials);
     
-    const response = await this.request<AuthUser>('/Auth/login', {
+    // Backend returns { success, message, data: { token, refreshToken, expiresAt, user } }
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: {
+        token: string;
+        refreshToken: string;
+        expiresAt: string;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone: string;
+          role: string;
+          isActive: boolean;
+          createdAt: string;
+          updatedAt: string;
+        };
+      };
+      errors?: string[];
+    }>('/Auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
     
     console.log('API Service: Raw response received:', response);
-    console.log('API Service: Response type:', typeof response);
-    console.log('API Service: Response keys:', Object.keys(response || {}));
     
-    return response;
+    // Check if response has success and data properties (backend format)
+    if (response && 'success' in response && 'data' in response) {
+      if (!response.success || !response.data) {
+        const errorMessage = response.message || 'Login failed';
+        console.error('API Service: Login failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      // Transform backend response to AuthUser format expected by AuthContext
+      const authUser: AuthUser = {
+        id: response.data.user.id,
+        name: response.data.user.name,
+        email: response.data.user.email,
+        phone: response.data.user.phone,
+        data: {
+          token: response.data.token,
+          refreshToken: response.data.refreshToken,
+          expiresAt: response.data.expiresAt,
+          user: response.data.user
+        }
+      };
+      
+      console.log('API Service: Transformed response to AuthUser format');
+      return authUser;
+    }
+    
+    // Fallback: if response is already in AuthUser format
+    console.log('API Service: Response already in AuthUser format');
+    return response as AuthUser;
   }
 
   async register(registerData: {
@@ -1680,7 +1733,7 @@ class ApiService {
       return mockBillDataService.getOverdueBills(user?.id || 'demo-user-123');
     }
     
-    const response = await this.request<any>('/bills/overdue');
+    const response = await this.request<any>('/bills/summary');
     
     // Handle the response structure
     if (response && response.data && Array.isArray(response.data)) {
@@ -4004,10 +4057,11 @@ class ApiService {
   }
 
   async importBankStatement(importData: import('../types/reconciliation').ImportBankStatementRequest): Promise<import('../types/reconciliation').BankStatement> {
+    // Use extended timeout (120 seconds) for bank statement import as it processes many items
     const response = await this.request<any>('/reconciliation/statements/import', {
       method: 'POST',
       body: JSON.stringify(importData),
-    });
+    }, 120000); // 120 seconds timeout
     if (response && response.data) {
       return response.data;
     }

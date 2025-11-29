@@ -102,7 +102,7 @@ QueryParams: {
 **APIs Used**:
 ```
 GET /api/Bills?status=PENDING
-GET /api/Bills/overdue
+GET /api/Bills/summary
 GET /api/Bills/upcoming?days=7
 GET /api/Bills/{billId}
 PUT /api/Bills/{billId}/status
