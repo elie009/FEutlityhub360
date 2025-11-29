@@ -681,7 +681,7 @@ const Dashboard: React.FC = () => {
       '#B8E6B8', // Light yellow-green (like Airbnb)
       '#FFF9C4', // Pale yellow (like Hotels.com)
       '#FFFACD', // Very light yellow (like Others)
-      '#90EE90', // Light green
+      '#B3EE9A', // Color blind friendly light green
       '#FFD700', // Yellow/Gold
       '#87CEEB', // Sky blue
       '#FFB6C1', // Light pink
@@ -1099,7 +1099,7 @@ const Dashboard: React.FC = () => {
                     sx={{
                       p: 1,
                       borderRadius: 1,
-                      backgroundColor: 'rgba(144, 238, 144, 0.1)',
+                      backgroundColor: 'rgba(179, 238, 154, 0.1)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

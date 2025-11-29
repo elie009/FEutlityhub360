@@ -39,18 +39,18 @@ code {
 
 /* Selection styling */
 ::selection {
-  background: rgba(144, 238, 144, 0.3);
+  background: rgba(179, 238, 154, 0.3);
   color: #1a1a1a;
 }
 
 ::-moz-selection {
-  background: rgba(144, 238, 144, 0.3);
+  background: rgba(179, 238, 154, 0.3);
   color: #1a1a1a;
 }
 
 /* Focus outline */
 *:focus {
-  outline: 2px solid #90EE90;
+  outline: 2px solid #B3EE9A;
   outline-offset: 2px;
 }
 

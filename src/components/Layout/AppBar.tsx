@@ -155,7 +155,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
                 Admin
               </Typography>
             </Box>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: '#90EE90', color: '#1a1a1a', fontWeight: 600 }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: '#B3EE9A', color: '#1a1a1a', fontWeight: 600 }}>
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </Avatar>
           </Box>

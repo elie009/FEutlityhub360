@@ -6,9 +6,9 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#90EE90', // Light green
-      light: '#98FB98',
-      dark: '#7CFC00',
+      main: '#B3EE9A', // Color blind friendly light green
+      light: '#C8F5B4',
+      dark: '#8FCC7A',
       contrastText: '#1a1a1a',
     },
     secondary: {
@@ -169,26 +169,26 @@ export const theme = createTheme({
           transition: 'all 0.2s ease-in-out',
         },
         contained: {
-          background: '#90EE90',
+          background: '#B3EE9A',
           color: '#1a1a1a',
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           '&:hover': {
-            background: '#98FB98',
+            background: '#C8F5B4',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15)',
           },
         },
         outlined: {
-          borderColor: '#90EE90',
+          borderColor: '#B3EE9A',
           color: '#1a1a1a',
           '&:hover': {
-            backgroundColor: 'rgba(144, 238, 144, 0.1)',
-            borderColor: '#98FB98',
+            backgroundColor: 'rgba(179, 238, 154, 0.1)',
+            borderColor: '#C8F5B4',
           },
         },
         text: {
           color: '#1a1a1a',
           '&:hover': {
-            backgroundColor: 'rgba(144, 238, 144, 0.1)',
+            backgroundColor: 'rgba(179, 238, 154, 0.1)',
           },
         },
       },
@@ -203,17 +203,17 @@ export const theme = createTheme({
               borderColor: '#e5e5e5',
             },
             '&:hover fieldset': {
-              borderColor: '#90EE90',
+              borderColor: '#B3EE9A',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#90EE90',
+              borderColor: '#B3EE9A',
               borderWidth: '2px',
             },
           },
           '& .MuiInputLabel-root': {
             color: '#666666',
             '&.Mui-focused': {
-              color: '#90EE90',
+              color: '#B3EE9A',
             },
           },
         },
@@ -229,7 +229,7 @@ export const theme = createTheme({
         filled: {
           backgroundColor: '#E6FFE6',
           color: '#1a1a1a',
-          border: '1px solid #90EE90',
+          border: '1px solid #B3EE9A',
         },
       },
     },
@@ -272,7 +272,7 @@ export const theme = createTheme({
         standardSuccess: {
           backgroundColor: '#E6FFE6',
           color: '#1a1a1a',
-          border: '1px solid #90EE90',
+          border: '1px solid #B3EE9A',
         },
         standardError: {
           backgroundColor: '#ffe6e6',
@@ -297,13 +297,13 @@ export const theme = createTheme({
           borderRadius: '8px',
           marginBottom: '4px',
           '&:hover': {
-            backgroundColor: 'rgba(144, 238, 144, 0.1)',
+            backgroundColor: 'rgba(179, 238, 154, 0.1)',
           },
           '&.Mui-selected': {
-            backgroundColor: '#90EE90',
+            backgroundColor: '#B3EE9A',
             color: '#1a1a1a',
             '&:hover': {
-              backgroundColor: '#98FB98',
+              backgroundColor: '#C8F5B4',
             },
           },
         },

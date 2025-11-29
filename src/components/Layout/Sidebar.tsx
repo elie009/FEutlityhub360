@@ -283,11 +283,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               pl: 1.5,
               pr: 1.5,
               justifyContent: 'center',
-              backgroundColor: isItemActive ? '#90EE90' : 'transparent',
+              backgroundColor: isItemActive ? '#B3EE9A' : 'transparent',
               borderRadius: '8px',
               mx: 1,
               '&:hover': {
-                backgroundColor: isItemActive ? '#98FB98' : 'rgba(144, 238, 144, 0.1)',
+                backgroundColor: isItemActive ? '#C8F5B4' : 'rgba(179, 238, 154, 0.1)',
               },
               '& .MuiListItemIcon-root': {
                 color: isItemActive ? '#1a1a1a' : '#666666',
@@ -333,11 +333,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               pl: level > 0 ? 3 : 2,
               pr: 2,
               py: 0.5,
-              backgroundColor: isItemActive ? '#90EE90' : 'transparent',
+              backgroundColor: isItemActive ? '#B3EE9A' : 'transparent',
               borderRadius: '8px',
               mx: 1,
               '&:hover': {
-                backgroundColor: isItemActive ? '#98FB98' : 'rgba(144, 238, 144, 0.1)',
+                backgroundColor: isItemActive ? '#C8F5B4' : 'rgba(179, 238, 154, 0.1)',
               },
               '& .MuiListItemIcon-root': {
                 color: isItemActive ? '#1a1a1a' : '#666666',
