@@ -1,0 +1,359 @@
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Chip,
+  Button,
+  Grid,
+  Divider,
+  Alert,
+} from '@mui/material';
+import {
+  AccountBalance,
+  Schedule,
+  TrendingUp,
+  Payment,
+  AttachMoney,
+  CalendarToday,
+  CheckCircle,
+  Pending,
+  Delete,
+  History,
+  EventAvailable,
+  Warning,
+  NotificationImportant,
+} from '@mui/icons-material';
+import { Loan, LoanStatus, LoanType } from '../../types/loan';
+import { formatDueDate, getDueDateColor, isOverdue, isDueToday, isDueSoon } from '../../utils/dateUtils';
+import { useCurrency } from '../../contexts/CurrencyContext';
+
+interface LoanCardProps {
+  loan: Loan;
+  onUpdate: (loan: Loan) => void;
+  onMakePayment?: (loanId: string) => void;
+  onDelete?: (loanId: string) => void;
+  onViewHistory?: (loanId: string) => void;
+  onDisburse?: (loan: Loan) => void;
+}
+
+const getStatusColor = (status: LoanStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (status) {
+    case LoanStatus.ACTIVE:
+      return 'success';
+    case LoanStatus.PENDING:
+      return 'warning';
+    case LoanStatus.APPROVED:
+      return 'info';
+    case LoanStatus.OVERDUE:
+      return 'error';
+    case LoanStatus.CLOSED:
+      return 'default';
+    case LoanStatus.COMPLETED:
+      return 'success';
+    case LoanStatus.CANCELLED:
+      return 'secondary';
+    case LoanStatus.REJECTED:
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString();
+};
+
+const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDelete, onViewHistory, onDisburse }) => {
+  const { formatCurrency } = useCurrency();
+  // Use the actual monthlyPayment from the loan data, or calculate it if not available
+  const monthlyPayment = loan.monthlyPayment || (loan.totalAmount / loan.term);
+  const remainingBalance = loan.remainingBalance || loan.outstandingBalance;
+  const remainingPayments = Math.ceil(remainingBalance / monthlyPayment);
+
+  // Due date tracking
+  const hasNextDueDate = loan.nextDueDate && loan.status === LoanStatus.ACTIVE;
+  const dueDateColor = getDueDateColor(loan.nextDueDate);
+  const showDueDateAlert = hasNextDueDate && (isOverdue(loan.nextDueDate) || isDueToday(loan.nextDueDate) || isDueSoon(loan.nextDueDate, 3));
+
+  return (
+    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flexGrow: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Typography variant="h6" component="div">
+            Loan #{loan.id.slice(-8).toUpperCase()}
+          </Typography>
+          <Chip
+            label={loan.status}
+            color={getStatusColor(loan.status)}
+            size="small"
+          />
+        </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {loan.purpose}
+          </Typography>
+          {loan.loanType && (
+            <Chip
+              label={loan.loanType.replace('_', ' ')}
+              size="small"
+              variant="outlined"
+              color="primary"
+            />
+          )}
+        </Box>
+        
+        {/* Refinancing Info */}
+        {loan.refinancedFromLoanId && (
+          <Alert severity="info" sx={{ mb: 1, py: 0.5 }}>
+            <Typography variant="caption">
+              Refinanced from Loan #{loan.refinancedFromLoanId.slice(-8).toUpperCase()}
+              {loan.refinancingDate && ` on ${formatDate(loan.refinancingDate)}`}
+            </Typography>
+          </Alert>
+        )}
+
+        {/* Next Due Date Alert */}
+        {showDueDateAlert && (
+          <Alert 
+            severity={dueDateColor === 'error' ? 'error' : dueDateColor === 'warning' ? 'warning' : 'info'}
+            icon={
+              isOverdue(loan.nextDueDate) ? <NotificationImportant /> :
+              isDueToday(loan.nextDueDate) ? <Warning /> :
+              <EventAvailable />
+            }
+            sx={{ my: 1 }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {formatDueDate(loan.nextDueDate)}
+            </Typography>
+          </Alert>
+        )}
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Main Financial Information */}
+        <Grid container spacing={2}>
+          <Grid item xs={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <AccountBalance sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.secondary">
+                Principal
+              </Typography>
+            </Box>
+            <Typography variant="h6">
+              {formatCurrency(loan.principal)}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <TrendingUp sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.secondary">
+                Interest Rate
+              </Typography>
+            </Box>
+            <Typography variant="h6">
+              {loan.interestRate}%
+            </Typography>
+            {loan.effectiveInterestRate && loan.effectiveInterestRate !== loan.interestRate && (
+              <Typography variant="caption" color="text.secondary">
+                APR: {loan.effectiveInterestRate.toFixed(2)}%
+              </Typography>
+            )}
+          </Grid>
+
+          <Grid item xs={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Schedule sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.secondary">
+                Term
+              </Typography>
+            </Box>
+            <Typography variant="h6">
+              {loan.term} months
+            </Typography>
+          </Grid>
+
+          <Grid item xs={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <AttachMoney sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.secondary">
+                Total Amount
+              </Typography>
+            </Box>
+            <Typography variant="h6">
+              {formatCurrency(loan.totalAmount)}
+            </Typography>
+          </Grid>
+        </Grid>
+
+        {/* Payment Information */}
+        <Box sx={{ mt: 2, p: 2, bgcolor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Payment sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Monthly Payment
+                </Typography>
+              </Box>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 700, 
+                  color: 'info.main',
+                  bgcolor: 'info.lighter',
+                  p: 0.75,
+                  borderRadius: 1,
+                  textAlign: 'center'
+                }}
+              >
+                {formatCurrency(monthlyPayment)}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <AccountBalance sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Remaining Balance
+                </Typography>
+              </Box>
+              <Typography 
+                variant="body1" 
+                fontWeight="medium"
+                color={remainingBalance > 0 ? 'error.main' : 'success.main'}
+              >
+                {formatCurrency(remainingBalance)}
+              </Typography>
+            </Grid>
+          </Grid>
+
+          {loan.status === LoanStatus.ACTIVE && remainingPayments > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Remaining Payments: {remainingPayments}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Next Due Date - Only show if not already alerted */}
+        {hasNextDueDate && !showDueDateAlert && (
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              <EventAvailable sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.secondary">
+                Next Payment Due
+              </Typography>
+            </Box>
+            <Typography variant="body1" fontWeight="medium">
+              {formatDueDate(loan.nextDueDate)}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Timeline Information */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            <CalendarToday sx={{ mr: 1, fontSize: 16, verticalAlign: 'middle' }} />
+            Timeline
+          </Typography>
+          
+          <Box sx={{ ml: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              <Pending sx={{ mr: 1, fontSize: 14, color: 'warning.main' }} />
+              <Typography variant="caption" color="text.secondary">
+                Applied: {formatDate(loan.appliedAt || loan.createdAt)}
+              </Typography>
+            </Box>
+            
+            {loan.approvedAt && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <CheckCircle sx={{ mr: 1, fontSize: 14, color: 'success.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  Approved: {formatDate(loan.approvedAt)}
+                </Typography>
+              </Box>
+            )}
+            
+            {loan.disbursedAt && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <CheckCircle sx={{ mr: 1, fontSize: 14, color: 'info.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  Disbursed: {formatDate(loan.disbursedAt)}
+                </Typography>
+              </Box>
+            )}
+            
+            {loan.completedAt && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <CheckCircle sx={{ mr: 1, fontSize: 14, color: 'success.main' }} />
+                <Typography variant="caption" color="text.secondary">
+                  Completed: {formatDate(loan.completedAt)}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => onUpdate(loan)}
+            sx={{ flex: 1, minWidth: '80px' }}
+          >
+            Update
+          </Button>
+          {loan.status === LoanStatus.APPROVED && onDisburse && (
+            <Button
+              variant="contained"
+              size="small"
+              color="success"
+              onClick={() => onDisburse(loan)}
+              sx={{ flex: 1, minWidth: '80px' }}
+            >
+              Disburse
+            </Button>
+          )}
+          {onViewHistory && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => onViewHistory(loan.id)}
+              sx={{ flex: 1, minWidth: '80px' }}
+            >
+              History
+            </Button>
+          )}
+          {onMakePayment && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => onMakePayment(loan.id)}
+              sx={{ flex: 1, minWidth: '80px' }}
+            >
+              Payment
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              onClick={() => onDelete(loan.id)}
+              sx={{ flex: 1, minWidth: '80px' }}
+            >
+              Delete
+            </Button>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default LoanCard;
