@@ -41,7 +41,8 @@ import {
   BillAlert,
   MonthlyBillData,
   ProviderAnalytics,
-  BillType
+  BillType,
+  BillStatus
 } from '../types/bill';
 import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
@@ -1687,6 +1688,55 @@ class ApiService {
     } else if (Array.isArray(response)) {
       return response;
     } else {
+      return [];
+    }
+  }
+
+  // Get unpaid bills (PENDING and OVERDUE) ordered by due date
+  async getUnpaidBills(): Promise<Bill[]> {
+    console.log('=== API Service: getUnpaidBills ===');
+    
+    if (isMockDataEnabled()) {
+      console.log('⚠️ USING MOCK DATA for unpaid bills!');
+      const user = this.getCurrentUserFromToken();
+      // Get pending and overdue bills from mock service
+      const pendingBills = await mockBillDataService.getUserBills(user?.id || 'demo-user-123', { status: BillStatus.PENDING });
+      const overdueBills = await mockBillDataService.getOverdueBills(user?.id || 'demo-user-123');
+      
+      // Combine and sort by due date
+      const allUnpaid = [...(pendingBills.data || []), ...(overdueBills || [])];
+      return allUnpaid.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    }
+    
+    console.log('✅ Using REAL API for unpaid bills');
+    
+    try {
+      // Get pending bills
+      const pendingResponse = await this.getUserBills({ 
+        status: BillStatus.PENDING, 
+        limit: 100 // Get a reasonable limit
+      });
+      
+      // Get overdue bills
+      const overdueBills = await this.getOverdueBills();
+      
+      // Combine both arrays
+      const allUnpaid = [
+        ...(pendingResponse.data || []),
+        ...(overdueBills || [])
+      ];
+      
+      // Remove duplicates (in case a bill appears in both)
+      const uniqueBills = allUnpaid.filter((bill, index, self) => 
+        index === self.findIndex(b => b.id === bill.id)
+      );
+      
+      // Sort by due date (ascending - earliest first)
+      return uniqueBills.sort((a, b) => 
+        new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
+    } catch (error) {
+      console.error('Failed to fetch unpaid bills:', error);
       return [];
     }
   }

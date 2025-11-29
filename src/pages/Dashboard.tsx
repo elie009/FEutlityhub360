@@ -48,31 +48,36 @@ import {
   TrendingDown as TrendingDownIcon,
   Close as CloseIcon,
   CreditCard as CreditCardIcon,
+  Warning as WarningIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement,
   Title,
   Tooltip as ChartTooltip,
   Legend,
   ChartOptions,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import { BankAccountTransaction } from '../types/transaction';
+import { Bill, BillStatus } from '../types/bill';
 
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement,
   Title,
   ChartTooltip,
   Legend,
@@ -149,6 +154,10 @@ const Dashboard: React.FC = () => {
   // Income sources with summary state
   const [incomeSourcesSummary, setIncomeSourcesSummary] = useState<any>(null);
   const [incomeSourcesLoading, setIncomeSourcesLoading] = useState(false);
+  
+  // Unpaid bills state
+  const [unpaidBills, setUnpaidBills] = useState<Bill[]>([]);
+  const [unpaidBillsLoading, setUnpaidBillsLoading] = useState(false);
   
   // Check if user needs to complete profile
   useEffect(() => {
@@ -290,6 +299,26 @@ const Dashboard: React.FC = () => {
     };
     
     loadIncomeSourcesSummary();
+  }, [isAuthenticated]);
+
+  // Fetch unpaid bills on page load
+  useEffect(() => {
+    const loadUnpaidBills = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setUnpaidBillsLoading(true);
+        const bills = await apiService.getUnpaidBills();
+        setUnpaidBills(bills);
+      } catch (error) {
+        console.error('Failed to load unpaid bills for dashboard:', error);
+        setUnpaidBills([]);
+      } finally {
+        setUnpaidBillsLoading(false);
+      }
+    };
+    
+    loadUnpaidBills();
   }, [isAuthenticated]);
 
   // Profile form handlers
@@ -553,6 +582,132 @@ const Dashboard: React.FC = () => {
 
   const cashFlowChartData = prepareCashFlowChartData();
 
+  // Prepare Donut Chart data for account transaction counts
+  const donutChartData = useMemo(() => {
+    if (!financialData || !financialData.accounts || financialData.accounts.length === 0) {
+      return {
+        labels: [],
+        datasets: [{
+          data: [],
+          backgroundColor: [],
+          borderColor: [],
+        }],
+      };
+    }
+
+    // Show all accounts, even with 0 transactions, and sort by transactionCount descending
+    const allAccounts = financialData.accounts
+      .filter((acc: any) => acc.accountName) // Only filter out accounts without names
+      .sort((a: any, b: any) => (b.transactionCount || 0) - (a.transactionCount || 0));
+
+    if (allAccounts.length === 0) {
+      return {
+        labels: [],
+        datasets: [{
+          data: [],
+          backgroundColor: [],
+          borderColor: [],
+        }],
+      };
+    }
+
+    // Color palette for donut chart - matching the booking platform style
+    const colors = [
+      '#7DD3C0', // Light teal/mint green (like Direct Booking)
+      '#4ECDC4', // Medium teal (like Booking.com)
+      '#95E1A3', // Lime green (like Agoda)
+      '#B8E6B8', // Light yellow-green (like Airbnb)
+      '#FFF9C4', // Pale yellow (like Hotels.com)
+      '#FFFACD', // Very light yellow (like Others)
+      '#90EE90', // Light green
+      '#FFD700', // Yellow/Gold
+      '#87CEEB', // Sky blue
+      '#FFB6C1', // Light pink
+    ];
+
+    const labels = allAccounts.map((acc: any) => acc.accountName || 'Unknown Account');
+    const data = allAccounts.map((acc: any) => acc.transactionCount || 0);
+    const backgroundColors = allAccounts.map((_: any, index: number) => 
+      colors[index % colors.length]
+    );
+
+    return {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: backgroundColors,
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        hoverBorderWidth: 3,
+      }],
+    };
+  }, [financialData]);
+
+  // Donut Chart options
+  const donutChartOptions: ChartOptions<'doughnut'> = useMemo(() => {
+    // Calculate total for percentage calculations
+    const total = donutChartData.datasets[0]?.data.reduce((a: number, b: number) => a + b, 0) || 0;
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right' as const,
+          align: 'center' as const,
+          labels: {
+            usePointStyle: true,
+            padding: 12,
+            font: {
+              size: 13,
+            },
+            generateLabels: function(chart: any) {
+              const data = chart.data;
+              if (data.labels.length && data.datasets.length) {
+                const dataset = data.datasets[0];
+                return data.labels.map((label: string, i: number) => {
+                  const value = dataset.data[i];
+                  const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                  return {
+                    text: `${percentage}% ${label}`,
+                    fillStyle: dataset.backgroundColor[i],
+                    strokeStyle: dataset.borderColor || '#ffffff',
+                    lineWidth: dataset.borderWidth || 2,
+                    hidden: false,
+                    index: i,
+                    fontColor: '#333333',
+                  };
+                });
+              }
+              return [];
+            },
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context: any) {
+              const label = context.label || '';
+              const value = context.parsed || 0;
+              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              return `${label}: ${value} transactions (${percentage}%)`;
+            },
+          },
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          titleColor: '#333',
+          bodyColor: '#666',
+          borderColor: '#666',
+          borderWidth: 2,
+          padding: 8,
+        },
+        title: {
+          display: false,
+        },
+      },
+      cutout: '60%', // Makes it a donut (0% would be a pie)
+    };
+  }, [donutChartData]);
+
   // Prepare Chart.js data format - memoized to prevent unnecessary recreations
   const chartData = useMemo(() => {
     if (!cashFlowChartData || cashFlowChartData.length === 0) {
@@ -702,6 +857,40 @@ const Dashboard: React.FC = () => {
     { name: 'Total Income', amount: financialData.totalIncoming || 0 },
     { name: 'Total Expense', amount: financialData.totalOutgoing || 0 },
   ] : [];
+
+  // Helper function to get status color
+  const getBillStatusColor = (status: BillStatus) => {
+    switch (status) {
+      case BillStatus.OVERDUE:
+        return 'error';
+      case BillStatus.PENDING:
+        return 'warning';
+      default:
+        return 'default';
+    }
+  };
+
+  // Helper function to format due date
+  const formatDueDate = (dueDate: string) => {
+    const date = new Date(dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(date);
+    due.setHours(0, 0, 0, 0);
+    
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} overdue`;
+    } else if (diffDays === 0) {
+      return 'Due today';
+    } else if (diffDays === 1) {
+      return 'Due tomorrow';
+    } else {
+      return `Due in ${diffDays} days`;
+    }
+  };
 
   const stats = [
     {
@@ -962,6 +1151,33 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
+        {/* Account Transaction Count Donut Chart */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+              Transactions by Account
+            </Typography>
+            {loading ? (
+              <Box>
+                <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+              </Box>
+            ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
+              <Box sx={{ height: '338px', width: '100%' }}>
+                <Doughnut 
+                  data={donutChartData} 
+                  options={donutChartOptions}
+                />
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No accounts available
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
         {/* Recent Transactions */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
@@ -1017,6 +1233,116 @@ const Dashboard: React.FC = () => {
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Your recent transactions will appear here
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Unpaid Bills Section */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                Unpaid Bills & Utilities
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Receipt />}
+                href="/bills"
+              >
+                View All Bills
+              </Button>
+            </Box>
+            {unpaidBillsLoading ? (
+              <Box>
+                <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+              </Box>
+            ) : unpaidBills.length > 0 ? (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Bill Name</strong></TableCell>
+                      <TableCell><strong>Provider</strong></TableCell>
+                      <TableCell><strong>Type</strong></TableCell>
+                      <TableCell><strong>Amount</strong></TableCell>
+                      <TableCell><strong>Due Date</strong></TableCell>
+                      <TableCell><strong>Status</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {unpaidBills.map((bill) => (
+                      <TableRow 
+                        key={bill.id}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                            cursor: 'pointer'
+                          }
+                        }}
+                        onClick={() => window.location.href = `/bills/${bill.id}`}
+                      >
+                        <TableCell>
+                          <Typography variant="body1" fontWeight="medium">
+                            {bill.billName}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {bill.provider || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={bill.billType} 
+                            size="small" 
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body1" fontWeight="bold" color="error.main">
+                            {formatCurrency(bill.amount)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <ScheduleIcon fontSize="small" color={bill.status === BillStatus.OVERDUE ? 'error' : 'warning'} />
+                            <Typography 
+                              variant="body2" 
+                              color={bill.status === BillStatus.OVERDUE ? 'error.main' : 'text.secondary'}
+                            >
+                              {new Date(bill.dueDate).toLocaleDateString()}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                              ({formatDueDate(bill.dueDate)})
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={bill.status} 
+                            size="small" 
+                            color={getBillStatusColor(bill.status) as any}
+                            icon={bill.status === BillStatus.OVERDUE ? <WarningIcon /> : undefined}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+                <Typography variant="body1" color="text.secondary" gutterBottom>
+                  No unpaid bills
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  All your bills are paid up to date!
                 </Typography>
               </Box>
             )}
