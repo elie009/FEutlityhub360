@@ -450,7 +450,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       </Box>
       
       {/* Menu Items */}
-      <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', pt: 1 }}>
+      <Box 
+        sx={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          overflowX: 'hidden', 
+          pt: 1,
+          pb: open ? 20 : 0, // Add padding bottom to make room for promotional card when open
+        }}
+      >
         <List sx={{ px: 0.5 }}>
           {menuItems.map((item) => renderMenuItem(item))}
         </List>
@@ -458,22 +466,31 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
       {/* Promotional Card */}
       {open && (
-        <Box sx={{ p: 2, pt: 1, position: 'relative' }}>
+        <Box 
+          sx={{ 
+            p: 2, 
+            pt: 1, 
+            position: 'relative',
+            flexShrink: 0, // Prevent card from shrinking
+            mt: 'auto', // Push to bottom
+          }}
+        >
           {/* Floating Image */}
           <Box
             component="img"
             src="/sidenav_img.png"
             alt="Elevate Financing"
             sx={{
-              width: '70%',
+              width: open ? '70%' : '100%',
               height: 'auto',
               objectFit: 'contain',
               position: 'absolute',
-              top: -100,
-              left: 35,
+              top: open ? -100 : -50,
+              left: open ? 35 : 0,
               right: 0,
               zIndex: 1,
               filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2))',
+              transition: 'all 0.3s ease',
             }}
           />
           
@@ -482,12 +499,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               backgroundColor: '#e8f5e9', // Light green background
               borderRadius: 2,
               p: 2,
-              pt: 7, // Add padding top to make room for overlapping image
+              pt: open ? 7 : 4, // Adjust padding top based on sidebar state
               display: 'flex',
               flexDirection: 'column',
               gap: 1,
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              minHeight: 120, // Reduced height
+              minHeight: open ? 120 : 100, // Adjust height based on sidebar state
+              transition: 'all 0.3s ease',
             }}
           >
             {/* Text Content */}

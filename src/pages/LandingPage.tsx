@@ -571,7 +571,7 @@ const LandingPage: React.FC = () => {
             <Paper
               elevation={0}
               sx={{
-                background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                bgcolor: 'primary.main',
                 color: 'white',
                 p: 3,
                 borderRadius: 3,
