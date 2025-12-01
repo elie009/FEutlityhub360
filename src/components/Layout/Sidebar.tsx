@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Drawer as MuiDrawer,
   List,
@@ -50,6 +50,8 @@ import {
   Calculate as PlanningIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../services/api';
 import logo from '../../logo.png';
 
 const drawerWidth = 240;
@@ -63,7 +65,8 @@ interface MenuItem {
   badge?: number;
 }
 
-const menuItems: MenuItem[] = [
+// Menu items will be created dynamically with notification count
+const createMenuItems = (notificationCount: number): MenuItem[] => [
   // ============================================
   // CATEGORY 1: OVERVIEW & DASHBOARD
   // ============================================
@@ -189,7 +192,7 @@ const menuItems: MenuItem[] = [
     text: 'Notifications', 
     icon: <NotificationsIcon />, 
     path: '/notifications',
-    badge: 0, // Set to number > 0 to show badge
+    badge: notificationCount > 0 ? notificationCount : undefined,
   },
 
   // ============================================
@@ -236,20 +239,99 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
     // All sections collapsed by default for cleaner initial view
     // Users can expand sections as needed
   });
 
+  // Fetch unread notification count
+  useEffect(() => {
+    if (user?.id) {
+      const fetchUnreadCount = async () => {
+        try {
+          const count = await apiService.getUnreadNotificationCount(user.id);
+          setUnreadNotificationCount(count);
+        } catch (error) {
+          console.error('Failed to fetch unread notification count:', error);
+        }
+      };
+
+      fetchUnreadCount();
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user?.id]);
+
+  // Refresh count when navigating to/from notifications page
+  useEffect(() => {
+    if (location.pathname === '/notifications' || location.pathname !== '/notifications') {
+      if (user?.id) {
+        apiService.getUnreadNotificationCount(user.id)
+          .then(setUnreadNotificationCount)
+          .catch(console.error);
+      }
+    }
+  }, [location.pathname, user?.id]);
+
+  // Create menu items with dynamic notification count
+  const menuItems = createMenuItems(unreadNotificationCount);
+
+  // Helper function to find the parent menu that contains a given path
+  const findParentMenu = (path: string): string | null => {
+    for (const item of menuItems) {
+      if (item.children) {
+        const hasChildPath = item.children.some(child => child.path === path);
+        if (hasChildPath) {
+          return item.text;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Auto-expand parent menu when a submenu item is active
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const parentMenu = findParentMenu(currentPath);
+    
+    if (parentMenu) {
+      // Only expand the parent menu, close others
+      setOpenSections({
+        [parentMenu]: true,
+      });
+    }
+  }, [location.pathname]);
+
   const handleNavigation = (path: string) => {
     navigate(path);
+    // Find the parent menu for this path
+    const parentMenu = findParentMenu(path);
+    
+    if (parentMenu) {
+      // Keep the parent menu expanded when navigating to a child
+      setOpenSections(prev => ({
+        [parentMenu]: true,
+      }));
+    } else {
+      // If it's a top-level menu item, close all expanded menus
+      setOpenSections({});
+    }
   };
 
   const handleSectionToggle = (sectionName: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [sectionName]: !prev[sectionName],
-    }));
+    setOpenSections(prev => {
+      // If the section is already open, close it
+      if (prev[sectionName]) {
+        return {};
+      }
+      // Otherwise, close all other sections and open only this one
+      return {
+        [sectionName]: true,
+      };
+    });
   };
 
   const isPathActive = (path: string) => {
@@ -299,7 +381,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           >
             <ListItemIcon>
               {item.badge !== undefined && item.badge > 0 ? (
-                <Badge badgeContent={item.badge} color="error" overlap="circular">
+                <Badge badgeContent={item.badge > 99 ? '99+' : item.badge} color="error" overlap="circular">
                   {item.icon}
                 </Badge>
               ) : (
@@ -330,8 +412,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             }}
             sx={{
               minHeight: 44,
-              pl: level > 0 ? 3 : 2,
-              pr: 2,
+              // When collapsed, center align all items
+              ...(!open && level === 0 ? {
+                pl: 1.5,
+                pr: 1.5,
+                justifyContent: 'center',
+              } : {
+                pl: level > 0 ? 3 : 2,
+                pr: 2,
+              }),
               py: 0.5,
               backgroundColor: isItemActive ? '#B3EE9A' : 'transparent',
               borderRadius: '8px',
@@ -341,7 +430,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               },
               '& .MuiListItemIcon-root': {
                 color: isItemActive ? '#1a1a1a' : '#666666',
-                minWidth: 36,
+                // When collapsed, center align icons
+                ...(!open && level === 0 ? {
+                  minWidth: 0,
+                  justifyContent: 'center',
+                } : {
+                  minWidth: 36,
+                }),
               },
               '& .MuiListItemText-primary': {
                 color: isItemActive ? '#1a1a1a' : '#333333',
@@ -353,7 +448,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           >
             <ListItemIcon>
               {item.badge !== undefined && item.badge > 0 ? (
-                <Badge badgeContent={item.badge} color="error" overlap="circular">
+                <Badge badgeContent={item.badge > 99 ? '99+' : item.badge} color="error" overlap="circular">
                   {item.icon}
                 </Badge>
               ) : (

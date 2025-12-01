@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppBar as MuiAppBar,
   Toolbar,
@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../services/api';
 
 interface AppBarProps {
   onMenuClick?: () => void;
@@ -31,10 +32,30 @@ interface AppBarProps {
 
 const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sidebarWidth = 240 }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  // Fetch unread notification count
+  useEffect(() => {
+    if (user?.id) {
+      const fetchUnreadCount = async () => {
+        try {
+          const count = await apiService.getUnreadNotificationCount(user.id);
+          setUnreadCount(count);
+        } catch (error) {
+          console.error('Failed to fetch unread notification count:', error);
+        }
+      };
+
+      fetchUnreadCount();
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user?.id]);
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -120,7 +141,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
             onClick={handleNotificationsClick}
             sx={{ color: '#1a1a1a' }}
           >
-            <Badge badgeContent={0} color="error">
+            <Badge badgeContent={unreadCount} color="error">
               <NotificationsIcon />
             </Badge>
           </IconButton>

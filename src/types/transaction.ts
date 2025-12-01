@@ -22,6 +22,7 @@ export interface BankAccountTransaction {
   billId?: string;           // For bill-related transactions
   savingsAccountId?: string; // For savings-related transactions
   loanId?: string;           // For loan-related transactions
+  transactionPurpose?: string; // BILL, UTILITY, SAVINGS, LOAN, OTHER
   accountName?: string;      // Account name for display
   // Soft delete fields
   isDeleted?: boolean;

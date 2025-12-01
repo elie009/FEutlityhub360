@@ -62,8 +62,12 @@ const Savings: React.FC = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [showTransactionHistoryDialog, setShowTransactionHistoryDialog] = useState(false);
+  const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<SavingsAccount | null>(null);
   const [accountWithTransactions, setAccountWithTransactions] = useState<any>(null);
+  const [savingsToMarkPaid, setSavingsToMarkPaid] = useState<SavingsAccount | null>(null);
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
 
   // Menu states
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -215,6 +219,57 @@ const Savings: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Failed to delete savings account');
     }
+  };
+
+  // Handle mark as paid
+  const handleMarkAsPaid = async (account: SavingsAccount) => {
+    setSavingsToMarkPaid(account);
+    setPaymentNotes('');
+    // Calculate remaining amount needed to reach target
+    const remainingAmount = account.targetAmount - account.currentBalance;
+    setPaymentAmount(remainingAmount > 0 ? remainingAmount.toFixed(2) : '0.00');
+    setShowMarkPaidDialog(true);
+    handleMenuClose();
+  };
+
+  const handleConfirmMarkAsPaid = async () => {
+    if (!savingsToMarkPaid) return;
+
+    // Validate amount
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    try {
+      setFormLoading(true);
+      setError('');
+
+      // Call API to mark savings as paid (without bank account)
+      await apiService.markSavingsAsPaid(savingsToMarkPaid.id, {
+        amount: amount,
+        notes: paymentNotes,
+      });
+
+      setSuccess('Savings goal marked as paid successfully!');
+      setShowMarkPaidDialog(false);
+      setSavingsToMarkPaid(null);
+      setPaymentNotes('');
+      setPaymentAmount('');
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to mark savings as paid');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleCloseMarkPaidDialog = () => {
+    setShowMarkPaidDialog(false);
+    setSavingsToMarkPaid(null);
+    setPaymentNotes('');
+    setPaymentAmount('');
   };
 
   // Handle transfer using the new unified savings transaction API
@@ -1111,6 +1166,12 @@ const Savings: React.FC = () => {
           <AttachMoneyIcon sx={{ mr: 1 }} />
           Transfer Money
         </MenuItem>
+        {menuAccount && menuAccount.progressPercentage < 100 && (
+          <MenuItem onClick={() => menuAccount && handleMarkAsPaid(menuAccount)}>
+            <CheckCircleIcon sx={{ mr: 1 }} />
+            Mark as Paid
+          </MenuItem>
+        )}
         <Divider />
         <MenuItem 
           onClick={() => menuAccount && handleDeleteAccount(menuAccount.id)}
@@ -1248,10 +1309,82 @@ const Savings: React.FC = () => {
           <Button onClick={() => setShowTransactionHistoryDialog(false)}>
             Close
           </Button>
+          </DialogActions>
+        </Dialog>
+
+      {/* Mark as Paid Dialog */}
+      <Dialog
+        open={showMarkPaidDialog}
+        onClose={handleCloseMarkPaidDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Mark Savings Goal as Paid
+        </DialogTitle>
+        <DialogContent>
+          {savingsToMarkPaid && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1" gutterBottom>
+                <strong>Account:</strong> {savingsToMarkPaid.accountName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                <strong>Current Balance:</strong> {formatCurrency(savingsToMarkPaid.currentBalance)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                <strong>Target Amount:</strong> {formatCurrency(savingsToMarkPaid.targetAmount)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                <strong>Progress:</strong> {savingsToMarkPaid.progressPercentage.toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+                <strong>Remaining Amount:</strong> {formatCurrency(savingsToMarkPaid.targetAmount - savingsToMarkPaid.currentBalance)}
+              </Typography>
+              
+              <TextField
+                fullWidth
+                label="Amount to Save"
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                required
+                inputProps={{ min: 0, step: 0.01 }}
+                helperText={`Enter the amount you want to save (max: ${formatCurrency(savingsToMarkPaid.targetAmount - savingsToMarkPaid.currentBalance)})`}
+                sx={{ mt: 2 }}
+              />
+              
+              <TextField
+                fullWidth
+                label="Payment Notes (Optional)"
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                multiline
+                rows={3}
+                placeholder="Add any notes about this payment..."
+                sx={{ mt: 2 }}
+              />
+              
+              <Alert severity="info" sx={{ mt: 2 }}>
+                This will mark the savings goal as paid without requiring a bank transfer. 
+                The payment will be recorded for tracking purposes.
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseMarkPaidDialog}>Cancel</Button>
+          <Button
+            onClick={handleConfirmMarkAsPaid}
+            variant="contained"
+            color="success"
+            disabled={formLoading || !paymentAmount || parseFloat(paymentAmount) <= 0}
+          >
+            {formLoading ? 'Processing...' : 'Mark as Paid'}
+          </Button>
         </DialogActions>
       </Dialog>
-    </Box>
-  );
-};
-
-export default Savings;
+      </Box>
+    );
+  };
+  
+  export default Savings;

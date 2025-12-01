@@ -77,6 +77,7 @@ interface BankAccountTransaction {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  transactionPurpose?: string;
 }
 
 interface Bill {
@@ -84,6 +85,7 @@ interface Bill {
   billName: string;
   amount: number;
   status: string;
+  billType?: string;
 }
 
 interface Loan {
@@ -97,6 +99,9 @@ interface SavingsAccount {
   id: string;
   name: string;
   balance: number;
+  isActive?: boolean;
+  accountName?: string;
+  currentBalance?: number;
 }
 
 // Get all category suggestions for autocomplete (fallback)
@@ -144,6 +149,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     savingsAccountId: '',
     loanId: '',
     toBankAccountId: '', // For bank transfers
+    transactionPurpose: '', // BILL, UTILITY, SAVINGS, LOAN, OTHER
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -194,12 +200,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           savingsAccountId: initialTransaction.savingsAccountId || '',
           loanId: initialTransaction.loanId || '',
           toBankAccountId: '',
+          transactionPurpose: (initialTransaction as any).transactionPurpose || '',
         });
         
-        // Show selectors if linked to bill/savings/loan
-        setShowBillSelector(!!initialTransaction.billId);
-        setShowSavingsSelector(!!initialTransaction.savingsAccountId);
-        setShowLoanSelector(!!initialTransaction.loanId);
+        // Show selectors based on transactionPurpose or linked entities
+        const transactionPurpose = (initialTransaction as any).transactionPurpose || '';
+        if (transactionPurpose) {
+          setShowBillSelector(transactionPurpose === 'BILL' || transactionPurpose === 'UTILITY');
+          setShowSavingsSelector(transactionPurpose === 'SAVINGS');
+          setShowLoanSelector(transactionPurpose === 'LOAN');
+        } else {
+          // Fallback to showing selectors if linked to bill/savings/loan
+          setShowBillSelector(!!initialTransaction.billId);
+          setShowSavingsSelector(!!initialTransaction.savingsAccountId);
+          setShowLoanSelector(!!initialTransaction.loanId);
+        }
         setShowTransferSelector(false); // Don't show transfer selector in edit mode
       } else {
         // Reset form when dialog opens for new transaction
@@ -221,6 +236,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           savingsAccountId: '',
           loanId: '',
           toBankAccountId: '',
+          transactionPurpose: '',
         });
         // Reset dynamic selectors
         setShowBillSelector(false);
@@ -238,7 +254,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setLoadingBills(true);
     try {
       const startTime = Date.now();
-      const billsResponse = await apiService.getUserBills({ status: BillStatus.PENDING });
+      // Load all bills, not just PENDING ones
+      const billsResponse = await apiService.getUserBills();
       const elapsed = Date.now() - startTime;
       const minDelay = 800; // Minimum 800ms to see skeleton
       
@@ -246,7 +263,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
       }
       
-      setBills(billsResponse.data || []);
+      // Filter to show active bills (PENDING, OVERDUE) for the dropdown
+      const activeBills = (billsResponse.data || []).filter(
+        (bill: Bill) => bill.status === BillStatus.PENDING || bill.status === BillStatus.OVERDUE
+      );
+      setBills(activeBills);
     } catch (error) {
       console.error('Failed to load bills:', error);
       setBills([]);
@@ -269,7 +290,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
       }
       
-      setLoans(Array.isArray(loansResponse) ? loansResponse : []);
+      // Filter to show only active/approved loans
+      const activeLoans = (Array.isArray(loansResponse) ? loansResponse : [])
+        .filter((loan: Loan) => loan.status === 'ACTIVE' || loan.status === 'APPROVED');
+      setLoans(activeLoans);
     } catch (error) {
       console.error('Failed to load loans:', error);
       setLoans([]);
@@ -283,15 +307,38 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const loadSavingsAccounts = useCallback(async () => {
     setLoadingSavingsAccounts(true);
     try {
-      // For now, we'll use bank accounts as savings accounts
-      // In a real implementation, you'd have a separate savings accounts API
-      // Add delay to show skeleton screen
       await new Promise(resolve => setTimeout(resolve, 600));
       
+      // Try to load from savings API first
+      try {
+        const savingsResponse = await apiService.getSavingsAccounts({ isActive: true });
+        const savingsData = Array.isArray(savingsResponse) 
+          ? savingsResponse 
+          : (savingsResponse?.data || []);
+        
+        const activeSavings = savingsData.filter(
+          (account: SavingsAccount) => account.isActive !== false
+        );
+        
+        if (activeSavings.length > 0) {
+          setSavingsAccounts(activeSavings.map((acc: SavingsAccount) => ({
+            id: acc.id,
+            name: acc.accountName || acc.name,
+            balance: acc.currentBalance || 0,
+            isActive: acc.isActive
+          })));
+          return;
+        }
+      } catch (error) {
+        console.log('Savings API not available, using bank accounts as fallback');
+      }
+      
+      // Fallback to bank accounts
       const accounts = bankAccounts.map(acc => ({
         id: acc.id,
         name: acc.accountName,
-        balance: acc.currentBalance
+        balance: acc.currentBalance,
+        isActive: true
       }));
       setSavingsAccounts(accounts);
     } catch (error) {
@@ -410,6 +457,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       [field]: value,
     }));
 
+    // Handle Transaction Purpose change
+    if (field === 'transactionPurpose') {
+      const purpose = value;
+      
+      // Clear category and linked IDs when purpose changes
+      setFormData(prev => ({
+        ...prev,
+        category: '',
+        billId: '',
+        savingsAccountId: '',
+        loanId: '',
+      }));
+      
+      // Don't show separate selectors anymore - they're in Category dropdown
+      setShowBillSelector(false);
+      setShowSavingsSelector(false);
+      setShowLoanSelector(false);
+      setShowTransferSelector(false);
+    }
+
     // If transaction type changes to CREDIT, clear category and hide selectors
     if (field === 'transactionType' && value === 'CREDIT') {
       setFormData(prev => ({
@@ -419,6 +486,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         savingsAccountId: '',
         loanId: '',
         toBankAccountId: '',
+        transactionPurpose: '',
       }));
       setShowBillSelector(false);
       setShowSavingsSelector(false);
@@ -514,6 +582,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         savingsAccountId: formData.savingsAccountId || undefined,
         loanId: formData.loanId || undefined,
         toBankAccountId: formData.toBankAccountId || undefined,
+        transactionPurpose: formData.transactionPurpose || undefined,
       };
 
       if (isEditMode && initialTransaction) {
@@ -689,6 +758,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </FormControl>
             </Grid>
 
+            {formData.transactionType === 'DEBIT' && (
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Transaction Purpose</InputLabel>
+                  <Select
+                    value={formData.transactionPurpose}
+                    onChange={handleSelectChange('transactionPurpose')}
+                    label="Transaction Purpose"
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value="BILL">Bill Payment</MenuItem>
+                    <MenuItem value="UTILITY">Utility Payment</MenuItem>
+                    <MenuItem value="SAVINGS">Savings Deposit</MenuItem>
+                    <MenuItem value="LOAN">Loan Payment</MenuItem>
+                    <MenuItem value="OTHER">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -703,58 +792,187 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {formData.transactionType !== 'CREDIT' && (
               <Grid item xs={12} sm={6}>
-                {loadingCategories ? (
+                {loadingCategories && !formData.transactionPurpose ? (
                   <Skeleton variant="rectangular" height={56} />
                 ) : (
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <InputLabel required>Category</InputLabel>
-                      <Tooltip title="Select a category to organize your transaction. Some categories (bills, savings, loans) will show additional options to link to specific items.">
+                      <InputLabel required>
+                        {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                          ? 'Select Bill' 
+                          : formData.transactionPurpose === 'LOAN' 
+                          ? 'Select Loan' 
+                          : formData.transactionPurpose === 'SAVINGS' 
+                          ? 'Select Savings Account' 
+                          : 'Category'}
+                      </InputLabel>
+                      <Tooltip title={
+                        formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY'
+                          ? "Select a bill to link this transaction to"
+                          : formData.transactionPurpose === 'LOAN'
+                          ? "Select a loan to link this transaction to"
+                          : formData.transactionPurpose === 'SAVINGS'
+                          ? "Select a savings account to link this transaction to"
+                          : "Select a category to organize your transaction"
+                      }>
                         <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                       </Tooltip>
                     </Box>
                     <FormControl fullWidth required>
-                      <InputLabel>Category</InputLabel>
+                      <InputLabel>
+                        {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                          ? 'Select Bill' 
+                          : formData.transactionPurpose === 'LOAN' 
+                          ? 'Select Loan' 
+                          : formData.transactionPurpose === 'SAVINGS' 
+                          ? 'Select Savings Account' 
+                          : 'Category'}
+                      </InputLabel>
                       <Select
-                        value={formData.category}
-                        label="Category"
-                        onChange={(e) => handleCategoryChange(e.target.value)}
-                      >
-                        {categories
-                          .filter(cat => {
-                            // Filter categories based on transaction type
-                            if (formData.transactionType === 'DEBIT') {
-                              return cat.type !== 'INCOME';
-                            }
-                            return true;
-                          })
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map((category) => (
-                            <MenuItem key={category.id} value={category.name}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                                {category.color && (
-                                  <Box
-                                    sx={{
-                                      width: 12,
-                                      height: 12,
-                                      borderRadius: '50%',
-                                      backgroundColor: category.color,
-                                      border: '1px solid #ddd'
-                                    }}
-                                  />
-                                )}
-                                <Typography variant="body2">{category.name}</Typography>
-                                {category.type && (
-                                  <Chip 
-                                    label={category.type} 
-                                    size="small" 
-                                    sx={{ ml: 'auto', height: 18, fontSize: '0.65rem' }}
-                                  />
-                                )}
-                              </Box>
-                            </MenuItem>
-                          ))
+                        value={
+                          formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY'
+                            ? formData.billId
+                            : formData.transactionPurpose === 'LOAN'
+                            ? formData.loanId
+                            : formData.transactionPurpose === 'SAVINGS'
+                            ? formData.savingsAccountId
+                            : formData.category
                         }
+                        label={
+                          formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                            ? 'Select Bill' 
+                            : formData.transactionPurpose === 'LOAN' 
+                            ? 'Select Loan' 
+                            : formData.transactionPurpose === 'SAVINGS' 
+                            ? 'Select Savings Account' 
+                            : 'Category'
+                        }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow purpose-based selection for DEBIT transactions
+                          if (formData.transactionType !== 'DEBIT') {
+                            handleCategoryChange(value);
+                            return;
+                          }
+                          
+                          if (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') {
+                            // Find the selected bill and set both billId and category
+                            const selectedBill = bills.find(b => b.id === value);
+                            setFormData(prev => ({
+                              ...prev,
+                              billId: value,
+                              category: selectedBill ? `Bill: ${selectedBill.billName}` : prev.category,
+                            }));
+                          } else if (formData.transactionPurpose === 'LOAN') {
+                            // Find the selected loan and set both loanId and category
+                            const selectedLoan = loans.find(l => l.id === value);
+                            setFormData(prev => ({
+                              ...prev,
+                              loanId: value,
+                              category: selectedLoan ? `Loan: ${selectedLoan.purpose}` : prev.category,
+                            }));
+                          } else if (formData.transactionPurpose === 'SAVINGS') {
+                            // Find the selected savings account and set both savingsAccountId and category
+                            const selectedSavings = savingsAccounts.find(s => s.id === value);
+                            setFormData(prev => ({
+                              ...prev,
+                              savingsAccountId: value,
+                              category: selectedSavings ? `Savings: ${selectedSavings.name}` : prev.category,
+                            }));
+                          } else {
+                            // Normal category selection
+                            handleCategoryChange(value);
+                          }
+                        }}
+                      >
+                        {/* Show bills when Bill Payment or Utility Payment is selected (only for DEBIT) */}
+                        {formData.transactionType === 'DEBIT' && (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') ? (
+                          loadingBills ? (
+                            <MenuItem disabled>Loading bills...</MenuItem>
+                          ) : bills.length > 0 ? (
+                            bills
+                              .filter(bill => {
+                                // For UTILITY, only show utility bills
+                                if (formData.transactionPurpose === 'UTILITY') {
+                                  return bill.billType?.toUpperCase() === 'UTILITY' || 
+                                         bill.billType?.toUpperCase() === 'UTILITIES';
+                                }
+                                // For BILL, show all bills
+                                return true;
+                              })
+                              .map((bill) => (
+                                <MenuItem key={bill.id} value={bill.id}>
+                                  {bill.billName} - {formatCurrency(bill.amount)} ({bill.status})
+                                </MenuItem>
+                              ))
+                          ) : (
+                            <MenuItem disabled>No active bills available</MenuItem>
+                          )
+                        ) : formData.transactionType === 'DEBIT' && formData.transactionPurpose === 'LOAN' ? (
+                          // Show loans when Loan Payment is selected (only for DEBIT)
+                          loadingLoans ? (
+                            <MenuItem disabled>Loading loans...</MenuItem>
+                          ) : loans.length > 0 ? (
+                            loans.map((loan) => (
+                              <MenuItem key={loan.id} value={loan.id}>
+                                {loan.purpose} - {formatCurrency(loan.principal)} ({loan.status})
+                              </MenuItem>
+                            ))
+                          ) : (
+                            <MenuItem disabled>No active loans available</MenuItem>
+                          )
+                        ) : formData.transactionType === 'DEBIT' && formData.transactionPurpose === 'SAVINGS' ? (
+                          // Show savings accounts when Savings Deposit is selected (only for DEBIT)
+                          loadingSavingsAccounts ? (
+                            <MenuItem disabled>Loading savings accounts...</MenuItem>
+                          ) : savingsAccounts.length > 0 ? (
+                            savingsAccounts
+                              .filter(account => account.isActive !== false)
+                              .map((account) => (
+                                <MenuItem key={account.id} value={account.id}>
+                                  {account.name} - {formatCurrency(account.balance || 0)}
+                                </MenuItem>
+                              ))
+                          ) : (
+                            <MenuItem disabled>No savings accounts available</MenuItem>
+                          )
+                        ) : (
+                          // Show normal categories when no purpose is selected
+                          categories
+                            .filter(cat => {
+                              // Filter categories based on transaction type
+                              if (formData.transactionType === 'DEBIT') {
+                                return cat.type !== 'INCOME';
+                              }
+                              return true;
+                            })
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((category) => (
+                              <MenuItem key={category.id} value={category.name}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                  {category.color && (
+                                    <Box
+                                      sx={{
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: '50%',
+                                        backgroundColor: category.color,
+                                        border: '1px solid #ddd'
+                                      }}
+                                    />
+                                  )}
+                                  <Typography variant="body2">{category.name}</Typography>
+                                  {category.type && (
+                                    <Chip 
+                                      label={category.type} 
+                                      size="small" 
+                                      sx={{ ml: 'auto', height: 18, fontSize: '0.65rem' }}
+                                    />
+                                  )}
+                                </Box>
+                              </MenuItem>
+                            ))
+                        )}
                       </Select>
                     </FormControl>
                   </Box>
@@ -775,8 +993,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </Grid>
             )}
 
-            {/* Dynamic Reference Selectors */}
-            {showBillSelector && (
+            {/* Dynamic Reference Selectors - Only show when NOT using Transaction Purpose */}
+            {showBillSelector && !formData.transactionPurpose && (
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }}>
                   <Typography variant="subtitle2" color="primary">
@@ -811,7 +1029,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </Grid>
             )}
 
-            {showSavingsSelector && (
+            {showSavingsSelector && !formData.transactionPurpose && (
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }}>
                   <Typography variant="subtitle2" color="primary">
@@ -846,7 +1064,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </Grid>
             )}
 
-            {showLoanSelector && (
+            {showLoanSelector && !formData.transactionPurpose && (
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }}>
                   <Typography variant="subtitle2" color="primary">

@@ -1432,6 +1432,31 @@ class ApiService {
   }
 
   // Notification APIs
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    if (isMockDataEnabled()) {
+      const notifications = await mockDataService.getNotifications(userId, { unreadOnly: true });
+      return notifications.notifications.length;
+    }
+    
+    try {
+      const response = await this.request<{ success: boolean; data: number; message?: string }>(
+        `/Notifications/user/${userId}/unread-count`,
+        { method: 'GET' }
+      );
+      
+      return response.data || 0;
+    } catch (error) {
+      console.error('Failed to get unread notification count:', error);
+      // Fallback: get notifications and count unread
+      try {
+        const notifications = await this.getNotifications(userId, { unreadOnly: true });
+        return notifications.notifications.length;
+      } catch {
+        return 0;
+      }
+    }
+  }
+
   async getNotifications(userId: string, params?: GetNotificationsParams): Promise<NotificationsResponse> {
     if (isMockDataEnabled()) {
       return mockDataService.getNotifications(userId, params);
@@ -1440,16 +1465,68 @@ class ApiService {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.unreadOnly) queryParams.append('unreadOnly', params.unreadOnly.toString());
+    if (params?.unreadOnly) {
+      queryParams.append('status', 'unread');
+    }
     
     const queryString = queryParams.toString();
     const endpoint = `/Notifications/user/${userId}${queryString ? `?${queryString}` : ''}`;
     
-    return this.request<NotificationsResponse>(endpoint);
+    const response = await this.request<{
+      success: boolean;
+      data: {
+        data: Notification[];
+        page: number;
+        limit: number;
+        totalCount: number;
+        totalPages?: number;
+        hasNextPage?: boolean;
+        hasPreviousPage?: boolean;
+      };
+    }>(endpoint);
+    
+    // Transform API response to match NotificationsResponse interface
+    const notifications = (response.data.data || []).map((n: any) => ({
+      ...n,
+      templateVariables: n.templateVariables || n.metadata || {}
+    }));
+    const pagination = {
+      currentPage: response.data.page,
+      totalPages: response.data.totalPages || Math.ceil(response.data.totalCount / response.data.limit),
+      totalItems: response.data.totalCount,
+      itemsPerPage: response.data.limit,
+      hasNextPage: response.data.hasNextPage || false,
+      hasPreviousPage: response.data.hasPreviousPage || false,
+    };
+    
+    // Calculate summary
+    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const summary = {
+      totalNotifications: response.data.totalCount,
+      unreadCount: unreadCount,
+      highPriorityCount: notifications.filter(n => {
+        const priority = String(n.priority || '').toUpperCase();
+        return priority === 'HIGH' || priority === 'URGENT';
+      }).length,
+      mediumPriorityCount: notifications.filter(n => {
+        const priority = String(n.priority || '').toUpperCase();
+        return priority === 'MEDIUM' || priority === 'NORMAL';
+      }).length,
+      lowPriorityCount: notifications.filter(n => {
+        const priority = String(n.priority || '').toUpperCase();
+        return priority === 'LOW';
+      }).length,
+    };
+    
+    return {
+      notifications,
+      pagination,
+      summary,
+    };
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
-    return this.request<void>(`/notifications/${notificationId}/read`, {
+    return this.request<void>(`/Notifications/${notificationId}/read`, {
       method: 'PUT',
     });
   }
@@ -2842,6 +2919,7 @@ class ApiService {
     savingsAccountId?: string; // For savings-related transactions
     loanId?: string;           // For loan-related transactions
     toBankAccountId?: string;  // For bank transfer transactions
+    transactionPurpose?: string; // BILL, UTILITY, SAVINGS, LOAN, OTHER
   }): Promise<BankAccountTransaction> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
@@ -3138,6 +3216,26 @@ class ApiService {
       body: JSON.stringify(goalData),
     });
     return response.data;
+  }
+
+  async markSavingsAsPaid(savingsAccountId: string, request: { amount: number; notes?: string }): Promise<any> {
+    const requestBody: { amount: number; notes?: string } = {
+      amount: request.amount
+    };
+    if (request.notes) {
+      requestBody.notes = request.notes;
+    }
+    
+    const response = await this.request<any>(`/savings/accounts/${savingsAccountId}/mark-paid`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
+    
+    // Handle the response structure
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
   }
 
   // Get total monthly income

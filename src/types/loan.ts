@@ -152,11 +152,12 @@ export interface Notification {
   title: string;
   message: string;
   type: NotificationType;
-  priority: NotificationPriority;
+  priority: NotificationPriority | string; // Allow string to handle API values like 'NORMAL'
   isRead: boolean;
   createdAt: string;
   readAt?: string;
   metadata?: Record<string, any>;
+  templateVariables?: Record<string, string>; // Contains billId, loanId, etc. for navigation
 }
 
 export enum NotificationType {

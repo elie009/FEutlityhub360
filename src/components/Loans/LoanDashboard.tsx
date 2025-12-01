@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -75,6 +76,8 @@ const LoanDashboard: React.FC = () => {
   const { formatCurrency } = useCurrency();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { state: locationState, pathname } = useLocation();
+  const navigate = useNavigate();
   
   const [loans, setLoans] = useState<Loan[]>([]);
   const [outstandingAmount, setOutstandingAmount] = useState<number>(0);
@@ -128,6 +131,25 @@ const LoanDashboard: React.FC = () => {
       setViewMode('card');
     }
   }, [isMobile, viewMode]);
+
+  // Handle opening loan from notification click
+  useEffect(() => {
+    const state = locationState as { openLoanId?: string } | null;
+    const openLoanId = state?.openLoanId;
+    if (openLoanId && loans.length > 0) {
+      const loanToOpen = loans.find(l => l.id === openLoanId);
+      if (loanToOpen) {
+        // Small delay to ensure page is rendered
+        setTimeout(() => {
+          // For payment overdue/due notifications, open payment form
+          // For other notifications, open history dialog
+          handleViewHistory(openLoanId);
+        }, 100);
+        // Clear the state to prevent reopening on re-render
+        navigate(pathname, { replace: true, state: {} });
+      }
+    }
+  }, [loans, locationState, pathname, navigate]);
 
   useEffect(() => {
     if (user) {

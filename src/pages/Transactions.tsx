@@ -1096,6 +1096,37 @@ const TransactionsPage: React.FC = () => {
           minWidth: { xs: 'calc(50% - 8px)', sm: 'auto' }
         }
       }}>
+        <FormControl 
+          size="small" 
+          sx={{ 
+            minWidth: { xs: '100%', sm: 180 },
+            ...(filters.bankAccountId && {
+              '& .MuiOutlinedInput-root': {
+                borderColor: 'primary.main',
+                '&:hover': {
+                  borderColor: 'primary.dark',
+                }
+              }
+            })
+          }}
+        >
+          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Bank Account</InputLabel>
+          <Select
+            value={filters.bankAccountId || ''}
+            label="Bank Account"
+            onChange={handleSelectChange('bankAccountId')}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            disabled={isLoadingBankAccounts}
+          >
+            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Accounts</MenuItem>
+            {bankAccounts.map((account) => (
+              <MenuItem key={account.id} value={account.id} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                {account.accountName} {account.accountNumber ? `(${account.accountNumber})` : ''}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
           <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transaction Type</InputLabel>
           <Select
@@ -1181,7 +1212,7 @@ const TransactionsPage: React.FC = () => {
               No transactions found
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {filters.transactionType || filters.category 
+              {filters.transactionType || filters.category || filters.bankAccountId
                 ? 'Try adjusting your filters to see more transactions.'
                 : 'Your recent transactions will appear here once you start making transactions.'
               }

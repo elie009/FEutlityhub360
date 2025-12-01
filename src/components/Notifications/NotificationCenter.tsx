@@ -32,6 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
 import { Notification, NotificationType, NotificationStatus, NotificationPriority, NotificationsResponse, GetNotificationsParams, NotificationPagination, NotificationSummary } from '../../types/loan';
 import { getErrorMessage } from '../../utils/validation';
+import { useNavigate } from 'react-router-dom';
 
 const getNotificationIcon = (type: NotificationType) => {
   switch (type) {
@@ -89,6 +90,7 @@ const formatDate = (dateString: string): string => {
 
 const NotificationCenter: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [pagination, setPagination] = useState<NotificationPagination | null>(null);
   const [summary, setSummary] = useState<NotificationSummary | null>(null);
@@ -170,6 +172,62 @@ const NotificationCenter: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read if unread
+    if (!notification.isRead) {
+      await handleMarkAsRead(notification.id);
+    }
+
+    // Extract billId or loanId from templateVariables/metadata
+    const billId = notification.templateVariables?.billId || notification.metadata?.billId;
+    const loanId = notification.templateVariables?.loanId || notification.metadata?.loanId;
+
+    // Navigate based on notification type
+    switch (notification.type) {
+      case NotificationType.PAYMENT_OVERDUE:
+      case NotificationType.PAYMENT_DUE:
+      case NotificationType.UPCOMING_DUE:
+        if (billId) {
+          // Navigate to bills page with billId in state to open modal
+          navigate('/bills', { state: { openBillId: billId } });
+        } else if (loanId) {
+          // Navigate to loans page with loanId
+          navigate('/loans', { state: { openLoanId: loanId } });
+        } else {
+          // Fallback: just navigate to bills/loans page
+          if (notification.type === NotificationType.PAYMENT_OVERDUE || notification.type === NotificationType.PAYMENT_DUE) {
+            navigate('/bills');
+          } else {
+            navigate('/loans');
+          }
+        }
+        break;
+      
+      case NotificationType.LOAN_APPROVED:
+      case NotificationType.LOAN_REJECTED:
+      case NotificationType.LOAN_CLOSED:
+        if (loanId) {
+          navigate('/loans', { state: { openLoanId: loanId } });
+        } else {
+          navigate('/loans');
+        }
+        break;
+      
+      case NotificationType.PAYMENT_CONFIRMED:
+        // Could be bill or loan payment
+        if (billId) {
+          navigate('/bills', { state: { openBillId: billId } });
+        } else if (loanId) {
+          navigate('/loans', { state: { openLoanId: loanId } });
+        }
+        break;
+      
+      default:
+        // For other notification types, don't navigate
+        break;
     }
   };
 
@@ -265,8 +323,11 @@ const NotificationCenter: React.FC = () => {
             {filteredNotifications.map((notification, index) => (
               <React.Fragment key={notification.id}>
                 <ListItem
+                  button
+                  onClick={() => handleNotificationClick(notification)}
                   sx={{
                     bgcolor: notification.isRead ? 'transparent' : 'action.hover',
+                    cursor: 'pointer',
                     '&:hover': {
                       bgcolor: 'action.selected',
                     },

@@ -30,6 +30,8 @@ import {
   TableRow,
   Paper,
   Skeleton,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -48,7 +50,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { 
   Bill, 
@@ -67,6 +69,7 @@ const Bills: React.FC = () => {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
+  const { state: locationState, pathname } = useLocation();
   const [bills, setBills] = useState<Bill[]>([]);
   const [analytics, setAnalytics] = useState<BillAnalytics | null>(null);
   const [providerAnalytics, setProviderAnalytics] = useState<ProviderAnalytics[]>([]);
@@ -92,6 +95,7 @@ const Bills: React.FC = () => {
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [payWithoutBankAccount, setPayWithoutBankAccount] = useState(false);
 
   // Group bills by billName to show the earliest unpaid bill per group
   const groupedBills = React.useMemo(() => {
@@ -193,6 +197,23 @@ const Bills: React.FC = () => {
       loadAllData();
     }
   }, [user, filters]);
+
+  // Handle opening bill from notification click
+  useEffect(() => {
+    const state = locationState as { openBillId?: string } | null;
+    const openBillId = state?.openBillId;
+    if (openBillId && bills.length > 0 && !showBillForm) {
+      const billToOpen = bills.find(b => b.id === openBillId);
+      if (billToOpen) {
+        // Small delay to ensure page is rendered
+        setTimeout(() => {
+          handleEditBill(billToOpen);
+        }, 100);
+        // Clear the state to prevent reopening on re-render
+        navigate(pathname, { replace: true, state: {} });
+      }
+    }
+  }, [bills, locationState, pathname, showBillForm, navigate]);
 
   const loadAllData = async () => {
     await Promise.all([
@@ -338,6 +359,7 @@ const Bills: React.FC = () => {
     setShowMarkPaidDialog(true);
     setSelectedAccountId('');
     setPaymentNotes('');
+    setPayWithoutBankAccount(false);
     
     // Load bank accounts
     setLoadingAccounts(true);
@@ -355,45 +377,50 @@ const Bills: React.FC = () => {
   const handleConfirmMarkAsPaid = async () => {
     if (!billToMarkPaid) return;
     
-    if (!selectedAccountId) {
-      setError('Please select a bank account');
-      return;
+    // If not paying without bank account, validate bank account selection
+    if (!payWithoutBankAccount) {
+      if (!selectedAccountId) {
+        setError('Please select a bank account or choose to pay without bank account');
+        return;
+      }
+
+      // Double-entry validation: Check if bank account has sufficient balance
+      const selectedAccount = bankAccounts.find(acc => acc.id === selectedAccountId);
+      if (!selectedAccount) {
+        setError('Selected bank account not found');
+        return;
+      }
+
+      const accountBalance = selectedAccount.currentBalance || 0;
+      const billAmount = billToMarkPaid.amount || 0;
+
+      if (accountBalance < billAmount) {
+        setError(`Insufficient balance. Account balance: ${formatCurrency(accountBalance)}, Bill amount: ${formatCurrency(billAmount)}`);
+        return;
+      }
     }
 
-    // Double-entry validation: Check if bank account has sufficient balance
-    const selectedAccount = bankAccounts.find(acc => acc.id === selectedAccountId);
-    if (!selectedAccount) {
-      setError('Selected bank account not found');
-      return;
-    }
-
-    const accountBalance = selectedAccount.currentBalance || 0;
+    // Validate bill amount
     const billAmount = billToMarkPaid.amount || 0;
-
-    if (accountBalance < billAmount) {
-      setError(`Insufficient balance. Account balance: ${formatCurrency(accountBalance)}, Bill amount: ${formatCurrency(billAmount)}`);
-      return;
-    }
-
-    // Validate double-entry accounting rules
-    // Bill payment: Debit Expense, Credit Bank Account
-    // Both entries must equal the bill amount
     if (billAmount <= 0) {
-      setError('Bill amount must be greater than zero for double-entry accounting');
+      setError('Bill amount must be greater than zero');
       return;
     }
     
     try {
       await apiService.markBillAsPaid(billToMarkPaid.id, {
         notes: paymentNotes,
-        bankAccountId: selectedAccountId,
+        bankAccountId: payWithoutBankAccount ? undefined : selectedAccountId,
       });
       setShowMarkPaidDialog(false);
       setBillToMarkPaid(null);
       setSelectedAccountId('');
       setPaymentNotes('');
+      setPayWithoutBankAccount(false);
       setError(''); // Clear any previous errors
-      setSuccessMessage('Bill marked as paid successfully with double-entry accounting');
+      setSuccessMessage(payWithoutBankAccount 
+        ? 'Bill marked as paid successfully (no bank account)' 
+        : 'Bill marked as paid successfully with double-entry accounting');
       loadBills();
       loadAnalytics();
     } catch (err: unknown) {
@@ -406,6 +433,7 @@ const Bills: React.FC = () => {
     setBillToMarkPaid(null);
     setSelectedAccountId('');
     setPaymentNotes('');
+    setPayWithoutBankAccount(false);
   };
 
   // Filter bank accounts with sufficient balance
@@ -967,40 +995,65 @@ const Bills: React.FC = () => {
                   {formatCurrency(billToMarkPaid.amount)}
                 </Typography>
               </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={payWithoutBankAccount}
+                    onChange={(e) => {
+                      setPayWithoutBankAccount(e.target.checked);
+                      if (e.target.checked) {
+                        setSelectedAccountId('');
+                      }
+                    }}
+                  />
+                }
+                label="Pay without bank account"
+                sx={{ mb: 2 }}
+              />
               
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel id="bank-account-select-label">Select Bank Account</InputLabel>
-                <Select
-                  labelId="bank-account-select-label"
-                  id="bank-account-select"
-                  value={selectedAccountId}
-                  label="Select Bank Account"
-                  onChange={(e) => setSelectedAccountId(e.target.value)}
-                  disabled={loadingAccounts}
-                >
-                  {loadingAccounts ? (
-                    <MenuItem disabled>Loading accounts...</MenuItem>
-                  ) : getAvailableAccounts().length === 0 ? (
-                    <MenuItem disabled>No accounts with sufficient balance</MenuItem>
-                  ) : (
-                    getAvailableAccounts().map((account) => (
-                      <MenuItem key={account.id} value={account.id}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                          <Typography>{account.accountName || 'Unnamed Account'}</Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                            {formatCurrency(account.currentBalance || 0)}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))
+              {!payWithoutBankAccount && (
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel id="bank-account-select-label">Select Bank Account</InputLabel>
+                  <Select
+                    labelId="bank-account-select-label"
+                    id="bank-account-select"
+                    value={selectedAccountId}
+                    label="Select Bank Account"
+                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                    disabled={loadingAccounts}
+                  >
+                    {loadingAccounts ? (
+                      <MenuItem disabled>Loading accounts...</MenuItem>
+                    ) : getAvailableAccounts().length === 0 ? (
+                      <MenuItem disabled>No accounts with sufficient balance</MenuItem>
+                    ) : (
+                      getAvailableAccounts().map((account) => (
+                        <MenuItem key={account.id} value={account.id}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                            <Typography>{account.accountName || 'Unnamed Account'}</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                              {formatCurrency(account.currentBalance || 0)}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                  {getAvailableAccounts().length === 0 && !loadingAccounts && billToMarkPaid && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                      No accounts have sufficient balance to pay this bill ({formatCurrency(billToMarkPaid.amount)})
+                    </Typography>
                   )}
-                </Select>
-                {getAvailableAccounts().length === 0 && !loadingAccounts && billToMarkPaid && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                    No accounts have sufficient balance to pay this bill ({formatCurrency(billToMarkPaid.amount)})
-                  </Typography>
-                )}
-              </FormControl>
+                </FormControl>
+              )}
+
+              {payWithoutBankAccount && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  This will mark the bill as paid without requiring a bank transfer. 
+                  The payment will be recorded for tracking purposes.
+                </Alert>
+              )}
 
               <TextField
                 fullWidth
@@ -1023,7 +1076,9 @@ const Bills: React.FC = () => {
             onClick={handleConfirmMarkAsPaid}
             variant="contained"
             color="primary"
-            disabled={!selectedAccountId || loadingAccounts || getAvailableAccounts().length === 0}
+            disabled={
+              (!payWithoutBankAccount && (!selectedAccountId || loadingAccounts || getAvailableAccounts().length === 0))
+            }
           >
             Mark as Paid
           </Button>
