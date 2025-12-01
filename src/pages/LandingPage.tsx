@@ -172,9 +172,20 @@ const LandingPage: React.FC = () => {
       {/* Navigation Bar */}
       <AppBar position="fixed" sx={{ bgcolor: 'white', color: 'text.primary', boxShadow: 1, fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold', color: 'primary.main' }}>
-            UtilityHub360
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="UtilityHub360 Logo"
+              sx={{
+                height: 40,
+                width: 'auto',
+              }}
+            />
+            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: 'black' }}>
+              UtilityHub360
+            </Typography>
+          </Box>
           <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 3 }}>
             <Button color="inherit" onClick={handleServicesClick}>Services</Button>
             <Button color="inherit" onClick={handleAboutClick}>About</Button>
@@ -205,9 +216,20 @@ const LandingPage: React.FC = () => {
       >
         <Box sx={{ width: 250, p: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" fontWeight="bold" color="primary.main">
-              UtilityHub360
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box
+                component="img"
+                src="/logo.png"
+                alt="UtilityHub360 Logo"
+                sx={{
+                  height: 30,
+                  width: 'auto',
+                }}
+              />
+              <Typography variant="h6" fontWeight="bold" color="black">
+                UtilityHub360
+              </Typography>
+            </Box>
             <IconButton onClick={handleDrawerToggle}>
               <Close />
             </IconButton>
@@ -420,7 +442,7 @@ const LandingPage: React.FC = () => {
                           size="small" 
                           sx={{ mb: 1, fontWeight: 'bold' }}
                         />
-                        <Typography variant="h4" component="h3" fontWeight="bold" color="success.dark">
+                        <Typography variant="h4" component="h3" fontWeight="bold" color="black">
                           Smart Receipt Scanner
                         </Typography>
                       </Box>
@@ -436,7 +458,7 @@ const LandingPage: React.FC = () => {
                     </Typography>
 
                     <Box sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="success.dark" gutterBottom>
+                      <Typography variant="subtitle2" fontWeight="bold" color="black" gutterBottom>
                         ✓ How it works:
                       </Typography>
                       <Stack spacing={1}>
@@ -459,7 +481,7 @@ const LandingPage: React.FC = () => {
                       label="Save Time • Reduce Errors • Stay Organized" 
                       variant="outlined" 
                       color="success"
-                      sx={{ fontWeight: 'bold' }}
+                      sx={{ fontWeight: 'bold', color: 'black' }}
                     />
                   </CardContent>
                 </Card>
@@ -519,7 +541,7 @@ const LandingPage: React.FC = () => {
                           size="small" 
                           sx={{ mb: 1, fontWeight: 'bold' }}
                         />
-                        <Typography variant="h4" component="h3" fontWeight="bold" color="info.dark">
+                        <Typography variant="h4" component="h3" fontWeight="bold" color="black">
                           SMS Transaction Alerts
                         </Typography>
                       </Box>
@@ -535,7 +557,7 @@ const LandingPage: React.FC = () => {
                     </Typography>
 
                     <Box sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="info.dark" gutterBottom>
+                      <Typography variant="subtitle2" fontWeight="bold" color="black" gutterBottom>
                         ✓ Key Benefits:
                       </Typography>
                       <Stack spacing={1}>
@@ -558,7 +580,7 @@ const LandingPage: React.FC = () => {
                       label="Real-Time • Secure • Always Connected" 
                       variant="outlined" 
                       color="info"
-                      sx={{ fontWeight: 'bold' }}
+                      sx={{ fontWeight: 'bold', color: 'black' }}
                     />
                   </CardContent>
                 </Card>
@@ -571,8 +593,8 @@ const LandingPage: React.FC = () => {
             <Paper
               elevation={0}
               sx={{
-                bgcolor: 'primary.main',
-                color: 'white',
+                bgcolor: '#e8f5e9',
+                color: 'text.primary',
                 p: 3,
                 borderRadius: 3,
               }}
@@ -580,7 +602,7 @@ const LandingPage: React.FC = () => {
               <Typography variant="h5" fontWeight="bold" gutterBottom>
                 🎯 Experience the Future of Financial Management
               </Typography>
-              <Typography variant="body1" sx={{ color: 'white', opacity: 1 }}>
+              <Typography variant="body1" sx={{ color: 'text.primary', opacity: 1 }}>
                 These AI-powered features are designed to save you time, reduce errors, and keep you connected to your finances 24/7
               </Typography>
             </Paper>
@@ -892,14 +914,14 @@ const LandingPage: React.FC = () => {
     </Container>
 
     {/* CTA Section */}
-    <Box sx={{ py: 10, textAlign: 'center', bgcolor: 'primary.main', color: 'white' }}>
+    <Box sx={{ py: 10, textAlign: 'center', bgcolor: '#e8f5e9', color: 'text.primary' }}>
         <Container maxWidth="md">
           <Fade in={isVisible} timeout={1000}>
             <Box>
-              <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" >
+              <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" sx={{ color: 'text.primary' }}>
                 Ready to Transform Your Financial Life?
               </Typography>
-              <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
+              <Typography variant="h6" sx={{ mb: 4, opacity: 0.9, color: 'text.primary' }}>
                 Join thousands of users who have already taken control of their finances
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
@@ -909,14 +931,14 @@ const LandingPage: React.FC = () => {
                   onClick={handleGetStarted}
                   endIcon={<ArrowForward />}
                   sx={{
-                    borderColor: 'white',
-                    color: 'white',
+                    borderColor: 'black',
+                    color: 'black',
                     bgcolor: 'transparent',
                     px: 4,
                     py: 1.5,
                     '&:hover': {
-                      borderColor: 'white',
-                      bgcolor: alpha(theme.palette.common.white, 0.1),
+                      borderColor: 'black',
+                      bgcolor: alpha(theme.palette.common.black, 0.1),
                     },
                   }}
                 >
@@ -927,13 +949,13 @@ const LandingPage: React.FC = () => {
                   size="large"
                   onClick={handleContactClick}
                   sx={{
-                    borderColor: 'white',
-                    color: 'white',
+                    borderColor: 'black',
+                    color: 'black',
                     px: 4,
                     py: 1.5,
                     '&:hover': {
-                      borderColor: 'white',
-                      bgcolor: alpha(theme.palette.common.white, 0.1),
+                      borderColor: 'black',
+                      bgcolor: alpha(theme.palette.common.black, 0.1),
                     },
                   }}
                 >

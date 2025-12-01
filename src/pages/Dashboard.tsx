@@ -32,6 +32,7 @@ import {
   ListItem,
   ListItemText,
   Skeleton,
+  IconButton,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -1333,48 +1334,6 @@ const Dashboard: React.FC = () => {
             )}
               </Paper>
               </Grid>
-
-              {/* Recent Activity */}
-              <Grid item xs={12} md={3}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-                    Recent Activity
-                  </Typography>
-                  <Box>
-                    {(hasProfile || (userProfile && userProfile.id)) ? (
-                      <>
-                        <Typography variant="body2" color="textSecondary">
-                          • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Monthly income: {formatCurrency(totalMonthlyIncome)}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Monthly goals: {formatCurrency(totalMonthlyGoals)}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Disposable amount: {formatCurrency(disposableIncome)}
-                        </Typography>
-                      </>
-                    ) : (
-                      <>
-                        <Typography variant="body2" color="textSecondary">
-                          • Profile setup required
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Complete your profile to see financial data
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Add income sources to get started
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Set up financial goals
-                        </Typography>
-                      </>
-                    )}
-                  </Box>
-                </Paper>
-              </Grid>
             </Grid>
           </Grid>
 
@@ -1558,6 +1517,48 @@ const Dashboard: React.FC = () => {
                       onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
                     />
                   )}
+                </Paper>
+              </Grid>
+
+              {/* Recent Activity */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                    Recent Activity
+                  </Typography>
+                  <Box>
+                    {(hasProfile || (userProfile && userProfile.id)) ? (
+                      <>
+                        <Typography variant="body2" color="textSecondary">
+                          • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Monthly income: {formatCurrency(totalMonthlyIncome)}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Monthly goals: {formatCurrency(totalMonthlyGoals)}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Disposable amount: {formatCurrency(disposableIncome)}
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="body2" color="textSecondary">
+                          • Profile setup required
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Complete your profile to see financial data
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Add income sources to get started
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          • Set up financial goals
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
                 </Paper>
               </Grid>
             </Grid>

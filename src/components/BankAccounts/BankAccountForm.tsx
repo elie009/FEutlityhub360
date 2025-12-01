@@ -606,6 +606,118 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
               </>
             )}
 
+            {/* Bank Information section for editing existing accounts */}
+            {account && (
+              <>
+                {/* Bank Information */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                    Bank Information
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <InputLabel>Financial Institution</InputLabel>
+                    <Tooltip title="The name of your bank or financial institution (e.g., 'Chase Bank', 'Bank of America'). This helps identify where the account is held." arrow>
+                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    </Tooltip>
+                  </Box>
+                  <TextField
+                    name="financialInstitution"
+                    label="Financial Institution"
+                    value={formData.financialInstitution}
+                    onChange={handleChange}
+                    fullWidth
+                    inputProps={{ maxLength: 100 }}
+                    helperText="Example: 'Chase Bank', 'Wells Fargo'"
+                    placeholder="Enter bank name"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <InputLabel>Account Number</InputLabel>
+                    <Tooltip title="Your bank account number. For privacy, you can enter just the last 4 digits. The system will securely store this information." arrow>
+                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    </Tooltip>
+                  </Box>
+                  <TextField
+                    name="accountNumber"
+                    label="Account Number"
+                    value={formatAccountNumber(formData.accountNumber)}
+                    onChange={handleAccountNumberChange}
+                    fullWidth
+                    inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
+                    placeholder="1234 or full account number"
+                    helperText="Enter last 4 digits for privacy, or full account number. Found on your checks or bank statement."
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <InputLabel>Routing Number</InputLabel>
+                    <Tooltip title="A 9-digit number that identifies your bank. You can find this on the bottom left of your checks or on your bank statement. Used for ACH transfers and direct deposits." arrow>
+                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    </Tooltip>
+                  </Box>
+                  <TextField
+                    name="routingNumber"
+                    label="Routing Number"
+                    value={formData.routingNumber}
+                    onChange={handleChange}
+                    fullWidth
+                    inputProps={{ maxLength: 9, pattern: '[0-9]*' }}
+                    helperText="9-digit number found on checks (bottom left) or bank statement"
+                    placeholder="123456789"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <InputLabel>Sync Frequency</InputLabel>
+                    <Tooltip title="How often the system should automatically sync transactions with your bank. Daily sync keeps your data most up-to-date, while Manual requires you to sync when needed. Note: Automatic syncing requires bank connection." arrow>
+                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    </Tooltip>
+                  </Box>
+                  <FormControl fullWidth>
+                    <InputLabel>Sync Frequency</InputLabel>
+                    <Select
+                      name="syncFrequency"
+                      value={formData.syncFrequency}
+                      label="Sync Frequency"
+                      onChange={handleSelectChange}
+                    >
+                      <MenuItem value="DAILY">
+                        <Box>
+                          <Typography variant="body2">Daily</Typography>
+                          <Typography variant="caption" color="text.secondary">Sync every day (most up-to-date)</Typography>
+                        </Box>
+                      </MenuItem>
+                      <MenuItem value="WEEKLY">
+                        <Box>
+                          <Typography variant="body2">Weekly</Typography>
+                          <Typography variant="caption" color="text.secondary">Sync once per week</Typography>
+                        </Box>
+                      </MenuItem>
+                      <MenuItem value="MONTHLY">
+                        <Box>
+                          <Typography variant="body2">Monthly</Typography>
+                          <Typography variant="caption" color="text.secondary">Sync once per month</Typography>
+                        </Box>
+                      </MenuItem>
+                      <MenuItem value="MANUAL">
+                        <Box>
+                          <Typography variant="body2">Manual</Typography>
+                          <Typography variant="caption" color="text.secondary">You control when to sync</Typography>
+                        </Box>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+
             {/* International Information */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
