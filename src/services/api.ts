@@ -2855,12 +2855,15 @@ class ApiService {
     }
   }
 
-  async getTransactionAnalytics(): Promise<TransactionAnalytics> {
+  async getTransactionAnalytics(period?: string): Promise<TransactionAnalytics> {
     if (isMockDataEnabled()) {
       const user = this.getCurrentUserFromToken();
       return mockTransactionDataService.getTransactionAnalytics(user?.id || 'demo-user-123');
     }
-    const response = await this.request<any>('/bankaccounts/transactions/analytics');
+    const url = period 
+      ? `/bankaccounts/transactions/analytics?period=${encodeURIComponent(period)}`
+      : '/bankaccounts/transactions/analytics';
+    const response = await this.request<any>(url);
     if (response && response.data) {
       return response.data;
     }

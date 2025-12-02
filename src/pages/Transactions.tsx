@@ -31,6 +31,32 @@ import TransactionCard from '../components/Transactions/TransactionCard';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
 import QuickAddTransactionForm from '../components/Transactions/QuickAddTransactionForm';
 
+// Helper function to get current date (first day of current month)
+const getCurrentDate = (): Date => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+};
+
+// Helper function to format date to YYYY-MM
+const formatDateToYearMonth = (date: Date | null): string => {
+  if (!date) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+// Helper function to get year and month from date
+const getYearFromDate = (date: Date | null): number => {
+  return date ? date.getFullYear() : new Date().getFullYear();
+};
+
+const getMonthFromDate = (date: Date | null): number => {
+  return date ? date.getMonth() + 1 : new Date().getMonth() + 1;
+};
+
 const TransactionsPage: React.FC = () => {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
@@ -68,7 +94,18 @@ const TransactionsPage: React.FC = () => {
     amountMin: '',
     amountMax: '',
   });
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  // Initialize dateFrom and dateTo to current month (first and last day of month)
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      from: firstDay.toISOString().split('T')[0], // YYYY-MM-DD format
+      to: lastDay.toISOString().split('T')[0]
+    };
+  };
+  const [dateFrom, setDateFrom] = useState<string>(getCurrentMonthRange().from);
+  const [dateTo, setDateTo] = useState<string>(getCurrentMonthRange().to);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState<boolean>(false);
@@ -102,7 +139,9 @@ const TransactionsPage: React.FC = () => {
     name: string;
     filters: TransactionFilters;
     columnFilters: typeof columnFilters;
-    selectedMonth: string;
+    selectedMonth?: string; // Legacy support
+    dateFrom?: string;
+    dateTo?: string;
     searchQuery: string;
   }
   const [savedPresets, setSavedPresets] = useState<FilterPreset[]>([]);
@@ -160,12 +199,21 @@ const TransactionsPage: React.FC = () => {
     }
   }, [user?.id]);
 
+  // Load on initial mount only
   useEffect(() => {
     if (user?.id) {
       loadTransactionsAndAnalytics();
       loadBankAccounts(); // Load bank accounts on page load to check if button should be enabled
     }
-  }, [user?.id, filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only load on initial mount and when user changes
+
+  // Handle search button click
+  const handleSearch = () => {
+    if (user?.id) {
+      loadTransactionsAndAnalytics();
+    }
+  };
 
   useEffect(() => {
     if (showAnalyzerDialog || showTransactionForm) {
@@ -183,9 +231,22 @@ const TransactionsPage: React.FC = () => {
     setError(null);
 
     try {
+      // Use dateFrom and dateTo for filtering
+      const monthFilters = { ...filters };
+      if (dateFrom) {
+        monthFilters.startDate = dateFrom;
+      }
+      if (dateTo) {
+        monthFilters.endDate = dateTo;
+      }
+      
+      // Calculate period from dateFrom for analytics (format: YYYY-MM)
+      // Use the month from dateFrom for analytics period
+      const period = dateFrom ? dateFrom.substring(0, 7) : formatDateToYearMonth(null);
+      
       const [transactionsResponse, analyticsData, bankAccountAnalyticsData, bankAccountSummaryData] = await Promise.all([
-        apiService.getTransactions(filters),
-        apiService.getTransactionAnalytics(),
+        apiService.getTransactions(monthFilters),
+        apiService.getTransactionAnalytics(period),
         apiService.getBankAccountAnalyticsSummary(),
         apiService.getBankAccountSummary(),
       ]);
@@ -348,7 +409,7 @@ const TransactionsPage: React.FC = () => {
     const value = event.target.value;
     setFilters(prev => ({
       ...prev,
-      [field]: value === '' ? undefined : value,
+      [field]: value === '' ? '' : value, // Keep empty string instead of undefined for proper Select display
       page: 1, // Reset to first page when filters change
     }));
   };
@@ -364,58 +425,14 @@ const TransactionsPage: React.FC = () => {
     }));
   };
 
-  // Generate month options (last 12 months)
-  const getMonthOptions = (): string[] => {
-    const months: string[] = [];
-    const today = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      months.push(`${year}-${month}`);
-    }
-    return months;
-  };
-
-  const handleMonthChange = (event: SelectChangeEvent<string>) => {
-    const monthValue = event.target.value;
-    setSelectedMonth(monthValue);
-
-    if (monthValue) {
-      // Parse the month value (format: YYYY-MM)
-      const [year, month] = monthValue.split('-');
-      const monthNum = parseInt(month, 10);
-      const yearNum = parseInt(year, 10);
-
-      // Get first day of the month
-      const dateFrom = new Date(yearNum, monthNum - 1, 1);
-      const dateFromStr = dateFrom.toISOString().split('T')[0];
-
-      // Get last day of the month
-      const dateTo = new Date(yearNum, monthNum, 0);
-      const dateToStr = dateTo.toISOString().split('T')[0];
-
-      // Update column filters
-      setColumnFilters(prev => ({
-        ...prev,
-        dateFrom: dateFromStr,
-        dateTo: dateToStr,
-      }));
-    } else {
-      // Clear month filter
-      setColumnFilters(prev => ({
-        ...prev,
-        dateFrom: '',
-        dateTo: '',
-      }));
-    }
-  };
 
   const handleClearFilters = () => {
     setFilters({
       limit: 10,
       page: 1,
+      transactionType: '', // Reset to empty string for "All Types"
+      category: '',
+      bankAccountId: undefined,
     });
     setColumnFilters({
       dateFrom: '',
@@ -426,7 +443,10 @@ const TransactionsPage: React.FC = () => {
       amountMin: '',
       amountMax: '',
     });
-    setSelectedMonth('');
+    // Reset to current month range
+    const monthRange = getCurrentMonthRange();
+    setDateFrom(monthRange.from);
+    setDateTo(monthRange.to);
     setSortField('');
     setSortDirection('asc');
     setSearchQuery('');
@@ -443,7 +463,8 @@ const TransactionsPage: React.FC = () => {
       name: presetName.trim(),
       filters: { ...filters },
       columnFilters: { ...columnFilters },
-      selectedMonth,
+      dateFrom: dateFrom, // Store date range
+      dateTo: dateTo,
       searchQuery,
     };
     
@@ -457,7 +478,23 @@ const TransactionsPage: React.FC = () => {
   const handleLoadPreset = (preset: FilterPreset) => {
     setFilters(preset.filters);
     setColumnFilters(preset.columnFilters);
-    setSelectedMonth(preset.selectedMonth);
+    // Restore date range from preset
+    if (preset.dateFrom && preset.dateTo) {
+      setDateFrom(preset.dateFrom);
+      setDateTo(preset.dateTo);
+    } else if (preset.selectedMonth) {
+      // Legacy support: convert YYYY-MM to date range
+      const [year, month] = preset.selectedMonth.split('-');
+      const firstDay = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      const lastDay = new Date(parseInt(year, 10), parseInt(month, 10), 0);
+      setDateFrom(firstDay.toISOString().split('T')[0]);
+      setDateTo(lastDay.toISOString().split('T')[0]);
+    } else {
+      // Default to current month range
+      const monthRange = getCurrentMonthRange();
+      setDateFrom(monthRange.from);
+      setDateTo(monthRange.to);
+    }
     setSearchQuery(preset.searchQuery);
     setPresetMenuAnchor(null);
     setShowPresetMenu(false);
@@ -568,15 +605,40 @@ const TransactionsPage: React.FC = () => {
         return;
     }
 
-    setColumnFilters(prev => ({
-      ...prev,
-      dateFrom: dateFrom.toISOString().split('T')[0],
-      dateTo: dateTo.toISOString().split('T')[0],
-    }));
-    setFilters(prev => ({
-      ...prev,
+    // Format dates as YYYY-MM-DD strings
+    const dateFromStr = dateFrom.toISOString().split('T')[0];
+    const dateToStr = dateTo.toISOString().split('T')[0];
+
+    // Clear all filters first
+    setFilters({
+      limit: 10,
       page: 1,
-    }));
+      transactionType: '', // Reset to empty string for "All Types"
+      category: '',
+      bankAccountId: undefined,
+    });
+    setColumnFilters({
+      dateFrom: dateFromStr,
+      dateTo: dateToStr,
+      description: '',
+      category: '',
+      transactionType: '',
+      amountMin: '',
+      amountMax: '',
+    });
+    setDateFrom(dateFromStr);
+    setDateTo(dateToStr);
+    setSearchQuery('');
+    setSortField('');
+    setSortDirection('asc');
+    setSelectedTransactions(new Set());
+    setIsBatchMode(false);
+
+    // Trigger backend request after state updates
+    // Use setTimeout to ensure React has processed all state updates
+    setTimeout(() => {
+      loadTransactionsAndAnalytics();
+    }, 0);
   };
 
   const removeFilter = (filterType: 'bankAccountId' | 'transactionType' | 'category' | 'dateRange' | 'search' | 'month') => {
@@ -591,11 +653,19 @@ const TransactionsPage: React.FC = () => {
         setFilters(prev => ({ ...prev, category: undefined, page: 1 }));
         break;
       case 'month':
-        setSelectedMonth('');
+      case 'dateRange':
+        // Reset to current month range
+        const monthRange = getCurrentMonthRange();
+        setDateFrom(monthRange.from);
+        setDateTo(monthRange.to);
         setColumnFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }));
         setFilters(prev => ({ ...prev, page: 1 }));
         break;
       case 'dateRange':
+        // Reset to current month range
+        const monthRangeForDateRange = getCurrentMonthRange();
+        setDateFrom(monthRangeForDateRange.from);
+        setDateTo(monthRangeForDateRange.to);
         setColumnFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }));
         setFilters(prev => ({ ...prev, page: 1 }));
         break;
@@ -620,14 +690,9 @@ const TransactionsPage: React.FC = () => {
     if (filters.category) {
       active.push({ label: filters.category.charAt(0).toUpperCase() + filters.category.slice(1), type: 'category' });
     }
-    if (selectedMonth) {
-      const [year, month] = selectedMonth.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      active.push({ label: monthLabel, type: 'month' });
-    } else if (columnFilters.dateFrom || columnFilters.dateTo) {
-      const from = columnFilters.dateFrom ? new Date(columnFilters.dateFrom).toLocaleDateString() : '';
-      const to = columnFilters.dateTo ? new Date(columnFilters.dateTo).toLocaleDateString() : '';
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? new Date(dateFrom).toLocaleDateString() : '';
+      const to = dateTo ? new Date(dateTo).toLocaleDateString() : '';
       active.push({ label: from && to ? `${from} - ${to}` : from || to, type: 'dateRange' });
     }
     if (searchQuery) {
@@ -641,9 +706,11 @@ const TransactionsPage: React.FC = () => {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const value = event.target.value;
-    // Clear month filter if user manually changes date filters
-    if (field === 'dateFrom' || field === 'dateTo') {
-      setSelectedMonth('');
+    // Update dateFrom/dateTo when column filters change
+    if (field === 'dateFrom') {
+      setDateFrom(value);
+    } else if (field === 'dateTo') {
+      setDateTo(value);
     }
     setColumnFilters(prev => ({
       ...prev,
@@ -1092,20 +1159,184 @@ const TransactionsPage: React.FC = () => {
 
       {/* Bank Account Transaction Analytics */}
       <Box sx={{ mb: { xs: 2, sm: 4 } }}>
-        <Typography 
-          variant="h5" 
-          gutterBottom 
-          sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mb: { xs: 1.5, sm: 3 },
-            fontSize: { xs: '1.1rem', sm: '1.5rem' },
-            fontWeight: { xs: 600, sm: 400 }
-          }}
-        >
-          <AccountBalance sx={{ mr: { xs: 0.75, sm: 2 }, color: 'primary.main', fontSize: { xs: '1.1rem', sm: '1.5rem' } }} />
-          {isMobile ? 'Bank Transactions' : 'Bank Account Transaction'}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 1.5, sm: 3 }, flexWrap: 'wrap', gap: 2 }}>
+          <Typography 
+            variant="h5" 
+            gutterBottom={false}
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              fontSize: { xs: '1.1rem', sm: '1.5rem' },
+              fontWeight: { xs: 600, sm: 400 }
+            }}
+          >
+            <AccountBalance sx={{ mr: { xs: 0.75, sm: 2 }, color: 'primary.main', fontSize: { xs: '1.1rem', sm: '1.5rem' } }} />
+            {isMobile ? 'Bank Transactions' : 'Bank Account Transaction'}
+          </Typography>
+          
+          {/* Date From, Date To, Bank Account, Transaction Type, Category, Limit, and Search Button */}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              type="date"
+              label="Date From"
+              value={dateFrom}
+              onChange={(e) => {
+                const newDateFrom = e.target.value;
+                setDateFrom(newDateFrom);
+                // Update column filters for transaction table filtering
+                setColumnFilters(prev => ({
+                  ...prev,
+                  dateFrom: newDateFrom,
+                }));
+              }}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{
+                minWidth: { xs: 140, sm: 160 },
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+                '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+              }}
+            />
+            <TextField
+              type="date"
+              label="Date To"
+              value={dateTo}
+              onChange={(e) => {
+                const newDateTo = e.target.value;
+                setDateTo(newDateTo);
+                // Update column filters for transaction table filtering
+                setColumnFilters(prev => ({
+                  ...prev,
+                  dateTo: newDateTo,
+                }));
+              }}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{
+                minWidth: { xs: 140, sm: 160 },
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+                '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+              }}
+            />
+            <FormControl 
+              size="small" 
+              sx={{ 
+                minWidth: { xs: 140, sm: 180 },
+                ...(filters.bankAccountId && {
+                  '& .MuiOutlinedInput-root': {
+                    borderColor: 'primary.main',
+                    '&:hover': {
+                      borderColor: 'primary.dark',
+                    }
+                  }
+                })
+              }}
+            >
+              <InputLabel 
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                shrink={true}
+              >
+                Bank Account
+              </InputLabel>
+              <Select
+                value={filters.bankAccountId ?? ''}
+                label="Bank Account"
+                onChange={handleSelectChange('bankAccountId')}
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                disabled={isLoadingBankAccounts}
+                aria-label="Filter by bank account"
+                displayEmpty
+              >
+                <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Accounts</MenuItem>
+                {bankAccounts.map((account) => (
+                  <MenuItem key={account.id} value={account.id} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                    {account.accountName} {account.accountNumber ? `(${account.accountNumber})` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 150 } }}>
+              <InputLabel 
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                shrink={true}
+              >
+                Transaction Type
+              </InputLabel>
+              <Select
+                value={filters.transactionType ?? ''}
+                label="Transaction Type"
+                onChange={handleSelectChange('transactionType')}
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                aria-label="Filter by transaction type"
+                displayEmpty
+              >
+                <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Types</MenuItem>
+                <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Credit</MenuItem>
+                <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Debit</MenuItem>
+                <MenuItem value="transfer" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transfer</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: { xs: 140, sm: 150 } }}>
+              <InputLabel 
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                shrink={true}
+              >
+                Category
+              </InputLabel>
+              <Select
+                value={filters.category ?? ''}
+                label="Category"
+                onChange={handleSelectChange('category')}
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                aria-label="Filter by category"
+                displayEmpty
+              >
+                <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Categories</MenuItem>
+                <MenuItem value="food" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Food</MenuItem>
+                <MenuItem value="utilities" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Utilities</MenuItem>
+                <MenuItem value="transportation" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transportation</MenuItem>
+                <MenuItem value="income" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Income</MenuItem>
+                <MenuItem value="interest" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Interest</MenuItem>
+                <MenuItem value="dividend" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Dividend</MenuItem>
+                <MenuItem value="payment" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Payment</MenuItem>
+                <MenuItem value="cash" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Cash</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              size="small"
+              label="Limit"
+              type="number"
+              value={filters.limit || 10}
+              onChange={handleInputChange('limit')}
+              sx={{ 
+                width: { xs: 100, sm: 100 },
+                '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+                '& .MuiInputLabel-root': { fontSize: { xs: '0.875rem', sm: '1rem' } }
+              }}
+              inputProps={{ min: 1, max: 100 }}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Search />}
+              onClick={handleSearch}
+              size="small"
+              sx={{
+                minWidth: { xs: 100, sm: 120 },
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                px: 2,
+                height: '40px', // Match TextField height
+              }}
+              aria-label="Search transactions"
+            >
+              Search
+            </Button>
+          </Box>
+        </Box>
 
         {/* Analytics Cards - Single Row with 8 Cards */}
         <Grid container spacing={{ xs: 1, sm: 1.5 }}>
@@ -1378,80 +1609,122 @@ const TransactionsPage: React.FC = () => {
         </Grid>
       </Box>
 
-      {/* Search Bar */}
+      {/* Search Bar and Quick Filters */}
       <Box sx={{ mb: 2 }}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search transactions by description, merchant, or reference number..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          aria-label="Search transactions"
-          InputProps={{
-            startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
-            endAdornment: searchQuery && (
-              <IconButton
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1 }}>
+          <TextField
+            size="small"
+            placeholder="Search transaction by description . . ."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            aria-label="Search transactions"
+            InputProps={{
+              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+              endAdornment: searchQuery && (
+                <IconButton
+                  size="small"
+                  onClick={() => removeFilter('search')}
+                  sx={{ mr: -1 }}
+                >
+                  <Close fontSize="small" />
+                </IconButton>
+              ),
+            }}
+            sx={{
+              flex: { xs: '1 1 100%', sm: '1 1 auto', md: '1 1 300px' },
+              minWidth: { xs: '100%', sm: '200px', md: '300px' },
+              '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+            }}
+          />
+          
+          {/* Show Column Filters Button */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+            {!isMobile && (
+              <Button
+                variant="outlined"
+                startIcon={showFilters ? <FilterListOff /> : <FilterList />}
+                onClick={toggleFilters}
                 size="small"
-                onClick={() => removeFilter('search')}
-                sx={{ mr: -1 }}
+                color={showFilters ? "secondary" : "primary"}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
               >
-                <Close fontSize="small" />
-              </IconButton>
-            ),
-          }}
-          sx={{
-            mb: 2,
-            '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
-          }}
-        />
-        
-        {/* Quick Filter Presets */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleQuickFilter('today')}
-            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-          >
-            Today
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleQuickFilter('thisWeek')}
-            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-          >
-            This Week
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleQuickFilter('thisMonth')}
-            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-          >
-            This Month
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleQuickFilter('last7Days')}
-            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-          >
-            Last 7 Days
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleQuickFilter('last30Days')}
-            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-          >
-            Last 30 Days
-          </Button>
+                {showFilters ? 'Hide Column Filters' : 'Show Column Filters'}
+              </Button>
+            )}
+          </Box>
+
+          {/* Save Filter and Clear All Buttons */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Save />}
+              onClick={() => setShowSavePresetDialog(true)}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              aria-label="Save current filter preset"
+            >
+              Save Filter
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Clear />}
+              onClick={handleClearFilters}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              aria-label="Clear all filters"
+            >
+              Clear All
+            </Button>
+          </Box>
+          
+          {/* Quick Filter Presets */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleQuickFilter('today')}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+            >
+              Today
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleQuickFilter('thisWeek')}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+            >
+              This Week
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleQuickFilter('thisMonth')}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+            >
+              This Month
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleQuickFilter('last7Days')}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+            >
+              Last 7 Days
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleQuickFilter('last30Days')}
+              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+            >
+              Last 30 Days
+            </Button>
+          </Box>
         </Box>
 
         {/* Active Filter Chips */}
         {getActiveFilters().length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'medium', mr: 1 }}>
               Active Filters:
             </Typography>
@@ -1466,273 +1739,109 @@ const TransactionsPage: React.FC = () => {
                 sx={{ fontSize: '0.75rem' }}
               />
             ))}
-            <Button
-              size="small"
-              onClick={handleClearFilters}
-              sx={{ fontSize: '0.75rem', ml: 'auto' }}
-              aria-label="Clear all filters"
-            >
-              Clear All
-            </Button>
           </Box>
         )}
+      </Box>
 
-        {/* Batch Actions Bar */}
-        {isBatchMode && selectedTransactions.size > 0 && (
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 1, 
-            mb: 2, 
-            p: 1.5, 
-            bgcolor: 'primary.light', 
-            borderRadius: 1,
-            alignItems: 'center',
-            flexWrap: 'wrap'
-          }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
-              {selectedTransactions.size} selected
-            </Typography>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<Edit />}
-              onClick={handleBatchEdit}
-              aria-label="Edit selected transactions"
-            >
-              Edit
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              color="error"
-              startIcon={<Delete />}
-              onClick={handleBatchDelete}
-              aria-label="Delete selected transactions"
-            >
-              Delete
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => {
-                setSelectedTransactions(new Set());
-                setIsBatchMode(false);
-              }}
-              aria-label="Clear selection"
-            >
-              Clear
-            </Button>
-          </Box>
-        )}
+      {/* Batch Actions Bar */}
+      {isBatchMode && selectedTransactions.size > 0 && (
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          mb: 2, 
+          p: 1.5, 
+          bgcolor: 'primary.light', 
+          borderRadius: 1,
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
+            {selectedTransactions.size} selected
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<Edit />}
+            onClick={handleBatchEdit}
+            aria-label="Edit selected transactions"
+          >
+            Edit
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="error"
+            startIcon={<Delete />}
+            onClick={handleBatchDelete}
+            aria-label="Delete selected transactions"
+          >
+            Delete
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              setSelectedTransactions(new Set());
+              setIsBatchMode(false);
+            }}
+            aria-label="Clear selection"
+          >
+            Clear
+          </Button>
+        </Box>
+      )}
 
-        {/* Saved Filter Presets */}
+      {/* Saved Filter Presets - Load Filter Only */}
+      {savedPresets.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
           <Button
             size="small"
             variant="outlined"
-            startIcon={<Save />}
-            onClick={() => setShowSavePresetDialog(true)}
+            startIcon={<Bookmark />}
+            onClick={(e) => {
+              setPresetMenuAnchor(e.currentTarget);
+              setShowPresetMenu(true);
+            }}
             sx={{ fontSize: '0.75rem' }}
-            aria-label="Save current filter preset"
+            aria-label="Load saved filter preset"
+            aria-haspopup="true"
+            aria-expanded={showPresetMenu}
           >
-            Save Filter
+            Load Filter ({savedPresets.length})
           </Button>
-          {savedPresets.length > 0 && (
-            <>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<Bookmark />}
-                onClick={(e) => {
-                  setPresetMenuAnchor(e.currentTarget);
-                  setShowPresetMenu(true);
-                }}
-                sx={{ fontSize: '0.75rem' }}
-                aria-label="Load saved filter preset"
-                aria-haspopup="true"
-                aria-expanded={showPresetMenu}
-              >
-                Load Filter ({savedPresets.length})
-              </Button>
-              <Menu
-                anchorEl={presetMenuAnchor}
-                open={showPresetMenu}
-                onClose={() => {
-                  setPresetMenuAnchor(null);
-                  setShowPresetMenu(false);
-                }}
-                aria-label="Saved filter presets menu"
-              >
-                {savedPresets.map((preset) => (
-                  <MenuItem
-                    key={preset.id}
-                    onClick={() => handleLoadPreset(preset)}
-                    sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}
-                    aria-label={`Load filter preset: ${preset.name}`}
-                  >
-                    <span>{preset.name}</span>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePreset(preset.id);
-                      }}
-                      aria-label={`Delete filter preset: ${preset.name}`}
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </MenuItem>
-                ))}
-              </Menu>
-            </>
-          )}
-        </Box>
-      </Box>
-
-      {/* Filters */}
-      <Box sx={{ 
-        display: 'flex', 
-        gap: { xs: 1, sm: 2 }, 
-        mb: { xs: 2, sm: 3 }, 
-        flexWrap: 'wrap', 
-        alignItems: 'center',
-        '& > *': {
-          flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' },
-          minWidth: { xs: 'calc(50% - 8px)', sm: 'auto' }
-        }
-      }}>
-        <FormControl 
-          size="small" 
-          sx={{ 
-            minWidth: { xs: '100%', sm: 180 },
-            ...(filters.bankAccountId && {
-              '& .MuiOutlinedInput-root': {
-                borderColor: 'primary.main',
-                '&:hover': {
-                  borderColor: 'primary.dark',
-                }
-              }
-            })
-          }}
-        >
-          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Bank Account</InputLabel>
-          <Select
-            value={filters.bankAccountId || ''}
-            label="Bank Account"
-            onChange={handleSelectChange('bankAccountId')}
-            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-            disabled={isLoadingBankAccounts}
-            aria-label="Filter by bank account"
+          <Menu
+            anchorEl={presetMenuAnchor}
+            open={showPresetMenu}
+            onClose={() => {
+              setPresetMenuAnchor(null);
+              setShowPresetMenu(false);
+            }}
+            aria-label="Saved filter presets menu"
           >
-            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Accounts</MenuItem>
-            {bankAccounts.map((account) => (
-              <MenuItem key={account.id} value={account.id} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                {account.accountName} {account.accountNumber ? `(${account.accountNumber})` : ''}
+            {savedPresets.map((preset) => (
+              <MenuItem
+                key={preset.id}
+                onClick={() => handleLoadPreset(preset)}
+                sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}
+                aria-label={`Load filter preset: ${preset.name}`}
+              >
+                <span>{preset.name}</span>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePreset(preset.id);
+                  }}
+                  aria-label={`Delete filter preset: ${preset.name}`}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
               </MenuItem>
             ))}
-          </Select>
-        </FormControl>
+          </Menu>
+        </Box>
+      )}
 
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transaction Type</InputLabel>
-          <Select
-            value={filters.transactionType || ''}
-            label="Transaction Type"
-            onChange={handleSelectChange('transactionType')}
-            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-            aria-label="Filter by transaction type"
-          >
-            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Types</MenuItem>
-            <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Credit</MenuItem>
-            <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Debit</MenuItem>
-            <MenuItem value="transfer" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transfer</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Category</InputLabel>
-          <Select
-            value={filters.category || ''}
-            label="Category"
-            onChange={handleSelectChange('category')}
-            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-            aria-label="Filter by category"
-          >
-            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Categories</MenuItem>
-            <MenuItem value="food" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Food</MenuItem>
-            <MenuItem value="utilities" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Utilities</MenuItem>
-            <MenuItem value="transportation" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transportation</MenuItem>
-            <MenuItem value="income" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Income</MenuItem>
-            <MenuItem value="interest" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Interest</MenuItem>
-            <MenuItem value="dividend" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Dividend</MenuItem>
-            <MenuItem value="payment" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Payment</MenuItem>
-            <MenuItem value="cash" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Cash</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Month</InputLabel>
-          <Select
-            value={selectedMonth}
-            label="Month"
-            onChange={handleMonthChange}
-            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-            aria-label="Filter by month"
-          >
-            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Months</MenuItem>
-            {getMonthOptions().map((monthValue) => {
-              const [year, month] = monthValue.split('-');
-              const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-              const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-              return (
-                <MenuItem key={monthValue} value={monthValue} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                  {monthLabel}
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
-
-        <TextField
-          size="small"
-          label="Limit"
-          type="number"
-          value={filters.limit || 10}
-          onChange={handleInputChange('limit')}
-          sx={{ 
-            width: { xs: '100%', sm: 100 },
-            '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
-            '& .MuiInputLabel-root': { fontSize: { xs: '0.875rem', sm: '1rem' } }
-          }}
-          inputProps={{ min: 1, max: 100 }}
-        />
-
-        <Button
-          variant="outlined"
-          startIcon={<Clear />}
-          onClick={handleClearFilters}
-          size="small"
-          sx={{ 
-            fontSize: { xs: '0.75rem', sm: '0.875rem' },
-            py: { xs: 0.75, sm: 1 }
-          }}
-        >
-          {isMobile ? 'Clear' : 'Clear Filters'}
-        </Button>
-
-        {!isMobile && (
-          <Button
-            variant="outlined"
-            startIcon={showFilters ? <FilterListOff /> : <FilterList />}
-            onClick={toggleFilters}
-            size="small"
-            color={showFilters ? "secondary" : "primary"}
-            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-          >
-            {showFilters ? 'Hide Column Filters' : 'Show Column Filters'}
-          </Button>
-        )}
-      </Box>
 
       {/* Transactions Display */}
       {(() => {
