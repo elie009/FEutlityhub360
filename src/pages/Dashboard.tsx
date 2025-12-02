@@ -1363,30 +1363,31 @@ const Dashboard: React.FC = () => {
                       {(() => {
                         const totalBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
                         
-                        // Green color palette matching the design
+                        // Color palette for diverging stacked bar chart (matching the image style)
                         const getAccountColor = (idx: number) => {
                           const colors = [
-                            '#86efac', // Light pastel green
-                            '#fef08a', // Light pastel yellow
-                            '#9ae6b4', // Slightly darker pastel green
-                            '#4ade80', // Darker saturated green
-                            '#c6f6d5', // Light emerald
-                            '#bef264', // Brighter yellow-green
-                            '#6ee7b7', // Very light emerald
-                            '#a3e635', // Light yellow-green
+                            '#ef4444', // Red
+                            '#f87171', // Light red/pink
+                            '#fef08a', // Light yellow
+                            '#fbbf24', // Yellow
+                            '#f59e0b', // Orange/golden yellow
+                            '#fb923c', // Orange
+                            '#f97316', // Dark orange
+                            '#ea580c', // Deep orange
                           ];
                           return colors[idx % colors.length];
                         };
                         
                         return (
                           <>
-                            {/* Horizontal Progress Bar */}
+                            {/* Diverging Stacked Bar Chart with Percentage Labels */}
                             <Box 
                               sx={{ 
+                                position: 'relative',
                                 display: 'flex', 
                                 width: '100%', 
-                                height: '12px', 
-                                borderRadius: '6px',
+                                height: '32px', 
+                                borderRadius: '16px',
                                 overflow: 'hidden',
                                 mb: 3,
                                 backgroundColor: '#f0f0f0'
@@ -1395,24 +1396,46 @@ const Dashboard: React.FC = () => {
                               {savingsAccounts.map((account, index) => {
                                 const percentage = totalBalance > 0 ? ((account.currentBalance || 0) / totalBalance) * 100 : 0;
                                 const accountColor = getAccountColor(index);
+                                const isFirst = index === 0;
+                                const isLast = index === savingsAccounts.length - 1;
+                                
                                 return (
                                   <Box
                                     key={account.id}
                                     sx={{
+                                      position: 'relative',
                                       width: `${percentage}%`,
                                       backgroundColor: accountColor,
                                       transition: 'width 0.3s ease',
-                                      minWidth: percentage > 0 ? '2px' : '0',
-                                      ...(index === savingsAccounts.length - 1 && {
-                                        borderTopRightRadius: '6px',
-                                        borderBottomRightRadius: '6px',
+                                      minWidth: percentage > 2 ? '0' : '0',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      ...(isFirst && {
+                                        borderTopLeftRadius: '16px',
+                                        borderBottomLeftRadius: '16px',
                                       }),
-                                      ...(index === 0 && {
-                                        borderTopLeftRadius: '6px',
-                                        borderBottomLeftRadius: '6px',
+                                      ...(isLast && {
+                                        borderTopRightRadius: '16px',
+                                        borderBottomRightRadius: '16px',
                                       }),
                                     }}
-                                  />
+                                  >
+                                    {percentage > 5 && (
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          color: '#fff',
+                                          fontWeight: 600,
+                                          fontSize: '0.75rem',
+                                          textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        {percentage.toFixed(0)}%
+                                      </Typography>
+                                    )}
+                                  </Box>
                                 );
                               })}
                             </Box>

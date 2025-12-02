@@ -7,14 +7,16 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
   ToggleButton, ToggleButtonGroup, TableSortLabel, Pagination,
   Skeleton, CircularProgress, useTheme, useMediaQuery,
-  Radio, RadioGroup, FormControlLabel, FormLabel,
+  Radio, RadioGroup, FormControlLabel, FormLabel, Menu,
+  Checkbox,
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Receipt, AttachMoney,
   Refresh, Clear, Category, AccountBalance, Link, Sync,
   HelpOutline, Visibility, ViewList, ViewModule,
   FilterList, FilterListOff, CloudUpload, Delete,
-  ContentPaste, AutoAwesome,
+  ContentPaste, AutoAwesome, Search, Close,
+  Save, Bookmark, Edit, CheckBox, CheckBoxOutlineBlank,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -27,6 +29,7 @@ import { SavingsAccount } from '../types/savings';
 import { getErrorMessage } from '../utils/validation';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
+import QuickAddTransactionForm from '../components/Transactions/QuickAddTransactionForm';
 
 const TransactionsPage: React.FC = () => {
   const { user } = useAuth();
@@ -65,6 +68,7 @@ const TransactionsPage: React.FC = () => {
     amountMin: '',
     amountMax: '',
   });
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState<boolean>(false);
@@ -88,7 +92,73 @@ const TransactionsPage: React.FC = () => {
   const [closedMonthsMap, setClosedMonthsMap] = useState<Map<string, Set<string>>>(new Map()); // Map<bankAccountId, Set<"YYYY-MM">>
   const [transactionLinkType, setTransactionLinkType] = useState<'none' | 'bill' | 'loan' | 'savings'>('none');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showQuickAddForm, setShowQuickAddForm] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<BankAccountTransaction | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // Saved Filter Presets
+  interface FilterPreset {
+    id: string;
+    name: string;
+    filters: TransactionFilters;
+    columnFilters: typeof columnFilters;
+    selectedMonth: string;
+    searchQuery: string;
+  }
+  const [savedPresets, setSavedPresets] = useState<FilterPreset[]>([]);
+  const [showSavePresetDialog, setShowSavePresetDialog] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [showPresetMenu, setShowPresetMenu] = useState(false);
+  const [presetMenuAnchor, setPresetMenuAnchor] = useState<null | HTMLElement>(null);
+  
+  // Inline Editing
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  
+  // Batch Actions
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  
+  // Transaction Grouping
+  const [groupBy, setGroupBy] = useState<'none' | 'date' | 'account'>('none');
+
+  // Smart Defaults: Get last used account and category from localStorage
+  const getLastUsedAccount = (): string => {
+    const lastAccount = localStorage.getItem('lastUsedBankAccountId');
+    if (lastAccount && bankAccounts.find(a => a.id === lastAccount)) {
+      return lastAccount;
+    }
+    return bankAccounts.length > 0 ? bankAccounts[0].id : '';
+  };
+
+  const getLastUsedCategory = (): string => {
+    return localStorage.getItem('lastUsedCategory') || '';
+  };
+
+  const saveLastUsedAccount = (accountId: string) => {
+    localStorage.setItem('lastUsedBankAccountId', accountId);
+  };
+
+  const saveLastUsedCategory = (category: string) => {
+    if (category) {
+      localStorage.setItem('lastUsedCategory', category);
+    }
+  };
+
+  // Load saved filter presets from localStorage
+  useEffect(() => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`transactionFilterPresets_${user.id}`);
+      if (saved) {
+        try {
+          setSavedPresets(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to load saved presets:', e);
+        }
+      }
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id) {
@@ -238,16 +308,37 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
-  const handleRefresh = () => {
-    loadTransactionsAndAnalytics();
+  const handleRefresh = async () => {
+    // Only reload transactions, not analytics or other data
+    if (!user?.id) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Only reload transactions with current filters
+      const transactionsResponse = await apiService.getTransactions(filters);
+      setTransactions(transactionsResponse.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCreateTransaction = () => {
     setShowTransactionForm(true);
   };
 
-  const handleTransactionFormSuccess = () => {
+  const handleQuickAdd = () => {
+    setShowQuickAddForm(true);
+  };
+
+  const handleTransactionFormSuccess = (accountId?: string, category?: string) => {
     setShowTransactionForm(false);
+    setShowQuickAddForm(false);
+    if (accountId) saveLastUsedAccount(accountId);
+    if (category) saveLastUsedCategory(category);
     loadTransactionsAndAnalytics(); // Reload transactions after adding
   };
 
@@ -273,6 +364,54 @@ const TransactionsPage: React.FC = () => {
     }));
   };
 
+  // Generate month options (last 12 months)
+  const getMonthOptions = (): string[] => {
+    const months: string[] = [];
+    const today = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      months.push(`${year}-${month}`);
+    }
+    return months;
+  };
+
+  const handleMonthChange = (event: SelectChangeEvent<string>) => {
+    const monthValue = event.target.value;
+    setSelectedMonth(monthValue);
+
+    if (monthValue) {
+      // Parse the month value (format: YYYY-MM)
+      const [year, month] = monthValue.split('-');
+      const monthNum = parseInt(month, 10);
+      const yearNum = parseInt(year, 10);
+
+      // Get first day of the month
+      const dateFrom = new Date(yearNum, monthNum - 1, 1);
+      const dateFromStr = dateFrom.toISOString().split('T')[0];
+
+      // Get last day of the month
+      const dateTo = new Date(yearNum, monthNum, 0);
+      const dateToStr = dateTo.toISOString().split('T')[0];
+
+      // Update column filters
+      setColumnFilters(prev => ({
+        ...prev,
+        dateFrom: dateFromStr,
+        dateTo: dateToStr,
+      }));
+    } else {
+      // Clear month filter
+      setColumnFilters(prev => ({
+        ...prev,
+        dateFrom: '',
+        dateTo: '',
+      }));
+    }
+  };
+
   const handleClearFilters = () => {
     setFilters({
       limit: 10,
@@ -287,14 +426,225 @@ const TransactionsPage: React.FC = () => {
       amountMin: '',
       amountMax: '',
     });
+    setSelectedMonth('');
     setSortField('');
     setSortDirection('asc');
+    setSearchQuery('');
+    setSelectedTransactions(new Set());
+    setIsBatchMode(false);
+  };
+
+  // Saved Filter Presets Functions
+  const handleSavePreset = () => {
+    if (!presetName.trim() || !user?.id) return;
+    
+    const newPreset: FilterPreset = {
+      id: Date.now().toString(),
+      name: presetName.trim(),
+      filters: { ...filters },
+      columnFilters: { ...columnFilters },
+      selectedMonth,
+      searchQuery,
+    };
+    
+    const updated = [...savedPresets, newPreset];
+    setSavedPresets(updated);
+    localStorage.setItem(`transactionFilterPresets_${user.id}`, JSON.stringify(updated));
+    setShowSavePresetDialog(false);
+    setPresetName('');
+  };
+
+  const handleLoadPreset = (preset: FilterPreset) => {
+    setFilters(preset.filters);
+    setColumnFilters(preset.columnFilters);
+    setSelectedMonth(preset.selectedMonth);
+    setSearchQuery(preset.searchQuery);
+    setPresetMenuAnchor(null);
+    setShowPresetMenu(false);
+  };
+
+  const handleDeletePreset = (presetId: string) => {
+    if (!user?.id) return;
+    const updated = savedPresets.filter(p => p.id !== presetId);
+    setSavedPresets(updated);
+    localStorage.setItem(`transactionFilterPresets_${user.id}`, JSON.stringify(updated));
+  };
+
+  // Batch Actions
+  const handleBatchDelete = async () => {
+    if (selectedTransactions.size === 0) return;
+    if (!window.confirm(`Delete ${selectedTransactions.size} transaction(s)?`)) return;
+    
+    try {
+      const deletePromises = Array.from(selectedTransactions).map(id => 
+        apiService.deleteTransaction(id)
+      );
+      await Promise.all(deletePromises);
+      setSelectedTransactions(new Set());
+      setIsBatchMode(false);
+      loadTransactionsAndAnalytics();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleBatchEdit = () => {
+    if (selectedTransactions.size === 0) return;
+    // For now, open edit dialog for first selected transaction
+    // In future, could implement bulk edit dialog
+    const firstId = Array.from(selectedTransactions)[0];
+    const transaction = transactions.find(t => t.id === firstId);
+    if (transaction) {
+      setTransactionToEdit(transaction);
+      setShowTransactionForm(true);
+      setSelectedTransactions(new Set());
+      setIsBatchMode(false);
+    }
+  };
+
+  // Transaction Grouping
+  const groupTransactions = (transactions: BankAccountTransaction[]) => {
+    if (groupBy === 'none') return { 'All': transactions };
+    
+    const grouped: Record<string, BankAccountTransaction[]> = {};
+    
+    transactions.forEach(transaction => {
+      let key = 'All';
+      if (groupBy === 'date') {
+        const date = new Date(transaction.transactionDate);
+        key = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      } else if (groupBy === 'account') {
+        key = transaction.accountName || 'Unknown Account';
+      }
+      
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(transaction);
+    });
+    
+    return grouped;
+  };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    setSearchQuery(value);
+    // Update description filter when search changes
+    setColumnFilters(prev => ({
+      ...prev,
+      description: value,
+    }));
+  };
+
+  const handleQuickFilter = (preset: 'today' | 'thisWeek' | 'thisMonth' | 'last7Days' | 'last30Days') => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    let dateFrom: Date;
+    let dateTo: Date = today;
+
+    switch (preset) {
+      case 'today':
+        dateFrom = new Date();
+        dateFrom.setHours(0, 0, 0, 0);
+        break;
+      case 'thisWeek':
+        dateFrom = new Date(today);
+        dateFrom.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+        dateFrom.setHours(0, 0, 0, 0);
+        break;
+      case 'thisMonth':
+        dateFrom = new Date(today.getFullYear(), today.getMonth(), 1);
+        dateFrom.setHours(0, 0, 0, 0);
+        break;
+      case 'last7Days':
+        dateFrom = new Date(today);
+        dateFrom.setDate(today.getDate() - 7);
+        dateFrom.setHours(0, 0, 0, 0);
+        break;
+      case 'last30Days':
+        dateFrom = new Date(today);
+        dateFrom.setDate(today.getDate() - 30);
+        dateFrom.setHours(0, 0, 0, 0);
+        break;
+      default:
+        return;
+    }
+
+    setColumnFilters(prev => ({
+      ...prev,
+      dateFrom: dateFrom.toISOString().split('T')[0],
+      dateTo: dateTo.toISOString().split('T')[0],
+    }));
+    setFilters(prev => ({
+      ...prev,
+      page: 1,
+    }));
+  };
+
+  const removeFilter = (filterType: 'bankAccountId' | 'transactionType' | 'category' | 'dateRange' | 'search' | 'month') => {
+    switch (filterType) {
+      case 'bankAccountId':
+        setFilters(prev => ({ ...prev, bankAccountId: undefined, page: 1 }));
+        break;
+      case 'transactionType':
+        setFilters(prev => ({ ...prev, transactionType: undefined, page: 1 }));
+        break;
+      case 'category':
+        setFilters(prev => ({ ...prev, category: undefined, page: 1 }));
+        break;
+      case 'month':
+        setSelectedMonth('');
+        setColumnFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }));
+        setFilters(prev => ({ ...prev, page: 1 }));
+        break;
+      case 'dateRange':
+        setColumnFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }));
+        setFilters(prev => ({ ...prev, page: 1 }));
+        break;
+      case 'search':
+        setSearchQuery('');
+        setColumnFilters(prev => ({ ...prev, description: '' }));
+        break;
+    }
+  };
+
+  // Get active filters for chips
+  const getActiveFilters = () => {
+    const active: Array<{ label: string; type: 'bankAccountId' | 'transactionType' | 'category' | 'dateRange' | 'search' | 'month' }> = [];
+    
+    if (filters.bankAccountId) {
+      const account = bankAccounts.find(a => a.id === filters.bankAccountId);
+      active.push({ label: account ? account.accountName : 'Account', type: 'bankAccountId' });
+    }
+    if (filters.transactionType) {
+      active.push({ label: filters.transactionType.charAt(0).toUpperCase() + filters.transactionType.slice(1), type: 'transactionType' });
+    }
+    if (filters.category) {
+      active.push({ label: filters.category.charAt(0).toUpperCase() + filters.category.slice(1), type: 'category' });
+    }
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      active.push({ label: monthLabel, type: 'month' });
+    } else if (columnFilters.dateFrom || columnFilters.dateTo) {
+      const from = columnFilters.dateFrom ? new Date(columnFilters.dateFrom).toLocaleDateString() : '';
+      const to = columnFilters.dateTo ? new Date(columnFilters.dateTo).toLocaleDateString() : '';
+      active.push({ label: from && to ? `${from} - ${to}` : from || to, type: 'dateRange' });
+    }
+    if (searchQuery) {
+      active.push({ label: `Search: "${searchQuery}"`, type: 'search' });
+    }
+    
+    return active;
   };
 
   const handleColumnFilterChange = (field: string) => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const value = event.target.value;
+    // Clear month filter if user manually changes date filters
+    if (field === 'dateFrom' || field === 'dateTo') {
+      setSelectedMonth('');
+    }
     setColumnFilters(prev => ({
       ...prev,
       [field]: value,
@@ -442,14 +792,27 @@ const TransactionsPage: React.FC = () => {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
+  };
+
+  const formatDateWithTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const dateStr = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    return `${dateStr} at ${timeStr}`;
   };
 
   if (isLoading) {
     return (
-      <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
+      <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
         {/* Header Skeleton */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Skeleton variant="text" width={250} height={40} />
@@ -552,6 +915,77 @@ const TransactionsPage: React.FC = () => {
           width: { xs: '100%', sm: 'auto' }
         }}>
           <Button
+            variant="contained"
+            color="primary"
+            startIcon={<Receipt />}
+            onClick={handleQuickAdd}
+            disabled={bankAccounts.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              mr: { xs: 0.5, sm: 1 },
+              flex: { xs: '1 1 auto', sm: '0 0 auto' },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              py: { xs: 0.75, sm: 1 },
+              px: { xs: 1.5, sm: 2 }
+            }}
+          >
+            {isMobile ? 'Quick Add' : 'Quick Add'}
+          </Button>
+          <input
+            accept="image/jpeg,image/jpg,image/png"
+            style={{ display: 'none' }}
+            id="image-upload-input-top"
+            multiple
+            type="file"
+            onChange={handleFileUpload}
+          />
+          <Tooltip
+            title={
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Upload receipts and let AI do the work! 📸✨
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1.5 }}>
+                  Simply snap a photo or upload your receipt, and our advanced AI will automatically read, extract, and add all transaction details to your records. No more manual entry!
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  ✓ How it works:
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • Upload or capture receipt photo
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • AI extracts amount, date, merchant & category
+                </Typography>
+                <Typography variant="body2">
+                  • Auto-adds to your transaction records
+                </Typography>
+              </Box>
+            }
+            arrow
+            placement="bottom"
+          >
+            <label htmlFor="image-upload-input-top">
+              <Button
+                component="span"
+                variant="contained"
+                color="primary"
+                startIcon={<CloudUpload />}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ 
+                  mr: { xs: 0.5, sm: 1 },
+                  flex: { xs: '1 1 auto', sm: '0 0 auto' },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  py: { xs: 0.75, sm: 1 },
+                  px: { xs: 1.5, sm: 2 },
+                  cursor: 'pointer'
+                }}
+              >
+                {isMobile ? 'Upload Receipt' : 'Upload Receipt'}
+              </Button>
+            </label>
+          </Tooltip>
+          <Button
             variant="outlined"
             color="primary"
             startIcon={<Receipt />}
@@ -561,12 +995,12 @@ const TransactionsPage: React.FC = () => {
             sx={{ 
               mr: { xs: 0, sm: 1 },
               flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
               py: { xs: 0.75, sm: 1 },
               px: { xs: 1.5, sm: 2 }
             }}
           >
-            {isMobile ? 'Add' : 'Add Transaction'}
+            {isMobile ? 'Full Form' : 'Full Form'}
           </Button>
           <Button
             variant="contained"
@@ -585,20 +1019,35 @@ const TransactionsPage: React.FC = () => {
             {isMobile ? 'Analyzer' : 'Transaction Analyzer'}
           </Button>
           {!isMobile && (
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={(_, newMode) => newMode && setViewMode(newMode)}
-              size="small"
-              aria-label="view mode"
-            >
-              <ToggleButton value="cards" aria-label="card view">
-                <ViewModule />
-              </ToggleButton>
-              <ToggleButton value="table" aria-label="table view">
-                <ViewList />
-              </ToggleButton>
-            </ToggleButtonGroup>
+            <>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(_, newMode) => newMode && setViewMode(newMode)}
+                size="small"
+                aria-label="view mode"
+              >
+                <ToggleButton value="cards" aria-label="card view">
+                  <ViewModule />
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <ViewList />
+                </ToggleButton>
+              </ToggleButtonGroup>
+              <FormControl size="small" sx={{ minWidth: 120, ml: 1 }}>
+                <InputLabel>Group By</InputLabel>
+                <Select
+                  value={groupBy}
+                  label="Group By"
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'date' | 'account')}
+                  aria-label="Group transactions by"
+                >
+                  <MenuItem value="none">None</MenuItem>
+                  <MenuItem value="date">Date</MenuItem>
+                  <MenuItem value="account">Account</MenuItem>
+                </Select>
+              </FormControl>
+            </>
           )}
           <Button
             variant="outlined"
@@ -658,430 +1107,486 @@ const TransactionsPage: React.FC = () => {
           {isMobile ? 'Bank Transactions' : 'Bank Account Transaction'}
         </Typography>
 
-        {/* 1st Row: Combined Account Overview & Money Flow - Uniform Width */}
-        {(bankAccountSummary || bankAccountAnalytics) && (
-          <Grid container spacing={{ xs: 1, sm: 1.5 }} sx={{ mb: 1.5 }}>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <AttachMoney sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {bankAccountSummary ? formatCurrency(bankAccountSummary.totalBalance) : 
-                       bankAccountAnalytics?.totalBalance !== undefined ? formatCurrency(bankAccountAnalytics.totalBalance) : 'N/A'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                      Total Balance
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <AccountBalance sx={{ fontSize: { xs: 20, sm: 18 }, color: 'info.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {bankAccountSummary ? bankAccountSummary.totalAccounts : 
-                       bankAccountAnalytics?.totalAccounts || 0}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                      Total Accounts
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <AccountBalance sx={{ fontSize: { xs: 20, sm: 18 }, color: 'info.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {bankAccountSummary ? bankAccountSummary.activeAccounts : 
-                       bankAccountAnalytics?.activeAccounts || 0}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.65rem' } }}>
-                      Active Accounts
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <Sync sx={{ fontSize: { xs: 16, sm: 18 }, color: 'warning.main', mb: 0.5 }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.75rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.1, mb: 0.25 }}>
-                      {bankAccountSummary ? bankAccountSummary.connectedAccounts : 
-                       bankAccountAnalytics?.connectedAccounts || 0}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.65rem' } }}>
-                      Connected
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <AccountBalance sx={{ fontSize: 18, color: 'primary.main', mb: 0.5 }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.75rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.1, mb: 0.25 }}>
-                      {bankAccountAnalytics?.accounts?.length || 0}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.65rem' } }}>
-                      Analytics
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Tooltip
-                title={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Total Income"?
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Total money received from all income sources
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Includes: deposits, transfers in, income, refunds
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Shows your total money received across all accounts
-                    </Typography>
-                    <Typography variant="body2">
-                      • Helps you understand your overall income
-                    </Typography>
-                  </Box>
-                }
-                arrow
-                placement="top"
-              >
-                <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
-                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                      <TrendingUp sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                      <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                        {bankAccountSummary ? formatCurrency(bankAccountSummary.totalIncoming) :
-                         bankAccountAnalytics?.totalIncoming !== undefined ? formatCurrency(bankAccountAnalytics.totalIncoming) : 'N/A'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Total Income
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Tooltip>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Tooltip
-                title={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Total Expense"?
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Total money spent on all expenses
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Includes: all debits, payments, transfers, withdrawals
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Shows your total spending across all accounts
-                    </Typography>
-                    <Typography variant="body2">
-                      • Helps you understand your overall expenses
-                    </Typography>
-                  </Box>
-                }
-                arrow
-                placement="top"
-              >
-                <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
-                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                      <TrendingDown sx={{ fontSize: { xs: 20, sm: 18 }, color: 'error.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                      <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                        {bankAccountSummary ? formatCurrency(bankAccountSummary.totalOutgoing) :
-                         bankAccountAnalytics?.totalOutgoing !== undefined ? formatCurrency(bankAccountAnalytics.totalOutgoing) : 'N/A'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Total Expense
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Tooltip>
-            </Grid>
+        {/* Analytics Cards - Single Row with 8 Cards */}
+        <Grid container spacing={{ xs: 1, sm: 1.5 }}>
+          {/* 1. Total Balance */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
+              <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                  <AttachMoney sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                  <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                    {bankAccountSummary ? formatCurrency(bankAccountSummary.totalBalance) : 
+                     bankAccountAnalytics?.totalBalance !== undefined ? formatCurrency(bankAccountAnalytics.totalBalance) : 'N/A'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                    Total Balance
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
+
+          {/* 2. Total Accounts */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
+              <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                  <AccountBalance sx={{ fontSize: { xs: 20, sm: 18 }, color: 'info.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                  <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                    {bankAccountSummary ? bankAccountSummary.totalAccounts : 
+                     bankAccountAnalytics?.totalAccounts || 0}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                    Total Accounts
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 3. Active Accounts */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
+              <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                  <AccountBalance sx={{ fontSize: { xs: 20, sm: 18 }, color: 'info.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                  <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                    {bankAccountSummary ? bankAccountSummary.activeAccounts : 
+                     bankAccountAnalytics?.activeAccounts || 0}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                    Active Accounts
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 4. Total Transactions */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Tooltip
+              title={
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    What is "Total Transactions"?
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Total count of all bank transactions across all your accounts
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Includes both credit and debit transactions
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Shows the complete transaction history, not filtered by date
+                  </Typography>
+                  <Typography variant="body2">
+                    • Note: Summary totals (income/expenses) are calculated for the current calendar month by default
+                  </Typography>
+                </Box>
+              }
+              arrow
+              placement="top"
+            >
+              <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
+                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <Receipt sx={{ fontSize: { xs: 20, sm: 18 }, color: 'primary.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                      {analytics?.totalTransactions || 0}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                      Total Transactions
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Tooltip>
+          </Grid>
+
+          {/* 5. Total Income */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Tooltip
+              title={
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    What is "Total Income"?
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Total money received from all income sources
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Includes: deposits, transfers in, income, refunds
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Shows your total money received across all accounts
+                  </Typography>
+                  <Typography variant="body2">
+                    • Helps you understand your overall income
+                  </Typography>
+                </Box>
+              }
+              arrow
+              placement="top"
+            >
+              <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
+                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <TrendingUp sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                      {bankAccountSummary ? formatCurrency(bankAccountSummary.totalIncoming) :
+                       bankAccountAnalytics?.totalIncoming !== undefined ? formatCurrency(bankAccountAnalytics.totalIncoming) : 
+                       analytics?.totalIncoming ? formatCurrency(analytics.totalIncoming) : 'N/A'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                      Total Income
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Tooltip>
+          </Grid>
+
+          {/* 6. Total Expense */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Tooltip
+              title={
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    What is "Total Expense"?
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Total money spent on all expenses
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Includes: all debits, payments, transfers, withdrawals
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Shows your total spending across all accounts
+                  </Typography>
+                  <Typography variant="body2">
+                    • Helps you understand your overall expenses
+                  </Typography>
+                </Box>
+              }
+              arrow
+              placement="top"
+            >
+              <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
+                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <TrendingDown sx={{ fontSize: { xs: 20, sm: 18 }, color: 'error.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                      {bankAccountSummary ? formatCurrency(bankAccountSummary.totalOutgoing) :
+                       bankAccountAnalytics?.totalOutgoing !== undefined ? formatCurrency(bankAccountAnalytics.totalOutgoing) : 
+                       analytics?.totalOutgoing ? formatCurrency(analytics.totalOutgoing) : 'N/A'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                      Total Expense
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Tooltip>
+          </Grid>
+
+          {/* 7. Transaction Income */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Tooltip
+              title={
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    What is "Transaction Income"?
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Money received from all income sources
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Includes: deposits, transfers in, income, refunds
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Shows total amount received/earned
+                  </Typography>
+                  <Typography variant="body2">
+                    • Helps track your income and money received
+                  </Typography>
+                </Box>
+              }
+              arrow
+              placement="top"
+            >
+              <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
+                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <TrendingUp sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                      {analytics?.totalIncoming !== undefined && analytics?.totalIncoming !== null 
+                        ? formatCurrency(analytics.totalIncoming) 
+                        : formatCurrency(0)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                      Transaction Income
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Tooltip>
+          </Grid>
+
+          {/* 8. Transaction Expense */}
+          <Grid item xs={6} sm={3} md={1.5}>
+            <Tooltip
+              title={
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    What is "Transaction Expense"?
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Money spent on all expenses
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Includes: purchases, payments, transfers out, withdrawals
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    • Shows total amount spent/paid out
+                  </Typography>
+                  <Typography variant="body2">
+                    • Helps track your spending patterns
+                  </Typography>
+                </Box>
+              }
+              arrow
+              placement="top"
+            >
+              <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
+                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <TrendingDown sx={{ fontSize: { xs: 20, sm: 18 }, color: 'error.main', mb: { xs: 0.5, sm: 0.5 } }} />
+                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
+                      {analytics?.totalOutgoing !== undefined && analytics?.totalOutgoing !== null 
+                        ? formatCurrency(analytics.totalOutgoing) 
+                        : formatCurrency(0)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
+                      Transaction Expense
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Tooltip>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Search Bar */}
+      <Box sx={{ mb: 2 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search transactions by description, merchant, or reference number..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          aria-label="Search transactions"
+          InputProps={{
+            startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+            endAdornment: searchQuery && (
+              <IconButton
+                size="small"
+                onClick={() => removeFilter('search')}
+                sx={{ mr: -1 }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            ),
+          }}
+          sx={{
+            mb: 2,
+            '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+          }}
+        />
+        
+        {/* Quick Filter Presets */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleQuickFilter('today')}
+            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+          >
+            Today
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleQuickFilter('thisWeek')}
+            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+          >
+            This Week
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleQuickFilter('thisMonth')}
+            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+          >
+            This Month
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleQuickFilter('last7Days')}
+            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+          >
+            Last 7 Days
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => handleQuickFilter('last30Days')}
+            sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+          >
+            Last 30 Days
+          </Button>
+        </Box>
+
+        {/* Active Filter Chips */}
+        {getActiveFilters().length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'medium', mr: 1 }}>
+              Active Filters:
+            </Typography>
+            {getActiveFilters().map((filter, index) => (
+              <Chip
+                key={index}
+                label={filter.label}
+                onDelete={() => removeFilter(filter.type)}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontSize: '0.75rem' }}
+              />
+            ))}
+            <Button
+              size="small"
+              onClick={handleClearFilters}
+              sx={{ fontSize: '0.75rem', ml: 'auto' }}
+              aria-label="Clear all filters"
+            >
+              Clear All
+            </Button>
+          </Box>
         )}
 
-        {/* 2nd Row: Transaction Analytics - Uniform Width */}
-        {analytics && (
-          <Grid container spacing={{ xs: 1, sm: 1.5 }}>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Tooltip
-                title={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Total Transactions"?
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Total count of all bank transactions across all your accounts
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Includes both credit and debit transactions
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Shows the complete transaction history, not filtered by date
-                    </Typography>
-                    <Typography variant="body2">
-                      • Note: Summary totals (income/expenses) are calculated for the current calendar month by default
-                    </Typography>
-                  </Box>
-                }
-                arrow
-                placement="top"
-              >
-                <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 }, cursor: 'help' }}>
-                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                      <Receipt sx={{ fontSize: { xs: 20, sm: 18 }, color: 'primary.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                      <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                        {analytics.totalTransactions || 0}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Total Transactions
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Tooltip>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Tooltip
-                title={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Transaction Income"?
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Money received from all income sources
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Includes: deposits, transfers in, income, refunds
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Shows total amount received/earned
-                    </Typography>
-                    <Typography variant="body2">
-                      • Helps track your income and money received
-                    </Typography>
-                  </Box>
-                }
-                arrow
-                placement="top"
-              >
-                <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
-                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                      <TrendingUp sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                      <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                        {formatCurrency(analytics.totalIncoming || 0)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Transaction Income
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Tooltip>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Tooltip
-                title={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      What is "Transaction Expense"?
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Money spent on all expenses
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Includes: purchases, payments, transfers out, withdrawals
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      • Shows total amount spent/paid out
-                    </Typography>
-                    <Typography variant="body2">
-                      • Helps track your spending patterns
-                    </Typography>
-                  </Box>
-                }
-                arrow
-                placement="top"
-              >
-                <Card sx={{ height: '100%', cursor: 'help', '&:hover': { boxShadow: 2 } }}>
-                  <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                      <TrendingDown sx={{ fontSize: { xs: 20, sm: 18 }, color: 'error.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                      <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                        {formatCurrency(analytics.totalOutgoing || 0)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                        Transaction Expense
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Tooltip>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 } }}>
-                <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <AttachMoney sx={{ fontSize: { xs: 20, sm: 18 }, color: 'info.main', mb: { xs: 0.5, sm: 0.5 } }} />
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {isNaN(analytics.averageTransactionAmount) || analytics.averageTransactionAmount === null || analytics.averageTransactionAmount === undefined
-                        ? formatCurrency(0)
-                        : formatCurrency(analytics.averageTransactionAmount)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.65rem' }, textAlign: 'center' }}>
-                      Average Amount
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2.4} lg={1.7}>
-              <Card sx={{ height: '100%', '&:hover': { boxShadow: 2 }, position: 'relative' }}>
-                <Tooltip
-                  title={
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Upload receipts and let AI do the work! 📸✨
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1.5 }}>
-                        Simply snap a photo or upload your receipt, and our advanced AI will automatically read, extract, and add all transaction details to your records. No more manual entry!
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        ✓ How it works:
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        • Upload or capture receipt photo
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        • AI extracts amount, date, merchant & category
-                      </Typography>
-                      <Typography variant="body2">
-                        • Auto-adds to your transaction records
-                      </Typography>
-                    </Box>
-                  }
-                  arrow
-                  placement="top"
-                >
-                  <IconButton
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      top: 4,
-                      right: 4,
-                      p: 0.5,
-                      cursor: 'help',
-                    }}
-                  >
-                    <HelpOutline sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  </IconButton>
-                </Tooltip>
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <CloudUpload sx={{ fontSize: { xs: 16, sm: 18 }, color: 'primary.main', mb: 0.5 }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', mb: 0.5 }}>
-                      Upload Receipt
-                    </Typography>
-                    <input
-                      accept="image/jpeg,image/jpg,image/png"
-                      style={{ display: 'none' }}
-                      id="image-upload-input"
-                      multiple
-                      type="file"
-                      onChange={handleFileUpload}
-                    />
-                    <label htmlFor="image-upload-input">
-                      <Button
-                        component="span"
-                        size="small"
-                        variant="outlined"
-                        sx={{ 
-                          mt: 0.5,
-                          fontSize: '0.7rem',
-                          py: 0.25,
-                          px: 1,
-                          textTransform: 'none',
-                        }}
-                      >
-                        Choose Files
-                      </Button>
-                    </label>
-                    {uploadedFiles.length > 0 && (
-                      <Box sx={{ mt: 1, width: '100%' }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block', mb: 0.5 }}>
-                          {uploadedFiles.length} file(s) uploaded
-                        </Typography>
-                        <Box sx={{ maxHeight: 60, overflowY: 'auto', width: '100%' }}>
-                          {uploadedFiles.map((file, index) => (
-                            <Box
-                              key={index}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                p: 0.25,
-                                mb: 0.25,
-                                bgcolor: 'action.hover',
-                                borderRadius: 0.5,
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  fontSize: '0.6rem',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  flex: 1,
-                                  textAlign: 'left',
-                                }}
-                                title={file.name}
-                              >
-                                {file.name}
-                              </Typography>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRemoveFile(index)}
-                                sx={{ p: 0.25, ml: 0.5 }}
-                              >
-                                <Delete sx={{ fontSize: 12 }} />
-                              </IconButton>
-                            </Box>
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+        {/* Batch Actions Bar */}
+        {isBatchMode && selectedTransactions.size > 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1, 
+            mb: 2, 
+            p: 1.5, 
+            bgcolor: 'primary.light', 
+            borderRadius: 1,
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
+              {selectedTransactions.size} selected
+            </Typography>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<Edit />}
+              onClick={handleBatchEdit}
+              aria-label="Edit selected transactions"
+            >
+              Edit
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="error"
+              startIcon={<Delete />}
+              onClick={handleBatchDelete}
+              aria-label="Delete selected transactions"
+            >
+              Delete
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setSelectedTransactions(new Set());
+                setIsBatchMode(false);
+              }}
+              aria-label="Clear selection"
+            >
+              Clear
+            </Button>
+          </Box>
         )}
+
+        {/* Saved Filter Presets */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Save />}
+            onClick={() => setShowSavePresetDialog(true)}
+            sx={{ fontSize: '0.75rem' }}
+            aria-label="Save current filter preset"
+          >
+            Save Filter
+          </Button>
+          {savedPresets.length > 0 && (
+            <>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Bookmark />}
+                onClick={(e) => {
+                  setPresetMenuAnchor(e.currentTarget);
+                  setShowPresetMenu(true);
+                }}
+                sx={{ fontSize: '0.75rem' }}
+                aria-label="Load saved filter preset"
+                aria-haspopup="true"
+                aria-expanded={showPresetMenu}
+              >
+                Load Filter ({savedPresets.length})
+              </Button>
+              <Menu
+                anchorEl={presetMenuAnchor}
+                open={showPresetMenu}
+                onClose={() => {
+                  setPresetMenuAnchor(null);
+                  setShowPresetMenu(false);
+                }}
+                aria-label="Saved filter presets menu"
+              >
+                {savedPresets.map((preset) => (
+                  <MenuItem
+                    key={preset.id}
+                    onClick={() => handleLoadPreset(preset)}
+                    sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}
+                    aria-label={`Load filter preset: ${preset.name}`}
+                  >
+                    <span>{preset.name}</span>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePreset(preset.id);
+                      }}
+                      aria-label={`Delete filter preset: ${preset.name}`}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -1117,6 +1622,7 @@ const TransactionsPage: React.FC = () => {
             onChange={handleSelectChange('bankAccountId')}
             sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
             disabled={isLoadingBankAccounts}
+            aria-label="Filter by bank account"
           >
             <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Accounts</MenuItem>
             {bankAccounts.map((account) => (
@@ -1134,6 +1640,7 @@ const TransactionsPage: React.FC = () => {
             label="Transaction Type"
             onChange={handleSelectChange('transactionType')}
             sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            aria-label="Filter by transaction type"
           >
             <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Types</MenuItem>
             <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Credit</MenuItem>
@@ -1149,6 +1656,7 @@ const TransactionsPage: React.FC = () => {
             label="Category"
             onChange={handleSelectChange('category')}
             sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            aria-label="Filter by category"
           >
             <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Categories</MenuItem>
             <MenuItem value="food" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Food</MenuItem>
@@ -1159,6 +1667,29 @@ const TransactionsPage: React.FC = () => {
             <MenuItem value="dividend" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Dividend</MenuItem>
             <MenuItem value="payment" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Payment</MenuItem>
             <MenuItem value="cash" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Cash</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
+          <InputLabel sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Month</InputLabel>
+          <Select
+            value={selectedMonth}
+            label="Month"
+            onChange={handleMonthChange}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            aria-label="Filter by month"
+          >
+            <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Months</MenuItem>
+            {getMonthOptions().map((monthValue) => {
+              const [year, month] = monthValue.split('-');
+              const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+              const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              return (
+                <MenuItem key={monthValue} value={monthValue} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                  {monthLabel}
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
 
@@ -1204,7 +1735,59 @@ const TransactionsPage: React.FC = () => {
       </Box>
 
       {/* Transactions Display */}
-      {transactions.length === 0 ? (
+      {(() => {
+        // Client-side filtering for search query
+        let filteredTransactions = transactions;
+        
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          filteredTransactions = transactions.filter(t => 
+            t.description?.toLowerCase().includes(query) ||
+            t.merchant?.toLowerCase().includes(query) ||
+            t.referenceNumber?.toLowerCase().includes(query) ||
+            t.category?.toLowerCase().includes(query)
+          );
+        }
+        
+        // Apply column filters
+        if (columnFilters.dateFrom) {
+          filteredTransactions = filteredTransactions.filter(t => {
+            const tDate = new Date(t.transactionDate);
+            const filterDate = new Date(columnFilters.dateFrom);
+            filterDate.setHours(0, 0, 0, 0);
+            return tDate >= filterDate;
+          });
+        }
+        if (columnFilters.dateTo) {
+          filteredTransactions = filteredTransactions.filter(t => {
+            const tDate = new Date(t.transactionDate);
+            const filterDate = new Date(columnFilters.dateTo);
+            filterDate.setHours(23, 59, 59, 999);
+            return tDate <= filterDate;
+          });
+        }
+        if (columnFilters.category) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.category?.toLowerCase().includes(columnFilters.category.toLowerCase())
+          );
+        }
+        if (columnFilters.transactionType) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.transactionType?.toLowerCase() === columnFilters.transactionType.toLowerCase()
+          );
+        }
+        if (columnFilters.amountMin) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.amount >= parseFloat(columnFilters.amountMin)
+          );
+        }
+        if (columnFilters.amountMax) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.amount <= parseFloat(columnFilters.amountMax)
+          );
+        }
+        
+        return filteredTransactions.length === 0 ? (
         <Card sx={{ height: '100%' }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
             <Receipt sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -1212,7 +1795,7 @@ const TransactionsPage: React.FC = () => {
               No transactions found
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {filters.transactionType || filters.category || filters.bankAccountId
+              {searchQuery || filters.transactionType || filters.category || filters.bankAccountId || columnFilters.dateFrom || columnFilters.dateTo
                 ? 'Try adjusting your filters to see more transactions.'
                 : 'Your recent transactions will appear here once you start making transactions.'
               }
@@ -1224,11 +1807,16 @@ const TransactionsPage: React.FC = () => {
           {/* Cards view - shown on mobile and when cards mode is selected */}
           <Box sx={{ display: { xs: 'block', sm: viewMode === 'cards' ? 'block' : 'none' } }}>
             <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mt: { xs: 1, sm: 2 } }}>
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={transaction.id}>
                   <TransactionCard 
                     transaction={transaction} 
                     onViewDetails={handleViewDetails}
+                    onEdit={(t: BankAccountTransaction) => {
+                      setTransactionToEdit(t);
+                      setShowTransactionForm(true);
+                    }}
+                    onDelete={handleDeleteTransaction}
                   />
                 </Grid>
               ))}
@@ -1236,131 +1824,131 @@ const TransactionsPage: React.FC = () => {
           </Box>
           
           {/* Table view - hidden on mobile, shown on desktop when table mode is selected */}
-          <Box sx={{ display: { xs: 'none', sm: viewMode === 'table' ? 'block' : 'none' } }}>
+          <Box sx={{ 
+            display: { xs: 'none', sm: viewMode === 'table' ? 'block' : 'none' }, 
+            width: { xs: 'calc(100% + 16px)', sm: 'calc(100% + 32px)', md: 'calc(100% + 48px)' },
+            maxWidth: { xs: 'calc(100% + 16px)', sm: 'calc(100% + 32px)', md: 'calc(100% + 48px)' },
+            marginLeft: { xs: '-8px', sm: '-16px', md: '-24px' },
+            marginRight: { xs: '-8px', sm: '-16px', md: '-24px' },
+            paddingLeft: { xs: '8px', sm: '16px', md: '24px' },
+            paddingRight: { xs: '8px', sm: '16px', md: '24px' }
+          }}>
         <TableContainer 
           component={Paper} 
           sx={{ 
             mt: 2,
+            width: '100%',
             maxWidth: '100%',
             overflowX: 'auto',
             // On mobile, force cards view instead of table
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiTable-root': {
-              minWidth: 'auto',
-            }
+            display: { xs: 'none', sm: 'block' }
           }}
         >
-          <Table stickyHeader>
+          <Table sx={{ 
+            tableLayout: 'fixed', 
+            width: '100%',
+            minWidth: isBatchMode ? '1200px' : '1100px',
+            '& .MuiTableCell-root': {
+              padding: '16px 12px',
+              boxSizing: 'border-box',
+              verticalAlign: 'top',
+              whiteSpace: 'nowrap'
+            },
+            '& .MuiTableCell-head': {
+              backgroundColor: 'background.paper',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              borderBottom: '2px solid',
+              borderColor: 'divider'
+            }
+          }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: '60px' }} align="center">
-                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                    #
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortField === 'transactionDate'}
-                    direction={sortField === 'transactionDate' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('transactionDate')}
-                  >
-                    Date
-                  </TableSortLabel>
+                {isBatchMode && (
+                  <TableCell sx={{ width: '60px', minWidth: '60px', maxWidth: '60px' }}>
+                    <Checkbox
+                      indeterminate={selectedTransactions.size > 0 && selectedTransactions.size < filteredTransactions.length}
+                      checked={filteredTransactions.length > 0 && selectedTransactions.size === filteredTransactions.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
+                        } else {
+                          setSelectedTransactions(new Set());
+                        }
+                      }}
+                      aria-label="Select all transactions"
+                    />
+                  </TableCell>
+                )}
+                <TableCell sx={{ 
+                  width: isBatchMode ? '350px' : '380px', 
+                  minWidth: isBatchMode ? '350px' : '380px',
+                  maxWidth: isBatchMode ? '350px' : '380px'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TableSortLabel
+                      active={sortField === 'transactionDate'}
+                      direction={sortField === 'transactionDate' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('transactionDate')}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                        Date
+                      </Typography>
+                    </TableSortLabel>
+                    <TableSortLabel
+                      active={sortField === 'description'}
+                      direction={sortField === 'description' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('description')}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                        Description
+                      </Typography>
+                    </TableSortLabel>
+                  </Box>
                   {showFilters && (
                     <Box sx={{ mt: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder="From"
-                        value={columnFilters.dateFrom}
-                        onChange={handleColumnFilterChange('dateFrom')}
-                        type="date"
-                        sx={{ width: '100%', mb: 0.5 }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                      <TextField
-                        size="small"
-                        placeholder="To"
-                        value={columnFilters.dateTo}
-                        onChange={handleColumnFilterChange('dateTo')}
-                        type="date"
-                        sx={{ width: '100%' }}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Box>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortField === 'description'}
-                    direction={sortField === 'description' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('description')}
-                  >
-                    Description
-                  </TableSortLabel>
-                  {showFilters && (
-                    <Box sx={{ mt: 1 }}>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                        <TextField
+                          size="small"
+                          placeholder="From"
+                          value={columnFilters.dateFrom}
+                          onChange={handleColumnFilterChange('dateFrom')}
+                          type="date"
+                          sx={{ flex: 1 }}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                        <TextField
+                          size="small"
+                          placeholder="To"
+                          value={columnFilters.dateTo}
+                          onChange={handleColumnFilterChange('dateTo')}
+                          type="date"
+                          sx={{ flex: 1 }}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Box>
                       <TextField
                         size="small"
                         placeholder="Search description"
-                        value={columnFilters.description}
-                        onChange={handleColumnFilterChange('description')}
+                        value={searchQuery || columnFilters.description}
+                        onChange={(e) => {
+                          handleSearchChange(e);
+                        }}
                         sx={{ width: '100%' }}
                       />
                     </Box>
                   )}
                 </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortField === 'category'}
-                    direction={sortField === 'category' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('category')}
-                  >
-                    Category
-                  </TableSortLabel>
-                  {showFilters && (
-                    <Box sx={{ mt: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder="Filter category"
-                        value={columnFilters.category}
-                        onChange={handleColumnFilterChange('category')}
-                        sx={{ width: '100%' }}
-                      />
-                    </Box>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={sortField === 'transactionType'}
-                    direction={sortField === 'transactionType' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('transactionType')}
-                  >
-                    Type
-                  </TableSortLabel>
-                  {showFilters && (
-                    <Box sx={{ mt: 1 }}>
-                      <FormControl size="small" sx={{ width: '100%' }}>
-                        <Select
-                          value={columnFilters.transactionType}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, transactionType: e.target.value }))}
-                          displayEmpty
-                        >
-                          <MenuItem value="">All Types</MenuItem>
-                          <MenuItem value="credit">Credit</MenuItem>
-                          <MenuItem value="debit">Debit</MenuItem>
-                          <MenuItem value="transfer">Transfer</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
-                </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ width: '130px', minWidth: '130px', maxWidth: '130px' }}>
                   <TableSortLabel
                     active={sortField === 'amount'}
                     direction={sortField === 'amount' ? sortDirection : 'asc'}
                     onClick={() => handleSort('amount')}
                   >
-                    Amount
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                      Amount
+                    </Typography>
                   </TableSortLabel>
                   {showFilters && (
                     <Box sx={{ mt: 1 }}>
@@ -1383,109 +1971,408 @@ const TransactionsPage: React.FC = () => {
                     </Box>
                   )}
                 </TableCell>
-                <TableCell sx={{ width: '120px' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                <TableCell sx={{ width: '150px', minWidth: '150px', maxWidth: '150px' }}>
+                  <TableSortLabel
+                    active={sortField === 'category'}
+                    direction={sortField === 'category' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('category')}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                      Category
+                    </Typography>
+                  </TableSortLabel>
+                  {showFilters && (
+                    <Box sx={{ mt: 1 }}>
+                      <TextField
+                        size="small"
+                        placeholder="Filter category"
+                        value={columnFilters.category}
+                        onChange={handleColumnFilterChange('category')}
+                        sx={{ width: '100%' }}
+                      />
+                    </Box>
+                  )}
+                </TableCell>
+                <TableCell sx={{ width: '130px', minWidth: '130px', maxWidth: '130px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
                     Account
                   </Typography>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
                   <TableSortLabel
-                    active={sortField === 'balanceAfterTransaction'}
-                    direction={sortField === 'balanceAfterTransaction' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('balanceAfterTransaction')}
+                    active={sortField === 'transactionType'}
+                    direction={sortField === 'transactionType' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('transactionType')}
                   >
-                    Balance After
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                      Type
+                    </Typography>
                   </TableSortLabel>
+                  {showFilters && (
+                    <Box sx={{ mt: 1 }}>
+                      <FormControl size="small" sx={{ width: '100%' }}>
+                        <Select
+                          value={columnFilters.transactionType}
+                          onChange={(e) => setColumnFilters(prev => ({ ...prev, transactionType: e.target.value }))}
+                          displayEmpty
+                        >
+                          <MenuItem value="">All Types</MenuItem>
+                          <MenuItem value="credit">Credit</MenuItem>
+                          <MenuItem value="debit">Debit</MenuItem>
+                          <MenuItem value="transfer">Transfer</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  )}
                 </TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell align="center" sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setIsBatchMode(!isBatchMode)}
+                      aria-label={isBatchMode ? 'Exit batch mode' : 'Enter batch mode'}
+                      title={isBatchMode ? 'Exit batch mode' : 'Enter batch mode'}
+                    >
+                      {isBatchMode ? <CheckBox /> : <CheckBoxOutlineBlank />}
+                    </IconButton>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem', display: { xs: 'none', md: 'block' } }}>
+                      Actions
+                    </Typography>
+                  </Box>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {transactions.map((transaction, index) => {
-                // Calculate row number based on pagination
-                const rowNumber = ((filters.page || 1) - 1) * (filters.limit || 10) + index + 1;
+              {(() => {
+                const grouped = groupBy !== 'none' 
+                  ? groupTransactions(filteredTransactions)
+                  : { 'All': filteredTransactions };
+                
+                return Object.entries(grouped).map(([groupKey, groupTransactions]) => (
+                  <React.Fragment key={groupKey}>
+                    {groupBy !== 'none' && (
+                      <TableRow>
+                        <TableCell 
+                          colSpan={isBatchMode ? 8 : 7}
+                          sx={{ 
+                            bgcolor: 'action.hover', 
+                            fontWeight: 'bold',
+                            py: 1
+                          }}
+                          aria-label={`Group: ${groupKey}`}
+                        >
+                          <Typography variant="subtitle2">
+                            {groupKey} ({groupTransactions.length} {groupTransactions.length === 1 ? 'transaction' : 'transactions'})
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {groupTransactions.map((transaction) => {
+                const isCredit = transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT';
                 return (
-                <TableRow key={transaction.id} hover>
-                  <TableCell align="center">
-                    <Typography variant="body2" color="text.secondary">
-                      {rowNumber}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {formatDate(transaction.transactionDate)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                        {transaction.description}
+                <TableRow 
+                  key={transaction.id} 
+                  hover
+                  sx={{
+                    backgroundColor: isCredit ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
+                    '&:hover': {
+                      backgroundColor: isCredit ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+                    }
+                  }}
+                  aria-label={`Transaction: ${transaction.description}, ${formatCurrency(transaction.amount)}`}
+                >
+                  {isBatchMode && (
+                    <TableCell sx={{ width: '60px', minWidth: '60px', maxWidth: '60px' }}>
+                      <Checkbox
+                        checked={selectedTransactions.has(transaction.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedTransactions);
+                          if (e.target.checked) {
+                            newSelected.add(transaction.id);
+                          } else {
+                            newSelected.delete(transaction.id);
+                          }
+                          setSelectedTransactions(newSelected);
+                        }}
+                        aria-label={`Select transaction: ${transaction.description}`}
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell
+                    onDoubleClick={() => {
+                      if (!isTransactionMonthClosed(transaction)) {
+                        setEditingTransactionId(transaction.id);
+                        setEditingField('description');
+                        setEditingValue(transaction.description);
+                      }
+                    }}
+                    sx={{ 
+                      cursor: isTransactionMonthClosed(transaction) ? 'default' : 'pointer',
+                      width: isBatchMode ? '350px' : '380px',
+                      minWidth: isBatchMode ? '350px' : '380px',
+                      maxWidth: isBatchMode ? '350px' : '380px'
+                    }}
+                    title={isTransactionMonthClosed(transaction) ? 'Month is closed' : 'Double-click to edit'}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', overflow: 'hidden', width: '100%' }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontWeight: 'medium', 
+                          fontSize: '0.875rem',
+                          color: 'text.secondary',
+                          minWidth: '160px',
+                          flexShrink: 0
+                        }}
+                      >
+                        {formatDateWithTime(transaction.transactionDate)}
                       </Typography>
+                      {editingTransactionId === transaction.id && editingField === 'description' ? (
+                        <TextField
+                          size="small"
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={async () => {
+                            if (editingValue !== transaction.description) {
+                              try {
+                                await apiService.updateBankTransaction(transaction.id, {
+                                  bankAccountId: transaction.bankAccountId,
+                                  amount: transaction.amount,
+                                  transactionType: transaction.transactionType as 'CREDIT' | 'DEBIT',
+                                  description: editingValue,
+                                  category: transaction.category,
+                                  merchant: transaction.merchant,
+                                  location: transaction.location,
+                                  notes: transaction.notes,
+                                  referenceNumber: transaction.referenceNumber,
+                                  transactionDate: transaction.transactionDate,
+                                });
+                                loadTransactionsAndAnalytics();
+                              } catch (err) {
+                                setError(getErrorMessage(err));
+                              }
+                            }
+                            setEditingTransactionId(null);
+                            setEditingField(null);
+                            setEditingValue('');
+                          }}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          autoFocus
+                          sx={{ flex: 1, minWidth: '150px' }}
+                          aria-label="Edit description"
+                        />
+                      ) : (
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontWeight: 'medium', 
+                            fontSize: '0.875rem',
+                            flex: 1,
+                            minWidth: '100px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                          aria-label={`Description: ${transaction.description}`}
+                        >
+                          {transaction.description}
+                        </Typography>
+                      )}
                       {transaction.merchant && (
-                        <Typography variant="caption" color="text.secondary">
-                          {transaction.merchant}
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary" 
+                          sx={{ fontSize: '0.75rem', fontStyle: 'italic', flexShrink: 0 }}
+                        >
+                          ({transaction.merchant})
                         </Typography>
                       )}
                     </Box>
                   </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={transaction.category || 'Uncategorized'} 
-                      color="primary"
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={transaction.transactionType} 
-                      color={(transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ width: '130px', minWidth: '130px', maxWidth: '130px' }}>
                     <Typography 
-                      variant="body2" 
+                      variant="body1" 
                       sx={{ 
                         fontWeight: 'bold',
-                        color: (transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? 'success.main' : 'error.main'
+                        fontSize: '0.875rem',
+                        color: isCredit ? 'success.main' : 'error.main'
                       }}
                     >
-                      {(transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT') ? '+' : '-'}
+                      {isCredit ? '+' : '-'}
                       {formatCurrency(Math.abs(transaction.amount))}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ width: '120px' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                  <TableCell 
+                    sx={{ width: '150px', minWidth: '150px', maxWidth: '150px' }}
+                    onDoubleClick={() => {
+                      if (!isTransactionMonthClosed(transaction)) {
+                        setEditingTransactionId(transaction.id);
+                        setEditingField('category');
+                        setEditingValue(transaction.category || '');
+                      }
+                    }}
+                    title={isTransactionMonthClosed(transaction) ? 'Month is closed' : 'Double-click to edit category'}
+                  >
+                    {editingTransactionId === transaction.id && editingField === 'category' ? (
+                      <TextField
+                        size="small"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onBlur={async () => {
+                          if (editingValue !== transaction.category) {
+                            try {
+                                await apiService.updateBankTransaction(transaction.id, {
+                                  bankAccountId: transaction.bankAccountId,
+                                  amount: transaction.amount,
+                                  transactionType: transaction.transactionType as 'CREDIT' | 'DEBIT',
+                                  description: transaction.description,
+                                  category: editingValue || undefined,
+                                  merchant: transaction.merchant,
+                                  location: transaction.location,
+                                  notes: transaction.notes,
+                                  referenceNumber: transaction.referenceNumber,
+                                  transactionDate: transaction.transactionDate,
+                                });
+                              loadTransactionsAndAnalytics();
+                            } catch (err) {
+                              setError(getErrorMessage(err));
+                            }
+                          }
+                          setEditingTransactionId(null);
+                          setEditingField(null);
+                          setEditingValue('');
+                        }}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                        autoFocus
+                        sx={{ width: '100%' }}
+                        aria-label="Edit category"
+                      />
+                    ) : (
+                      <Chip 
+                        label={transaction.category || 'Uncategorized'} 
+                        color="primary"
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: '0.75rem' }}
+                        aria-label={`Category: ${transaction.category || 'Uncategorized'}`}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ width: '130px', minWidth: '130px', maxWidth: '130px' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.875rem' }}>
                       {transaction.accountName || 'N/A'}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2">
-                      {formatCurrency(transaction.balanceAfterTransaction)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
+                  <TableCell sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
+                    <Chip 
+                      label={transaction.transactionType} 
+                      color={isCredit ? 'success' : 'error'}
                       size="small"
-                      onClick={() => handleViewDetails(transaction)}
-                      sx={{ color: 'primary.main' }}
-                    >
-                      <Visibility />
-                    </IconButton>
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+                  </TableCell>
+                  <TableCell align="center" sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleViewDetails(transaction)}
+                        sx={{ color: 'primary.main' }}
+                        aria-label={`View details for transaction: ${transaction.description}`}
+                        title="View details"
+                      >
+                        <Visibility fontSize="small" />
+                      </IconButton>
+                      {!isTransactionMonthClosed(transaction) && (
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setTransactionToEdit(transaction);
+                            setShowTransactionForm(true);
+                          }}
+                          sx={{ color: 'info.main', padding: '4px' }}
+                          aria-label={`Edit transaction: ${transaction.description}`}
+                          title="Edit transaction"
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
                 );
-              })}
+                    })}
+                  </React.Fragment>
+                ));
+              })()}
             </TableBody>
           </Table>
         </TableContainer>
           </Box>
         </>
-      )}
+      );
+      })()}
 
       {/* Pagination Controls */}
-      {transactions.length > 0 && (
+      {(() => {
+        // Client-side filtering for search query
+        let filteredTransactions = transactions;
+        
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          filteredTransactions = transactions.filter(t => 
+            t.description?.toLowerCase().includes(query) ||
+            t.merchant?.toLowerCase().includes(query) ||
+            t.referenceNumber?.toLowerCase().includes(query) ||
+            t.category?.toLowerCase().includes(query)
+          );
+        }
+        
+        // Apply column filters
+        if (columnFilters.dateFrom) {
+          filteredTransactions = filteredTransactions.filter(t => {
+            const tDate = new Date(t.transactionDate);
+            const filterDate = new Date(columnFilters.dateFrom);
+            filterDate.setHours(0, 0, 0, 0);
+            return tDate >= filterDate;
+          });
+        }
+        if (columnFilters.dateTo) {
+          filteredTransactions = filteredTransactions.filter(t => {
+            const tDate = new Date(t.transactionDate);
+            const filterDate = new Date(columnFilters.dateTo);
+            filterDate.setHours(23, 59, 59, 999);
+            return tDate <= filterDate;
+          });
+        }
+        if (columnFilters.category) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.category?.toLowerCase().includes(columnFilters.category.toLowerCase())
+          );
+        }
+        if (columnFilters.transactionType) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.transactionType?.toLowerCase() === columnFilters.transactionType.toLowerCase()
+          );
+        }
+        if (columnFilters.amountMin) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.amount >= parseFloat(columnFilters.amountMin)
+          );
+        }
+        if (columnFilters.amountMax) {
+          filteredTransactions = filteredTransactions.filter(t => 
+            t.amount <= parseFloat(columnFilters.amountMax)
+          );
+        }
+        
+        return filteredTransactions.length > 0 && (
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column', sm: 'row' },
@@ -1521,7 +2408,7 @@ const TransactionsPage: React.FC = () => {
                   </Select>
                 </FormControl>
                 <Typography variant="body2" color="text.secondary">
-                  Showing {((filters.page || 1) - 1) * (filters.limit || 10) + 1} to {Math.min((filters.page || 1) * (filters.limit || 10), transactions.length)} of {transactions.length} transactions
+                  Showing {((filters.page || 1) - 1) * (filters.limit || 10) + 1} to {Math.min((filters.page || 1) * (filters.limit || 10), filteredTransactions.length)} of {filteredTransactions.length} transactions
                 </Typography>
               </>
             )}
@@ -1546,13 +2433,13 @@ const TransactionsPage: React.FC = () => {
                   </FormControl>
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                  {((filters.page || 1) - 1) * (filters.limit || 10) + 1}-{Math.min((filters.page || 1) * (filters.limit || 10), transactions.length)} of {transactions.length}
+                  {((filters.page || 1) - 1) * (filters.limit || 10) + 1}-{Math.min((filters.page || 1) * (filters.limit || 10), filteredTransactions.length)} of {filteredTransactions.length}
                 </Typography>
               </Box>
             )}
           </Box>
           <Pagination
-            count={Math.ceil(transactions.length / (filters.limit || 10))}
+            count={Math.ceil(filteredTransactions.length / (filters.limit || 10))}
             page={filters.page || 1}
             onChange={handlePageChange}
             color="primary"
@@ -1561,7 +2448,8 @@ const TransactionsPage: React.FC = () => {
             size={isMobile ? 'small' : 'medium'}
           />
         </Box>
-      )}
+        );
+      })()}
 
       {/* Transaction Analyzer Dialog */}
       <Dialog
@@ -2072,6 +2960,16 @@ const TransactionsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Quick Add Form Dialog */}
+      <QuickAddTransactionForm
+        open={showQuickAddForm}
+        onClose={() => setShowQuickAddForm(false)}
+        onSuccess={handleTransactionFormSuccess}
+        bankAccounts={bankAccounts}
+        defaultAccountId={getLastUsedAccount()}
+        defaultCategory={getLastUsedCategory()}
+      />
+
       {/* Transaction Form Dialog */}
       <TransactionForm
         open={showTransactionForm}
@@ -2082,7 +2980,59 @@ const TransactionsPage: React.FC = () => {
         onSuccess={handleTransactionFormSuccess}
         bankAccounts={bankAccounts}
         transaction={transactionToEdit}
+        defaultAccountId={getLastUsedAccount()}
+        defaultCategory={getLastUsedCategory()}
       />
+
+      {/* Save Filter Preset Dialog */}
+      <Dialog
+        open={showSavePresetDialog}
+        onClose={() => {
+          setShowSavePresetDialog(false);
+          setPresetName('');
+        }}
+        aria-labelledby="save-preset-dialog-title"
+        aria-describedby="save-preset-dialog-description"
+      >
+        <DialogTitle id="save-preset-dialog-title">Save Filter Preset</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Preset Name"
+            fullWidth
+            variant="outlined"
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            placeholder="e.g., Monthly Expenses, Work Account"
+            aria-label="Enter name for filter preset"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && presetName.trim()) {
+                handleSavePreset();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowSavePresetDialog(false);
+              setPresetName('');
+            }}
+            aria-label="Cancel saving filter preset"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSavePreset}
+            variant="contained"
+            disabled={!presetName.trim()}
+            aria-label="Save filter preset"
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

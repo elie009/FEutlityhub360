@@ -27,6 +27,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -54,9 +55,11 @@ import { BillStatus } from '../../types/bill';
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (accountId?: string, category?: string) => void;
   bankAccounts: BankAccount[];
   transaction?: BankAccountTransaction | null; // Optional transaction for edit mode
+  defaultAccountId?: string;
+  defaultCategory?: string;
 }
 
 interface BankAccountTransaction {
@@ -128,6 +131,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   onSuccess,
   bankAccounts,
   transaction: initialTransaction = null,
+  defaultAccountId = '',
+  defaultCategory = '',
 }) => {
   const isEditMode = !!initialTransaction;
   const [formData, setFormData] = useState({
@@ -160,6 +165,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [loans, setLoans] = useState<Loan[]>([]);
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
+  const [finalCategories, setFinalCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
   
   // Separate loading states for each data source
   const [loadingBankAccounts, setLoadingBankAccounts] = useState(false);
@@ -217,13 +223,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         }
         setShowTransferSelector(false); // Don't show transfer selector in edit mode
       } else {
-        // Reset form when dialog opens for new transaction
+        // Reset form when dialog opens for new transaction - use smart defaults
+        const accountId = defaultAccountId || (bankAccounts.length > 0 ? bankAccounts[0].id : '');
         setFormData({
-          bankAccountId: bankAccounts.length > 0 ? bankAccounts[0].id : '',
+          bankAccountId: accountId,
           amount: '',
           transactionType: 'DEBIT',
           description: '',
-          category: 'Expenses', // Default category for DEBIT transactions
+          category: defaultCategory || 'Expenses', // Use smart default or fallback
           merchant: '',
           location: '',
           transactionDate: new Date().toISOString().slice(0, 16),
@@ -394,6 +401,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
       
       setCategories(finalCategories);
+      setFinalCategories(finalCategories);
       
       // Set default "Expense" category if no category is selected and transaction type is DEBIT
       setFormData(prev => {
@@ -593,10 +601,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         await apiService.createBankTransaction(transactionData);
       }
 
-      onSuccess();
+      onSuccess(formData.bankAccountId, formData.category);
       onClose();
       } catch (err: unknown) {
-      setError(getErrorMessage(err, isEditMode ? 'Failed to update transaction' : 'Failed to create transaction'));
+      const errorMsg = getErrorMessage(err, isEditMode ? 'Failed to update transaction' : 'Failed to create transaction');
+      
+      // Make error messages more actionable
+      let actionableError = errorMsg;
+      if (errorMsg.includes('balance') || errorMsg.includes('insufficient')) {
+        actionableError = `Insufficient Balance: Your account doesn't have enough funds for this transaction. Please select a different account or reduce the amount.`;
+      } else if (errorMsg.includes('account') && errorMsg.includes('not found')) {
+        actionableError = `Account Error: The selected account may have been deleted or is inactive. Please select a different account.`;
+      } else if (errorMsg.includes('validation') || errorMsg.includes('required')) {
+        actionableError = `Validation Error: Please check that all required fields are filled correctly. Amount must be greater than 0.`;
+      } else if (errorMsg.includes('category')) {
+        actionableError = `Category Error: Please select a valid category from the list or enter a new one.`;
+      } else if (!isEditMode && errorMsg.includes('Failed to create')) {
+        actionableError = `Unable to create transaction: ${errorMsg}. Please verify your account balance and try again.`;
+      }
+      
+      setError(actionableError);
     } finally {
       setIsLoading(false);
     }
@@ -818,73 +842,57 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                       </Tooltip>
                     </Box>
-                    <FormControl fullWidth required>
-                      <InputLabel>
-                        {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
-                          ? 'Select Bill' 
-                          : formData.transactionPurpose === 'LOAN' 
-                          ? 'Select Loan' 
-                          : formData.transactionPurpose === 'SAVINGS' 
-                          ? 'Select Savings Account' 
-                          : 'Category'}
-                      </InputLabel>
-                      <Select
-                        value={
-                          formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY'
-                            ? formData.billId
-                            : formData.transactionPurpose === 'LOAN'
-                            ? formData.loanId
-                            : formData.transactionPurpose === 'SAVINGS'
-                            ? formData.savingsAccountId
-                            : formData.category
-                        }
-                        label={
-                          formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                    {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' || 
+                     formData.transactionPurpose === 'LOAN' || formData.transactionPurpose === 'SAVINGS' ? (
+                      <FormControl fullWidth required>
+                        <InputLabel>
+                          {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
                             ? 'Select Bill' 
                             : formData.transactionPurpose === 'LOAN' 
                             ? 'Select Loan' 
-                            : formData.transactionPurpose === 'SAVINGS' 
-                            ? 'Select Savings Account' 
-                            : 'Category'
-                        }
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Only allow purpose-based selection for DEBIT transactions
-                          if (formData.transactionType !== 'DEBIT') {
-                            handleCategoryChange(value);
-                            return;
+                            : 'Select Savings Account'}
+                        </InputLabel>
+                        <Select
+                          value={
+                            formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY'
+                              ? formData.billId
+                              : formData.transactionPurpose === 'LOAN'
+                              ? formData.loanId
+                              : formData.savingsAccountId
                           }
-                          
-                          if (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') {
-                            // Find the selected bill and set both billId and category
-                            const selectedBill = bills.find(b => b.id === value);
-                            setFormData(prev => ({
-                              ...prev,
-                              billId: value,
-                              category: selectedBill ? `Bill: ${selectedBill.billName}` : prev.category,
-                            }));
-                          } else if (formData.transactionPurpose === 'LOAN') {
-                            // Find the selected loan and set both loanId and category
-                            const selectedLoan = loans.find(l => l.id === value);
-                            setFormData(prev => ({
-                              ...prev,
-                              loanId: value,
-                              category: selectedLoan ? `Loan: ${selectedLoan.purpose}` : prev.category,
-                            }));
-                          } else if (formData.transactionPurpose === 'SAVINGS') {
-                            // Find the selected savings account and set both savingsAccountId and category
-                            const selectedSavings = savingsAccounts.find(s => s.id === value);
-                            setFormData(prev => ({
-                              ...prev,
-                              savingsAccountId: value,
-                              category: selectedSavings ? `Savings: ${selectedSavings.name}` : prev.category,
-                            }));
-                          } else {
-                            // Normal category selection
-                            handleCategoryChange(value);
+                          label={
+                            formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                              ? 'Select Bill' 
+                              : formData.transactionPurpose === 'LOAN' 
+                              ? 'Select Loan' 
+                              : 'Select Savings Account'
                           }
-                        }}
-                      >
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') {
+                              const selectedBill = bills.find(b => b.id === value);
+                              setFormData(prev => ({
+                                ...prev,
+                                billId: value,
+                                category: selectedBill ? `Bill: ${selectedBill.billName}` : prev.category,
+                              }));
+                            } else if (formData.transactionPurpose === 'LOAN') {
+                              const selectedLoan = loans.find(l => l.id === value);
+                              setFormData(prev => ({
+                                ...prev,
+                                loanId: value,
+                                category: selectedLoan ? `Loan: ${selectedLoan.purpose}` : prev.category,
+                              }));
+                            } else if (formData.transactionPurpose === 'SAVINGS') {
+                              const selectedSavings = savingsAccounts.find(s => s.id === value);
+                              setFormData(prev => ({
+                                ...prev,
+                                savingsAccountId: value,
+                                category: selectedSavings ? `Savings: ${selectedSavings.name}` : prev.category,
+                              }));
+                            }
+                          }}
+                        >
                         {/* Show bills when Bill Payment or Utility Payment is selected (only for DEBIT) */}
                         {formData.transactionType === 'DEBIT' && (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') ? (
                           loadingBills ? (
@@ -936,45 +944,75 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                           ) : (
                             <MenuItem disabled>No savings accounts available</MenuItem>
                           )
-                        ) : (
-                          // Show normal categories when no purpose is selected
-                          categories
-                            .filter(cat => {
-                              // Filter categories based on transaction type
-                              if (formData.transactionType === 'DEBIT') {
-                                return cat.type !== 'INCOME';
-                              }
-                              return true;
-                            })
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((category) => (
-                              <MenuItem key={category.id} value={category.name}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                                  {category.color && (
-                                    <Box
-                                      sx={{
-                                        width: 12,
-                                        height: 12,
-                                        borderRadius: '50%',
-                                        backgroundColor: category.color,
-                                        border: '1px solid #ddd'
-                                      }}
-                                    />
-                                  )}
-                                  <Typography variant="body2">{category.name}</Typography>
-                                  {category.type && (
-                                    <Chip 
-                                      label={category.type} 
-                                      size="small" 
-                                      sx={{ ml: 'auto', height: 18, fontSize: '0.65rem' }}
-                                    />
-                                  )}
-                                </Box>
-                              </MenuItem>
-                            ))
-                        )}
+                        ) : null}
                       </Select>
                     </FormControl>
+                    ) : (
+                      // Use Autocomplete for category when no specific purpose is selected
+                      <Autocomplete
+                        size="small"
+                        options={finalCategories
+                          .filter((cat) => {
+                            if (formData.transactionType === 'DEBIT') {
+                              return cat.type !== 'INCOME';
+                            }
+                            return true;
+                          })
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(cat => cat.name)}
+                        value={formData.category}
+                        onChange={(event, newValue) => {
+                          handleCategoryChange(newValue || '');
+                        }}
+                        freeSolo
+                        loading={loadingCategories}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Category"
+                            required
+                            placeholder="Search or type category..."
+                            InputProps={{
+                              ...params.InputProps,
+                              endAdornment: (
+                                <>
+                                  {loadingCategories ? <CircularProgress color="inherit" size={20} /> : null}
+                                  {params.InputProps.endAdornment}
+                                </>
+                              ),
+                            }}
+                          />
+                        )}
+                        renderOption={(props, option) => {
+                          const category = finalCategories.find(cat => cat.name === option);
+                          return (
+                            <Box component="li" {...props}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                {category?.color && (
+                                  <Box
+                                    sx={{
+                                      width: 12,
+                                      height: 12,
+                                      borderRadius: '50%',
+                                      backgroundColor: category.color,
+                                      border: '1px solid #ddd'
+                                    }}
+                                  />
+                                )}
+                                <Typography variant="body2">{option}</Typography>
+                                {category?.type && (
+                                  <Chip 
+                                    label={category.type} 
+                                    size="small" 
+                                    sx={{ ml: 'auto', height: 18, fontSize: '0.75rem' }}
+                                  />
+                                )}
+                              </Box>
+                            </Box>
+                          );
+                        }}
+                      />
+                    )}
                   </Box>
                 )}
               </Grid>

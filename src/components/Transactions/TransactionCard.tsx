@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Card, CardContent, Typography, Box, Chip, Grid, Divider,
   IconButton, Menu, MenuItem,
@@ -6,6 +6,7 @@ import {
 import {
   MoreVert, TrendingUp, TrendingDown, Receipt, LocationOn,
   Schedule, AccountBalance, AttachMoney, Category, Store,
+  Edit, Delete,
 } from '@mui/icons-material';
 import { BankAccountTransaction } from '../../types/transaction';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -13,6 +14,8 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 interface TransactionCardProps {
   transaction: BankAccountTransaction;
   onViewDetails?: (transaction: BankAccountTransaction) => void;
+  onEdit?: (transaction: BankAccountTransaction) => void;
+  onDelete?: (transactionId: string) => void;
 }
 
 const getTransactionTypeColor = (type: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -70,10 +73,16 @@ const formatDateShort = (dateString: string): string => {
   });
 };
 
-const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDetails }) => {
+const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDetails, onEdit, onDelete }) => {
   const { formatCurrency } = useCurrency();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const open = Boolean(anchorEl);
+  const SWIPE_THRESHOLD = 50; // Minimum distance to trigger swipe
+  const MAX_SWIPE = 80; // Maximum swipe distance
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -88,21 +97,120 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
     handleMenuClose();
   };
 
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    
+    const deltaX = e.touches[0].clientX - touchStartX.current;
+    const deltaY = Math.abs(e.touches[0].clientY - (touchStartY.current || 0));
+    
+    // Only allow horizontal swipe (not vertical scrolling)
+    if (deltaY < Math.abs(deltaX)) {
+      e.preventDefault();
+      // Limit swipe distance
+      const limitedDelta = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, deltaX));
+      setSwipeOffset(limitedDelta);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null) return;
+    
+    const absOffset = Math.abs(swipeOffset);
+    
+    if (absOffset > SWIPE_THRESHOLD) {
+      if (swipeOffset > 0 && onEdit) {
+        // Swipe right - Edit
+        onEdit(transaction);
+      } else if (swipeOffset < 0 && onDelete) {
+        // Swipe left - Delete
+        onDelete(transaction.id);
+      }
+    }
+    
+    // Reset
+    setSwipeOffset(0);
+    setIsSwiping(false);
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   const isCredit = transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT';
   const amountColor = isCredit ? 'success.main' : 'error.main';
   const amountPrefix = isCredit ? '+' : '-';
 
+  const showEditAction = swipeOffset > SWIPE_THRESHOLD && onEdit;
+  const showDeleteAction = swipeOffset < -SWIPE_THRESHOLD && onDelete;
+
   return (
-    <Card sx={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      '&:hover': {
-        boxShadow: 2,
-        transform: 'translateY(-1px)',
-        transition: 'all 0.2s ease'
-      }
-    }}>
+    <Box
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 1,
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Swipe Action Backgrounds */}
+      {showEditAction && (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '80px',
+            backgroundColor: 'primary.main',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1,
+          }}
+        >
+          <Edit sx={{ color: 'white', fontSize: 24 }} />
+        </Box>
+      )}
+      {showDeleteAction && (
+        <Box
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: '80px',
+            backgroundColor: 'error.main',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1,
+          }}
+        >
+          <Delete sx={{ color: 'white', fontSize: 24 }} />
+        </Box>
+      )}
+
+      <Card sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        transform: `translateX(${swipeOffset}px)`,
+        transition: isSwiping ? 'none' : 'transform 0.3s ease',
+        position: 'relative',
+        zIndex: 2,
+        '&:hover': {
+          boxShadow: 2,
+          transform: `translateX(${swipeOffset}px) translateY(-1px)`,
+          transition: 'all 0.2s ease'
+        }
+      }}>
       <CardContent sx={{ flexGrow: 1, p: 2, '&:last-child': { pb: 2 } }}>
         {/* Header Row - Description and Menu */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -284,7 +392,8 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
           View Details
         </MenuItem>
       </Menu>
-    </Card>
+      </Card>
+    </Box>
   );
 };
 
