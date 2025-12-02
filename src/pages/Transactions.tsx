@@ -2016,11 +2016,11 @@ const TransactionsPage: React.FC = () => {
                     </TableSortLabel>
                   </Box>
                   {showFilters && (
-                    <Box sx={{ mt: 1 }}>
-                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField
                           size="small"
-                          placeholder="From"
+                          label="From"
                           value={columnFilters.dateFrom}
                           onChange={handleColumnFilterChange('dateFrom')}
                           type="date"
@@ -2029,7 +2029,7 @@ const TransactionsPage: React.FC = () => {
                         />
                         <TextField
                           size="small"
-                          placeholder="To"
+                          label="To"
                           value={columnFilters.dateTo}
                           onChange={handleColumnFilterChange('dateTo')}
                           type="date"
@@ -2039,12 +2039,14 @@ const TransactionsPage: React.FC = () => {
                       </Box>
                       <TextField
                         size="small"
+                        label="Description"
                         placeholder="Search description"
                         value={searchQuery || columnFilters.description}
                         onChange={(e) => {
                           handleSearchChange(e);
                         }}
                         sx={{ width: '100%' }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Box>
                   )}
@@ -2060,22 +2062,24 @@ const TransactionsPage: React.FC = () => {
                     </Typography>
                   </TableSortLabel>
                   {showFilters && (
-                    <Box sx={{ mt: 1 }}>
+                    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <TextField
                         size="small"
-                        placeholder="Min"
+                        label="Min"
                         value={columnFilters.amountMin}
                         onChange={handleColumnFilterChange('amountMin')}
                         type="number"
-                        sx={{ width: '100%', mb: 0.5 }}
+                        sx={{ width: '100%' }}
+                        InputLabelProps={{ shrink: true }}
                       />
                       <TextField
                         size="small"
-                        placeholder="Max"
+                        label="Max"
                         value={columnFilters.amountMax}
                         onChange={handleColumnFilterChange('amountMax')}
                         type="number"
                         sx={{ width: '100%' }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Box>
                   )}
@@ -2094,10 +2098,12 @@ const TransactionsPage: React.FC = () => {
                     <Box sx={{ mt: 1 }}>
                       <TextField
                         size="small"
+                        label="Category"
                         placeholder="Filter category"
                         value={columnFilters.category}
                         onChange={handleColumnFilterChange('category')}
                         sx={{ width: '100%' }}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Box>
                   )}
@@ -2120,10 +2126,12 @@ const TransactionsPage: React.FC = () => {
                   {showFilters && (
                     <Box sx={{ mt: 1 }}>
                       <FormControl size="small" sx={{ width: '100%' }}>
+                        <InputLabel shrink>Type</InputLabel>
                         <Select
                           value={columnFilters.transactionType}
                           onChange={(e) => setColumnFilters(prev => ({ ...prev, transactionType: e.target.value }))}
                           displayEmpty
+                          label="Type"
                         >
                           <MenuItem value="">All Types</MenuItem>
                           <MenuItem value="credit">Credit</MenuItem>
