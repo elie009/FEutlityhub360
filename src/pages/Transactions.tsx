@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container, Typography, Box, Grid, Card, CardContent, Alert,
   Button, FormControl, InputLabel, Select, MenuItem,
@@ -198,6 +198,19 @@ const TransactionsPage: React.FC = () => {
       }
     }
   }, [user?.id]);
+
+  // Compute Transaction Income and Expense from transactions array
+  const { totalIncoming, totalOutgoing } = useMemo(() => {
+    const income = transactions
+      .filter(t => t.transactionType === 'CREDIT')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    const expense = transactions
+      .filter(t => t.transactionType === 'DEBIT')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    return { totalIncoming: income, totalOutgoing: expense };
+  }, [transactions]);
 
   // Load on initial mount only
   useEffect(() => {
@@ -879,33 +892,74 @@ const TransactionsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
+      <Container maxWidth={false} sx={{ mt: { xs: 1, sm: 4 }, mb: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
         {/* Header Skeleton */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Skeleton variant="text" width={250} height={40} />
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'flex-start', sm: 'center' }, 
+          mb: { xs: 2, sm: 4 },
+          gap: { xs: 1.5, sm: 0 }
+        }}>
+          <Skeleton variant="text" width={250} height={40} sx={{ mb: { xs: 1, sm: 0 } }} />
+          <Box sx={{ display: 'flex', gap: { xs: 0.75, sm: 2 }, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
+            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1, flex: { xs: '1 1 auto', sm: '0 0 auto' } }} />
+            <Skeleton variant="rectangular" width={140} height={40} sx={{ borderRadius: 1, flex: { xs: '1 1 auto', sm: '0 0 auto' } }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1, display: { xs: 'none', sm: 'block' } }} />
+            <Skeleton variant="rectangular" width={80} height={40} sx={{ borderRadius: 1 }} />
+          </Box>
+        </Box>
+
+        {/* Bank Account Transaction Analytics Header Skeleton */}
+        <Box sx={{ mb: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 1.5, sm: 3 }, flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Skeleton variant="circular" width={24} height={24} />
+              <Skeleton variant="text" width={200} height={32} />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Skeleton variant="rectangular" width={140} height={40} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={140} height={40} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={180} height={40} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width={80} height={40} sx={{ borderRadius: 1 }} />
+            </Box>
           </Box>
         </Box>
 
         {/* Analytics Cards Skeleton */}
-        <Box sx={{ mb: 4 }}>
-          <Skeleton variant="text" width={300} height={32} sx={{ mb: 3 }} />
-          <Grid container spacing={1} sx={{ mb: 1.5 }}>
+        <Box sx={{ mb: { xs: 2, sm: 4 } }}>
+          <Grid container spacing={1.5}>
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <Grid item xs={4} sm={2.4} md={1.7} key={i}>
-                <Card>
-                  <CardContent sx={{ p: 1 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <Skeleton variant="circular" width={18} height={18} sx={{ mb: 0.5 }} />
-                      <Skeleton variant="text" width="80%" height={24} sx={{ mb: 0.25 }} />
-                      <Skeleton variant="text" width="60%" height={16} />
-                    </Box>
+              <Grid item xs={6} sm={3} md={1.5} key={i}>
+                <Card sx={{ height: '100%' }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                    <Skeleton variant="circular" width={32} height={32} sx={{ mb: 1 }} />
+                    <Skeleton variant="text" width="90%" height={28} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="text" width="70%" height={16} />
                   </CardContent>
                 </Card>
               </Grid>
             ))}
           </Grid>
+        </Box>
+
+        {/* Search Bar and Filters Skeleton */}
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1 }}>
+            <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1, flex: { xs: '1 1 100%', sm: '1 1 auto', md: '1 1 300px' }, minWidth: { xs: '100%', sm: '200px', md: '300px' } }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1, display: { xs: 'none', sm: 'block' } }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={100} height={40} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
+          </Box>
         </Box>
 
         {/* Transactions Table Skeleton */}
@@ -922,25 +976,50 @@ const TransactionsPage: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                    <TableCell><Skeleton variant="text" width={60} /></TableCell>
+                    <TableCell sx={{ width: isBatchMode ? '350px' : '380px' }}>
+                      <Skeleton variant="text" width={120} height={20} />
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: '130px' }}>
+                      <Skeleton variant="text" width={80} height={20} />
+                    </TableCell>
+                    <TableCell sx={{ width: '150px' }}>
+                      <Skeleton variant="text" width={100} height={20} />
+                    </TableCell>
+                    <TableCell sx={{ width: '130px' }}>
+                      <Skeleton variant="text" width={80} height={20} />
+                    </TableCell>
+                    <TableCell sx={{ width: '90px' }}>
+                      <Skeleton variant="text" width={60} height={20} />
+                    </TableCell>
+                    <TableCell align="center" sx={{ width: '90px' }}>
+                      <Skeleton variant="text" width={70} height={20} />
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
                     <TableRow key={i}>
-                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
-                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
-                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                      <TableCell><Skeleton variant="text" width={60} /></TableCell>
-                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
-                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
-                      <TableCell><Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                          <Skeleton variant="text" width={100} height={20} />
+                          <Skeleton variant="text" width={200} height={20} />
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Skeleton variant="text" width={80} height={20} />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton variant="text" width={100} height={20} />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton variant="text" width={80} height={20} />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1551,9 +1630,7 @@ const TransactionsPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <TrendingUp sx={{ fontSize: { xs: 20, sm: 18 }, color: 'success.main', mb: { xs: 0.5, sm: 0.5 } }} />
                     <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {analytics?.totalIncoming !== undefined && analytics?.totalIncoming !== null 
-                        ? formatCurrency(analytics.totalIncoming) 
-                        : formatCurrency(0)}
+                      {formatCurrency(totalIncoming)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
                       Transaction Income
@@ -1594,9 +1671,7 @@ const TransactionsPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                     <TrendingDown sx={{ fontSize: { xs: 20, sm: 18 }, color: 'error.main', mb: { xs: 0.5, sm: 0.5 } }} />
                     <Typography variant="h6" sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 600, lineHeight: 1.2, mb: 0.25 }}>
-                      {analytics?.totalOutgoing !== undefined && analytics?.totalOutgoing !== null 
-                        ? formatCurrency(analytics.totalOutgoing) 
-                        : formatCurrency(0)}
+                      {formatCurrency(totalOutgoing)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.75rem' }, textAlign: 'center' }}>
                       Transaction Expense
@@ -1894,6 +1969,47 @@ const TransactionsPage: React.FC = () => {
           filteredTransactions = filteredTransactions.filter(t => 
             t.amount <= parseFloat(columnFilters.amountMax)
           );
+        }
+        
+        // Apply sorting
+        if (sortField) {
+          filteredTransactions = [...filteredTransactions].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+            
+            switch (sortField) {
+              case 'transactionDate':
+                aValue = new Date(a.transactionDate).getTime();
+                bValue = new Date(b.transactionDate).getTime();
+                break;
+              case 'description':
+                aValue = (a.description || '').toLowerCase();
+                bValue = (b.description || '').toLowerCase();
+                break;
+              case 'amount':
+                aValue = a.amount || 0;
+                bValue = b.amount || 0;
+                break;
+              case 'category':
+                aValue = (a.category || '').toLowerCase();
+                bValue = (b.category || '').toLowerCase();
+                break;
+              case 'transactionType':
+                aValue = (a.transactionType || '').toLowerCase();
+                bValue = (b.transactionType || '').toLowerCase();
+                break;
+              default:
+                return 0;
+            }
+            
+            if (aValue < bValue) {
+              return sortDirection === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+              return sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+          });
         }
         
         return filteredTransactions.length === 0 ? (
@@ -2487,6 +2603,47 @@ const TransactionsPage: React.FC = () => {
           filteredTransactions = filteredTransactions.filter(t => 
             t.amount <= parseFloat(columnFilters.amountMax)
           );
+        }
+        
+        // Apply sorting
+        if (sortField) {
+          filteredTransactions = [...filteredTransactions].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+            
+            switch (sortField) {
+              case 'transactionDate':
+                aValue = new Date(a.transactionDate).getTime();
+                bValue = new Date(b.transactionDate).getTime();
+                break;
+              case 'description':
+                aValue = (a.description || '').toLowerCase();
+                bValue = (b.description || '').toLowerCase();
+                break;
+              case 'amount':
+                aValue = a.amount || 0;
+                bValue = b.amount || 0;
+                break;
+              case 'category':
+                aValue = (a.category || '').toLowerCase();
+                bValue = (b.category || '').toLowerCase();
+                break;
+              case 'transactionType':
+                aValue = (a.transactionType || '').toLowerCase();
+                bValue = (b.transactionType || '').toLowerCase();
+                break;
+              default:
+                return 0;
+            }
+            
+            if (aValue < bValue) {
+              return sortDirection === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+              return sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+          });
         }
         
         return filteredTransactions.length > 0 && (
