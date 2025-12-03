@@ -1531,6 +1531,24 @@ class ApiService {
     });
   }
 
+  async deleteAllNotifications(userId: string): Promise<number> {
+    if (isMockDataEnabled()) {
+      // Mock implementation - return 0 for mock data
+      return 0;
+    }
+    
+    try {
+      const response = await this.request<{ success: boolean; data: number; message?: string }>(
+        `/Notifications/user/${userId}/all`,
+        { method: 'DELETE' }
+      );
+      return response.data || 0;
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error);
+      throw error;
+    }
+  }
+
   async sendNotification(userId: string, type: string, message: string): Promise<Notification> {
     return this.request<Notification>('/notifications/send', {
       method: 'POST',

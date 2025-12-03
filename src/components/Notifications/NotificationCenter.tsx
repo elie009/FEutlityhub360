@@ -17,6 +17,11 @@ import {
   Menu,
   MenuItem,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -100,6 +105,8 @@ const NotificationCenter: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   useEffect(() => {
@@ -147,6 +154,9 @@ const NotificationCenter: React.FC = () => {
           unreadCount: Math.max(0, prev.unreadCount - 1)
         } : null);
       }
+      
+      // Trigger notification count refresh in AppBar and Sidebar
+      window.dispatchEvent(new Event('notificationCountChanged'));
     } catch (err: unknown) {
       console.error('Failed to mark notification as read:', err);
     }
@@ -170,8 +180,36 @@ const NotificationCenter: React.FC = () => {
           unreadCount: 0
         } : null);
       }
+      
+      // Trigger notification count refresh in AppBar and Sidebar
+      window.dispatchEvent(new Event('notificationCountChanged'));
     } catch (err: unknown) {
       console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!user) return;
+    
+    try {
+      setIsDeleting(true);
+      const deletedCount = await apiService.deleteAllNotifications(user.id);
+      setNotifications([]);
+      setSummary(prev => prev ? {
+        ...prev,
+        unreadCount: 0,
+        totalCount: 0
+      } : null);
+      setDeleteDialogOpen(false);
+      // Show success message
+      setError('');
+      
+      // Trigger notification count refresh in AppBar and Sidebar
+      window.dispatchEvent(new Event('notificationCountChanged'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete all notifications'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -276,6 +314,15 @@ const NotificationCenter: React.FC = () => {
           >
             Mark All as Read
           </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<Delete />}
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={notifications.length === 0}
+          >
+            Delete All
+          </Button>
           <IconButton onClick={handleMenuOpen}>
             <Badge badgeContent={unreadCount} color="error">
               <NotificationsActive />
@@ -379,6 +426,37 @@ const NotificationCenter: React.FC = () => {
           </List>
         </Card>
       )}
+
+      {/* Delete All Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !isDeleting && setDeleteDialogOpen(false)}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Delete All Notifications?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete all {notifications.length} notification(s)? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteAll} 
+            color="error" 
+            variant="contained"
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={16} /> : <Delete />}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete All'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

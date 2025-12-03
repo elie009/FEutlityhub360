@@ -51,9 +51,19 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
       };
 
       fetchUnreadCount();
-      // Refresh count every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000);
-      return () => clearInterval(interval);
+      // Refresh count every 2 minutes (reduced from 30 seconds to prevent excessive polling)
+      const interval = setInterval(fetchUnreadCount, 120000);
+      
+      // Listen for notification count changes (e.g., after deletion)
+      const handleNotificationCountChange = () => {
+        fetchUnreadCount();
+      };
+      window.addEventListener('notificationCountChanged', handleNotificationCountChange);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('notificationCountChanged', handleNotificationCountChange);
+      };
     }
   }, [user?.id]);
 

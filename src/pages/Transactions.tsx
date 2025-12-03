@@ -109,6 +109,7 @@ const TransactionsPage: React.FC = () => {
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [showFiltersSection, setShowFiltersSection] = useState<boolean>(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showAnalyzerDialog, setShowAnalyzerDialog] = useState(false);
@@ -1061,6 +1062,39 @@ const TransactionsPage: React.FC = () => {
           width: { xs: '100%', sm: 'auto' }
         }}>
           <Button
+            variant="outlined"
+            color="primary"
+            startIcon={showFiltersSection ? <FilterListOff /> : <FilterList />}
+            onClick={() => setShowFiltersSection(!showFiltersSection)}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              mr: { xs: 0.5, sm: 1 },
+              flex: { xs: '1 1 auto', sm: '0 0 auto' },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              py: { xs: 0.75, sm: 1 },
+              px: { xs: 1.5, sm: 2 }
+            }}
+          >
+            {showFiltersSection ? (isMobile ? 'Hide Filters' : 'Hide Filters') : (isMobile ? 'Show Filters' : 'Show Filters')}
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Receipt />}
+            onClick={handleCreateTransaction}
+            disabled={bankAccounts.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              mr: { xs: 0.5, sm: 1 },
+              flex: { xs: '1 1 auto', sm: '0 0 auto' },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              py: { xs: 0.75, sm: 1 },
+              px: { xs: 1.5, sm: 2 }
+            }}
+          >
+            {isMobile ? 'Full Form' : 'Full Form'}
+          </Button>
+          <Button
             variant="contained"
             color="primary"
             startIcon={<Receipt />}
@@ -1076,6 +1110,22 @@ const TransactionsPage: React.FC = () => {
             }}
           >
             {isMobile ? 'Quick Add' : 'Quick Add'}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AutoAwesome />}
+            onClick={() => setShowAnalyzerDialog(true)}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              mr: { xs: 0, sm: 1 },
+              flex: { xs: '1 1 auto', sm: '0 0 auto' },
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              py: { xs: 0.75, sm: 1 },
+              px: { xs: 1.5, sm: 2 }
+            }}
+          >
+            {isMobile ? 'Analyzer' : 'Transaction Analyzer'}
           </Button>
           <input
             accept="image/jpeg,image/jpg,image/png"
@@ -1131,39 +1181,6 @@ const TransactionsPage: React.FC = () => {
               </Button>
             </label>
           </Tooltip>
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<Receipt />}
-            onClick={handleCreateTransaction}
-            disabled={bankAccounts.length === 0}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Full Form' : 'Full Form'}
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AutoAwesome />}
-            onClick={() => setShowAnalyzerDialog(true)}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Analyzer' : 'Transaction Analyzer'}
-          </Button>
           {!isMobile && (
             <>
               <ToggleButtonGroup
@@ -1416,8 +1433,146 @@ const TransactionsPage: React.FC = () => {
             </Button>
           </Box>
         </Box>
+      </Box>
 
-        {/* Analytics Cards - Single Row with 8 Cards */}
+      {/* Search Bar and Quick Filters */}
+      {showFiltersSection && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1 }}>
+            <TextField
+              size="small"
+              placeholder="Search transaction by description . . ."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              aria-label="Search transactions"
+              InputProps={{
+                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+                endAdornment: searchQuery && (
+                  <IconButton
+                    size="small"
+                    onClick={() => removeFilter('search')}
+                    sx={{ mr: -1 }}
+                  >
+                    <Close fontSize="small" />
+                  </IconButton>
+                ),
+              }}
+              sx={{
+                flex: { xs: '1 1 100%', sm: '1 1 auto', md: '1 1 300px' },
+                minWidth: { xs: '100%', sm: '200px', md: '300px' },
+                '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
+              }}
+            />
+            
+            {/* Show Column Filters Button */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+              {!isMobile && (
+                <Button
+                  variant="outlined"
+                  startIcon={showFilters ? <FilterListOff /> : <FilterList />}
+                  onClick={toggleFilters}
+                  size="small"
+                  color={showFilters ? "secondary" : "primary"}
+                  sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+                >
+                  {showFilters ? 'Hide Column Filters' : 'Show Column Filters'}
+                </Button>
+              )}
+            </Box>
+
+            {/* Save Filter and Clear All Buttons */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Save />}
+                onClick={() => setShowSavePresetDialog(true)}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+                aria-label="Save current filter preset"
+              >
+                Save Filter
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Clear />}
+                onClick={handleClearFilters}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+                aria-label="Clear all filters"
+              >
+                Clear All
+              </Button>
+            </Box>
+            
+            {/* Quick Filter Presets */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleQuickFilter('today')}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleQuickFilter('thisWeek')}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              >
+                This Week
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleQuickFilter('thisMonth')}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              >
+                This Month
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleQuickFilter('last7Days')}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              >
+                Last 7 Days
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleQuickFilter('last30Days')}
+                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
+              >
+                Last 30 Days
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Active Filter Chips */}
+          {getActiveFilters().length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'medium', mr: 1 }}>
+                Active Filters:
+              </Typography>
+              {getActiveFilters().map((filter, index) => (
+                <Chip
+                  key={index}
+                  label={filter.label}
+                  onDelete={() => removeFilter(filter.type)}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ fontSize: '0.75rem' }}
+                />
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Analytics Cards - Single Row with 8 Cards */}
+      <Box sx={{ mb: { xs: 2, sm: 4 } }}>
         <Grid container spacing={{ xs: 1, sm: 1.5 }}>
           {/* 1. Total Balance */}
           <Grid item xs={6} sm={3} md={1.5}>
@@ -1682,140 +1837,6 @@ const TransactionsPage: React.FC = () => {
             </Tooltip>
           </Grid>
         </Grid>
-      </Box>
-
-      {/* Search Bar and Quick Filters */}
-      <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1 }}>
-          <TextField
-            size="small"
-            placeholder="Search transaction by description . . ."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            aria-label="Search transactions"
-            InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
-              endAdornment: searchQuery && (
-                <IconButton
-                  size="small"
-                  onClick={() => removeFilter('search')}
-                  sx={{ mr: -1 }}
-                >
-                  <Close fontSize="small" />
-                </IconButton>
-              ),
-            }}
-            sx={{
-              flex: { xs: '1 1 100%', sm: '1 1 auto', md: '1 1 300px' },
-              minWidth: { xs: '100%', sm: '200px', md: '300px' },
-              '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', sm: '1rem' } },
-            }}
-          />
-          
-          {/* Show Column Filters Button */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-            {!isMobile && (
-              <Button
-                variant="outlined"
-                startIcon={showFilters ? <FilterListOff /> : <FilterList />}
-                onClick={toggleFilters}
-                size="small"
-                color={showFilters ? "secondary" : "primary"}
-                sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-              >
-                {showFilters ? 'Hide Column Filters' : 'Show Column Filters'}
-              </Button>
-            )}
-          </Box>
-
-          {/* Save Filter and Clear All Buttons */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<Save />}
-              onClick={() => setShowSavePresetDialog(true)}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-              aria-label="Save current filter preset"
-            >
-              Save Filter
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<Clear />}
-              onClick={handleClearFilters}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-              aria-label="Clear all filters"
-            >
-              Clear All
-            </Button>
-          </Box>
-          
-          {/* Quick Filter Presets */}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleQuickFilter('today')}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-            >
-              Today
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleQuickFilter('thisWeek')}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-            >
-              This Week
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleQuickFilter('thisMonth')}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-            >
-              This Month
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleQuickFilter('last7Days')}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-            >
-              Last 7 Days
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => handleQuickFilter('last30Days')}
-              sx={{ fontSize: '0.875rem', minWidth: 'auto', px: 2 }}
-            >
-              Last 30 Days
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Active Filter Chips */}
-        {getActiveFilters().length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'medium', mr: 1 }}>
-              Active Filters:
-            </Typography>
-            {getActiveFilters().map((filter, index) => (
-              <Chip
-                key={index}
-                label={filter.label}
-                onDelete={() => removeFilter(filter.type)}
-                size="small"
-                color="primary"
-                variant="outlined"
-                sx={{ fontSize: '0.75rem' }}
-              />
-            ))}
-          </Box>
-        )}
       </Box>
 
       {/* Batch Actions Bar */}
