@@ -4008,6 +4008,56 @@ class ApiService {
 
   // ==================== DISPOSABLE AMOUNT APIs ====================
 
+  // Get recent activity data for dashboard
+  async getRecentActivity(): Promise<{
+    userId: string;
+    generatedAt: string;
+    incomeSourcesCount: number;
+    totalMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableAmount: number;
+    hasProfile: boolean;
+    profileStatus: string;
+  }> {
+    if (isMockDataEnabled()) {
+      return {
+        userId: 'demo-user-123',
+        generatedAt: new Date().toISOString(),
+        incomeSourcesCount: 2,
+        totalMonthlyIncome: 50000.00,
+        totalMonthlyGoals: 10000.00,
+        disposableAmount: 19511.00,
+        hasProfile: true,
+        profileStatus: 'Profile completed with 2 income sources'
+      };
+    }
+
+    try {
+      const response = await this.request<{
+        success: boolean;
+        data: {
+          userId: string;
+          generatedAt: string;
+          incomeSourcesCount: number;
+          totalMonthlyIncome: number;
+          totalMonthlyGoals: number;
+          disposableAmount: number;
+          hasProfile: boolean;
+          profileStatus: string;
+        };
+        message?: string;
+      }>('/Dashboard/recent-activity', { method: 'GET' });
+
+      if (response && response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response?.message || 'Failed to get recent activity');
+    } catch (error) {
+      console.error('Failed to get recent activity:', error);
+      throw error;
+    }
+  }
+
   // Get disposable amount with detailed breakdown
   async getDisposableAmount(year: number, month: number): Promise<any> {
     if (isMockDataEnabled()) {

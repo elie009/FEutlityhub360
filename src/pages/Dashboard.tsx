@@ -188,6 +188,17 @@ const Dashboard: React.FC = () => {
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
   const [savingsLoading, setSavingsLoading] = useState(false);
   
+  // Recent Activity state
+  const [recentActivity, setRecentActivity] = useState<{
+    incomeSourcesCount: number;
+    totalMonthlyIncome: number;
+    totalMonthlyGoals: number;
+    disposableAmount: number;
+    hasProfile: boolean;
+    profileStatus: string;
+  } | null>(null);
+  const [recentActivityLoading, setRecentActivityLoading] = useState(false);
+  
   // Check if user needs to complete profile
   useEffect(() => {
     if (user && !hasProfile) {
@@ -376,6 +387,26 @@ const Dashboard: React.FC = () => {
     };
     
     loadUnpaidBills();
+  }, [isAuthenticated]);
+
+  // Fetch recent activity on page load
+  useEffect(() => {
+    const loadRecentActivity = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setRecentActivityLoading(true);
+        const activity = await apiService.getRecentActivity();
+        setRecentActivity(activity);
+      } catch (error) {
+        console.error('Failed to load recent activity:', error);
+        setRecentActivity(null);
+      } finally {
+        setRecentActivityLoading(false);
+      }
+    };
+    
+    loadRecentActivity();
   }, [isAuthenticated]);
 
   // Profile form handlers
@@ -1550,19 +1581,26 @@ const Dashboard: React.FC = () => {
                     Recent Activity
                   </Typography>
                   <Box>
-                    {(hasProfile || (userProfile && userProfile.id)) ? (
+                    {recentActivityLoading ? (
+                      <>
+                        <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
+                        <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
+                        <Skeleton variant="text" width="75%" height={24} sx={{ mb: 1 }} />
+                        <Skeleton variant="text" width="65%" height={24} />
+                      </>
+                    ) : recentActivity ? (
                       <>
                         <Typography variant="body2" color="textSecondary">
-                          • Profile completed with {incomeSourcesCount} income source{incomeSourcesCount !== 1 ? 's' : ''}
+                          • {recentActivity.profileStatus}
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
-                          • Monthly income: {formatCurrency(totalMonthlyIncome)}
+                          • Monthly income: {formatCurrency(recentActivity.totalMonthlyIncome)}
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
-                          • Monthly goals: {formatCurrency(totalMonthlyGoals)}
+                          • Monthly goals: {formatCurrency(recentActivity.totalMonthlyGoals)}
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
-                          • Disposable amount: {formatCurrency(disposableIncome)}
+                          • Disposable amount: {formatCurrency(recentActivity.disposableAmount)}
                         </Typography>
                       </>
                     ) : (
