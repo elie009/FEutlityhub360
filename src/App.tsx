@@ -15,6 +15,7 @@ import Register from './pages/Register';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
+import SuperAdmin from './pages/SuperAdmin';
 import Bills from './pages/Bills';
 import BillDetails from './pages/BillDetails';
 import Utilities from './pages/Utilities';
@@ -91,6 +92,11 @@ const AppRoutes: React.FC = () => {
           <Route path="users" element={
             <ProtectedRoute>
               <Users />
+            </ProtectedRoute>
+          } />
+          <Route path="super-admin" element={
+            <ProtectedRoute>
+              <SuperAdmin />
             </ProtectedRoute>
           } />
           <Route path="bills" element={

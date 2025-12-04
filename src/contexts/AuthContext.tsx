@@ -184,6 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
+        role: userData.role, // Include role from backend
         kycVerified: userData.isActive, // Map isActive to kycVerified
         isActive: isActiveUser,//userData.isActive,
         createdAt: userData.createdAt,
@@ -341,6 +342,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
+        role: userData.role, // Include role from backend
         kycVerified: userData.isActive,
         isActive: userData.isActive,
         createdAt: userData.createdAt,

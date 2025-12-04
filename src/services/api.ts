@@ -23,6 +23,16 @@ import {
   ScheduleOperationResponse,
   DisbursementResponse
 } from '../types/loan';
+import {
+  SubscriptionPlan,
+  CreateSubscriptionPlanRequest,
+  UpdateSubscriptionPlanRequest,
+  UserSubscription,
+  CreateUserSubscriptionRequest,
+  UpdateUserSubscriptionRequest,
+  UserWithSubscription,
+  UsageStats
+} from '../types/subscription';
 import { 
   Bill, 
   CreateBillRequest, 
@@ -5398,6 +5408,218 @@ class ApiService {
       return response.data;
     }
     throw new Error(response?.message || 'Failed to assign ticket');
+  }
+
+  // ==========================================
+  // SUBSCRIPTION API METHODS
+  // ==========================================
+
+  // Get all subscription plans
+  async getSubscriptionPlans(activeOnly: boolean = false): Promise<SubscriptionPlan[]> {
+    const response = await this.request<{ success: boolean; data: SubscriptionPlan[] }>(
+      `/Subscription/plans?activeOnly=${activeOnly}`
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get subscription plans');
+  }
+
+  // Get subscription plan by ID
+  async getSubscriptionPlan(planId: string): Promise<SubscriptionPlan> {
+    const response = await this.request<{ success: boolean; data: SubscriptionPlan }>(
+      `/Subscription/plans/${planId}`
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get subscription plan');
+  }
+
+  // Get user's subscription
+  async getMySubscription(): Promise<UserSubscription> {
+    const response = await this.request<{ success: boolean; data: UserSubscription }>(
+      '/Subscription/my-subscription'
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get subscription');
+  }
+
+  // Get usage stats
+  async getUsageStats(): Promise<UsageStats> {
+    const response = await this.request<{ success: boolean; data: UsageStats }>(
+      '/Subscription/usage-stats'
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get usage stats');
+  }
+
+  // Check feature access
+  async checkFeatureAccess(feature: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean }>(
+      '/Subscription/check-feature',
+      {
+        method: 'POST',
+        body: JSON.stringify({ feature }),
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error('Failed to check feature access');
+  }
+
+  // Check limit
+  async checkLimit(limitType: string, currentCount: number): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean }>(
+      '/Subscription/check-limit',
+      {
+        method: 'POST',
+        body: JSON.stringify({ limitType, currentCount }),
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error('Failed to check limit');
+  }
+
+  // ==========================================
+  // ADMIN SUBSCRIPTION API METHODS
+  // ==========================================
+
+  // Create subscription plan
+  async createSubscriptionPlan(plan: CreateSubscriptionPlanRequest): Promise<SubscriptionPlan> {
+    const response = await this.request<{ success: boolean; data: SubscriptionPlan; message?: string }>(
+      '/admin/subscriptions/plans',
+      {
+        method: 'POST',
+        body: JSON.stringify(plan),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create subscription plan');
+  }
+
+  // Update subscription plan
+  async updateSubscriptionPlan(planId: string, plan: UpdateSubscriptionPlanRequest): Promise<SubscriptionPlan> {
+    const response = await this.request<{ success: boolean; data: SubscriptionPlan; message?: string }>(
+      `/admin/subscriptions/plans/${planId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(plan),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update subscription plan');
+  }
+
+  // Delete subscription plan
+  async deleteSubscriptionPlan(planId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/admin/subscriptions/plans/${planId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to delete subscription plan');
+  }
+
+  // Get all user subscriptions
+  async getAllUserSubscriptions(page: number = 1, limit: number = 50, status?: string, planId?: string): Promise<UserSubscription[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    if (status) queryParams.append('status', status);
+    if (planId) queryParams.append('planId', planId);
+
+    const response = await this.request<{ success: boolean; data: UserSubscription[] }>(
+      `/admin/subscriptions/users?${queryParams.toString()}`
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get user subscriptions');
+  }
+
+  // Get user with subscription
+  async getUserWithSubscription(userId: string): Promise<UserWithSubscription> {
+    const response = await this.request<{ success: boolean; data: UserWithSubscription }>(
+      `/admin/subscriptions/users/${userId}`
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get user subscription');
+  }
+
+  // Create user subscription
+  async createUserSubscription(subscription: CreateUserSubscriptionRequest): Promise<UserSubscription> {
+    const response = await this.request<{ success: boolean; data: UserSubscription; message?: string }>(
+      '/admin/subscriptions/users',
+      {
+        method: 'POST',
+        body: JSON.stringify(subscription),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create user subscription');
+  }
+
+  // Update user subscription
+  async updateUserSubscription(subscriptionId: string, subscription: UpdateUserSubscriptionRequest): Promise<UserSubscription> {
+    const response = await this.request<{ success: boolean; data: UserSubscription; message?: string }>(
+      `/admin/subscriptions/users/${subscriptionId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(subscription),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update user subscription');
+  }
+
+  // Cancel user subscription
+  async cancelUserSubscription(subscriptionId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/admin/subscriptions/users/${subscriptionId}/cancel`,
+      {
+        method: 'POST',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to cancel subscription');
+  }
+
+  // Reset user usage
+  async resetUserUsage(userId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/admin/subscriptions/users/${userId}/reset-usage`,
+      {
+        method: 'POST',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to reset usage');
   }
 }
 

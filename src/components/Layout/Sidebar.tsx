@@ -65,8 +65,8 @@ interface MenuItem {
   badge?: number;
 }
 
-// Menu items will be created dynamically with notification count
-const createMenuItems = (notificationCount: number): MenuItem[] => [
+// Menu items will be created dynamically with notification count and user
+const createMenuItems = (notificationCount: number, user: any): MenuItem[] => [
   // ============================================
   // CATEGORY 1: OVERVIEW & DASHBOARD
   // ============================================
@@ -227,6 +227,11 @@ const createMenuItems = (notificationCount: number): MenuItem[] => [
         icon: <DocumentationIcon />, 
         path: '/documentation'
       },
+      ...(user && user.role === 'ADMIN' ? [{
+        text: 'Super Admin', 
+        icon: <AdministrativeIcon />, 
+        path: '/super-admin'
+      }] : []),
     ],
   },
 ];
@@ -287,7 +292,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   }, [location.pathname, user?.id]);
 
   // Create menu items with dynamic notification count
-  const menuItems = createMenuItems(unreadNotificationCount);
+  const menuItems = createMenuItems(unreadNotificationCount, user);
 
   // Helper function to find the parent menu that contains a given path
   const findParentMenu = (path: string): string | null => {
