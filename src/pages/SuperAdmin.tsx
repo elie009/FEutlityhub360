@@ -51,6 +51,7 @@ import {
   UpdateUserSubscriptionRequest,
   UserWithSubscription,
 } from '../types/subscription';
+import { Ticket, TicketStatus, TicketPriority, TicketCategory } from '../types/ticket';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -131,9 +132,16 @@ const SuperAdmin: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterPlanId, setFilterPlanId] = useState<string>('');
 
+  // Support Tickets State
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketFilterStatus, setTicketFilterStatus] = useState<string>('');
+  const [ticketFilterPriority, setTicketFilterPriority] = useState<string>('');
+  const [ticketFilterCategory, setTicketFilterCategory] = useState<string>('');
+  const [userSubscriptionMap, setUserSubscriptionMap] = useState<Record<string, string>>({});
+
   useEffect(() => {
     loadData();
-  }, [tabValue, filterStatus, filterPlanId]);
+  }, [tabValue, filterStatus, filterPlanId, ticketFilterStatus, ticketFilterPriority, ticketFilterCategory]);
 
   const loadData = async () => {
     setLoading(true);
@@ -173,6 +181,37 @@ const SuperAdmin: React.FC = () => {
           return acc;
         }, []);
         setUsersWithSubscriptions(uniqueUsers);
+      } else if (tabValue === 3) {
+        // Load all support tickets (admin can see all)
+        const filters: any = {};
+        if (ticketFilterStatus) filters.status = ticketFilterStatus;
+        if (ticketFilterPriority) filters.priority = ticketFilterPriority;
+        if (ticketFilterCategory) filters.category = ticketFilterCategory;
+        
+        // Load tickets and user subscriptions in parallel
+        const [ticketsResponse, subscriptionsResponse] = await Promise.all([
+          apiService.getTickets(filters, 1, 1000),
+          apiService.getAllUserSubscriptions(1, 10000) // Get all subscriptions
+        ]);
+        
+        // Backend returns Data (not items) in PaginatedResponse
+        const ticketsData = ticketsResponse.data || ticketsResponse.items || [];
+        
+        // Create a map of userId to subscription plan name
+        const subscriptionMap: Record<string, string> = {};
+        subscriptionsResponse.forEach((sub: UserSubscription) => {
+          if (sub.status === 'ACTIVE' && sub.userId && !subscriptionMap[sub.userId]) {
+            subscriptionMap[sub.userId] = sub.planDisplayName || sub.planName || 'No Plan';
+          }
+        });
+        setUserSubscriptionMap(subscriptionMap);
+        
+        // Enrich tickets with subscription information
+        const enrichedTickets = ticketsData.map((ticket: Ticket) => ({
+          ...ticket,
+          subscriptionPlan: subscriptionMap[ticket.userId] || 'No Plan'
+        }));
+        setTickets(enrichedTickets);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
@@ -377,7 +416,7 @@ const SuperAdmin: React.FC = () => {
 
   // Plan columns for DataGrid
   const planColumns: GridColDef[] = [
-    { field: 'displayName', headerName: 'Plan Name', width: 200 },
+    { field: 'displayName', headerName: 'Plan Name', width: 200, flex: 1 },
     { field: 'name', headerName: 'Code', width: 150 },
     {
       field: 'monthlyPrice',
@@ -546,6 +585,103 @@ const SuperAdmin: React.FC = () => {
     },
   ];
 
+  // Ticket columns for DataGrid
+  const ticketColumns: GridColDef[] = [
+    { field: 'title', headerName: 'Title', width: 300, flex: 1 },
+    { field: 'userName', headerName: 'User', width: 200 },
+    { field: 'userEmail', headerName: 'Email', width: 250 },
+    {
+      field: 'subscriptionPlan',
+      headerName: 'Subscription',
+      width: 180,
+      renderCell: (params) => {
+        const subscriptionPlan = params.value || 'No Plan';
+        return (
+          <Chip
+            label={subscriptionPlan}
+            size="small"
+            color={subscriptionPlan === 'No Plan' ? 'default' : 'primary'}
+            variant="outlined"
+          />
+        );
+      },
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 130,
+      renderCell: (params) => {
+        const statusColors: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+          'OPEN': 'default',
+          'IN_PROGRESS': 'warning',
+          'RESOLVED': 'success',
+          'CLOSED': 'default',
+        };
+        return (
+          <Chip
+            label={params.value}
+            color={statusColors[params.value] || 'default'}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'priority',
+      headerName: 'Priority',
+      width: 120,
+      renderCell: (params) => {
+        const priorityColors: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+          'LOW': 'default',
+          'NORMAL': 'default',
+          'HIGH': 'warning',
+          'URGENT': 'error',
+        };
+        return (
+          <Chip
+            label={params.value}
+            color={priorityColors[params.value] || 'default'}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'category',
+      headerName: 'Category',
+      width: 150,
+      renderCell: (params) => {
+        const categoryLabels: Record<string, string> = {
+          'BUG': 'Bug Report',
+          'FEATURE_REQUEST': 'Feature Request',
+          'SUPPORT': 'Support',
+          'TECHNICAL': 'Technical',
+          'BILLING': 'Billing',
+          'GENERAL': 'General',
+        };
+        return categoryLabels[params.value] || params.value;
+      },
+    },
+    {
+      field: 'assignedToName',
+      headerName: 'Assigned To',
+      width: 150,
+      renderCell: (params) => params.value || 'Unassigned',
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Created',
+      width: 150,
+      renderCell: (params) => new Date(params.value).toLocaleDateString(),
+    },
+    {
+      field: 'commentCount',
+      headerName: 'Comments',
+      width: 100,
+      renderCell: (params) => params.value || 0,
+    },
+  ];
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
@@ -569,6 +705,7 @@ const SuperAdmin: React.FC = () => {
           <Tab label="Pricing Plans" />
           <Tab label="User Subscriptions" />
           <Tab label="Users with Subscriptions" />
+          <Tab label="Support Center" />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
@@ -588,18 +725,20 @@ const SuperAdmin: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <DataGrid
-              rows={plans}
-              columns={planColumns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50]}
-              disableRowSelectionOnClick
-              autoHeight
-            />
+            <Box sx={{ width: '100%', height: 600 }}>
+              <DataGrid
+                rows={plans}
+                columns={planColumns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page: 0, pageSize: 10 },
+                  },
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                disableRowSelectionOnClick
+                sx={{ width: '100%' }}
+              />
+            </Box>
           )}
         </TabPanel>
 
@@ -685,6 +824,77 @@ const SuperAdmin: React.FC = () => {
                 },
               }}
               pageSizeOptions={[10, 25, 50]}
+              disableRowSelectionOnClick
+              autoHeight
+            />
+          )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, alignItems: 'center' }}>
+            <Typography variant="h6">Support Tickets</Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={ticketFilterStatus}
+                  label="Status"
+                  onChange={(e) => setTicketFilterStatus(e.target.value)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="OPEN">Open</MenuItem>
+                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                  <MenuItem value="RESOLVED">Resolved</MenuItem>
+                  <MenuItem value="CLOSED">Closed</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Priority</InputLabel>
+                <Select
+                  value={ticketFilterPriority}
+                  label="Priority"
+                  onChange={(e) => setTicketFilterPriority(e.target.value)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="LOW">Low</MenuItem>
+                  <MenuItem value="NORMAL">Normal</MenuItem>
+                  <MenuItem value="HIGH">High</MenuItem>
+                  <MenuItem value="URGENT">Urgent</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={ticketFilterCategory}
+                  label="Category"
+                  onChange={(e) => setTicketFilterCategory(e.target.value)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="BUG">Bug Report</MenuItem>
+                  <MenuItem value="FEATURE_REQUEST">Feature Request</MenuItem>
+                  <MenuItem value="SUPPORT">Support</MenuItem>
+                  <MenuItem value="TECHNICAL">Technical Issue</MenuItem>
+                  <MenuItem value="BILLING">Billing</MenuItem>
+                  <MenuItem value="GENERAL">General</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <DataGrid
+              rows={tickets}
+              columns={ticketColumns}
+              initialState={{
+                pagination: {
+                  paginationModel: { page: 0, pageSize: 25 },
+                },
+              }}
+              pageSizeOptions={[10, 25, 50, 100]}
               disableRowSelectionOnClick
               autoHeight
             />

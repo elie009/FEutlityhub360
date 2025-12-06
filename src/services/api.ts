@@ -1552,6 +1552,24 @@ class ApiService {
     });
   }
 
+  async deleteNotification(notificationId: string): Promise<boolean> {
+    if (isMockDataEnabled()) {
+      // Mock implementation
+      return true;
+    }
+    
+    try {
+      const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+        `/Notifications/${notificationId}`,
+        { method: 'DELETE' }
+      );
+      return response.data || false;
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      throw error;
+    }
+  }
+
   async deleteAllNotifications(userId: string): Promise<number> {
     if (isMockDataEnabled()) {
       // Mock implementation - return 0 for mock data

@@ -188,6 +188,32 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
+  const handleDeleteNotification = async (notificationId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering the notification click
+    
+    try {
+      await apiService.deleteNotification(notificationId);
+      setNotifications(prev => (prev || []).filter(n => n.id !== notificationId));
+      
+      // Update summary
+      if (summary) {
+        const deletedNotification = notifications.find(n => n.id === notificationId);
+        setSummary(prev => prev ? {
+          ...prev,
+          unreadCount: deletedNotification && !deletedNotification.isRead 
+            ? Math.max(0, prev.unreadCount - 1) 
+            : prev.unreadCount,
+          totalNotifications: Math.max(0, prev.totalNotifications - 1)
+        } : null);
+      }
+      
+      // Trigger notification count refresh in AppBar and Sidebar
+      window.dispatchEvent(new Event('notificationCountChanged'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete notification'));
+    }
+  };
+
   const handleDeleteAll = async () => {
     if (!user) return;
     
@@ -198,7 +224,7 @@ const NotificationCenter: React.FC = () => {
       setSummary(prev => prev ? {
         ...prev,
         unreadCount: 0,
-        totalCount: 0
+        totalNotifications: 0
       } : null);
       setDeleteDialogOpen(false);
       // Show success message
@@ -379,6 +405,17 @@ const NotificationCenter: React.FC = () => {
                       bgcolor: 'action.selected',
                     },
                   }}
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      aria-label="delete"
+                      onClick={(e) => handleDeleteNotification(notification.id, e)}
+                      color="error"
+                      size="small"
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  }
                 >
                   <ListItemIcon>
                     {getNotificationIcon(notification.type)}
@@ -411,7 +448,10 @@ const NotificationCenter: React.FC = () => {
                         {!notification.isRead && (
                           <Button
                             size="small"
-                            onClick={() => handleMarkAsRead(notification.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkAsRead(notification.id);
+                            }}
                           >
                             Mark as Read
                           </Button>
