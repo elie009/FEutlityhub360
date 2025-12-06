@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, Box } from '@mui/material';
+import { CssBaseline, Box, Typography } from '@mui/material';
 import { theme } from './theme/theme';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
@@ -42,7 +42,10 @@ import AuditLogs from './pages/AuditLogs';
 import Receipts from './pages/Receipts';
 import AccountingGuide from './pages/AccountingGuide';
 import Tickets from './pages/Tickets';
+import SubscriptionSuccess from './pages/SubscriptionSuccess';
+import SubscriptionCancel from './pages/SubscriptionCancel';
 import { FinanceLoader } from './components/Common';
+import PremiumRoute from './components/RouteGuards/PremiumRoute';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -62,12 +65,30 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
+// Component to normalize URLs with double slashes
+const UrlNormalizer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    const pathname = window.location.pathname;
+    if (pathname.includes('//')) {
+      const normalizedPath = pathname.replace(/\/+/g, '/');
+      const normalizedUrl = normalizedPath + window.location.search + window.location.hash;
+      if (normalizedUrl !== window.location.pathname + window.location.search + window.location.hash) {
+        console.log('UrlNormalizer: Normalizing URL from', window.location.pathname, 'to', normalizedPath);
+        window.history.replaceState({}, '', normalizedUrl);
+      }
+    }
+  }, []);
+
+  return <>{children}</>;
+};
+
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   return (
     <Router>
-      <Routes>
+      <UrlNormalizer>
+        <Routes>
         {/* Public routes */}
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<Navigate to="/auth" replace />} />
@@ -75,6 +96,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/reset-password" element={<ResetPasswordForm />} />
         <Route path="/register" element={<Register />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/subscription/success" element={<SubscriptionSuccess />} />
+        <Route path="/subscription/cancel" element={<SubscriptionCancel />} />
         
         {/* Landing page for unauthenticated users, Dashboard for authenticated */}
         <Route path="/" element={
@@ -162,7 +185,9 @@ const AppRoutes: React.FC = () => {
           } />
           <Route path="receipts" element={
             <ProtectedRoute>
-              <Receipts />
+              <PremiumRoute feature="RECEIPT_OCR">
+                <Receipts />
+              </PremiumRoute>
             </ProtectedRoute>
           } />
           <Route path="apportioner" element={
@@ -182,7 +207,9 @@ const AppRoutes: React.FC = () => {
           } />
           <Route path="reconciliation" element={
             <ProtectedRoute>
-              <Reconciliation />
+              <PremiumRoute feature="BANK_FEED">
+                <Reconciliation />
+              </PremiumRoute>
             </ProtectedRoute>
           } />
           <Route path="loans" element={
@@ -221,8 +248,71 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } />
           <Route path="reports" element={<Navigate to="/analytics" replace />} />
+          
+          {/* Enterprise-only routes */}
+          <Route path="investments" element={
+            <ProtectedRoute>
+              <PremiumRoute feature="INVESTMENT_TRACKING">
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="h4">Investment Tracking</Typography>
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    This feature is coming soon. Investment tracking is available for Enterprise users.
+                  </Typography>
+                </Box>
+              </PremiumRoute>
+            </ProtectedRoute>
+          } />
+          <Route path="tax-optimization" element={
+            <ProtectedRoute>
+              <PremiumRoute feature="TAX_OPTIMIZATION">
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="h4">Tax Optimization</Typography>
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    This feature is coming soon. Tax optimization is available for Enterprise users.
+                  </Typography>
+                </Box>
+              </PremiumRoute>
+            </ProtectedRoute>
+          } />
+          <Route path="team-management" element={
+            <ProtectedRoute>
+              <PremiumRoute feature="MULTI_USER">
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="h4">Team Management</Typography>
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    This feature is coming soon. Multi-user support is available for Enterprise users.
+                  </Typography>
+                </Box>
+              </PremiumRoute>
+            </ProtectedRoute>
+          } />
+          <Route path="api-keys" element={
+            <ProtectedRoute>
+              <PremiumRoute feature="API_ACCESS">
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="h4">API Keys</Typography>
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    This feature is coming soon. API access is available for Enterprise users.
+                  </Typography>
+                </Box>
+              </PremiumRoute>
+            </ProtectedRoute>
+          } />
+          <Route path="white-label" element={
+            <ProtectedRoute>
+              <PremiumRoute feature="WHITE_LABEL">
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="h4">White-Label Settings</Typography>
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    This feature is coming soon. White-label customization is available for Enterprise users.
+                  </Typography>
+                </Box>
+              </PremiumRoute>
+            </ProtectedRoute>
+          } />
         </Route>
       </Routes>
+      </UrlNormalizer>
     </Router>
   );
 };

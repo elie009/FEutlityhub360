@@ -33,6 +33,17 @@ import {
   UserWithSubscription,
   UsageStats
 } from '../types/subscription';
+import {
+  StripeCustomer,
+  StripePaymentMethod,
+  StripeSubscription,
+  StripePaymentIntent,
+  CreateSubscriptionPaymentRequest,
+  UpdatePaymentMethodRequest,
+  StripeCheckoutSession,
+  CreateCheckoutSessionRequest,
+  VerifyCheckoutSessionRequest
+} from '../types/stripe';
 import { 
   Bill, 
   CreateBillRequest, 
@@ -5620,6 +5631,98 @@ class ApiService {
       return response.data;
     }
     throw new Error(response?.message || 'Failed to reset usage');
+  }
+
+  // ==========================================
+  // SUBSCRIPTION PAYMENT API METHODS
+  // ==========================================
+
+  // Create Stripe customer
+  async createStripeCustomer(): Promise<StripeCustomer> {
+    const response = await this.request<{ success: boolean; data: StripeCustomer; message?: string }>(
+      '/subscriptionpayment/create-customer',
+      {
+        method: 'POST',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create Stripe customer');
+  }
+
+  // Attach payment method
+  async attachPaymentMethod(paymentMethodId: string): Promise<StripePaymentMethod> {
+    const response = await this.request<{ success: boolean; data: StripePaymentMethod; message?: string }>(
+      '/subscriptionpayment/attach-payment-method',
+      {
+        method: 'POST',
+        body: JSON.stringify({ paymentMethodId }),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to attach payment method');
+  }
+
+  // Create subscription
+  async createSubscription(request: CreateSubscriptionPaymentRequest): Promise<StripeSubscription> {
+    const response = await this.request<{ success: boolean; data: StripeSubscription; message?: string }>(
+      '/subscriptionpayment/create-subscription',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create subscription');
+  }
+
+  // Cancel subscription
+  async cancelSubscription(): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      '/subscriptionpayment/cancel-subscription',
+      {
+        method: 'POST',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to cancel subscription');
+  }
+
+  // Create Checkout Session (redirect to Stripe)
+  async createCheckoutSession(request: CreateCheckoutSessionRequest): Promise<StripeCheckoutSession> {
+    const response = await this.request<{ success: boolean; data: StripeCheckoutSession; message?: string }>(
+      '/subscriptionpayment/create-checkout-session',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create checkout session');
+  }
+
+  // Verify Checkout Session (after payment completion)
+  async verifyCheckoutSession(request: VerifyCheckoutSessionRequest): Promise<StripeCheckoutSession> {
+    const response = await this.request<{ success: boolean; data: StripeCheckoutSession; message?: string }>(
+      '/subscriptionpayment/verify-checkout-session',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to verify checkout session');
   }
 }
 

@@ -53,6 +53,9 @@ import {
   Schedule as ScheduleIcon,
   Savings as SavingsIcon,
   MoreVert as MoreVertIcon,
+  AccountCircle,
+  TrackChanges,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -1378,7 +1381,14 @@ const Dashboard: React.FC = () => {
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
                       Savings
                     </Typography>
-                    <MoreVertIcon sx={{ color: 'text.secondary', cursor: 'pointer' }} />
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<SavingsIcon />}
+                      href="/savings"
+                    >
+                      View All Savings
+                    </Button>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
                   {savingsLoading ? (
@@ -1576,51 +1586,201 @@ const Dashboard: React.FC = () => {
 
               {/* Recent Activity */}
               <Grid item xs={12}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-                    Recent Activity
-                  </Typography>
-                  <Box>
+                <Card sx={{ border: '1px solid #e5e5e5', height: '100%' }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                        Recent Activity
+                      </Typography>
+                      {recentActivity?.hasProfile && (
+                        <Chip
+                          icon={<CheckCircle />}
+                          label="Active Profile"
+                          color="success"
+                          size="small"
+                        />
+                      )}
+                    </Box>
+                    
                     {recentActivityLoading ? (
-                      <>
-                        <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
-                        <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
-                        <Skeleton variant="text" width="75%" height={24} sx={{ mb: 1 }} />
-                        <Skeleton variant="text" width="65%" height={24} />
-                      </>
+                      <Grid container spacing={2}>
+                        {[1, 2, 3, 4].map((i) => (
+                          <Grid item xs={12} key={i}>
+                            <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 1 }} />
+                          </Grid>
+                        ))}
+                      </Grid>
                     ) : recentActivity ? (
-                      <>
-                        <Typography variant="body2" color="textSecondary">
-                          • {recentActivity.profileStatus}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Monthly income: {formatCurrency(recentActivity.totalMonthlyIncome)}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Monthly goals: {formatCurrency(recentActivity.totalMonthlyGoals)}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Disposable amount: {formatCurrency(recentActivity.disposableAmount)}
-                        </Typography>
-                      </>
+                      <Grid container spacing={2}>
+                        {/* Profile Status */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: recentActivity.hasProfile 
+                                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                                : 'linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%)',
+                              borderColor: recentActivity.hasProfile ? 'success.light' : 'warning.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <AccountCircle 
+                                  sx={{ 
+                                    fontSize: 24, 
+                                    color: recentActivity.hasProfile ? 'success.main' : 'warning.main',
+                                    mr: 1 
+                                  }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Profile Status
+                                </Typography>
+                              </Box>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontWeight: 600,
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {recentActivity.profileStatus}
+                              </Typography>
+                              <Chip
+                                label={`${recentActivity.incomeSourcesCount} income source${recentActivity.incomeSourcesCount !== 1 ? 's' : ''}`}
+                                size="small"
+                                color={recentActivity.hasProfile ? 'success' : 'warning'}
+                                variant="outlined"
+                                sx={{ 
+                                  color: '#1a1a1a',
+                                  '& .MuiChip-label': { color: '#1a1a1a' }
+                                }}
+                              />
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Monthly Income */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                              borderColor: 'primary.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <TrendingUpIcon 
+                                  sx={{ fontSize: 24, color: 'primary.main', mr: 1 }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Monthly Income
+                                </Typography>
+                              </Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                {formatCurrency(recentActivity.totalMonthlyIncome)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                From {recentActivity.incomeSourcesCount} source{recentActivity.incomeSourcesCount !== 1 ? 's' : ''}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Monthly Goals */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(156, 39, 176, 0.05) 100%)',
+                              borderColor: 'secondary.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <TrackChanges 
+                                  sx={{ fontSize: 24, color: 'secondary.main', mr: 1 }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Monthly Goals
+                                </Typography>
+                              </Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                {formatCurrency(recentActivity.totalMonthlyGoals)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                Savings, Investment & Emergency
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Disposable Amount */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: recentActivity.disposableAmount >= 0
+                                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                                : 'linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(244, 67, 54, 0.05) 100%)',
+                              borderColor: recentActivity.disposableAmount >= 0 ? 'success.light' : 'error.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <MoneyIcon 
+                                  sx={{ 
+                                    fontSize: 24, 
+                                    color: recentActivity.disposableAmount >= 0 ? 'success.main' : 'error.main',
+                                    mr: 1 
+                                  }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Disposable Amount
+                                </Typography>
+                              </Box>
+                              <Typography 
+                                variant="h6" 
+                                sx={{ 
+                                  fontWeight: 700, 
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {formatCurrency(recentActivity.disposableAmount)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                Available this month
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      </Grid>
                     ) : (
-                      <>
-                        <Typography variant="body2" color="textSecondary">
-                          • Profile setup required
+                      <Alert 
+                        severity="info" 
+                        icon={<InfoIcon />}
+                        sx={{ 
+                          background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                          border: '1px solid',
+                          borderColor: 'info.light'
+                        }}
+                      >
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                          Profile Setup Required
                         </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Complete your profile to see financial data
+                        <Typography variant="body2" color="textSecondary" component="div">
+                          <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                            <li>Complete your profile to see financial data</li>
+                            <li>Add income sources to get started</li>
+                            <li>Set up financial goals</li>
+                          </Box>
                         </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Add income sources to get started
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          • Set up financial goals
-                        </Typography>
-                      </>
+                      </Alert>
                     )}
-                  </Box>
-                </Paper>
+                  </CardContent>
+                </Card>
               </Grid>
             </Grid>
           </Grid>

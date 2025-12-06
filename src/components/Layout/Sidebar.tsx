@@ -16,6 +16,7 @@ import {
   Button,
   Card,
 } from '@mui/material';
+import SubscriptionModal from '../Subscription/SubscriptionModal';
 import {
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
@@ -32,6 +33,7 @@ import {
   ExpandMore,
   AttachMoney as FinanceIcon,
   TrendingUp as ApportionerIcon,
+  TrendingUp,
   AccountBalance as BankAccountIcon,
   Savings as SavingsIcon,
   MenuBook as DocumentationIcon,
@@ -47,11 +49,13 @@ import {
   School as AccountingGuideIcon,
   AccountCircle as AccountsIcon,
   ManageAccounts as AdministrativeIcon,
+  ManageAccounts,
   Calculate as PlanningIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
+import { useSubscription, usePremiumFeature } from '../../hooks/usePremiumFeature';
 import logo from '../../logo.png';
 
 const drawerWidth = 240;
@@ -66,175 +70,227 @@ interface MenuItem {
 }
 
 // Menu items will be created dynamically with notification count and user
-const createMenuItems = (notificationCount: number, user: any): MenuItem[] => [
-  // ============================================
-  // CATEGORY 1: OVERVIEW & DASHBOARD
-  // ============================================
-  { 
-    text: 'Dashboard', 
-    icon: <DashboardIcon />, 
-    path: '/'
-  },
+const createMenuItems = (
+  notificationCount: number, 
+  user: any,
+  hasBankFeed: boolean,
+  hasAdvancedReports: boolean,
+  hasInvestmentTracking: boolean,
+  hasTaxOptimization: boolean,
+  hasMultiUser: boolean,
+  hasApiAccess: boolean,
+  hasWhiteLabel: boolean
+): MenuItem[] => {
+  const menuItems: MenuItem[] = [
+    // ============================================
+    // CATEGORY 1: OVERVIEW & DASHBOARD
+    // ============================================
+    { 
+      text: 'Dashboard', 
+      icon: <DashboardIcon />, 
+      path: '/'
+    },
 
-  // ============================================
-  // CATEGORY 2: ACCOUNT MANAGEMENT
-  // ============================================
-  {
-    text: 'Accounts',
-    icon: <AccountsIcon />,
-    children: [
-      { 
-        text: 'Bank Accounts', 
-        icon: <BankAccountIcon />, 
-        path: '/bank-accounts'
-      },
-      { 
-        text: 'Transactions', 
-        icon: <TransactionsIcon />, 
-        path: '/transactions'
-      },
-      { 
-        text: 'Reconciliation', 
-        icon: <ReconciliationIcon />, 
-        path: '/reconciliation'
-      },
-    ],
-  },
+    // ============================================
+    // CATEGORY 2: ACCOUNT MANAGEMENT
+    // ============================================
+    {
+      text: 'Accounts',
+      icon: <AccountsIcon />,
+      children: [
+        { 
+          text: 'Bank Accounts', 
+          icon: <BankAccountIcon />, 
+          path: '/bank-accounts'
+        },
+        { 
+          text: 'Transactions', 
+          icon: <TransactionsIcon />, 
+          path: '/transactions'
+        },
+        // Reconciliation (Bank Feeds) - Premium+ only
+        ...(hasBankFeed ? [{
+          text: 'Reconciliation', 
+          icon: <ReconciliationIcon />, 
+          path: '/reconciliation'
+        }] : []),
+      ],
+    },
 
-  // ============================================
-  // CATEGORY 3: INCOME MANAGEMENT
-  // ============================================
-  {
-    text: 'Income',
-    icon: <IncomeIcon />,
-    children: [
-      { 
-        text: 'Income Sources', 
-        icon: <IncomeIcon />, 
-        path: '/income-sources'
-      },
-      { 
-        text: 'Receivables', 
-        icon: <ReceivablesIcon />, 
-        path: '/receivables'
-      },
-    ],
-  },
+    // ============================================
+    // CATEGORY 3: INCOME MANAGEMENT
+    // ============================================
+    {
+      text: 'Income',
+      icon: <IncomeIcon />,
+      children: [
+        { 
+          text: 'Income Sources', 
+          icon: <IncomeIcon />, 
+          path: '/income-sources'
+        },
+        { 
+          text: 'Receivables', 
+          icon: <ReceivablesIcon />, 
+          path: '/receivables'
+        },
+      ],
+    },
 
-  // ============================================
-  // CATEGORY 4: PAYABLE MANAGEMENT
-  // ============================================
-  {
-    text: 'Payables',
-    icon: <PayablesIcon />,
-    children: [
-      { 
-        text: 'Expenses', 
-        icon: <ExpensesIcon />, 
-        path: '/expenses'
-      },
-      { 
-        text: 'Categories', 
-        icon: <CategoryIcon />, 
-        path: '/categories'
-      },
-      { 
-        text: 'Bills', 
-        icon: <ReceiptIcon />, 
-        path: '/bills'
-      },
-      { 
-        text: 'Utilities', 
-        icon: <UtilitiesIcon />, 
-        path: '/utilities'
-      },
-    ],
-  },
+    // ============================================
+    // CATEGORY 4: PAYABLE MANAGEMENT
+    // ============================================
+    {
+      text: 'Payables',
+      icon: <PayablesIcon />,
+      children: [
+        { 
+          text: 'Expenses', 
+          icon: <ExpensesIcon />, 
+          path: '/expenses'
+        },
+        { 
+          text: 'Categories', 
+          icon: <CategoryIcon />, 
+          path: '/categories'
+        },
+        { 
+          text: 'Bills', 
+          icon: <ReceiptIcon />, 
+          path: '/bills'
+        },
+        { 
+          text: 'Utilities', 
+          icon: <UtilitiesIcon />, 
+          path: '/utilities'
+        },
+      ],
+    },
 
-  // ============================================
-  // CATEGORY 5: FINANCIAL PLANNING
-  // ============================================
-  {
-    text: 'Planning',
-    icon: <PlanningIcon />,
-    children: [
-      { 
-        text: 'Allocation Planner', 
-        icon: <ApportionerIcon />, 
-        path: '/apportioner'
-      },
-      { 
-        text: 'Savings', 
-        icon: <SavingsIcon />, 
-        path: '/savings'
-      },
-      { 
-        text: 'Loans', 
-        icon: <CreditCardIcon />, 
-        path: '/loans'
-      },
-    ],
-  },
+    // ============================================
+    // CATEGORY 5: FINANCIAL PLANNING
+    // ============================================
+    {
+      text: 'Planning',
+      icon: <PlanningIcon />,
+      children: [
+        { 
+          text: 'Allocation Planner', 
+          icon: <ApportionerIcon />, 
+          path: '/apportioner'
+        },
+        { 
+          text: 'Savings', 
+          icon: <SavingsIcon />, 
+          path: '/savings'
+        },
+        { 
+          text: 'Loans', 
+          icon: <CreditCardIcon />, 
+          path: '/loans'
+        },
+      ],
+    },
 
-  // ============================================
-  // CATEGORY 6: REPORTING & ANALYTICS
-  // ============================================
-  { 
-    text: 'Reports & Analytics', 
-    icon: <AnalyticsIcon />, 
-    path: '/analytics'
-  },
+    // ============================================
+    // CATEGORY 6: REPORTING & ANALYTICS
+    // ============================================
+    // Reports & Analytics - Available to all, but Advanced Reports features are Premium+
+    { 
+      text: 'Reports & Analytics', 
+      icon: <AnalyticsIcon />, 
+      path: '/analytics'
+    },
 
-  // ============================================
-  // CATEGORY 7: OPERATIONS
-  // ============================================
-  { 
-    text: 'Notifications', 
-    icon: <NotificationsIcon />, 
-    path: '/notifications',
-    badge: notificationCount > 0 ? notificationCount : undefined,
-  },
+    // ============================================
+    // CATEGORY 7: OPERATIONS
+    // ============================================
+    { 
+      text: 'Notifications', 
+      icon: <NotificationsIcon />, 
+      path: '/notifications',
+      badge: notificationCount > 0 ? notificationCount : undefined,
+    },
 
-  // ============================================
-  // CATEGORY 8: ADMINISTRATIVE
-  // ============================================
-  {
-    text: 'Administrative',
-    icon: <AdministrativeIcon />,
-    children: [
-      { 
-        text: 'Accounting Guide', 
-        icon: <AccountingGuideIcon />, 
-        path: '/accounting-guide'
-      },
-      { 
-        text: 'Audit Logs', 
-        icon: <AuditLogsIcon />, 
-        path: '/audit-logs'
-      },
-      { 
-        text: 'Settings', 
-        icon: <SettingsIcon />, 
-        path: '/settings'
-      },
-      { 
-        text: 'Support', 
-        icon: <SupportIcon />, 
-        path: '/support'
-      },
-      { 
-        text: 'Documentation', 
-        icon: <DocumentationIcon />, 
-        path: '/documentation'
-      },
-      ...(user && user.role === 'ADMIN' ? [{
-        text: 'Super Admin', 
-        icon: <AdministrativeIcon />, 
-        path: '/super-admin'
-      }] : []),
-    ],
-  },
-];
+    // ============================================
+    // CATEGORY 8: ADMINISTRATIVE
+    // ============================================
+    {
+      text: 'Administrative',
+      icon: <AdministrativeIcon />,
+      children: [
+        { 
+          text: 'Accounting Guide', 
+          icon: <AccountingGuideIcon />, 
+          path: '/accounting-guide'
+        },
+        { 
+          text: 'Audit Logs', 
+          icon: <AuditLogsIcon />, 
+          path: '/audit-logs'
+        },
+        { 
+          text: 'Settings', 
+          icon: <SettingsIcon />, 
+          path: '/settings'
+        },
+        { 
+          text: 'Support', 
+          icon: <SupportIcon />, 
+          path: '/support'
+        },
+        { 
+          text: 'Documentation', 
+          icon: <DocumentationIcon />, 
+          path: '/documentation'
+        },
+        ...(user && user.role === 'ADMIN' ? [{
+          text: 'Super Admin', 
+          icon: <AdministrativeIcon />, 
+          path: '/super-admin'
+        }] : []),
+        // Enterprise-only features
+        ...(hasInvestmentTracking ? [{
+          text: 'Investment Tracking', 
+          icon: <TrendingUp />, 
+          path: '/investments'
+        }] : []),
+        ...(hasTaxOptimization ? [{
+          text: 'Tax Optimization', 
+          icon: <AssessmentIcon />, 
+          path: '/tax-optimization'
+        }] : []),
+        ...(hasMultiUser ? [{
+          text: 'Team Management', 
+          icon: <ManageAccounts />, 
+          path: '/team-management'
+        }] : []),
+        ...(hasApiAccess ? [{
+          text: 'API Keys', 
+          icon: <SettingsIcon />, 
+          path: '/api-keys'
+        }] : []),
+        ...(hasWhiteLabel ? [{
+          text: 'White-Label', 
+          icon: <SettingsIcon />, 
+          path: '/white-label'
+        }] : []),
+      ],
+    },
+  ];
+
+  // Filter out empty parent menus (if all children were filtered)
+  return menuItems.map(item => {
+    if (item.children) {
+      const filteredChildren = item.children.filter(child => child !== null);
+      if (filteredChildren.length === 0) {
+        return null;
+      }
+      return { ...item, children: filteredChildren };
+    }
+    return item;
+  }).filter(item => item !== null) as MenuItem[];
+};
 
 interface SidebarProps {
   open: boolean;
@@ -250,6 +306,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     // All sections collapsed by default for cleaner initial view
     // Users can expand sections as needed
   });
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState<boolean>(false);
+
+  // Check subscription and feature access
+  const { isPremium, isEnterprise, isFree } = useSubscription();
+  const { hasAccess: hasBankFeed } = usePremiumFeature('BANK_FEED');
+  const { hasAccess: hasAdvancedReports } = usePremiumFeature('ADVANCED_REPORTS');
+  const { hasAccess: hasInvestmentTracking } = usePremiumFeature('INVESTMENT_TRACKING');
+  const { hasAccess: hasTaxOptimization } = usePremiumFeature('TAX_OPTIMIZATION');
+  const { hasAccess: hasMultiUser } = usePremiumFeature('MULTI_USER');
+  const { hasAccess: hasApiAccess } = usePremiumFeature('API_ACCESS');
+  const { hasAccess: hasWhiteLabel } = usePremiumFeature('WHITE_LABEL');
 
   // Fetch unread notification count
   useEffect(() => {
@@ -291,8 +358,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     }
   }, [location.pathname, user?.id]);
 
-  // Create menu items with dynamic notification count
-  const menuItems = createMenuItems(unreadNotificationCount, user);
+  // Create menu items with dynamic notification count and feature access
+  const menuItems = createMenuItems(
+    unreadNotificationCount, 
+    user,
+    hasBankFeed,
+    hasAdvancedReports,
+    hasInvestmentTracking,
+    hasTaxOptimization,
+    hasMultiUser,
+    hasApiAccess,
+    hasWhiteLabel
+  );
 
   // Helper function to find the parent menu that contains a given path
   const findParentMenu = (path: string): string | null => {
@@ -648,6 +725,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             {/* Call to Action Button */}
             <Button
               variant="contained"
+              onClick={() => setSubscriptionModalOpen(true)}
               sx={{
                 backgroundColor: '#c5e1a5', // Light yellow-green
                 color: '#1a1a1a',
@@ -709,6 +787,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       open={true} // Always open, but with different widths
     >
       {drawerContent}
+      <SubscriptionModal
+        open={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+      />
     </MuiDrawer>
   );
 };

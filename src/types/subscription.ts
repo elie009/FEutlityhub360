@@ -31,6 +31,9 @@ export interface SubscriptionPlan {
   hasCustomReporting: boolean;
   hasAdvancedSecurity: boolean;
   hasComplianceReports: boolean;
+  hasFinancialHealthScore: boolean;
+  hasBillForecasting: boolean;
+  hasDebtOptimizer: boolean;
   isActive: boolean;
   displayOrder: number;
   createdAt: string;

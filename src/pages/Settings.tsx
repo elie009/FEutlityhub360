@@ -59,6 +59,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency, CURRENCY_OPTIONS } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
+import { UserSubscription } from '../types/subscription';
+import SubscriptionModal from '../components/Subscription/SubscriptionModal';
 
 interface IncomeSource {
   name: string;
@@ -272,6 +274,12 @@ const Settings: React.FC = () => {
   const [viewIncomeData, setViewIncomeData] = useState<any>(null);
   const [viewIncomeLoading, setViewIncomeLoading] = useState(false);
   const [viewIncomeError, setViewIncomeError] = useState<string | null>(null);
+
+  // Subscription state
+  const [userSubscription, setUserSubscription] = useState<UserSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
@@ -1239,6 +1247,31 @@ const Settings: React.FC = () => {
     }
   }, [user?.id, loadIncomeData]);
 
+  // Fetch user subscription
+  const fetchUserSubscription = useCallback(async () => {
+    try {
+      setSubscriptionLoading(true);
+      setSubscriptionError(null);
+      const subscription = await apiService.getMySubscription();
+      setUserSubscription(subscription);
+    } catch (err: any) {
+      console.error('Failed to fetch subscription:', err);
+      // Don't show error if subscription doesn't exist (user might not have one)
+      if (err.status !== 404) {
+        setSubscriptionError(err.message || 'Failed to load subscription information');
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, []);
+
+  // Load subscription when component mounts
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserSubscription();
+    }
+  }, [user?.id, fetchUserSubscription]);
+
   // Sync profile state with user profile data
   useEffect(() => {
     if (userProfile?.preferredCurrency || currency) {
@@ -1490,6 +1523,121 @@ const Settings: React.FC = () => {
                 Save Notifications
               </Button>
             </Box>
+          </Paper>
+        </Grid>
+
+        {/* Subscription Information */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                Subscription Plan
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowSubscriptionModal(true)}
+                sx={{ minWidth: 120 }}
+              >
+                Manage Plan
+              </Button>
+            </Box>
+
+            {subscriptionLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : subscriptionError ? (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {subscriptionError}
+              </Alert>
+            ) : userSubscription ? (
+              <Grid container spacing={3} sx={{ mt: 1 }}>
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        {userSubscription.planDisplayName}
+                      </Typography>
+                      <Chip
+                        label={userSubscription.status}
+                        color={
+                          userSubscription.status === 'ACTIVE'
+                            ? 'success'
+                            : userSubscription.status === 'CANCELLED'
+                            ? 'error'
+                            : userSubscription.status === 'TRIAL'
+                            ? 'warning'
+                            : 'default'
+                        }
+                        size="small"
+                      />
+                    </Box>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Billing Cycle:</strong> {userSubscription.billingCycle}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Current Price:</strong> {formatCurrency(userSubscription.currentPrice)} / {userSubscription.billingCycle === 'MONTHLY' ? 'month' : 'year'}
+                      </Typography>
+                      {userSubscription.startDate && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <strong>Start Date:</strong> {new Date(userSubscription.startDate).toLocaleDateString()}
+                        </Typography>
+                      )}
+                      {userSubscription.nextBillingDate && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <strong>Next Billing Date:</strong> {new Date(userSubscription.nextBillingDate).toLocaleDateString()}
+                        </Typography>
+                      )}
+                      {userSubscription.endDate && (
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>End Date:</strong> {new Date(userSubscription.endDate).toLocaleDateString()}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                      Usage This Month
+                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {userSubscription.transactionsThisMonth !== undefined && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <strong>Transactions:</strong> {userSubscription.transactionsThisMonth}
+                        </Typography>
+                      )}
+                      {userSubscription.billsThisMonth !== undefined && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <strong>Bills:</strong> {userSubscription.billsThisMonth}
+                        </Typography>
+                      )}
+                      {userSubscription.receiptOcrThisMonth !== undefined && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <strong>Receipt OCR:</strong> {userSubscription.receiptOcrThisMonth}
+                        </Typography>
+                      )}
+                      {userSubscription.aiQueriesThisMonth !== undefined && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          <strong>AI Queries:</strong> {userSubscription.aiQueriesThisMonth}
+                        </Typography>
+                      )}
+                      {userSubscription.apiCallsThisMonth !== undefined && (
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>API Calls:</strong> {userSubscription.apiCallsThisMonth}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Card>
+                </Grid>
+              </Grid>
+            ) : (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                You don't have an active subscription. Click "Manage Plan" to choose a subscription plan.
+              </Alert>
+            )}
           </Paper>
         </Grid>
 
@@ -3378,6 +3526,15 @@ const Settings: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        open={showSubscriptionModal}
+        onClose={() => {
+          setShowSubscriptionModal(false);
+          // Refresh subscription data after modal closes
+          fetchUserSubscription();
+        }}
+      />
     </Box>
   );
 };
