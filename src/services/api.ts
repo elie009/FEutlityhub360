@@ -627,6 +627,7 @@ class ApiService {
     monthlyTaxDeductions: number;
     industry: string;
     location: string;
+    country: string;
     notes: string;
     incomeSources: Array<{
       name: string;
@@ -650,6 +651,7 @@ class ApiService {
     monthlyTaxDeductions: number;
     industry: string;
     location: string;
+    country: string;
     notes: string;
     preferredCurrency: string;
     isActive: boolean;
@@ -807,6 +809,7 @@ class ApiService {
     monthlyTaxDeductions: number;
     industry: string;
     location: string;
+    country: string;
     notes: string;
     preferredCurrency: string;
   }): Promise<{
@@ -822,6 +825,7 @@ class ApiService {
     monthlyTaxDeductions: number;
     industry: string;
     location: string;
+    country: string;
     notes: string;
     preferredCurrency: string;
     isActive: boolean;

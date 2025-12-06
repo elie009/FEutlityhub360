@@ -83,6 +83,7 @@ interface ProfileFormData {
   monthlyTaxDeductions: number;
   industry: string;
   location: string;
+  country: string;
   notes: string;
   preferredCurrency: string;
   incomeSources: IncomeSource[];
@@ -100,7 +101,8 @@ const Settings: React.FC = () => {
   const [profile, setProfile] = useState({
     name: '',
     phone: '',
-    preferredCurrency: 'USD',
+    email: '',
+    country: '',
   });
 
   // Profile form state
@@ -116,6 +118,7 @@ const Settings: React.FC = () => {
     monthlyTaxDeductions: 0,
     industry: '',
     location: '',
+    country: '',
     notes: '',
     preferredCurrency: currency,
     incomeSources: [
@@ -195,6 +198,7 @@ const Settings: React.FC = () => {
     monthlyTaxDeductions: 0,
     industry: '',
     location: '',
+    country: '',
     notes: '',
     preferredCurrency: currency,
   });
@@ -319,6 +323,30 @@ const Settings: React.FC = () => {
       const response = await apiService.updateUser(user.id, requestBody);
       
       if (response && response.success) {
+        // Also update country in user profile if it was changed
+        if (profile.country && userProfile) {
+          try {
+            await apiService.updateUserProfile({
+              jobTitle: userProfile.jobTitle || '',
+              company: userProfile.company || '',
+              employmentType: userProfile.employmentType || '',
+              monthlySavingsGoal: userProfile.monthlySavingsGoal || 0,
+              monthlyInvestmentGoal: userProfile.monthlyInvestmentGoal || 0,
+              monthlyEmergencyFundGoal: userProfile.monthlyEmergencyFundGoal || 0,
+              taxRate: userProfile.taxRate || 0,
+              monthlyTaxDeductions: userProfile.monthlyTaxDeductions || 0,
+              industry: userProfile.industry || '',
+              location: userProfile.location || '',
+              country: profile.country,
+              notes: userProfile.notes || '',
+              preferredCurrency: userProfile.preferredCurrency || currency,
+            });
+          } catch (profileError) {
+            console.error('Error updating profile country:', profileError);
+            // Don't fail the whole operation if profile update fails
+          }
+        }
+        
         setUserUpdateSuccess('User information updated successfully!');
         console.log('User info saved successfully:', response);
         
@@ -373,12 +401,12 @@ const Settings: React.FC = () => {
         monthlyTaxDeductions: profileFormData.monthlyTaxDeductions,
         industry: profileFormData.industry,
         location: profileFormData.location,
+        country: profileFormData.country,
         notes: profileFormData.notes,
         preferredCurrency: currency,
       };
 
       console.log('Current currency from context:', currency);
-      console.log('Profile preferredCurrency:', profile.preferredCurrency);
       console.log('Saving profile with request body:', requestBody);
 
       // Call the API service to update the profile
@@ -799,10 +827,11 @@ const Settings: React.FC = () => {
         monthlyEmergencyFundGoal: userProfile.monthlyEmergencyFundGoal || 0,
         taxRate: userProfile.taxRate || 0,
         monthlyTaxDeductions: userProfile.monthlyTaxDeductions || 0,
-        industry: userProfile.industry || '',
-        location: userProfile.location || '',
-        notes: userProfile.notes || '',
-        preferredCurrency: userProfile.preferredCurrency || 'USD',
+      industry: userProfile.industry || '',
+      location: userProfile.location || '',
+      country: userProfile.country || '',
+      notes: userProfile.notes || '',
+      preferredCurrency: userProfile.preferredCurrency || 'USD',
       });
       setShowEditDialog(true);
       setEditError(null);
@@ -1274,13 +1303,13 @@ const Settings: React.FC = () => {
 
   // Sync profile state with user profile data
   useEffect(() => {
-    if (userProfile?.preferredCurrency || currency) {
+    if (userProfile?.country) {
       setProfile(prev => ({
         ...prev,
-        preferredCurrency: userProfile?.preferredCurrency || currency,
+        country: userProfile.country || '',
       }));
     }
-  }, [userProfile, currency]);
+  }, [userProfile]);
 
   // Initialize profile state with user data
   useEffect(() => {
@@ -1289,9 +1318,11 @@ const Settings: React.FC = () => {
         ...prev,
         name: user.name || prev.name,
         phone: user.phone || prev.phone,
+        email: user.email || prev.email,
+        country: userProfile?.country || prev.country,
       }));
     }
-  }, [user]);
+  }, [user, userProfile]);
 
   // Load profile form data from user profile
   useEffect(() => {
@@ -1308,6 +1339,7 @@ const Settings: React.FC = () => {
         monthlyTaxDeductions: userProfile.monthlyTaxDeductions || 0,
         industry: userProfile.industry || '',
         location: userProfile.location || '',
+        country: userProfile.country || '',
         notes: userProfile.notes || '',
         preferredCurrency: userProfile.preferredCurrency || currency,
       }));
@@ -1399,70 +1431,71 @@ const Settings: React.FC = () => {
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
-                  select
                   fullWidth
-                  label="Preferred Currency"
-                  value={currency}
-                  onChange={async (e) => {
-                    const newCurrency = e.target.value;
-                    const oldCurrency = currency; // Capture old value before updating
-                    console.log('Currency selector changed to:', newCurrency);
-                    
-                    // Update local state immediately for better UX
-                    setCurrency(newCurrency);
-                    handleProfileChange('preferredCurrency', newCurrency);
-                    
-                    // Call API to update currency
-                    try {
-                      setCurrencyUpdateLoading(true);
-                      setCurrencyUpdateError(null);
-                      
-                      const response = await apiService.updateUserProfileCurrency(newCurrency);
-                      
-                      if (response && response.success) {
-                        console.log('Currency updated successfully:', response);
-                        // Currency is already updated in local state
-                      } else {
-                        // Revert on error
-                        setCurrency(oldCurrency);
-                        setCurrencyUpdateError(response?.message || 'Failed to update currency');
-                      }
-                    } catch (error: any) {
-                      console.error('Error updating currency:', error);
-                      // Revert on error
-                      setCurrency(oldCurrency);
-                      
-                      let errorMessage = 'Failed to update currency';
-                      const status = error.status;
-                      
-                      if (status === 400) {
-                        if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
-                          errorMessage = `${error.message || 'Validation failed'}: ${error.errors.join(', ')}`;
-                        } else {
-                          errorMessage = error.message || 'Validation failed. Please check your input.';
-                        }
-                      } else if (status === 404) {
-                        errorMessage = error.message || 'User profile not found.';
-                      } else if (status === 403) {
-                        errorMessage = error.message || 'You do not have permission to update currency.';
-                      } else if (error.message) {
-                        errorMessage = error.message;
-                      }
-                      
-                      setCurrencyUpdateError(errorMessage);
-                    } finally {
-                      setCurrencyUpdateLoading(false);
-                    }
-                  }}
-                  helperText="Select your preferred currency"
-                  disabled={currencyUpdateLoading}
-                >
-                  {CURRENCY_OPTIONS.map((currencyOption) => (
-                    <MenuItem key={currencyOption.code} value={currencyOption.code}>
-                      {currencyOption.code} {currencyOption.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  label="Email"
+                  value={profile.email}
+                  onChange={(e) => handleProfileChange('email', e.target.value)}
+                  type="email"
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth>
+                  <InputLabel id="profile-country-label">Country</InputLabel>
+                  <Select
+                    labelId="profile-country-label"
+                    label="Country"
+                    value={profile.country}
+                    onChange={(e) => handleProfileChange('country', e.target.value)}
+                  >
+                    <MenuItem value="United States">United States</MenuItem>
+                    <MenuItem value="United Kingdom">United Kingdom</MenuItem>
+                    <MenuItem value="Canada">Canada</MenuItem>
+                    <MenuItem value="Australia">Australia</MenuItem>
+                    <MenuItem value="Germany">Germany</MenuItem>
+                    <MenuItem value="France">France</MenuItem>
+                    <MenuItem value="Italy">Italy</MenuItem>
+                    <MenuItem value="Spain">Spain</MenuItem>
+                    <MenuItem value="Netherlands">Netherlands</MenuItem>
+                    <MenuItem value="Belgium">Belgium</MenuItem>
+                    <MenuItem value="Switzerland">Switzerland</MenuItem>
+                    <MenuItem value="Sweden">Sweden</MenuItem>
+                    <MenuItem value="Norway">Norway</MenuItem>
+                    <MenuItem value="Denmark">Denmark</MenuItem>
+                    <MenuItem value="Finland">Finland</MenuItem>
+                    <MenuItem value="Poland">Poland</MenuItem>
+                    <MenuItem value="Portugal">Portugal</MenuItem>
+                    <MenuItem value="Ireland">Ireland</MenuItem>
+                    <MenuItem value="Austria">Austria</MenuItem>
+                    <MenuItem value="Greece">Greece</MenuItem>
+                    <MenuItem value="Japan">Japan</MenuItem>
+                    <MenuItem value="South Korea">South Korea</MenuItem>
+                    <MenuItem value="China">China</MenuItem>
+                    <MenuItem value="India">India</MenuItem>
+                    <MenuItem value="Singapore">Singapore</MenuItem>
+                    <MenuItem value="Malaysia">Malaysia</MenuItem>
+                    <MenuItem value="Thailand">Thailand</MenuItem>
+                    <MenuItem value="Philippines">Philippines</MenuItem>
+                    <MenuItem value="Indonesia">Indonesia</MenuItem>
+                    <MenuItem value="Vietnam">Vietnam</MenuItem>
+                    <MenuItem value="Brazil">Brazil</MenuItem>
+                    <MenuItem value="Mexico">Mexico</MenuItem>
+                    <MenuItem value="Argentina">Argentina</MenuItem>
+                    <MenuItem value="Chile">Chile</MenuItem>
+                    <MenuItem value="Colombia">Colombia</MenuItem>
+                    <MenuItem value="South Africa">South Africa</MenuItem>
+                    <MenuItem value="Egypt">Egypt</MenuItem>
+                    <MenuItem value="Nigeria">Nigeria</MenuItem>
+                    <MenuItem value="Kenya">Kenya</MenuItem>
+                    <MenuItem value="United Arab Emirates">United Arab Emirates</MenuItem>
+                    <MenuItem value="Saudi Arabia">Saudi Arabia</MenuItem>
+                    <MenuItem value="Israel">Israel</MenuItem>
+                    <MenuItem value="Turkey">Turkey</MenuItem>
+                    <MenuItem value="Russia">Russia</MenuItem>
+                    <MenuItem value="New Zealand">New Zealand</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <Button
@@ -1862,24 +1895,89 @@ const Settings: React.FC = () => {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    id="industry"
-                    label="Industry"
-                    name="industry"
-                    value={profileFormData.industry}
-                    onChange={handleProfileFormInputChange}
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel id="industry-label">Industry</InputLabel>
+                    <Select
+                      labelId="industry-label"
+                      id="industry"
+                      name="industry"
+                      value={profileFormData.industry}
+                      onChange={handleProfileFormSelectChange}
+                      label="Industry"
+                    >
+                      <MenuItem value="Technology">Technology</MenuItem>
+                      <MenuItem value="Healthcare">Healthcare</MenuItem>
+                      <MenuItem value="Finance">Finance</MenuItem>
+                      <MenuItem value="Education">Education</MenuItem>
+                      <MenuItem value="Manufacturing">Manufacturing</MenuItem>
+                      <MenuItem value="Retail">Retail</MenuItem>
+                      <MenuItem value="Government">Government</MenuItem>
+                      <MenuItem value="Non-profit">Non-profit</MenuItem>
+                      <MenuItem value="Real Estate">Real Estate</MenuItem>
+                      <MenuItem value="Consulting">Consulting</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    id="location"
-                    label="Location"
-                    name="location"
-                    value={profileFormData.location}
-                    onChange={handleProfileFormInputChange}
-                  />
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="country-label">Country</InputLabel>
+                    <Select
+                      labelId="country-label"
+                      id="country"
+                      name="country"
+                      value={profileFormData.country}
+                      onChange={handleProfileFormSelectChange}
+                      label="Country"
+                    >
+                      <MenuItem value="United States">United States</MenuItem>
+                      <MenuItem value="United Kingdom">United Kingdom</MenuItem>
+                      <MenuItem value="Canada">Canada</MenuItem>
+                      <MenuItem value="Australia">Australia</MenuItem>
+                      <MenuItem value="Germany">Germany</MenuItem>
+                      <MenuItem value="France">France</MenuItem>
+                      <MenuItem value="Italy">Italy</MenuItem>
+                      <MenuItem value="Spain">Spain</MenuItem>
+                      <MenuItem value="Netherlands">Netherlands</MenuItem>
+                      <MenuItem value="Belgium">Belgium</MenuItem>
+                      <MenuItem value="Switzerland">Switzerland</MenuItem>
+                      <MenuItem value="Sweden">Sweden</MenuItem>
+                      <MenuItem value="Norway">Norway</MenuItem>
+                      <MenuItem value="Denmark">Denmark</MenuItem>
+                      <MenuItem value="Finland">Finland</MenuItem>
+                      <MenuItem value="Poland">Poland</MenuItem>
+                      <MenuItem value="Portugal">Portugal</MenuItem>
+                      <MenuItem value="Ireland">Ireland</MenuItem>
+                      <MenuItem value="Austria">Austria</MenuItem>
+                      <MenuItem value="Greece">Greece</MenuItem>
+                      <MenuItem value="Japan">Japan</MenuItem>
+                      <MenuItem value="South Korea">South Korea</MenuItem>
+                      <MenuItem value="China">China</MenuItem>
+                      <MenuItem value="India">India</MenuItem>
+                      <MenuItem value="Singapore">Singapore</MenuItem>
+                      <MenuItem value="Malaysia">Malaysia</MenuItem>
+                      <MenuItem value="Thailand">Thailand</MenuItem>
+                      <MenuItem value="Philippines">Philippines</MenuItem>
+                      <MenuItem value="Indonesia">Indonesia</MenuItem>
+                      <MenuItem value="Vietnam">Vietnam</MenuItem>
+                      <MenuItem value="Brazil">Brazil</MenuItem>
+                      <MenuItem value="Mexico">Mexico</MenuItem>
+                      <MenuItem value="Argentina">Argentina</MenuItem>
+                      <MenuItem value="Chile">Chile</MenuItem>
+                      <MenuItem value="Colombia">Colombia</MenuItem>
+                      <MenuItem value="South Africa">South Africa</MenuItem>
+                      <MenuItem value="Egypt">Egypt</MenuItem>
+                      <MenuItem value="Nigeria">Nigeria</MenuItem>
+                      <MenuItem value="Kenya">Kenya</MenuItem>
+                      <MenuItem value="United Arab Emirates">United Arab Emirates</MenuItem>
+                      <MenuItem value="Saudi Arabia">Saudi Arabia</MenuItem>
+                      <MenuItem value="Israel">Israel</MenuItem>
+                      <MenuItem value="Turkey">Turkey</MenuItem>
+                      <MenuItem value="Russia">Russia</MenuItem>
+                      <MenuItem value="New Zealand">New Zealand</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
             </CardContent>
@@ -2039,22 +2137,6 @@ const Settings: React.FC = () => {
                         onChange={(e) => handleIncomeSourceChange(index, 'company', e.target.value)}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel>Currency</InputLabel>
-                        <Select
-                          value={source.currency}
-                          onChange={(e) => handleIncomeSourceChange(index, 'currency', e.target.value)}
-                          label="Currency"
-                        >
-                          {CURRENCY_OPTIONS.map((currency) => (
-                            <MenuItem key={currency.code} value={currency.code}>
-                              {currency.code} - {currency.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
@@ -2203,24 +2285,89 @@ const Settings: React.FC = () => {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    id="edit-industry"
-                    label="Industry"
-                    name="industry"
-                    value={editFormData.industry}
-                    onChange={handleEditInputChange}
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel id="edit-industry-label">Industry</InputLabel>
+                    <Select
+                      labelId="edit-industry-label"
+                      id="edit-industry"
+                      name="industry"
+                      value={editFormData.industry}
+                      onChange={handleEditSelectChange}
+                      label="Industry"
+                    >
+                      <MenuItem value="Technology">Technology</MenuItem>
+                      <MenuItem value="Healthcare">Healthcare</MenuItem>
+                      <MenuItem value="Finance">Finance</MenuItem>
+                      <MenuItem value="Education">Education</MenuItem>
+                      <MenuItem value="Manufacturing">Manufacturing</MenuItem>
+                      <MenuItem value="Retail">Retail</MenuItem>
+                      <MenuItem value="Government">Government</MenuItem>
+                      <MenuItem value="Non-profit">Non-profit</MenuItem>
+                      <MenuItem value="Real Estate">Real Estate</MenuItem>
+                      <MenuItem value="Consulting">Consulting</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    id="edit-location"
-                    label="Location"
-                    name="location"
-                    value={editFormData.location}
-                    onChange={handleEditInputChange}
-                  />
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="edit-country-label">Country</InputLabel>
+                    <Select
+                      labelId="edit-country-label"
+                      id="edit-country"
+                      name="country"
+                      value={editFormData.country}
+                      onChange={handleEditSelectChange}
+                      label="Country"
+                    >
+                      <MenuItem value="United States">United States</MenuItem>
+                      <MenuItem value="United Kingdom">United Kingdom</MenuItem>
+                      <MenuItem value="Canada">Canada</MenuItem>
+                      <MenuItem value="Australia">Australia</MenuItem>
+                      <MenuItem value="Germany">Germany</MenuItem>
+                      <MenuItem value="France">France</MenuItem>
+                      <MenuItem value="Italy">Italy</MenuItem>
+                      <MenuItem value="Spain">Spain</MenuItem>
+                      <MenuItem value="Netherlands">Netherlands</MenuItem>
+                      <MenuItem value="Belgium">Belgium</MenuItem>
+                      <MenuItem value="Switzerland">Switzerland</MenuItem>
+                      <MenuItem value="Sweden">Sweden</MenuItem>
+                      <MenuItem value="Norway">Norway</MenuItem>
+                      <MenuItem value="Denmark">Denmark</MenuItem>
+                      <MenuItem value="Finland">Finland</MenuItem>
+                      <MenuItem value="Poland">Poland</MenuItem>
+                      <MenuItem value="Portugal">Portugal</MenuItem>
+                      <MenuItem value="Ireland">Ireland</MenuItem>
+                      <MenuItem value="Austria">Austria</MenuItem>
+                      <MenuItem value="Greece">Greece</MenuItem>
+                      <MenuItem value="Japan">Japan</MenuItem>
+                      <MenuItem value="South Korea">South Korea</MenuItem>
+                      <MenuItem value="China">China</MenuItem>
+                      <MenuItem value="India">India</MenuItem>
+                      <MenuItem value="Singapore">Singapore</MenuItem>
+                      <MenuItem value="Malaysia">Malaysia</MenuItem>
+                      <MenuItem value="Thailand">Thailand</MenuItem>
+                      <MenuItem value="Philippines">Philippines</MenuItem>
+                      <MenuItem value="Indonesia">Indonesia</MenuItem>
+                      <MenuItem value="Vietnam">Vietnam</MenuItem>
+                      <MenuItem value="Brazil">Brazil</MenuItem>
+                      <MenuItem value="Mexico">Mexico</MenuItem>
+                      <MenuItem value="Argentina">Argentina</MenuItem>
+                      <MenuItem value="Chile">Chile</MenuItem>
+                      <MenuItem value="Colombia">Colombia</MenuItem>
+                      <MenuItem value="South Africa">South Africa</MenuItem>
+                      <MenuItem value="Egypt">Egypt</MenuItem>
+                      <MenuItem value="Nigeria">Nigeria</MenuItem>
+                      <MenuItem value="Kenya">Kenya</MenuItem>
+                      <MenuItem value="United Arab Emirates">United Arab Emirates</MenuItem>
+                      <MenuItem value="Saudi Arabia">Saudi Arabia</MenuItem>
+                      <MenuItem value="Israel">Israel</MenuItem>
+                      <MenuItem value="Turkey">Turkey</MenuItem>
+                      <MenuItem value="Russia">Russia</MenuItem>
+                      <MenuItem value="New Zealand">New Zealand</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
             </CardContent>

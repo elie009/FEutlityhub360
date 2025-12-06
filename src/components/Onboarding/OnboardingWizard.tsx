@@ -46,6 +46,7 @@ export interface OnboardingData {
   employmentType: string;
   industry: string;
   location: string;
+  country: string;
   
   // Income Sources
   incomeSources: Array<{
@@ -100,6 +101,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     employmentType: '',
     industry: '',
     location: '',
+    country: '',
     incomeSources: [{
       name: '',
       amount: 0,
@@ -164,6 +166,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         employmentType: onboardingData.employmentType,
         industry: onboardingData.industry,
         location: onboardingData.location,
+        country: onboardingData.country,
         monthlySavingsGoal: onboardingData.monthlySavingsGoal,
         monthlyInvestmentGoal: onboardingData.monthlyInvestmentGoal,
         monthlyEmergencyFundGoal: onboardingData.monthlyEmergencyFundGoal,

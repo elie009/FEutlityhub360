@@ -139,6 +139,7 @@ const Dashboard: React.FC = () => {
     monthlyTaxDeductions: 0,
     industry: '',
     location: '',
+    country: '',
     notes: '',
     incomeSources: [{
       name: '',
@@ -431,7 +432,7 @@ const Dashboard: React.FC = () => {
         company: '',
         employmentType: '',
         industry: '',
-        location: '',
+        country: '',
       } : {}),
     }));
   };
@@ -487,27 +488,96 @@ const Dashboard: React.FC = () => {
         }
       }
 
-      // Create profile
-      const response = await apiService.createUserProfile(profileFormData);
+      // Prepare profile data (remove isUnemployed as it's not part of the API)
+      const profileData = {
+        jobTitle: profileFormData.jobTitle,
+        company: profileFormData.company,
+        employmentType: profileFormData.employmentType,
+        monthlySavingsGoal: profileFormData.monthlySavingsGoal,
+        monthlyInvestmentGoal: profileFormData.monthlyInvestmentGoal,
+        monthlyEmergencyFundGoal: profileFormData.monthlyEmergencyFundGoal,
+        taxRate: profileFormData.taxRate,
+        monthlyTaxDeductions: profileFormData.monthlyTaxDeductions,
+        industry: profileFormData.industry,
+        location: '', // Location field removed from UI but still required by API
+        country: profileFormData.country,
+        notes: profileFormData.notes,
+        preferredCurrency: currency,
+      };
+
+      let response;
+      
+      // First, check if profile already exists by trying to get it
+      let existingProfile = null;
+      try {
+        existingProfile = await apiService.getUserProfile();
+      } catch (error) {
+        // Profile doesn't exist, that's fine
+        existingProfile = null;
+      }
+      
+      // If profile exists, use update; otherwise create
+      if (existingProfile && existingProfile.id) {
+        // Update existing profile
+        response = await apiService.updateUserProfile(profileData);
+        setProfileSuccess('Profile updated successfully!');
+      } else {
+        // Create new profile
+        response = await apiService.createUserProfile({
+          ...profileData,
+          incomeSources: profileFormData.incomeSources,
+        });
+        setProfileSuccess('Profile created successfully!');
+      }
       
       // Check if response is successful
       if (response && response.id) {
-        setProfileSuccess('Profile created successfully!');
-        
         // Fetch the profile immediately and update context
         const newProfile = await apiService.getUserProfile();
         if (newProfile && newProfile.id) {
           updateUserProfile(newProfile);  // This will update hasProfile to true
           setShowProfileForm(false);  // Close the modal immediately
         } else {
-          setProfileError('Profile creation succeeded but failed to fetch. Please refresh the page.');
+          setProfileError('Profile operation succeeded but failed to fetch. Please refresh the page.');
         }
       } else {
-        setProfileError('Profile creation failed. Please try again.');
+        setProfileError('Profile operation failed. Please try again.');
       }
       
     } catch (error: any) {
-      setProfileError(error.message || 'Failed to create profile');
+      // Handle the "profile already exists" error by trying to update instead
+      if (error.message && error.message.includes('already exists')) {
+        try {
+          const profileData = {
+            jobTitle: profileFormData.jobTitle,
+            company: profileFormData.company,
+            employmentType: profileFormData.employmentType,
+            monthlySavingsGoal: profileFormData.monthlySavingsGoal,
+            monthlyInvestmentGoal: profileFormData.monthlyInvestmentGoal,
+            monthlyEmergencyFundGoal: profileFormData.monthlyEmergencyFundGoal,
+            taxRate: profileFormData.taxRate,
+            monthlyTaxDeductions: profileFormData.monthlyTaxDeductions,
+            industry: profileFormData.industry,
+            location: '', // Location field removed from UI but still required by API
+            country: profileFormData.country,
+            notes: profileFormData.notes,
+            preferredCurrency: currency,
+          };
+          const response = await apiService.updateUserProfile(profileData);
+          if (response && response.id) {
+            const newProfile = await apiService.getUserProfile();
+            if (newProfile && newProfile.id) {
+              updateUserProfile(newProfile);
+              setShowProfileForm(false);
+              setProfileSuccess('Profile updated successfully!');
+            }
+          }
+        } catch (updateError: any) {
+          setProfileError(updateError.message || 'Failed to update profile');
+        }
+      } else {
+        setProfileError(error.message || 'Failed to create profile');
+      }
     } finally {
       setProfileLoading(false);
     }
@@ -2341,22 +2411,83 @@ const Dashboard: React.FC = () => {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Industry"
-                    value={profileFormData.industry}
-                    onChange={(e) => handleProfileFormInputChange('industry', e.target.value)}
-                    disabled={profileFormData.isUnemployed}
-                  />
+                  <FormControl fullWidth disabled={profileFormData.isUnemployed}>
+                    <InputLabel>Industry</InputLabel>
+                    <Select
+                      value={profileFormData.industry}
+                      onChange={(e) => handleProfileFormInputChange('industry', e.target.value)}
+                      label="Industry"
+                    >
+                      <MenuItem value="Technology">Technology</MenuItem>
+                      <MenuItem value="Healthcare">Healthcare</MenuItem>
+                      <MenuItem value="Finance">Finance</MenuItem>
+                      <MenuItem value="Education">Education</MenuItem>
+                      <MenuItem value="Manufacturing">Manufacturing</MenuItem>
+                      <MenuItem value="Retail">Retail</MenuItem>
+                      <MenuItem value="Government">Government</MenuItem>
+                      <MenuItem value="Non-profit">Non-profit</MenuItem>
+                      <MenuItem value="Real Estate">Real Estate</MenuItem>
+                      <MenuItem value="Consulting">Consulting</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Location"
-                    value={profileFormData.location}
-                    onChange={(e) => handleProfileFormInputChange('location', e.target.value)}
-                    disabled={profileFormData.isUnemployed}
-                  />
+                  <FormControl fullWidth disabled={profileFormData.isUnemployed}>
+                    <InputLabel>Country</InputLabel>
+                    <Select
+                      value={profileFormData.country}
+                      onChange={(e) => handleProfileFormInputChange('country', e.target.value)}
+                      label="Country"
+                    >
+                      <MenuItem value="United States">United States</MenuItem>
+                      <MenuItem value="United Kingdom">United Kingdom</MenuItem>
+                      <MenuItem value="Canada">Canada</MenuItem>
+                      <MenuItem value="Australia">Australia</MenuItem>
+                      <MenuItem value="Germany">Germany</MenuItem>
+                      <MenuItem value="France">France</MenuItem>
+                      <MenuItem value="Italy">Italy</MenuItem>
+                      <MenuItem value="Spain">Spain</MenuItem>
+                      <MenuItem value="Netherlands">Netherlands</MenuItem>
+                      <MenuItem value="Belgium">Belgium</MenuItem>
+                      <MenuItem value="Switzerland">Switzerland</MenuItem>
+                      <MenuItem value="Sweden">Sweden</MenuItem>
+                      <MenuItem value="Norway">Norway</MenuItem>
+                      <MenuItem value="Denmark">Denmark</MenuItem>
+                      <MenuItem value="Finland">Finland</MenuItem>
+                      <MenuItem value="Poland">Poland</MenuItem>
+                      <MenuItem value="Portugal">Portugal</MenuItem>
+                      <MenuItem value="Ireland">Ireland</MenuItem>
+                      <MenuItem value="Austria">Austria</MenuItem>
+                      <MenuItem value="Greece">Greece</MenuItem>
+                      <MenuItem value="Japan">Japan</MenuItem>
+                      <MenuItem value="South Korea">South Korea</MenuItem>
+                      <MenuItem value="China">China</MenuItem>
+                      <MenuItem value="India">India</MenuItem>
+                      <MenuItem value="Singapore">Singapore</MenuItem>
+                      <MenuItem value="Malaysia">Malaysia</MenuItem>
+                      <MenuItem value="Thailand">Thailand</MenuItem>
+                      <MenuItem value="Philippines">Philippines</MenuItem>
+                      <MenuItem value="Indonesia">Indonesia</MenuItem>
+                      <MenuItem value="Vietnam">Vietnam</MenuItem>
+                      <MenuItem value="Brazil">Brazil</MenuItem>
+                      <MenuItem value="Mexico">Mexico</MenuItem>
+                      <MenuItem value="Argentina">Argentina</MenuItem>
+                      <MenuItem value="Chile">Chile</MenuItem>
+                      <MenuItem value="Colombia">Colombia</MenuItem>
+                      <MenuItem value="South Africa">South Africa</MenuItem>
+                      <MenuItem value="Egypt">Egypt</MenuItem>
+                      <MenuItem value="Nigeria">Nigeria</MenuItem>
+                      <MenuItem value="Kenya">Kenya</MenuItem>
+                      <MenuItem value="United Arab Emirates">United Arab Emirates</MenuItem>
+                      <MenuItem value="Saudi Arabia">Saudi Arabia</MenuItem>
+                      <MenuItem value="Israel">Israel</MenuItem>
+                      <MenuItem value="Turkey">Turkey</MenuItem>
+                      <MenuItem value="Russia">Russia</MenuItem>
+                      <MenuItem value="New Zealand">New Zealand</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
             </CardContent>

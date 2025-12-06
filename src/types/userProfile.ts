@@ -21,6 +21,7 @@ export interface CreateUserProfileRequest {
   monthlyTaxDeductions: number;
   industry: string;
   location: string;
+  country: string;
   notes: string;
   preferredCurrency: string;
   incomeSources: IncomeSource[];
@@ -37,6 +38,7 @@ export interface UpdateUserProfileRequest {
   monthlyTaxDeductions: number;
   industry: string;
   location: string;
+  country: string;
   notes: string;
   preferredCurrency: string;
 }
@@ -54,6 +56,7 @@ export interface UserProfileResponse {
   monthlyTaxDeductions: number;
   industry: string;
   location: string;
+  country: string;
   notes: string;
   preferredCurrency: string;
   incomeSources: IncomeSource[];
