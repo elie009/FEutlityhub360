@@ -32,6 +32,7 @@
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
     "react-markdown": "^10.1.0",
+    "react-plaid-link": "^3.6.1",
     "react-router-dom": "^6.20.1",
     "react-scripts": "5.0.1",
     "recharts": "^2.8.0",

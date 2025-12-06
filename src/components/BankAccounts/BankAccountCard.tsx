@@ -19,7 +19,7 @@ interface BankAccountCardProps {
   account: BankAccount;
   onEdit: (account: BankAccount) => void;
   onDelete: (accountId: string) => void;
-  onConnect?: (accountId: string) => void;
+  onConnect?: (account: BankAccount) => void;
   onDisconnect?: (accountId: string) => void;
   onSync?: (accountId: string) => void;
   onViewTransactions?: (account: BankAccount) => void;
@@ -117,7 +117,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
   };
 
   const handleConnect = () => {
-    onConnect?.(account.id);
+    onConnect?.(account);
     handleMenuClose();
   };
 

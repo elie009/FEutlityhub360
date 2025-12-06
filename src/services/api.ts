@@ -578,6 +578,32 @@ class ApiService {
     return this.request<User>(`/users/${userId}`);
   }
 
+  async getAllUsers(page: number = 1, limit: number = 1000, role?: string, isActive?: boolean): Promise<{ data: User[]; page: number; limit: number; totalCount: number }> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    if (role) queryParams.append('role', role);
+    if (isActive !== undefined) queryParams.append('isActive', isActive.toString());
+
+    const response = await this.request<{ success: boolean; data: { data?: User[]; Data?: User[]; page?: number; Page?: number; limit?: number; Limit?: number; totalCount?: number; TotalCount?: number } }>(
+      `/users?${queryParams.toString()}`
+    );
+    if (response && response.success && response.data) {
+      // Handle both camelCase and PascalCase response structures
+      const users = response.data.data || response.data.Data || [];
+      const pageNum = response.data.page || response.data.Page || page;
+      const limitNum = response.data.limit || response.data.Limit || limit;
+      const totalCount = response.data.totalCount || response.data.TotalCount || users.length;
+      return {
+        data: users,
+        page: pageNum,
+        limit: limitNum,
+        totalCount: totalCount
+      };
+    }
+    throw new Error('Failed to get users');
+  }
+
   async updateUser(userId: string, userData: { name: string; phone: string }): Promise<{
     success: boolean;
     message: string;
@@ -2480,6 +2506,31 @@ class ApiService {
       return response.data;
     }
     return response;
+  }
+
+  // Plaid Integration Methods
+  async createPlaidLinkToken(webhookUrl?: string): Promise<{ linkToken: string; expiration: string | Date }> {
+    const body = webhookUrl ? { webhookUrl } : {};
+    const response = await this.post<{ success: boolean; data: { linkToken: string; expiration: string | Date }; message?: string }>('/plaid/link-token', body);
+    // Backend returns ApiResponse<T> which has { success, data, message }
+    // post() wraps it in { data: ApiResponse<T> }
+    if (response && response.data && response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data?.message || 'Failed to create Plaid Link token');
+  }
+
+  async exchangePlaidPublicToken(publicToken: string, bankAccountId: string): Promise<string> {
+    const response = await this.post<{ success: boolean; data: string; message?: string }>('/plaid/exchange-token', {
+      publicToken,
+      bankAccountId
+    });
+    // Backend returns ApiResponse<string> which has { success, data: string, message }
+    // post() wraps it in { data: ApiResponse<string> }
+    if (response && response.data && response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data?.message || 'Failed to exchange Plaid public token');
   }
 
   // Month Closing APIs

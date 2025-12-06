@@ -25,6 +25,7 @@ import TransactionForm from '../components/BankAccounts/TransactionForm';
 import BankAccountTransactionsModal from '../components/BankAccounts/BankAccountTransactionsModal';
 import ReconciliationGuide from '../components/BankAccounts/ReconciliationGuide';
 import CloseMonthDialog from '../components/BankAccounts/CloseMonthDialog';
+import PlaidLinkDialog from '../components/BankAccounts/PlaidLinkDialog';
 
 const BankAccounts: React.FC = () => {
   const { user } = useAuth();
@@ -37,7 +38,7 @@ const BankAccounts: React.FC = () => {
   const [showBankAccountForm, setShowBankAccountForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
-  const [showFeatureNotAvailableModal, setShowFeatureNotAvailableModal] = useState(false);
+  const [showPlaidLinkDialog, setShowPlaidLinkDialog] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | undefined>(undefined);
   const [accountForTransactions, setAccountForTransactions] = useState<BankAccount | null>(null);
   const [filters, setFilters] = useState<BankAccountFilters>({});
@@ -94,8 +95,9 @@ const BankAccounts: React.FC = () => {
     }
   };
 
-  const handleConnectBankAccount = async (accountId: string) => {
-    setShowFeatureNotAvailableModal(true);
+  const handleConnectBankAccount = async (account: BankAccount) => {
+    setSelectedAccount(account);
+    setShowPlaidLinkDialog(true);
   };
 
   const handleDisconnectBankAccount = async (accountId: string) => {
@@ -588,48 +590,18 @@ const BankAccounts: React.FC = () => {
         onStartReconciliation={handleStartReconciliation}
       />
 
-      {/* Feature Not Available Dialog */}
-      <Dialog 
-        open={showFeatureNotAvailableModal} 
-        onClose={() => setShowFeatureNotAvailableModal(false)}
-        maxWidth="sm" 
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h5" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <InfoIcon color="warning" />
-              Feature Not Available
-            </Typography>
-            <IconButton
-              onClick={() => setShowFeatureNotAvailableModal(false)}
-              size="small"
-              edge="end"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body1">
-              This feature is not available for your account type. Please contact support.
-            </Typography>
-          </Alert>
-          <Typography variant="body2" color="text.secondary">
-            If you need access to this feature, please reach out to our support team for assistance with upgrading your account.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setShowFeatureNotAvailableModal(false)}
-            variant="contained"
-            fullWidth
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Plaid Link Dialog */}
+      <PlaidLinkDialog
+        open={showPlaidLinkDialog}
+        onClose={() => {
+          setShowPlaidLinkDialog(false);
+          setSelectedAccount(undefined);
+        }}
+        onSuccess={() => {
+          loadBankAccounts();
+        }}
+        bankAccount={selectedAccount || null}
+      />
 
       {/* Close Month Dialog */}
       <CloseMonthDialog

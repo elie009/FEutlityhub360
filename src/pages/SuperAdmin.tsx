@@ -156,31 +156,62 @@ const SuperAdmin: React.FC = () => {
         const subscriptions = await apiService.getAllUserSubscriptions(1, 100, filterStatus || undefined, filterPlanId || undefined);
         setUserSubscriptions(subscriptions);
       } else if (tabValue === 2) {
-        // Load users with subscriptions
-        // This would require a new endpoint or we can use the subscriptions data
-        const subscriptions = await apiService.getAllUserSubscriptions(1, 1000);
-        const uniqueUsers = subscriptions.reduce((acc: UserWithSubscription[], sub: UserSubscription) => {
-          if (!acc.find(u => u.id === sub.userId)) {
-            acc.push({
-              id: sub.userId,
-              name: sub.userName,
-              email: sub.userEmail,
-              phone: '',
-              role: 'USER',
-              isActive: true,
-              subscriptionPlanId: sub.subscriptionPlanId,
-              subscriptionPlanName: sub.planName,
-              subscriptionStatus: sub.status,
-              subscriptionBillingCycle: sub.billingCycle,
-              subscriptionStartDate: sub.startDate,
-              subscriptionEndDate: sub.endDate,
-              createdAt: sub.createdAt,
-              updatedAt: sub.updatedAt,
-            });
+        // Load all users with their subscription information
+        const [usersResponse, subscriptions] = await Promise.all([
+          apiService.getAllUsers(1, 10000), // Get all users
+          apiService.getAllUserSubscriptions(1, 10000) // Get all subscriptions
+        ]);
+
+        // Create a map of active subscriptions by userId
+        const subscriptionMap = new Map<string, UserSubscription>();
+        subscriptions.forEach((sub: UserSubscription) => {
+          // Only consider ACTIVE subscriptions, or if no active subscription exists, use the most recent one
+          if (sub.status === 'ACTIVE') {
+            subscriptionMap.set(sub.userId, sub);
+          } else if (!subscriptionMap.has(sub.userId)) {
+            // If no active subscription, store the most recent one (will be overwritten if we find a more recent one)
+            subscriptionMap.set(sub.userId, sub);
           }
-          return acc;
-        }, []);
-        setUsersWithSubscriptions(uniqueUsers);
+        });
+
+        // Map all users to UserWithSubscription format
+        const usersWithSubs: UserWithSubscription[] = usersResponse.data.map((user: any) => {
+          // Handle both camelCase and PascalCase field names
+          const userId = user.id || user.Id;
+          const subscription = subscriptionMap.get(userId);
+          let planName = 'Free';
+          
+          if (subscription) {
+            const planDisplayName = subscription.planDisplayName || subscription.planName || '';
+            // Check if plan is None, Free, or empty - display as "Free"
+            if (planDisplayName.toLowerCase() === 'none' || 
+                planDisplayName.toLowerCase() === 'free' || 
+                planDisplayName === '') {
+              planName = 'Free';
+            } else {
+              planName = planDisplayName;
+            }
+          }
+
+          return {
+            id: userId,
+            name: user.name || user.Name || '',
+            email: user.email || user.Email || '',
+            phone: user.phone || user.Phone || '',
+            role: user.role || user.Role || 'USER',
+            isActive: user.isActive !== undefined ? user.isActive : (user.IsActive !== undefined ? user.IsActive : true),
+            subscriptionPlanId: subscription?.subscriptionPlanId,
+            subscriptionPlanName: planName,
+            subscriptionStatus: subscription?.status,
+            subscriptionBillingCycle: subscription?.billingCycle,
+            subscriptionStartDate: subscription?.startDate,
+            subscriptionEndDate: subscription?.endDate,
+            createdAt: user.createdAt || user.CreatedAt || new Date().toISOString(),
+            updatedAt: user.updatedAt || user.UpdatedAt || new Date().toISOString(),
+          };
+        });
+
+        setUsersWithSubscriptions(usersWithSubs);
       } else if (tabValue === 3) {
         // Load all support tickets (admin can see all)
         const filters: any = {};
@@ -470,13 +501,14 @@ const SuperAdmin: React.FC = () => {
 
   // Subscription columns for DataGrid
   const subscriptionColumns: GridColDef[] = [
-    { field: 'userName', headerName: 'User Name', width: 200 },
-    { field: 'userEmail', headerName: 'Email', width: 250 },
-    { field: 'planDisplayName', headerName: 'Plan', width: 200 },
+    { field: 'userName', headerName: 'User Name', flex: 1, minWidth: 150 },
+    { field: 'userEmail', headerName: 'Email', flex: 1.5, minWidth: 200 },
+    { field: 'planDisplayName', headerName: 'Plan', flex: 1.2, minWidth: 150 },
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      flex: 0.8,
+      minWidth: 120,
       renderCell: (params) => (
         <Chip
           label={params.value}
@@ -492,31 +524,36 @@ const SuperAdmin: React.FC = () => {
     {
       field: 'billingCycle',
       headerName: 'Billing',
-      width: 100,
+      flex: 0.7,
+      minWidth: 100,
     },
     {
       field: 'currentPrice',
       headerName: 'Price',
-      width: 100,
+      flex: 0.7,
+      minWidth: 100,
       renderCell: (params) => `$${params.value.toFixed(2)}`,
     },
     {
       field: 'startDate',
       headerName: 'Start Date',
-      width: 150,
+      flex: 1,
+      minWidth: 120,
       renderCell: (params) => new Date(params.value).toLocaleDateString(),
     },
     {
       field: 'nextBillingDate',
       headerName: 'Next Billing',
-      width: 150,
+      flex: 1,
+      minWidth: 120,
       renderCell: (params) => params.value ? new Date(params.value).toLocaleDateString() : 'N/A',
     },
     {
       field: 'actions',
       type: 'actions',
       headerName: 'Actions',
-      width: 200,
+      flex: 0.8,
+      minWidth: 120,
       getActions: (params) => [
         <GridActionsCellItem
           icon={<EditIcon />}
@@ -537,13 +574,14 @@ const SuperAdmin: React.FC = () => {
 
   // User columns for DataGrid
   const userColumns: GridColDef[] = [
-    { field: 'name', headerName: 'Name', width: 200 },
-    { field: 'email', headerName: 'Email', width: 250 },
-    { field: 'role', headerName: 'Role', width: 100 },
+    { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
+    { field: 'email', headerName: 'Email', flex: 1.5, minWidth: 200 },
+    { field: 'role', headerName: 'Role', flex: 0.8, minWidth: 100 },
     {
       field: 'isActive',
       headerName: 'Status',
-      width: 100,
+      flex: 0.8, 
+      minWidth: 100,
       renderCell: (params) => (
         <Chip
           label={params.value ? 'Active' : 'Inactive'}
@@ -555,13 +593,22 @@ const SuperAdmin: React.FC = () => {
     {
       field: 'subscriptionPlanName',
       headerName: 'Subscription Plan',
-      width: 200,
-      renderCell: (params) => params.value || 'No Subscription',
+      flex: 1.2,
+      minWidth: 150,
+      renderCell: (params) => {
+        const planName = params.value || 'Free';
+        // Ensure None, empty, or Free values are displayed as "Free"
+        if (!planName || planName.toLowerCase() === 'none' || planName.toLowerCase() === 'free') {
+          return 'Free';
+        }
+        return planName;
+      },
     },
     {
       field: 'subscriptionStatus',
       headerName: 'Subscription Status',
-      width: 150,
+      flex: 1,
+      minWidth: 150,
       renderCell: (params) => {
         if (!params.value) return 'N/A';
         return (
@@ -580,7 +627,8 @@ const SuperAdmin: React.FC = () => {
     {
       field: 'subscriptionBillingCycle',
       headerName: 'Billing Cycle',
-      width: 120,
+      flex: 0.8,
+      minWidth: 120,
       renderCell: (params) => params.value || 'N/A',
     },
   ];
@@ -790,18 +838,20 @@ const SuperAdmin: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <DataGrid
-              rows={userSubscriptions}
-              columns={subscriptionColumns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50]}
-              disableRowSelectionOnClick
-              autoHeight
-            />
+            <Box sx={{ width: '100%', height: 600 }}>
+              <DataGrid
+                rows={userSubscriptions}
+                columns={subscriptionColumns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page: 0, pageSize: 10 },
+                  },
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                disableRowSelectionOnClick
+                sx={{ width: '100%' }}
+              />
+            </Box>
           )}
         </TabPanel>
 
@@ -815,18 +865,20 @@ const SuperAdmin: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <DataGrid
-              rows={usersWithSubscriptions}
-              columns={userColumns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50]}
-              disableRowSelectionOnClick
-              autoHeight
-            />
+            <Box sx={{ width: '100%', height: 600 }}>
+              <DataGrid
+                rows={usersWithSubscriptions}
+                columns={userColumns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page: 0, pageSize: 10 },
+                  },
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                disableRowSelectionOnClick
+                sx={{ width: '100%' }}
+              />
+            </Box>
           )}
         </TabPanel>
 
