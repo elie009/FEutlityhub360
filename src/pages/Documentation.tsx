@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -29,6 +30,7 @@ import {
   TrendingUp as ApportionerIcon,
   Assessment as AnalyticsIcon,
   Help as HelpIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 
 interface DocumentationFile {
@@ -106,6 +108,8 @@ const documentationFiles: DocumentationFile[] = [
 ];
 
 const Documentation: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
   const [selectedDoc, setSelectedDoc] = useState<DocumentationFile | null>(null);
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -117,6 +121,19 @@ const Documentation: React.FC = () => {
       loadDocumentation(selectedDoc.filename);
     }
   }, [selectedDoc]);
+
+  // Filter documentation files based on search query
+  const filterDocsBySearch = (docs: DocumentationFile[], query: string): DocumentationFile[] => {
+    if (!query.trim()) return docs;
+    
+    const lowerQuery = query.toLowerCase();
+    return docs.filter(doc => 
+      doc.title.toLowerCase().includes(lowerQuery) ||
+      doc.description.toLowerCase().includes(lowerQuery) ||
+      doc.category.toLowerCase().includes(lowerQuery) ||
+      doc.filename.toLowerCase().includes(lowerQuery)
+    );
+  };
 
   const loadDocumentation = async (filename: string) => {
     setLoading(true);
@@ -165,28 +182,59 @@ const Documentation: React.FC = () => {
     setSelectedDoc(doc);
   };
 
-  const filteredDocs = category === 'all' 
+  // First filter by category
+  const categoryFilteredDocs = category === 'all' 
     ? documentationFiles 
     : documentationFiles.filter(doc => doc.category === category);
 
+  // Then filter by search query if present
+  const filteredDocs = searchQuery 
+    ? filterDocsBySearch(categoryFilteredDocs, searchQuery)
+    : categoryFilteredDocs;
+
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          User Guide & Documentation
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Learn how to use UtilityHub360 to manage your finances effectively. Browse guides by category or search for specific topics.
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h4" gutterBottom>
+            User Guide & Documentation
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            {searchQuery 
+              ? `Search results for "${searchQuery}" - ${filteredDocs.length} guide${filteredDocs.length !== 1 ? 's' : ''} found`
+              : 'Learn how to use UtilityHub360 to manage your finances effectively. Browse guides by category or search for specific topics.'}
+          </Typography>
+        </Box>
+        {searchQuery && (
+          <Chip
+            label={`Clear search: "${searchQuery}"`}
+            onDelete={() => {
+              setSearchParams({});
+              setCategory('all');
+            }}
+            color="primary"
+            variant="outlined"
+            sx={{ ml: 2 }}
+          />
+        )}
       </Box>
 
       <Grid container spacing={3}>
         {/* Documentation List */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: 'calc(100vh - 200px)', overflow: 'auto' }}>
-            <Typography variant="h6" gutterBottom>
-              User Guides
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h6">
+                User Guides
+              </Typography>
+              {searchQuery && (
+                <Chip
+                  label={`${filteredDocs.length} result${filteredDocs.length !== 1 ? 's' : ''}`}
+                  size="small"
+                  color="primary"
+                />
+              )}
+            </Box>
             
             <Tabs 
               value={category} 
@@ -266,13 +314,88 @@ const Documentation: React.FC = () => {
                   color: 'text.secondary',
                 }}
               >
-                <HelpIcon sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
-                <Typography variant="h6" gutterBottom>
-                  Select a guide to get started
-                </Typography>
-                <Typography variant="body2" sx={{ maxWidth: 400, mx: 'auto' }}>
-                  Choose a user guide from the list to learn how to use different features of UtilityHub360. Start with "Getting Started" if you're new!
-                </Typography>
+                {searchQuery && filteredDocs.length > 0 ? (
+                  <>
+                    <SearchIcon sx={{ fontSize: 60, mb: 2, opacity: 0.5, color: 'primary.main' }} />
+                    <Typography variant="h6" gutterBottom>
+                      Search Results for "{searchQuery}"
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
+                      Found {filteredDocs.length} guide{filteredDocs.length !== 1 ? 's' : ''} matching your search
+                    </Typography>
+                    <Box sx={{ width: '100%', maxWidth: 600 }}>
+                      <List>
+                        {filteredDocs.map((doc, index) => (
+                          <React.Fragment key={doc.filename}>
+                            <ListItem disablePadding>
+                              <ListItemButton
+                                onClick={() => handleDocSelect(doc)}
+                                sx={{
+                                  borderRadius: 1,
+                                  mb: 1,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  '&:hover': {
+                                    backgroundColor: 'action.hover',
+                                    borderColor: 'primary.main',
+                                  },
+                                }}
+                              >
+                                <ListItemIcon>
+                                  {doc.icon}
+                                </ListItemIcon>
+                                <ListItemText
+                                  primary={doc.title}
+                                  secondary={doc.description}
+                                />
+                                <Chip
+                                  label={doc.category.replace('-', ' ')}
+                                  size="small"
+                                  sx={{ ml: 1 }}
+                                />
+                              </ListItemButton>
+                            </ListItem>
+                            {index < filteredDocs.length - 1 && <Divider sx={{ my: 1 }} />}
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    </Box>
+                  </>
+                ) : searchQuery && filteredDocs.length === 0 ? (
+                  <>
+                    <SearchIcon sx={{ fontSize: 60, mb: 2, opacity: 0.3 }} />
+                    <Typography variant="h6" gutterBottom>
+                      No results found for "{searchQuery}"
+                    </Typography>
+                    <Typography variant="body2" sx={{ maxWidth: 400, mx: 'auto', mb: 2 }}>
+                      Try searching with different keywords or browse all guides from the list.
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        cursor: 'pointer', 
+                        color: 'primary.main',
+                        textDecoration: 'underline',
+                      }}
+                      onClick={() => {
+                        setSearchParams({});
+                        setCategory('all');
+                      }}
+                    >
+                      Clear search and show all guides
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <HelpIcon sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
+                    <Typography variant="h6" gutterBottom>
+                      Select a guide to get started
+                    </Typography>
+                    <Typography variant="body2" sx={{ maxWidth: 400, mx: 'auto' }}>
+                      Choose a user guide from the list to learn how to use different features of UtilityHub360. Start with "Getting Started" if you're new!
+                    </Typography>
+                  </>
+                )}
               </Box>
             ) : (
               <Box>

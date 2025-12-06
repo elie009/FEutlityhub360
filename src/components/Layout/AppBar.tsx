@@ -46,6 +46,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
@@ -218,6 +219,18 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
     return date.toLocaleDateString();
   };
 
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleSearchKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && searchQuery.trim()) {
+      // Redirect to documentation page with search query
+      navigate(`/documentation?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
+  };
+
   return (
     <MuiAppBar 
       position="fixed" 
@@ -268,7 +281,10 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
           >
             <SearchIcon sx={{ color: '#666666', mr: 1, fontSize: '20px' }} />
             <InputBase
-              placeholder="Search room, guest, book, etc"
+              placeholder="Search bills, loans, Expense etc"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onKeyPress={handleSearchKeyPress}
               sx={{
                 color: '#1a1a1a',
                 width: '100%',
