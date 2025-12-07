@@ -818,9 +818,9 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
               <strong>CSV Format Requirements:</strong>
               <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem' }}>
                 <li>Must include <strong>Date</strong> and <strong>Amount</strong> columns</li>
-                <li>Optional: Type (Debit/Credit), Description, Reference, Balance</li>
+                <li>Optional: Type (Money Out/Money In), Description, Reference, Balance</li>
                 <li>Date formats: MM/DD/YYYY, YYYY-MM-DD, or MM-DD-YYYY</li>
-                <li>Amount can be positive or negative (negative = Debit, positive = Credit)</li>
+                <li>Amount can be positive or negative (negative = Money Out, positive = Money In)</li>
               </ul>
             </Typography>
           </Alert>

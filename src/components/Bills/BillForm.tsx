@@ -221,7 +221,7 @@ const BillForm: React.FC<BillFormProps> = ({
                   fullWidth
                   required
                   disabled={lockedFields}
-                  helperText={lockedFields ? "Cannot change bill name when editing a specific month" : "Enter a descriptive name for the bill"}
+                  helperText={lockedFields ? "Cannot change bill name when editing a specific month" : "Enter a name for this bill, like 'Electric Bill' or 'Internet Service'"}
                 />
               </Grid>
 
@@ -258,7 +258,7 @@ const BillForm: React.FC<BillFormProps> = ({
                   fullWidth
                   required
                   inputProps={{ min: 0, step: 0.01 }}
-                  helperText="Enter the bill amount"
+                  helperText="Enter the amount you usually pay for this bill. If it changes, you can update it later."
                 />
               </Grid>
 
@@ -290,6 +290,7 @@ const BillForm: React.FC<BillFormProps> = ({
                   onChange={handleDateChange}
                   fullWidth
                   required
+                  helperText="Select the day of the month when this bill is usually due"
                   InputLabelProps={{
                     shrink: true,
                   }}

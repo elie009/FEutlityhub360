@@ -210,7 +210,7 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
                         What is "Total Disbursed"?
                       </Typography>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        • It's the loan principal - The actual amount you received
+                        • It's the loan amount - The actual amount you received
                       </Typography>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
                         • It's a one-time event - Money is disbursed only once when loan is approved
@@ -259,7 +259,7 @@ const LoanTransactionHistory: React.FC<LoanTransactionHistoryProps> = ({
                 {loanData && (
                   <Alert severity="info">
                     <Typography variant="body2">
-                      This loan has a principal amount of {formatCurrency(loanData.principal)}.
+                      This loan has a loan amount of {formatCurrency(loanData.principal)}.
                       The "Total Disbursed" above shows this amount as a fallback.
                     </Typography>
                   </Alert>

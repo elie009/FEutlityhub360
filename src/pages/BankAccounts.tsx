@@ -352,7 +352,7 @@ const BankAccounts: React.FC = () => {
                           Key Features:
                         </Typography>
                         <Typography variant="body2" component="div" sx={{ pl: 2 }}>
-                          • <strong>Reconciliation:</strong> Match transactions with bank statements<br/>
+                          • <strong>Match with Bank Statement:</strong> Match transactions with bank statements to keep everything accurate<br/>
                           • <strong>Sync:</strong> Automatically import transactions (when connected)<br/>
                           • <strong>Categories:</strong> Organize transactions by type<br/>
                           • <strong>Reports:</strong> View spending and income analytics
@@ -509,7 +509,7 @@ const BankAccounts: React.FC = () => {
                 </StepLabel>
                 <StepContent>
                   <Typography variant="body2" color="text.secondary">
-                    Use the reconciliation feature to match your transactions with bank statements and keep everything accurate.
+                    Use the "Match with Bank Statement" feature to match your transactions with bank statements and keep everything accurate.
                   </Typography>
                 </StepContent>
               </Step>

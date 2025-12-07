@@ -283,11 +283,11 @@ const FinancialRatiosTab: React.FC<FinancialRatiosTabProps> = ({
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} md={4}>
           {renderRatioCard(
-            'Debt-to-Equity',
+            'Debt-to-Net Worth',
             ratios.debt.debtToEquityRatio,
             ratios.debt.debtToEquityInterpretation,
             '',
-            'Total Liabilities / Total Equity'
+            'Total Liabilities / Total Net Worth'
           )}
         </Grid>
         <Grid item xs={12} md={4}>
@@ -321,7 +321,7 @@ const FinancialRatiosTab: React.FC<FinancialRatiosTabProps> = ({
             <Typography variant="h6">{formatCurrency(ratios.debt.totalAssets)}</Typography>
           </Grid>
           <Grid item xs={6} md={3}>
-            <Typography variant="body2" color="text.secondary">Total Equity</Typography>
+            <Typography variant="body2" color="text.secondary">Total Net Worth</Typography>
             <Typography variant="h6">{formatCurrency(ratios.debt.totalEquity)}</Typography>
           </Grid>
           <Grid item xs={6} md={3}>
@@ -356,11 +356,11 @@ const FinancialRatiosTab: React.FC<FinancialRatiosTabProps> = ({
         </Grid>
         <Grid item xs={12} md={4}>
           {renderRatioCard(
-            'Return on Equity (ROE)',
+            'Return on Net Worth',
             ratios.profitability.returnOnEquity,
             ratios.profitability.returnOnEquityInterpretation,
             '%',
-            '(Net Income / Total Equity) × 100'
+            '(Net Income / Total Net Worth) × 100'
           )}
         </Grid>
       </Grid>

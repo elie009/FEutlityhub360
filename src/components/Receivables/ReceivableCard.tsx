@@ -122,7 +122,7 @@ const ReceivableCard: React.FC<ReceivableCardProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <AttachMoney sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary">
-                Principal
+                Amount Owed
               </Typography>
             </Box>
             <Typography variant="h6">

@@ -59,6 +59,7 @@ import {
   TrendingDown,
   Warning,
   Info,
+  Info as InfoIcon,
   Lightbulb,
   AccountBalance,
   CreditCard,
@@ -437,13 +438,13 @@ const Analytics: React.FC = () => {
         addText(`Total Liabilities: ${formatCurrency(balanceSheet.liabilities.totalLiabilities)}`, 10, true);
         yPosition += 10;
 
-        // Equity
-        addText('EQUITY', 12, true);
+        // Net Worth
+        addText('NET WORTH (What You Own)', 12, true);
         addText(`Owner's Capital: ${formatCurrency(balanceSheet.equity.ownersCapital)}`, 10);
         addText(`Retained Earnings: ${formatCurrency(balanceSheet.equity.retainedEarnings)}`, 10);
-        addText(`Total Equity: ${formatCurrency(balanceSheet.equity.totalEquity)}`, 10, true);
+        addText(`Total Net Worth: ${formatCurrency(balanceSheet.equity.totalEquity)}`, 10, true);
         yPosition += 5;
-        addText(`Total Liabilities & Equity: ${formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}`, 10, true);
+        addText(`Total Liabilities & Net Worth: ${formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}`, 10, true);
         addText(`Balanced: ${balanceSheet.isBalanced ? 'Yes' : 'No'}`, 10);
         yPosition += 10;
       }
@@ -532,7 +533,7 @@ const Analytics: React.FC = () => {
 
         // Debt Ratios
         addText('DEBT RATIOS', 12, true);
-        addText(`Debt-to-Equity: ${financialRatios.debt.debtToEquityRatio.toFixed(2)} (${financialRatios.debt.debtToEquityInterpretation})`, 10);
+        addText(`Debt-to-Net Worth: ${financialRatios.debt.debtToEquityRatio.toFixed(2)} (${financialRatios.debt.debtToEquityInterpretation})`, 10);
         addText(`Debt-to-Assets: ${financialRatios.debt.debtToAssetsRatio.toFixed(2)} (${financialRatios.debt.debtToAssetsInterpretation})`, 10);
         addText(`Debt Service Coverage: ${financialRatios.debt.debtServiceCoverageRatio.toFixed(2)} (${financialRatios.debt.debtServiceCoverageInterpretation})`, 10);
         yPosition += 10;
@@ -541,7 +542,7 @@ const Analytics: React.FC = () => {
         addText('PROFITABILITY RATIOS', 12, true);
         addText(`Net Profit Margin: ${financialRatios.profitability.netProfitMargin.toFixed(2)}% (${financialRatios.profitability.netProfitMarginInterpretation})`, 10);
         addText(`Return on Assets (ROA): ${financialRatios.profitability.returnOnAssets.toFixed(2)}% (${financialRatios.profitability.returnOnAssetsInterpretation})`, 10);
-        addText(`Return on Equity (ROE): ${financialRatios.profitability.returnOnEquity.toFixed(2)}% (${financialRatios.profitability.returnOnEquityInterpretation})`, 10);
+        addText(`Return on Net Worth: ${financialRatios.profitability.returnOnEquity.toFixed(2)}% (${financialRatios.profitability.returnOnEquityInterpretation})`, 10);
         yPosition += 10;
 
         // Efficiency Ratios
@@ -933,8 +934,25 @@ const Analytics: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <AccountBalance sx={{ color: 'text.primary', mr: 1 }} />
                 <Typography color="text.primary" variant="h6">
-                  Disposable Amount
+                  Disposable Income
                 </Typography>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                        What is "Disposable Income"?
+                      </Typography>
+                      <Typography variant="body2">
+                        This is the money you have left after paying all your bills and loans. You can use this for savings or other expenses.
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                >
+                  <IconButton size="small" sx={{ ml: 0.5, p: 0.5 }}>
+                    <InfoIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
               </Box>
               <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
                 {formatCurrency(summary.disposableIncome)}

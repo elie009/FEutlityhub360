@@ -141,7 +141,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onUpdate, onMakePayment, onDe
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <AccountBalance sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary">
-                Principal
+                Loan Amount
               </Typography>
             </Box>
             <Typography variant="h6">

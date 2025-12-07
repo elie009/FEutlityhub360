@@ -36,6 +36,7 @@ import {
   Edit,
   DateRange,
   Delete,
+  HelpOutline,
 } from '@mui/icons-material';
 import { Loan, RepaymentSchedule, Transaction, LoanStatus } from '../../types/loan';
 import { apiService } from '../../services/api';
@@ -342,7 +343,7 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
                     {formatCurrency(loan.principal)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Principal Amount
+                    Loan Amount
                   </Typography>
                 </Box>
               </Box>
@@ -457,7 +458,30 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
       <Card>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={activeTab} onChange={handleTabChange}>
-            <Tab label="Repayment Schedule" />
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  Payment Schedule
+                  <Tooltip
+                    title={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                          What is a "Payment Schedule"?
+                        </Typography>
+                        <Typography variant="body2">
+                          This shows how each payment is split between paying off the loan amount and paying interest. Over time, more of your payment goes toward the loan amount.
+                        </Typography>
+                      </Box>
+                    }
+                    arrow
+                  >
+                    <IconButton size="small" sx={{ p: 0.25 }}>
+                      <HelpOutline sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              }
+            />
             <Tab label="Schedule Management" icon={<Settings />} iconPosition="start" />
             <Tab label="Transaction History" />
           </Tabs>
@@ -481,7 +505,7 @@ const LoanDetails: React.FC<LoanDetailsProps> = ({ loanId, onBack }) => {
                 <TableRow>
                   <TableCell>Due Date</TableCell>
                   <TableCell align="right">Amount Due</TableCell>
-                  <TableCell align="right">Principal</TableCell>
+                  <TableCell align="right">Loan Amount</TableCell>
                   <TableCell align="right">Interest</TableCell>
                   <TableCell align="center">Status</TableCell>
                   <TableCell align="center">Actions</TableCell>

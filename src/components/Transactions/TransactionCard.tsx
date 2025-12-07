@@ -245,7 +245,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             <Chip
-              label={transaction.transactionType}
+              label={transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT' ? 'Money In' : transaction.transactionType === 'debit' || transaction.transactionType === 'DEBIT' ? 'Money Out' : transaction.transactionType}
               icon={getTransactionTypeIcon(transaction.transactionType)}
               color={getTransactionTypeColor(transaction.transactionType)}
               size="small"

@@ -219,10 +219,10 @@ const ReconciliationPage: React.FC = () => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Account Reconciliation
+          Match with Bank Statement
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Import bank statements and reconcile transactions with your accounts
+          Import bank statements and match transactions with your accounts to keep everything accurate
         </Typography>
       </Box>
 
@@ -353,7 +353,7 @@ const ReconciliationPage: React.FC = () => {
           onClick={() => setShowReconciliationDialog(true)}
           disabled={!selectedAccountId}
         >
-          Create Reconciliation
+          Create Match Session
         </Button>
         <Button
           variant="outlined"

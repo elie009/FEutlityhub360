@@ -400,7 +400,7 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
                 fullWidth
                 required
                 inputProps={{ maxLength: 255 }}
-                helperText="Example: 'My Checking Account' or 'Chase Savings'"
+                helperText="Give your account a name you'll remember, like 'Main Checking' or 'Savings for Vacation'"
                 placeholder="Enter a descriptive name"
               />
             </Grid>
@@ -470,7 +470,7 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
                 fullWidth
                 required
                 inputProps={{ step: "0.01", min: "0" }}
-                helperText={account ? "Update to match your bank statement" : "Enter 0 if starting with no balance"}
+                helperText="Enter how much money is currently in this account"
               />
             </Grid>
             

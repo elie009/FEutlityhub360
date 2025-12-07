@@ -1313,8 +1313,8 @@ const TransactionsPage: React.FC = () => {
                 displayEmpty
               >
                 <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Types</MenuItem>
-                <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Credit</MenuItem>
-                <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Debit</MenuItem>
+                <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Money In (Income)</MenuItem>
+                <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Money Out (Expense)</MenuItem>
                 <MenuItem value="transfer" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transfer</MenuItem>
               </Select>
             </FormControl>
@@ -1582,7 +1582,7 @@ const TransactionsPage: React.FC = () => {
                     • Total count of all bank transactions across all your accounts
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    • Includes both credit and debit transactions
+                    • Includes both money in (income) and money out (expense) transactions
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
                     • Shows the complete transaction history, not filtered by date
@@ -2213,8 +2213,8 @@ const TransactionsPage: React.FC = () => {
                           label="Type"
                         >
                           <MenuItem value="">All Types</MenuItem>
-                          <MenuItem value="credit">Credit</MenuItem>
-                          <MenuItem value="debit">Debit</MenuItem>
+                          <MenuItem value="credit">Money In (Income)</MenuItem>
+                          <MenuItem value="debit">Money Out (Expense)</MenuItem>
                           <MenuItem value="transfer">Transfer</MenuItem>
                         </Select>
                       </FormControl>
@@ -3030,8 +3030,8 @@ const TransactionsPage: React.FC = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">Type:</Typography>
                   <Chip 
-                    label={selectedTransaction.transactionType} 
-                    color={selectedTransaction.transactionType === 'credit' ? 'success' : 'error'}
+                    label={selectedTransaction.transactionType === 'credit' || selectedTransaction.transactionType === 'CREDIT' ? 'Money In (Income)' : 'Money Out (Expense)'} 
+                    color={selectedTransaction.transactionType === 'credit' || selectedTransaction.transactionType === 'CREDIT' ? 'success' : 'error'}
                     size="small"
                   />
                 </Grid>

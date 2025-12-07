@@ -33,6 +33,7 @@ import {
   ListItemText,
   Skeleton,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -56,6 +57,7 @@ import {
   AccountCircle,
   TrackChanges,
   Info as InfoIcon,
+  HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -1165,19 +1167,37 @@ const Dashboard: React.FC = () => {
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                   <Box sx={{ flex: 1 }}>
-                    <Typography 
-                      color="textSecondary" 
-                      gutterBottom 
-                      variant="body2"
-                      sx={{ 
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                        color: '#666666',
-                        mb: 1
-                      }}
-                    >
-                      {stat.title}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                      <Typography 
+                        color="textSecondary" 
+                        gutterBottom 
+                        variant="body2"
+                        sx={{ 
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          color: '#666666',
+                        }}
+                      >
+                        {stat.title}
+                      </Typography>
+                      {stat.title === 'Net Cash Flow (This Month)' && (
+                        <Tooltip
+                          title={
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                What is "Disposable Income"?
+                              </Typography>
+                              <Typography variant="body2">
+                                This is the money you have left after paying all your bills and loans. You can use this for savings or other expenses.
+                              </Typography>
+                            </Box>
+                          }
+                          arrow
+                        >
+                          <HelpOutlineIcon sx={{ fontSize: 16, color: '#666666', cursor: 'help' }} />
+                        </Tooltip>
+                      )}
+                    </Box>
                     <Typography 
                       variant="h4" 
                       component="h2"
@@ -1394,9 +1414,9 @@ const Dashboard: React.FC = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Credit limit</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Credit Limit</Typography>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Combined credit limit from all credit card accounts
+                      Combined credit limit from all credit card accounts (the maximum amount you can borrow)
                     </Typography>
                     <Typography variant="h6">
                       {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts

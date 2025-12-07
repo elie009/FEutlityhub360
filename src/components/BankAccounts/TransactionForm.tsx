@@ -699,8 +699,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <Typography variant="body2" component="div">
                 <strong>Transaction Types:</strong>
                 <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                  <li><strong>DEBIT:</strong> Money going out (expenses, payments, transfers out)</li>
-                  <li><strong>CREDIT:</strong> Money coming in (income, deposits, transfers in)</li>
+                  <li><strong>Money Out:</strong> Money going out (expenses, payments, transfers out)</li>
+                  <li><strong>Money In:</strong> Money coming in (income, deposits, transfers in)</li>
                 </ul>
                 <strong>Category Selection:</strong>
                 <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
@@ -718,13 +718,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     <strong>Example: Paying a $150 utility bill</strong>
                   </Typography>
                   <Typography variant="caption" component="div" sx={{ mt: 0.5, display: 'block' }}>
-                    Debit: Utility Expense → $150 (expense increases)
+                    Money Out: Utility Expense → $150 (expense increases)
                   </Typography>
                   <Typography variant="caption" component="div">
-                    Credit: Bank Account → $150 (asset decreases)
+                    Money In: Bank Account → $150 (asset decreases)
                   </Typography>
                   <Typography variant="caption" component="div" sx={{ mt: 0.5, color: 'success.main', fontWeight: 'bold' }}>
-                    ✓ Total Debits = Total Credits
+                    ✓ All transactions are automatically balanced
                   </Typography>
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
@@ -733,9 +733,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <Divider sx={{ my: 2 }} />
                 <strong>Common Examples:</strong>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
-                  <Chip label="DEBIT: Grocery shopping → Category: GROCERIES" size="small" variant="outlined" />
-                  <Chip label="DEBIT: Paying electric bill → Category: UTILITIES (select bill)" size="small" variant="outlined" />
-                  <Chip label="CREDIT: Salary deposit → Category: Automatically set to CREDIT" size="small" variant="outlined" />
+                  <Chip label="Money Out: Grocery shopping → Category: GROCERIES" size="small" variant="outlined" />
+                  <Chip label="Money Out: Paying electric bill → Category: UTILITIES (select bill)" size="small" variant="outlined" />
+                  <Chip label="Money In: Salary deposit → Category: Automatically set to Income" size="small" variant="outlined" />
                 </Box>
               </Typography>
             </AccordionDetails>
@@ -776,8 +776,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   onChange={handleSelectChange('transactionType')}
                   label="Transaction Type"
                 >
-                  <MenuItem value="DEBIT">Debit (Money Out)</MenuItem>
-                  <MenuItem value="CREDIT">Credit (Money In)</MenuItem>
+                  <MenuItem value="DEBIT">Money Out (Expenses or Debit)</MenuItem>
+                  <MenuItem value="CREDIT">Money In (Income or Credit)</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

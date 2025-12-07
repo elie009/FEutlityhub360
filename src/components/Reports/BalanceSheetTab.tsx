@@ -122,7 +122,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
           icon={<CheckCircle />}
           sx={{ mb: 3 }}
         >
-          Balance sheet is balanced: Assets = Liabilities + Equity
+          Balance sheet is balanced: Assets = Liabilities + Net Worth
         </Alert>
       ) : (
         <Alert 
@@ -260,7 +260,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               <Box display="flex" alignItems="center" mb={2}>
                 <AccountBalance color="error" sx={{ mr: 1 }} />
                 <Typography variant="h5" fontWeight="bold">
-                  LIABILITIES & EQUITY
+                  LIABILITIES & NET WORTH
                 </Typography>
               </Box>
               <Divider sx={{ mb: 2 }} />
@@ -330,9 +330,9 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               </Box>
               <Divider sx={{ mb: 2 }} />
 
-              {/* Equity Section */}
+              {/* Net Worth Section */}
               <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                Equity
+                Net Worth (What You Own)
               </Typography>
               <TableContainer>
                 <Table size="small">
@@ -362,7 +362,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               </TableContainer>
               <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
                 <Typography variant="body2" fontWeight="bold">
-                  Total Equity:
+                  Total Net Worth:
                 </Typography>
                 <Typography variant="body2" fontWeight="bold">
                   {formatCurrency(balanceSheet.equity.totalEquity)}
@@ -370,7 +370,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               </Box>
               <Divider />
 
-              {/* Total Liabilities & Equity */}
+              {/* Total Liabilities & Net Worth */}
               <Box
                 display="flex"
                 justifyContent="space-between"
@@ -382,7 +382,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
                 }}
               >
                 <Typography variant="h6" fontWeight="bold">
-                  TOTAL LIABILITIES & EQUITY
+                  TOTAL LIABILITIES & NET WORTH
                 </Typography>
                 <Typography variant="h6" fontWeight="bold">
                   {formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}
@@ -416,7 +416,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" color="text.secondary">
-                  Total Equity
+                  Total Net Worth
                 </Typography>
                 <Typography variant="h6" fontWeight="bold" color="success.main">
                   {formatCurrency(balanceSheet.equity.totalEquity)}

@@ -116,7 +116,7 @@ const ReceivableForm: React.FC<ReceivableFormProps> = ({ open, onClose, receivab
       return false;
     }
     if (formData.principal <= 0) {
-      setError('Principal amount must be greater than 0');
+      setError('Amount must be greater than 0');
       return false;
     }
     if (formData.interestRate < 0) {
@@ -206,7 +206,8 @@ const ReceivableForm: React.FC<ReceivableFormProps> = ({ open, onClose, receivab
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Principal Amount"
+                label="Amount Owed"
+                helperText="The total amount that is owed to you"
                 name="principal"
                 type="number"
                 value={formData.principal}

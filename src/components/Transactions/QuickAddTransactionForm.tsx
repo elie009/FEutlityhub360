@@ -208,8 +208,8 @@ const QuickAddTransactionForm: React.FC<QuickAddTransactionFormProps> = ({
                 label="Type"
                 onChange={handleInputChange('transactionType')}
               >
-                <MenuItem value="DEBIT">Debit</MenuItem>
-                <MenuItem value="CREDIT">Credit</MenuItem>
+                <MenuItem value="DEBIT">Money Out (Expenses or Debit)</MenuItem>
+                <MenuItem value="CREDIT">Money In (Income or Credit)</MenuItem>
               </Select>
             </FormControl>
 

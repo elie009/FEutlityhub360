@@ -123,7 +123,7 @@ const AccountingEquation: React.FC = () => {
           <Typography variant="h6" fontWeight="bold">
             Accounting Equation
           </Typography>
-          <Tooltip title="This equation must always balance. Assets = Liabilities + Equity">
+          <Tooltip title="This equation must always balance. Assets = Liabilities + Net Worth">
             <IconButton size="small">
               <HelpIcon />
             </IconButton>
@@ -162,7 +162,7 @@ const AccountingEquation: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AttachMoneyIcon sx={{ color: '#2196F3' }} />
               <Typography component="span" color="#2196F3">
-                Equity
+                Net Worth
               </Typography>
             </Box>
           </Box>
@@ -213,14 +213,14 @@ const AccountingEquation: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <AttachMoneyIcon sx={{ color: '#2196F3' }} />
                   <Typography variant="subtitle2" fontWeight="bold" color="#2196F3">
-                    Equity
+                    Net Worth
                   </Typography>
                 </Box>
                 <Typography variant="h5" fontWeight="bold" color="#2196F3">
                   {formatCurrency(data.totalEquity)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Your net worth
+                  What you own (Assets - Liabilities)
                 </Typography>
               </CardContent>
             </Card>

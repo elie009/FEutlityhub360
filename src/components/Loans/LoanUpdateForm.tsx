@@ -355,14 +355,14 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                     <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
                       <Typography variant="body2">
                         <strong>Auto-Calculate Mode:</strong> Monthly payment and remaining balance will be 
-                        automatically calculated based on principal, interest rate, and term.
+                        automatically calculated based on loan amount, interest rate, and term.
                       </Typography>
                     </Alert>
                   )}
                   
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
-                      label="Principal Amount"
+                      label="Loan Amount"
                       type="number"
                       value={formData.principal ?? ''}
                       onChange={handleChange('principal')}
@@ -392,7 +392,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                       inputProps={{ min: 0, step: "any" }}
                       helperText={
                         autoCalculate 
-                          ? "🔒 Auto-calculated based on principal, interest rate, and term" 
+                          ? "🔒 Auto-calculated based on loan amount, interest rate, and term" 
                           : "💡 Manually set your custom monthly payment"
                       }
                       sx={{
@@ -430,7 +430,7 @@ const LoanUpdateForm: React.FC<LoanUpdateFormProps> = ({
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'info.lighter' }}>
                   <Typography variant="caption" color="text.secondary">
                     <strong>💡 How it works:</strong><br />
-                    • <strong>Auto-Calculate ON:</strong> Backend calculates monthly payment & remaining balance when you update principal or interest rate<br />
+                    • <strong>Auto-Calculate ON:</strong> Backend calculates monthly payment & remaining balance when you update loan amount or interest rate<br />
                     • <strong>Auto-Calculate OFF:</strong> You have full control over all values<br />
                     • Payment history is always preserved in calculations
                   </Typography>
