@@ -34,6 +34,7 @@ import {
   Skeleton,
   IconButton,
   Tooltip,
+  LinearProgress,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -1273,23 +1274,35 @@ const Dashboard: React.FC = () => {
 
               {/* Transactions by Account */}
               <Grid item xs={12} md={4}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                <Paper sx={{ p: 2, border: '1px solid #e5e5e5' }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 1 }}>
                     Transactions by Account
                   </Typography>
                   {loading ? (
                     <Box>
-                      <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={280} sx={{ borderRadius: 1 }} />
                     </Box>
                   ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
-                    <Box sx={{ height: '338px', width: '100%' }}>
-                      <Doughnut 
-                        data={donutChartData} 
-                        options={donutChartOptions}
-                      />
-                    </Box>
+                    <>
+                      <Box sx={{ height: '280px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Doughnut 
+                          data={donutChartData} 
+                          options={donutChartOptions}
+                        />
+                      </Box>
+                      <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center' }}>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => navigate('/transactions?addTransaction=true')}
+                          sx={{ minWidth: 160 }}
+                        >
+                          Add Transaction
+                        </Button>
+                      </Box>
+                    </>
                   ) : (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 280 }}>
                       <Typography variant="body2" color="text.secondary">
                         No accounts available
                       </Typography>
@@ -1469,7 +1482,7 @@ const Dashboard: React.FC = () => {
                 <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                      Savings
+                      Savings Goals
                     </Typography>
                     <Button
                       variant="outlined"
@@ -1490,11 +1503,8 @@ const Dashboard: React.FC = () => {
                     </Box>
                   ) : savingsAccounts.length > 0 ? (
                     <Box>
-                      {/* Calculate total and percentages for progress bar */}
                       {(() => {
-                        const totalBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
-                        
-                        // Color palette for diverging stacked bar chart (matching the image style)
+                        // Color palette for savings goals
                         const getAccountColor = (idx: number) => {
                           const colors = [
                             '#ef4444', // Red
@@ -1511,119 +1521,89 @@ const Dashboard: React.FC = () => {
                         
                         return (
                           <>
-                            {/* Diverging Stacked Bar Chart with Percentage Labels */}
-                            <Box 
-                              sx={{ 
-                                position: 'relative',
-                                display: 'flex', 
-                                width: '100%', 
-                                height: '32px', 
-                                borderRadius: '16px',
-                                overflow: 'hidden',
-                                mb: 3,
-                                backgroundColor: '#f0f0f0'
-                              }}
-                            >
-                              {savingsAccounts.map((account, index) => {
-                                const percentage = totalBalance > 0 ? ((account.currentBalance || 0) / totalBalance) * 100 : 0;
-                                const accountColor = getAccountColor(index);
-                                const isFirst = index === 0;
-                                const isLast = index === savingsAccounts.length - 1;
-                                
-                                return (
-                                  <Box
-                                    key={account.id}
-                                    sx={{
-                                      position: 'relative',
-                                      width: `${percentage}%`,
-                                      backgroundColor: accountColor,
-                                      transition: 'width 0.3s ease',
-                                      minWidth: percentage > 2 ? '0' : '0',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      ...(isFirst && {
-                                        borderTopLeftRadius: '16px',
-                                        borderBottomLeftRadius: '16px',
-                                      }),
-                                      ...(isLast && {
-                                        borderTopRightRadius: '16px',
-                                        borderBottomRightRadius: '16px',
-                                      }),
-                                    }}
-                                  >
-                                    {percentage > 5 && (
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          color: '#fff',
-                                          fontWeight: 600,
-                                          fontSize: '0.75rem',
-                                          textShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                                          whiteSpace: 'nowrap',
-                                        }}
-                                      >
-                                        {percentage.toFixed(0)}%
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                );
-                              })}
-                            </Box>
-
                             {/* Savings List */}
                             {savingsAccounts.map((account, index) => {
-                              const accountColor = getAccountColor(index);
-                              
-                              return (
-                                <Box key={account.id}>
-                                  <Box 
-                                    sx={{ 
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      mb: 2,
-                                      pb: 2,
-                                      borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
-                                    }}
-                                  >
-                                    {/* Colored Vertical Bar */}
-                                    <Box
-                                      sx={{
-                                        width: '4px',
-                                        height: '48px',
-                                        backgroundColor: accountColor,
-                                        borderRadius: '2px',
-                                        mr: 2,
-                                        flexShrink: 0,
-                                      }}
-                                    />
-                                    
-                                    {/* Account Info */}
-                                    <Box sx={{ flex: 1 }}>
-                                      <Typography 
-                                        variant="body1" 
-                                        sx={{ 
-                                          fontWeight: 500,
-                                          color: '#1a1a1a',
-                                          mb: 0.5
-                                        }}
-                                      >
-                                        {account.accountName}
-                                      </Typography>
-                                      <Typography 
-                                        variant="h6" 
-                                        sx={{ 
-                                          fontWeight: 700,
-                                          color: '#1a1a1a'
-                                        }}
-                                      >
-                                        {formatCurrency(account.currentBalance || 0)}
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-                                </Box>
-                              );
-                            })}
+                        const accountColor = getAccountColor(index);
+                        const progressPercentage = account.targetAmount > 0 
+                          ? Math.min((account.currentBalance / account.targetAmount) * 100, 100) 
+                          : 0;
+                        
+                        return (
+                          <Box 
+                            key={account.id}
+                            sx={{ 
+                              mb: 2.5,
+                              pb: 2.5,
+                              borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
+                            }}
+                          >
+                            {/* Icon | Goal Name | Percentage */}
+                            <Box 
+                              sx={{ 
+                                display: 'flex',
+                                alignItems: 'center',
+                                mb: 1
+                              }}
+                            >
+                              <SavingsIcon 
+                                sx={{ 
+                                  fontSize: 24, 
+                                  color: accountColor,
+                                  mr: 1.5
+                                }} 
+                              />
+                              <Typography 
+                                variant="body1" 
+                                sx={{ 
+                                  fontWeight: 500,
+                                  color: '#1a1a1a',
+                                  flex: 1
+                                }}
+                              >
+                                {account.accountName}
+                              </Typography>
+                              <Typography 
+                                variant="body1" 
+                                sx={{ 
+                                  fontWeight: 600,
+                                  color: '#1a1a1a'
+                                }}
+                              >
+                                {progressPercentage.toFixed(0)}%
+                              </Typography>
+                            </Box>
+                            
+                            {/* Current Balance of Target Amount */}
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: '#666666',
+                                mb: 1,
+                                ml: 4.5
+                              }}
+                            >
+                              {formatCurrency(account.currentBalance || 0)} of {formatCurrency(account.targetAmount || 0)}
+                            </Typography>
+                            
+                            {/* Progress Bar */}
+                            <Box sx={{ ml: 4.5, mr: 1 }}>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={progressPercentage} 
+                                sx={{
+                                  height: 8,
+                                  borderRadius: 4,
+                                  backgroundColor: '#e5e5e5',
+                                  '& .MuiLinearProgress-bar': {
+                                    borderRadius: 4,
+                                    backgroundColor: accountColor,
+                                  }
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                        );
+                      })}
                           </>
                         );
                       })()}

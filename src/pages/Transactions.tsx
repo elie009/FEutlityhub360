@@ -30,6 +30,7 @@ import { getErrorMessage } from '../utils/validation';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
 import QuickAddTransactionForm from '../components/Transactions/QuickAddTransactionForm';
+import { useSearchParams } from 'react-router-dom';
 
 // Helper function to get current date (first day of current month)
 const getCurrentDate = (): Date => {
@@ -63,6 +64,7 @@ const TransactionsPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState<BankAccountTransaction[]>([]);
   const [analytics, setAnalytics] = useState<TransactionAnalytics | null>(null);
   const [bankAccountAnalytics, setBankAccountAnalytics] = useState<BankAccountAnalytics | null>(null);
@@ -222,6 +224,17 @@ const TransactionsPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // Only load on initial mount and when user changes
+
+  // Check for URL parameter to open Add Transaction modal
+  useEffect(() => {
+    const addTransaction = searchParams.get('addTransaction');
+    if (addTransaction === 'true') {
+      setShowAddTransactionModal(true);
+      // Remove the parameter from URL
+      searchParams.delete('addTransaction');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Handle search button click
   const handleSearch = () => {

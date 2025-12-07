@@ -320,7 +320,7 @@ const LandingPage: React.FC = () => {
                   >
                     <Box
                       component="img"
-                      src="/financialCards.png.png"
+                      src="/financialCards.png"
                       alt="Financial Management - Credit Cards with AI Technology"
                       sx={{
                         width: '130%',

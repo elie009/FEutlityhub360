@@ -1,10 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, Box, Typography } from '@mui/material';
-import { theme } from './theme/theme';
+import { CssBaseline, Box, Typography, CircularProgress } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import { WhiteLabelProvider, useWhiteLabel } from './contexts/WhiteLabelContext';
 import Layout from './components/Layout/Layout';
 // import ProfileProtectedRoute from './components/ProfileProtectedRoute';
 import LandingPage from './pages/LandingPage';
@@ -45,6 +45,9 @@ import AccountingGuide from './pages/AccountingGuide';
 import Tickets from './pages/Tickets';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import SubscriptionCancel from './pages/SubscriptionCancel';
+import WhiteLabel from './pages/WhiteLabel';
+import TeamManagement from './pages/TeamManagement';
+import Investments from './pages/Investments';
 import { FinanceLoader } from './components/Common';
 import PremiumRoute from './components/RouteGuards/PremiumRoute';
 
@@ -254,12 +257,7 @@ const AppRoutes: React.FC = () => {
           <Route path="investments" element={
             <ProtectedRoute>
               <PremiumRoute feature="INVESTMENT_TRACKING">
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="h4">Investment Tracking</Typography>
-                  <Typography variant="body1" sx={{ mt: 2 }}>
-                    This feature is coming soon. Investment tracking is available for Enterprise users.
-                  </Typography>
-                </Box>
+                <Investments />
               </PremiumRoute>
             </ProtectedRoute>
           } />
@@ -273,12 +271,7 @@ const AppRoutes: React.FC = () => {
           <Route path="team-management" element={
             <ProtectedRoute>
               <PremiumRoute feature="MULTI_USER">
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="h4">Team Management</Typography>
-                  <Typography variant="body1" sx={{ mt: 2 }}>
-                    This feature is coming soon. Multi-user support is available for Enterprise users.
-                  </Typography>
-                </Box>
+                <TeamManagement />
               </PremiumRoute>
             </ProtectedRoute>
           } />
@@ -297,12 +290,7 @@ const AppRoutes: React.FC = () => {
           <Route path="white-label" element={
             <ProtectedRoute>
               <PremiumRoute feature="WHITE_LABEL">
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="h4">White-Label Settings</Typography>
-                  <Typography variant="body1" sx={{ mt: 2 }}>
-                    This feature is coming soon. White-label customization is available for Enterprise users.
-                  </Typography>
-                </Box>
+                <WhiteLabel />
               </PremiumRoute>
             </ProtectedRoute>
           } />
@@ -318,7 +306,17 @@ const LoanDetailsWrapper: React.FC = () => {
   return <LoanDetails loanId={loanId} onBack={() => window.history.back()} />;
 };
 
-function App() {
+const ThemedAppWrapper: React.FC = () => {
+  const { theme, loading } = useWhiteLabel();
+  
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -328,6 +326,14 @@ function App() {
         </CurrencyProvider>
       </AuthProvider>
     </ThemeProvider>
+  );
+};
+
+function App() {
+  return (
+    <WhiteLabelProvider>
+      <ThemedAppWrapper />
+    </WhiteLabelProvider>
   );
 }
 

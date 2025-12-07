@@ -201,7 +201,7 @@ Analytics draws from:
 ## ❓ Common Questions
 
 **Q: How often is the data updated?**
-A: Analytics update in real-time as you record transactions, pay bills, and update accounts.
+A: Analytics update in real-time as you record transactions, pay bills, and update accounts. 
 
 **Q: Can I customize the reports?**
 A: You can select different time periods, categories, and accounts to focus on what matters to you.

@@ -73,6 +73,9 @@ import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsRespon
 import { mockTransactionDataService } from './mockTransactionData';
 import { Receivable, CreateReceivableRequest, UpdateReceivableRequest, ReceivableFilters, ReceivableAnalytics, PaginatedReceivablesResponse, ReceivablePayment, CreateReceivablePaymentRequest } from '../types/receivable';
 import { Utility, CreateUtilityRequest, UpdateUtilityRequest, UtilityAnalytics, UtilityConsumptionHistory, UtilityComparison, ProviderComparison } from '../types/utility';
+import { WhiteLabelSettings, UpdateWhiteLabelSettingsRequest } from '../types/whiteLabel';
+import { TeamMember, InviteTeamMemberRequest, TeamSettings, UpdateTeamMemberRoleRequest } from '../types/teamManagement';
+import { Investment, CreateInvestmentRequest, UpdateInvestmentRequest } from '../types/investment';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -5796,6 +5799,248 @@ class ApiService {
       return response.data;
     }
     throw new Error(response?.message || 'Failed to verify checkout session');
+  }
+
+  // ==========================================
+  // WHITE-LABEL SETTINGS API METHODS
+  // ==========================================
+
+  // Get white-label settings
+  async getWhiteLabelSettings(): Promise<WhiteLabelSettings> {
+    const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
+      '/whitelabel/settings',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get white-label settings');
+  }
+
+  // Update white-label settings
+  async updateWhiteLabelSettings(request: UpdateWhiteLabelSettingsRequest): Promise<WhiteLabelSettings> {
+    const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
+      '/whitelabel/settings',
+      {
+        method: 'PUT',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update white-label settings');
+  }
+
+  // Upload logo
+  async uploadLogo(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('logoFile', file);
+
+    const token = localStorage.getItem('authToken');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/whitelabel/logo`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to upload logo' }));
+      throw new Error(error.message || 'Failed to upload logo');
+    }
+
+    const result = await response.json();
+    if (result && result.success && result.data) {
+      return result.data;
+    }
+    throw new Error(result?.message || 'Failed to upload logo');
+  }
+
+  // ==========================================
+  // TEAM MANAGEMENT API METHODS
+  // ==========================================
+
+  // Get team members
+  async getTeamMembers(): Promise<TeamMember[]> {
+    const response = await this.request<{ success: boolean; data: TeamMember[]; message?: string }>(
+      '/multiuser/team-members',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get team members');
+  }
+
+  // Invite team member
+  async inviteTeamMember(request: InviteTeamMemberRequest): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      '/multiuser/invite',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to invite team member');
+  }
+
+  // Get team settings
+  async getTeamSettings(): Promise<TeamSettings> {
+    const response = await this.request<{ success: boolean; data: TeamSettings; message?: string }>(
+      '/multiuser/settings',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get team settings');
+  }
+
+  // Accept invitation
+  async acceptInvitation(token: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/accept-invitation?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to accept invitation');
+  }
+
+  // Remove team member
+  async removeTeamMember(memberId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/team-members/${memberId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to remove team member');
+  }
+
+  // Update team member role
+  async updateTeamMemberRole(memberId: string, request: UpdateTeamMemberRoleRequest): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/team-members/${memberId}/role`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update team member role');
+  }
+
+  // Cancel invitation
+  async cancelInvitation(invitationId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/invitations/${invitationId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to cancel invitation');
+  }
+
+  // ==========================================
+  // INVESTMENT TRACKING API METHODS
+  // ==========================================
+
+  // Get all investments
+  async getInvestments(): Promise<Investment[]> {
+    const response = await this.request<{ success: boolean; data: Investment[]; message?: string }>(
+      '/investments',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get investments');
+  }
+
+  // Get specific investment
+  async getInvestment(investmentId: string): Promise<Investment> {
+    const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
+      `/investments/${investmentId}`,
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get investment');
+  }
+
+  // Create investment
+  async createInvestment(request: CreateInvestmentRequest): Promise<Investment> {
+    const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
+      '/investments',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create investment');
+  }
+
+  // Update investment
+  async updateInvestment(investmentId: string, request: UpdateInvestmentRequest): Promise<Investment> {
+    const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
+      `/investments/${investmentId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update investment');
+  }
+
+  // Delete investment
+  async deleteInvestment(investmentId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/investments/${investmentId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to delete investment');
   }
 }
 

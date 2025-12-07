@@ -253,7 +253,6 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
             />
             <Chip
               label={transaction.category || 'Uncategorized'}
-              icon={getCategoryIcon(transaction.category || 'default')}
               color={getCategoryColor(transaction.category || 'default')}
               size="small"
               sx={{ fontSize: '0.7rem', height: 20 }}
@@ -261,7 +260,6 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
             {transaction.isRecurring && (
               <Chip
                 label="Recurring"
-                icon={<Schedule sx={{ fontSize: 12 }} />}
                 color="info"
                 size="small"
                 sx={{ fontSize: '0.7rem', height: 20 }}

@@ -146,7 +146,10 @@ const Documentation: React.FC = () => {
       const text = await response.text();
       
       // Simple markdown to HTML converter for basic formatting
-      let html = text
+      // First, preserve <br> tags by converting them to a placeholder
+      let html = text.replace(/<br>/gim, '___BR_TAG___');
+      
+      html = html
         // Headers
         .replace(/^### (.*$)/gim, '<h3>$1</h3>')
         .replace(/^## (.*$)/gim, '<h2>$1</h2>')
@@ -155,14 +158,19 @@ const Documentation: React.FC = () => {
         .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
         // Italic
         .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-        // Lists
+        // Numbered lists
+        .replace(/^(\d+)\. (.*$)/gim, '<li>$2</li>')
+        // Bullet lists
         .replace(/^\* (.*$)/gim, '<li>$1</li>')
         .replace(/^- (.*$)/gim, '<li>$1</li>')
         // Wrap consecutive list items
         .replace(/(<li>.*<\/li>\n?)+/gim, '<ul>$&</ul>')
-        // Line breaks
+        // Line breaks - convert double newlines to paragraph breaks
         .replace(/\n\n/gim, '</p><p>')
-        .replace(/\n/gim, '<br>');
+        // Remove single newlines (spacing handled by CSS padding)
+        .replace(/\n/gim, '')
+        // Restore <br> tags
+        .replace(/___BR_TAG___/gim, '<br>');
       
       // Wrap in paragraph tags
       if (!html.startsWith('<')) {

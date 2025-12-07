@@ -6,23 +6,15 @@ Your dashboard is the central hub of UtilityHub360. It provides a comprehensive 
 
 ### Financial Summary Cards
 
-The top of your dashboard displays key financial metrics:
+The top of your dashboard displays key financial metrics: 
 
-1. **Total Balance**
-   - Sum of all your connected bank accounts
-   - Updates in real-time as transactions are recorded
+1. Total Balance - Sum of all your connected bank accounts - Updates in real-time as transactions are recorded 
 
-2. **Monthly Income**
-   - Your total expected monthly earnings
-   - Used for budget calculations
+2. Monthly Income - Your total expected monthly earnings - Used for budget calculations 
 
-3. **Monthly Expenses**
-   - All your expenses for the current month
-   - Includes bills, transactions, and other payments
+3. Monthly Expenses - All your expenses for the current month - Includes bills, transactions, and other payments 
 
-4. **Net Income**
-   - Calculated as: Monthly Income - Monthly Expenses
-   - A positive number means you're saving; negative means you're spending more than you earn
+4. Net Income - Calculated as: Monthly Income - Monthly Expenses - A positive number means you're saving; negative means you're spending more than you earn
 
 ### Upcoming Bills Section
 
