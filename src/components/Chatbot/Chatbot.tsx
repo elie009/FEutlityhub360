@@ -1706,7 +1706,7 @@ const Chatbot: React.FC = () => {
         sx={{
           display: 'flex',
           alignItems: 'flex-end',
-          maxWidth: '75%',
+          maxWidth: '85%',
           flexDirection: message.type === 'user' ? 'row-reverse' : 'row',
           gap: 0.5,
         }}
@@ -1730,32 +1730,8 @@ const Chatbot: React.FC = () => {
             px: 2,
             bgcolor: message.type === 'user' ? '#DCF8C6' : 'white',
             color: message.type === 'user' ? '#000' : 'text.primary',
-            borderRadius: message.type === 'user' 
-              ? '7.5px 7.5px 0 7.5px' 
-              : '0 7.5px 7.5px 7.5px',
+            borderRadius: '12px',
             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-            position: 'relative',
-            '&::before': message.type === 'user' ? {
-              content: '""',
-              position: 'absolute',
-              right: -8,
-              bottom: 0,
-              width: 0,
-              height: 0,
-              borderStyle: 'solid',
-              borderWidth: '0 0 8px 8px',
-              borderColor: 'transparent transparent #DCF8C6 transparent',
-            } : {
-              content: '""',
-              position: 'absolute',
-              left: -8,
-              bottom: 0,
-              width: 0,
-              height: 0,
-              borderStyle: 'solid',
-              borderWidth: '0 8px 8px 0',
-              borderColor: 'transparent white transparent transparent',
-            },
           }}
         >
           {message.type === 'user' ? (
@@ -1806,17 +1782,21 @@ const Chatbot: React.FC = () => {
             bottom: 24,
             right: 24,
             zIndex: 9999,
-            backgroundColor: '#25D366',
+            backgroundColor: '#075E54',
             '&:hover': {
-              backgroundColor: '#20BA5A',
+              backgroundColor: '#064E47',
             },
-            boxShadow: '0 4px 20px rgba(37, 211, 102, 0.4)',
+            boxShadow: '0 4px 20px rgba(7, 94, 84, 0.4)',
             width: 60,
             height: 60,
+            color: 'white',
+            '& svg': {
+              color: 'white',
+            },
           }}
           onClick={() => setIsOpen(true)}
         >
-          <ChatIcon />
+          <ChatIcon sx={{ color: 'white' }} />
         </Fab>
       )}
 

@@ -123,7 +123,7 @@ const createMenuItems = (
         },
         // Match with Bank Statement (Bank Feeds) - Premium+ only
         ...(hasBankFeed ? [{
-          text: 'Match with Bank Statement', 
+          text: 'Reconciliation', 
           icon: <ReconciliationIcon />, 
           path: '/reconciliation'
         }] : []),

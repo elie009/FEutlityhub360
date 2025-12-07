@@ -192,9 +192,26 @@ class ApiService {
       const jsonResponse = await response.json();
       console.log('API Service: JSON response:', jsonResponse);
       return jsonResponse;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeoutId);
       console.error('API Service: Request failed:', error);
+      
+      // Handle AbortError (timeout)
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        const timeoutError = new Error('Request timed out. The server is taking too long to respond. Please try again.');
+        (timeoutError as any).status = 408;
+        (timeoutError as any).isTimeout = true;
+        throw timeoutError;
+      }
+      
+      // Handle network errors
+      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+        const networkError = new Error('Network error. Please check your internet connection and try again.');
+        (networkError as any).status = 0;
+        (networkError as any).isNetworkError = true;
+        throw networkError;
+      }
+      
       throw error;
     }
   }
@@ -3663,15 +3680,53 @@ class ApiService {
       timestamp: string;
     };
   }> {
-    const response = await this.request<any>('/chat/message', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-    
-    if (response && response.success && response.data) {
-      return response;
+    try {
+      // Use extended timeout for AI chat (60 seconds) as AI requests can take longer
+      const response = await this.request<any>('/chat/message', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, 60000); // 60 seconds timeout for AI chat
+      
+      if (response && response.success && response.data) {
+        return response;
+      }
+      
+      // If response exists but success is false, extract the error message
+      if (response && !response.success) {
+        const errorMessage = response.message || response.error || 'Failed to send chat message';
+        const error = new Error(errorMessage);
+        (error as any).response = { data: response };
+        (error as any).status = 400;
+        throw error;
+      }
+      
+      throw new Error(response?.message || 'Failed to send chat message');
+    } catch (error: any) {
+      // Handle timeout errors specifically
+      if (error?.isTimeout || error?.status === 408) {
+        const timeoutError = new Error('The AI service is taking longer than expected to respond. This might be due to high demand. Please try again in a moment.');
+        (timeoutError as any).response = { data: { message: timeoutError.message } };
+        (timeoutError as any).status = 408;
+        throw timeoutError;
+      }
+      
+      // Handle network errors
+      if (error?.isNetworkError) {
+        throw error;
+      }
+      
+      // If it's already an error with response data, re-throw it
+      if (error?.response?.data) {
+        throw error;
+      }
+      
+      // Otherwise, wrap it with proper structure
+      const errorMessage = error?.message || error?.response?.data?.message || 'Failed to send chat message';
+      const enhancedError = new Error(errorMessage);
+      (enhancedError as any).response = error?.response || { data: { message: errorMessage } };
+      (enhancedError as any).status = error?.status || 500;
+      throw enhancedError;
     }
-    throw new Error(response?.message || 'Failed to send chat message');
   }
 
   // Get conversation history
