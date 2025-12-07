@@ -22,6 +22,7 @@ import Utilities from './pages/Utilities';
 import Analytics from './pages/Analytics';
 import BalanceSheet from './pages/BalanceSheet';
 import VarianceDashboard from './pages/VarianceDashboard';
+import TaxOptimization from './pages/TaxOptimization';
 import Support from './pages/Support';
 import Settings from './pages/Settings';
 import Contact from './pages/Contact';
@@ -265,12 +266,7 @@ const AppRoutes: React.FC = () => {
           <Route path="tax-optimization" element={
             <ProtectedRoute>
               <PremiumRoute feature="TAX_OPTIMIZATION">
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="h4">Tax Optimization</Typography>
-                  <Typography variant="body1" sx={{ mt: 2 }}>
-                    This feature is coming soon. Tax optimization is available for Enterprise users.
-                  </Typography>
-                </Box>
+                <TaxOptimization />
               </PremiumRoute>
             </ProtectedRoute>
           } />

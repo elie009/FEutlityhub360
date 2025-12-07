@@ -131,6 +131,7 @@ const TransactionsPage: React.FC = () => {
   const [transactionLinkType, setTransactionLinkType] = useState<'none' | 'bill' | 'loan' | 'savings'>('none');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showQuickAddForm, setShowQuickAddForm] = useState(false);
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<BankAccountTransaction | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   
@@ -402,11 +403,31 @@ const TransactionsPage: React.FC = () => {
   };
 
   const handleCreateTransaction = () => {
+    setShowAddTransactionModal(true);
+  };
+
+  const handleFullForm = () => {
+    setShowAddTransactionModal(false);
     setShowTransactionForm(true);
   };
 
   const handleQuickAdd = () => {
+    setShowAddTransactionModal(false);
     setShowQuickAddForm(true);
+  };
+
+  const handleOpenAnalyzer = () => {
+    setShowAddTransactionModal(false);
+    setShowAnalyzerDialog(true);
+  };
+
+  const handleUploadReceipt = () => {
+    setShowAddTransactionModal(false);
+    // Trigger file input click
+    const fileInput = document.getElementById('image-upload-input-top');
+    if (fileInput) {
+      fileInput.click();
+    }
   };
 
   const handleTransactionFormSuccess = (accountId?: string, category?: string) => {
@@ -1078,7 +1099,7 @@ const TransactionsPage: React.FC = () => {
             {showFiltersSection ? (isMobile ? 'Hide Filters' : 'Hide Filters') : (isMobile ? 'Show Filters' : 'Show Filters')}
           </Button>
           <Button
-            variant="outlined"
+            variant="contained"
             color="primary"
             startIcon={<Receipt />}
             onClick={handleCreateTransaction}
@@ -1092,40 +1113,7 @@ const TransactionsPage: React.FC = () => {
               px: { xs: 1.5, sm: 2 }
             }}
           >
-            {isMobile ? 'Full Form' : 'Full Form'}
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Receipt />}
-            onClick={handleQuickAdd}
-            disabled={bankAccounts.length === 0}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0.5, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Quick Add' : 'Quick Add'}
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AutoAwesome />}
-            onClick={() => setShowAnalyzerDialog(true)}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Analyzer' : 'Transaction Analyzer'}
+            {isMobile ? 'Add Transaction' : 'Add Transaction'}
           </Button>
           <input
             accept="image/jpeg,image/jpg,image/png"
@@ -1135,52 +1123,6 @@ const TransactionsPage: React.FC = () => {
             type="file"
             onChange={handleFileUpload}
           />
-          <Tooltip
-            title={
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Upload receipts and let AI do the work! 📸✨
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1.5 }}>
-                  Simply snap a photo or upload your receipt, and our advanced AI will automatically read, extract, and add all transaction details to your records. No more manual entry!
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  ✓ How it works:
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  • Upload or capture receipt photo
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  • AI extracts amount, date, merchant & category
-                </Typography>
-                <Typography variant="body2">
-                  • Auto-adds to your transaction records
-                </Typography>
-              </Box>
-            }
-            arrow
-            placement="bottom"
-          >
-            <label htmlFor="image-upload-input-top">
-              <Button
-                component="span"
-                variant="contained"
-                color="primary"
-                startIcon={<CloudUpload />}
-                size={isMobile ? 'small' : 'medium'}
-                sx={{ 
-                  mr: { xs: 0.5, sm: 1 },
-                  flex: { xs: '1 1 auto', sm: '0 0 auto' },
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  py: { xs: 0.75, sm: 1 },
-                  px: { xs: 1.5, sm: 2 },
-                  cursor: 'pointer'
-                }}
-              >
-                {isMobile ? 'Upload Receipt' : 'Upload Receipt'}
-              </Button>
-            </label>
-          </Tooltip>
           {!isMobile && (
             <>
               <ToggleButtonGroup
@@ -3252,6 +3194,129 @@ const TransactionsPage: React.FC = () => {
               )}
             </>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Transaction Modal */}
+      <Dialog
+        open={showAddTransactionModal}
+        onClose={() => setShowAddTransactionModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Receipt color="primary" />
+            <Typography variant="h6">Add Transaction</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Choose how you'd like to add a transaction:
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleFullForm}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <Receipt sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Full Form
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Complete transaction form with all fields and options
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleQuickAdd}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <AttachMoney sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Quick Add
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Fast entry with essential fields only
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleOpenAnalyzer}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <AutoAwesome sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Transaction Analyzer
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    AI-powered text analysis to extract transaction details
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleUploadReceipt}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <CloudUpload sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Upload Receipt
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Upload receipt image for AI-powered extraction
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddTransactionModal(false)}>
+            Cancel
+          </Button>
         </DialogActions>
       </Dialog>
 
