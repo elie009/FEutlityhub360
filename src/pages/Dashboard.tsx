@@ -909,8 +909,8 @@ const Dashboard: React.FC = () => {
             const minOffset = total < 0 ? Math.abs(total) : 0;
             return outgoing + minOffset; // Add offset to ensure outgoing starts at 0
           }),
-          backgroundColor: '#f44336', // Red
-          borderColor: '#c62828',
+          backgroundColor: '#287cbb', // Red (updated color)
+          borderColor: '#287cbb',
           borderWidth: 2,
           stack: 'stack1', // Group with Net
         },
@@ -925,8 +925,8 @@ const Dashboard: React.FC = () => {
             // Adjust net by adding the same offset (so total stays the same)
             return net + minOffset;
           }),
-          backgroundColor: '#4caf50', // Green
-          borderColor: '#2e7d32',
+          backgroundColor: '#43acff', // Green (updated color)
+          borderColor: '#43acff',
           borderWidth: 2,
           stack: 'stack1', // Group with Expense
         },
@@ -937,8 +937,8 @@ const Dashboard: React.FC = () => {
             console.log(`Chart data - Month: ${item.month}, Incoming: ${incoming}`);
             return Math.abs(incoming); // Ensure positive value for display
           }),
-          backgroundColor: '#2196f3', // Blue
-          borderColor: '#1565c0',
+          backgroundColor: '#88d2eb', // Blue (updated color)
+          borderColor: '#88d2eb',
           borderWidth: 2,
           stack: 'stack2', // Separate stack - appears side by side with stack1
         },
@@ -1092,7 +1092,7 @@ const Dashboard: React.FC = () => {
       color: 'info.main',
     },
     {
-      title: 'Total Monthly Payment for Savings',
+      title: 'Monthly Savings',
       value: formatCurrency(totalMonthlySavingsPayment || 0),
       change: 'Monthly savings target',
       icon: <SavingsIcon sx={{ fontSize: 40, color: 'success.main' }} />,

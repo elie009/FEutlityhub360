@@ -598,6 +598,28 @@ class ApiService {
     return this.request<User>(`/users/${userId}`);
   }
 
+  async getUserPassword(userId: string): Promise<{ passwordHash: string }> {
+    const response = await this.request<{ success: boolean; data: { passwordHash: string } }>(`/users/${userId}/password`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get user password');
+  }
+
+  async setUserPassword(userId: string, newPassword: string): Promise<{ password: string; message: string }> {
+    const response = await this.request<{ success: boolean; data: { password: string; message: string } }>(
+      `/users/${userId}/set-password`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ newPassword }),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to set user password');
+  }
+
   async getAllUsers(page: number = 1, limit: number = 1000, role?: string, isActive?: boolean): Promise<{ data: User[]; page: number; limit: number; totalCount: number }> {
     const queryParams = new URLSearchParams();
     queryParams.append('page', page.toString());

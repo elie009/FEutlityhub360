@@ -39,6 +39,7 @@ import {
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelCircleIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import apiService from '../services/api';
@@ -138,6 +139,14 @@ const SuperAdmin: React.FC = () => {
   const [ticketFilterPriority, setTicketFilterPriority] = useState<string>('');
   const [ticketFilterCategory, setTicketFilterCategory] = useState<string>('');
   const [userSubscriptionMap, setUserSubscriptionMap] = useState<Record<string, string>>({});
+  
+  // Password View Dialog State
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<UserWithSubscription | null>(null);
+  const [passwordHash, setPasswordHash] = useState<string>('');
+  const [plainPassword, setPlainPassword] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [showPasswordSetForm, setShowPasswordSetForm] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -572,6 +581,59 @@ const SuperAdmin: React.FC = () => {
     },
   ];
 
+  // Password View Handlers
+  const handleViewPassword = async (user: UserWithSubscription) => {
+    setViewingUser(user);
+    setLoading(true);
+    setError(null);
+    setShowPasswordSetForm(true);
+    setPlainPassword('');
+    setNewPassword('');
+    try {
+      const passwordData = await apiService.getUserPassword(user.id);
+      setPasswordHash(passwordData.passwordHash);
+      setPasswordDialogOpen(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load user password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (!viewingUser || !newPassword.trim()) {
+      setError('Please enter a password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiService.setUserPassword(viewingUser.id, newPassword);
+      setPlainPassword(result.password);
+      setPasswordHash(''); // Clear hash since we have the plain password now
+      setSuccess(result.message);
+    } catch (err: any) {
+      setError(err.message || 'Failed to set user password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClosePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+    setViewingUser(null);
+    setPasswordHash('');
+    setPlainPassword('');
+    setNewPassword('');
+    setShowPasswordSetForm(true);
+  };
+
   // User columns for DataGrid
   const userColumns: GridColDef[] = [
     { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
@@ -630,6 +692,20 @@ const SuperAdmin: React.FC = () => {
       flex: 0.8,
       minWidth: 120,
       renderCell: (params) => params.value || 'N/A',
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      flex: 0.8,
+      minWidth: 120,
+      getActions: (params) => [
+        <GridActionsCellItem
+          icon={<VisibilityIcon />}
+          label="Set/View Password"
+          onClick={() => handleViewPassword(params.row)}
+        />,
+      ],
     },
   ];
 
@@ -1167,6 +1243,112 @@ const SuperAdmin: React.FC = () => {
           <Button onClick={handleSaveSubscription} variant="contained" disabled={loading}>
             {loading ? <CircularProgress size={24} /> : 'Save'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Password View Dialog */}
+      <Dialog open={passwordDialogOpen} onClose={handleClosePasswordDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Set/View User Password</DialogTitle>
+        <DialogContent>
+          {viewingUser && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  User Information
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>User ID:</strong> {viewingUser.id}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Name:</strong> {viewingUser.name}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Email:</strong> {viewingUser.email}
+                </Typography>
+              </Grid>
+              
+              {plainPassword ? (
+                // Show plain text password after setting
+                <Grid item xs={12}>
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    Password has been set successfully!
+                  </Alert>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Login Password (Use this to login)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={plainPassword}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'monospace',
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        backgroundColor: '#f5f5f5',
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                    Copy this password and use it to login as this user.
+                  </Typography>
+                </Grid>
+              ) : showPasswordSetForm ? (
+                // Show form to set new password
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Set New Password
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    type="password"
+                    label="New Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    helperText="Minimum 6 characters. This password will be usable for login."
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+              ) : (
+                // Show password hash (old view)
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Password Hash
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={passwordHash}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                    Note: This is the hashed password. To set a new usable password, click "Set New Password" below.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePasswordDialog}>
+            {plainPassword ? 'Close' : 'Cancel'}
+          </Button>
+          {!plainPassword && showPasswordSetForm && (
+            <Button onClick={handleSetPassword} variant="contained" disabled={loading || !newPassword.trim()}>
+              {loading ? <CircularProgress size={24} /> : 'Set Password'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
