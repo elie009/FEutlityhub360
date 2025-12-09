@@ -1102,18 +1102,39 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box sx={{ pl: { md: 1.5 } }}>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1a1a1a', mb: 3 }}>
-        Dashboard
-      </Typography>
-      
-      {/* Profile Status Section */}
-      {isAuthenticated && (
-        <Box mb={3}>
-          {(hasProfile || (userProfile && userProfile.id)) ? (
-            <Alert 
-              severity="success" 
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'flex-start', md: 'center' },
+          justifyContent: 'space-between',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexGrow: 1 }}>
+          <Typography
+            variant="h4"
+            gutterBottom
+            sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0 }}
+          >
+            Dashboard
+          </Typography>
+          <Typography
+            variant="body1"
+            color="text.secondary"
+          >
+            Manage your payments and transactions in one click
+          </Typography>
+        </Box>
+
+        {/* Profile Status Section */}
+        {isAuthenticated && (
+          (hasProfile || (userProfile && userProfile.id)) ? (
+            <Alert
+              severity="success"
               icon={<CheckCircle />}
-              sx={{ mb: 2 }}
+              sx={{ m: 0, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}
             >
               <Box display="flex" alignItems="center" gap={2}>
                 <Typography variant="h6">
@@ -1132,7 +1153,7 @@ const Dashboard: React.FC = () => {
               </Box>
             </Alert>
           ) : (
-            <Alert severity="warning">
+            <Alert severity="warning" sx={{ m: 0, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
               <Typography variant="h6">
                 Profile Setup Required
               </Typography>
@@ -1140,9 +1161,9 @@ const Dashboard: React.FC = () => {
                 Please complete your profile setup to access all features.
               </Typography>
             </Alert>
-          )}
-        </Box>
-      )}
+          )
+        )}
+      </Box>
       
       <Grid container spacing={3}>
         {/* Stats Cards */}
@@ -1242,7 +1263,7 @@ const Dashboard: React.FC = () => {
         {/* Main Content Area and Sidebar */}
         <Grid container item xs={12} spacing={3}>
           {/* Main Content Area */}
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={9.6}>
             <Grid container spacing={3}>
               {/* Financial Overview */}
               <Grid item xs={12} md={8}>
@@ -1475,7 +1496,7 @@ const Dashboard: React.FC = () => {
           </Grid>
 
           {/* Right Sidebar */}
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={2.4}>
             <Grid container spacing={3} direction="column">
               {/* Savings Card */}
               <Grid item xs={12}>
