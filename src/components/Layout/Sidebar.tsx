@@ -780,10 +780,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           width: open ? drawerWidth : collapsedWidth,
           overflowX: 'hidden',
           position: 'fixed',
-          top: 0, // Align to very top edge
-          height: '100vh', // Full viewport height
+          top: '12px', // Small margin from top edge
+          left: '12px', // Small margin from left edge
+          height: 'calc(100vh - 24px)', // Full viewport height minus top and bottom margins
           backgroundColor: '#ffffff',
           borderRight: '1px solid #e5e5e5',
+          borderRadius: '8px', // Add rounded corners for better appearance with margin
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)', // Light shadow for depth
           zIndex: (theme) => theme.zIndex.drawer - 1, // Below AppBar
           transition: (theme) => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,

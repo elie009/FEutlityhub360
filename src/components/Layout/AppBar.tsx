@@ -236,8 +236,10 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
       position="fixed" 
       sx={{ 
         zIndex: (theme) => theme.zIndex.drawer + 10,
-        left: { xs: 0, md: `${sidebarWidth}px` }, // Start after sidebar width
-        width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px - 20px)` }, // Width minus sidebar and gap
+        top: { xs: 0, md: '12px' }, // Align with sidebar top margin
+        left: { xs: 0, md: `calc(${sidebarWidth}px + 12px)` }, // Start after sidebar width + left margin
+        width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px - 24px)` }, // Width minus sidebar, left margin, and right margin
+        borderRadius: { xs: 0, md: '8px' }, // Match sidebar border radius
         transition: (theme) => theme.transitions.create(['width', 'left'], {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.enteringScreen,

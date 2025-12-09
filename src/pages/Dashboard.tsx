@@ -1595,14 +1595,13 @@ const Dashboard: React.FC = () => {
                           transition: 'all 0.3s ease',
                           borderRadius: '8px 8px 0 0',
                           marginRight: 1,
-                          color: 'inherit',
                           '&:hover': {
                             backgroundColor: 'rgba(25, 118, 210, 0.08)',
                           },
                         },
                         '& .Mui-selected': {
                           backgroundColor: 'rgba(25, 118, 210, 0.12)',
-                          color: 'inherit',
+                          color: '#1976d2',
                           fontWeight: 600,
                           borderRadius: '8px 8px 0 0',
                         },
