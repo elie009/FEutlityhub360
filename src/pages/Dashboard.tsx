@@ -79,6 +79,7 @@ import { apiService } from '../services/api';
 import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import UnpaidBillsCard from '../components/Bills/UnpaidBillsCard';
+import LoanScheduleCalendar from '../components/Loans/LoanScheduleCalendar';
 import { BankAccountTransaction } from '../types/transaction';
 import { Bill, BillStatus } from '../types/bill';
 import { SavingsAccount } from '../types/savings';
@@ -1769,7 +1770,11 @@ const Dashboard: React.FC = () => {
                 </Card>
               </Grid>
 
-           
+                {/* Loan Payment Schedule Calendar */}
+                <Grid item xs={12} md={4}>
+                <LoanScheduleCalendar />
+              </Grid>
+
             
 
              
@@ -1966,6 +1971,7 @@ const Dashboard: React.FC = () => {
                 </Paper>
               </Grid>
 
+         
              
             </Grid>
           </Grid>
