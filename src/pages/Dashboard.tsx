@@ -80,6 +80,7 @@ import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import UnpaidBillsCard from '../components/Bills/UnpaidBillsCard';
 import LoanScheduleCalendar from '../components/Loans/LoanScheduleCalendar';
+import BankAccountCardSlider from '../components/BankAccounts/BankAccountCardSlider';
 import { BankAccountTransaction } from '../types/transaction';
 import { Bill, BillStatus } from '../types/bill';
 import { SavingsAccount } from '../types/savings';
@@ -413,7 +414,13 @@ const Dashboard: React.FC = () => {
       try {
         setBankAccountCardLoading(true);
         const accounts = await apiService.getUserBankAccounts({ isActive: true });
-        setDashboardBankAccounts(Array.isArray(accounts) ? accounts : []);
+        const accountList = Array.isArray(accounts) ? accounts : [];
+        setDashboardBankAccounts(accountList);
+        
+        // Auto-select first account if no account is selected
+        if (accountList.length > 0 && !selectedBankAccountId) {
+          setSelectedBankAccountId(accountList[0].id);
+        }
       } catch (error) {
         console.error('Failed to load bank accounts for dashboard:', error);
         setDashboardBankAccounts([]);
@@ -423,6 +430,7 @@ const Dashboard: React.FC = () => {
     };
     
     loadDashboardBankAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   // Fetch transactions when a bank account is selected (current month only)
@@ -1805,54 +1813,17 @@ const Dashboard: React.FC = () => {
                   
                   {bankAccountCardLoading ? (
                     <Box>
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={220} sx={{ mb: 2, borderRadius: 3 }} />
                     </Box>
                   ) : dashboardBankAccounts.length > 0 ? (
                     <Box>
-                      {/* Bank Account List */}
+                      {/* Bank Account Card Slider */}
                       <Box sx={{ mb: 3 }}>
-                        {dashboardBankAccounts.map((account) => (
-                          <Card
-                            key={account.id}
-                            sx={{
-                              mb: 2,
-                              cursor: 'pointer',
-                              border: selectedBankAccountId === account.id ? '2px solid #1976d2' : '1px solid #e5e5e5',
-                              '&:hover': {
-                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                                transform: 'translateY(-2px)',
-                                transition: 'all 0.3s ease'
-                              }
-                            }}
-                            onClick={() => setSelectedBankAccountId(account.id === selectedBankAccountId ? null : account.id)}
-                          >
-                            <CardContent>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                  <AccountBalance sx={{ fontSize: 32, color: '#1976d2' }} />
-                                  <Box>
-                                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                                      {account.accountName}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                      {account.accountType} • {account.financialInstitution || 'N/A'}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                                <Box sx={{ textAlign: 'right' }}>
-                                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                                    {formatCurrency(account.currentBalance)}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {account.currency}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        ))}
+                        <BankAccountCardSlider
+                          accounts={dashboardBankAccounts}
+                          selectedAccountId={selectedBankAccountId}
+                          onSelectAccount={setSelectedBankAccountId}
+                        />
                       </Box>
 
                       {/* Transactions for Selected Account */}
@@ -1870,43 +1841,105 @@ const Dashboard: React.FC = () => {
                               <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
                             </Box>
                           ) : bankAccountTransactions.length > 0 ? (
-                            <TableContainer>
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                                    <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 600 }}>Amount</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {bankAccountTransactions.map((transaction) => (
-                                    <TableRow key={transaction.id} hover>
-                                      <TableCell>
-                                        {new Date(transaction.transactionDate).toLocaleDateString()}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Chip
-                                          label={transaction.category || 'Uncategorized'}
-                                          size="small"
-                                          sx={{ fontSize: '0.75rem' }}
-                                        />
-                                      </TableCell>
-                                      <TableCell
-                                        align="right"
+                            <Box>
+                              {bankAccountTransactions.map((transaction) => {
+                                const transactionDate = new Date(transaction.transactionDate);
+                                const formattedDate = transactionDate.toLocaleDateString('en-US', {
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  year: 'numeric'
+                                });
+                                const formattedTime = transactionDate.toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                });
+                                
+                                return (
+                                  <Box
+                                    key={transaction.id}
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      mb: 2,
+                                      pb: 2,
+                                      borderBottom: '1px solid #e5e5e5',
+                                      '&:last-child': {
+                                        borderBottom: 'none',
+                                        mb: 0,
+                                        pb: 0,
+                                      },
+                                    }}
+                                  >
+                                    {/* Category Chip */}
+                                    <Box sx={{ mr: 1.5, mt: 0.5 }}>
+                                      <Chip
+                                        label={transaction.category || 'Uncategorized'}
+                                        size="small"
                                         sx={{
-                                          fontWeight: 600,
-                                          color: transaction.transactionType === 'CREDIT' ? 'success.main' : 'error.main'
+                                          fontSize: '0.7rem',
+                                          height: 20,
+                                          minWidth: 60,
+                                        }}
+                                      />
+                                    </Box>
+                                    
+                                    {/* Transaction Details */}
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      {/* Title and Amount Row */}
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'flex-start',
+                                          gap: 2,
+                                          mb: 0.5,
                                         }}
                                       >
-                                        {transaction.transactionType === 'CREDIT' ? '+' : '-'}
-                                        {formatCurrency(Math.abs(transaction.amount))}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
+                                        <Typography
+                                          variant="body2"
+                                          sx={{
+                                            fontWeight: 500,
+                                            color: '#1a1a1a',
+                                            flex: 1,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                          }}
+                                        >
+                                          {transaction.description || 'Transaction'}
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          sx={{
+                                            fontWeight: 600,
+                                            color: transaction.transactionType === 'CREDIT' ? 'success.main' : 'error.main',
+                                            whiteSpace: 'nowrap',
+                                            ml: 'auto',
+                                          }}
+                                        >
+                                          {transaction.transactionType === 'CREDIT' ? '+' : '-'}
+                                          {formatCurrency(Math.abs(transaction.amount))}
+                                        </Typography>
+                                      </Box>
+                                      
+                                      {/* Date and Time Row */}
+                                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            color: 'text.secondary',
+                                            fontSize: '0.75rem',
+                                          }}
+                                        >
+                                          {formattedDate} {formattedTime}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
                           ) : (
                             <Box sx={{ textAlign: 'center', py: 4 }}>
                               <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
