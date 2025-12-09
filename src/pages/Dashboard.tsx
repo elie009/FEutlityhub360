@@ -82,6 +82,7 @@ import UnpaidBillsCard from '../components/Bills/UnpaidBillsCard';
 import { BankAccountTransaction } from '../types/transaction';
 import { Bill, BillStatus } from '../types/bill';
 import { SavingsAccount } from '../types/savings';
+import { BankAccount } from '../types/bankAccount';
 import { useNavigate } from 'react-router-dom';
 
 // Register Chart.js components
@@ -205,6 +206,13 @@ const Dashboard: React.FC = () => {
     profileStatus: string;
   } | null>(null);
   const [recentActivityLoading, setRecentActivityLoading] = useState(false);
+  
+  // Bank Account Card state
+  const [dashboardBankAccounts, setDashboardBankAccounts] = useState<BankAccount[]>([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
+  const [bankAccountTransactions, setBankAccountTransactions] = useState<BankAccountTransaction[]>([]);
+  const [bankAccountCardLoading, setBankAccountCardLoading] = useState(false);
+  const [bankAccountTransactionsLoading, setBankAccountTransactionsLoading] = useState(false);
   
   // Check if user needs to complete profile
   useEffect(() => {
@@ -395,6 +403,90 @@ const Dashboard: React.FC = () => {
     
     loadUnpaidBills();
   }, [isAuthenticated]);
+
+  // Fetch bank accounts for the bank account card
+  useEffect(() => {
+    const loadDashboardBankAccounts = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setBankAccountCardLoading(true);
+        const accounts = await apiService.getUserBankAccounts({ isActive: true });
+        setDashboardBankAccounts(Array.isArray(accounts) ? accounts : []);
+      } catch (error) {
+        console.error('Failed to load bank accounts for dashboard:', error);
+        setDashboardBankAccounts([]);
+      } finally {
+        setBankAccountCardLoading(false);
+      }
+    };
+    
+    loadDashboardBankAccounts();
+  }, [isAuthenticated]);
+
+  // Fetch transactions when a bank account is selected (current month only)
+  useEffect(() => {
+    const loadBankAccountTransactions = async () => {
+      if (!selectedBankAccountId || !isAuthenticated) {
+        setBankAccountTransactions([]);
+        return;
+      }
+      
+      try {
+        setBankAccountTransactionsLoading(true);
+        
+        // Get current month date range (first day to last day of current month)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth(); // 0-indexed (0 = January, 11 = December)
+        
+        // First day of current month at 00:00:00
+        const firstDay = new Date(year, month, 1);
+        firstDay.setHours(0, 0, 0, 0);
+        
+        // Last day of current month at 23:59:59
+        const lastDay = new Date(year, month + 1, 0);
+        lastDay.setHours(23, 59, 59, 999);
+        
+        // Format as YYYY-MM-DD for API
+        const dateFrom = firstDay.toISOString().split('T')[0];
+        const dateTo = lastDay.toISOString().split('T')[0];
+        
+        console.log('Fetching transactions for current month:', { dateFrom, dateTo, month: month + 1, year });
+        
+        const response = await apiService.getBankAccountTransactions({
+          bankAccountId: selectedBankAccountId,
+          dateFrom,
+          dateTo,
+          limit: 1000, // Increased limit to ensure we get all current month transactions
+        });
+        
+        if (response && response.success && Array.isArray(response.data)) {
+          // Filter to ensure we only show transactions from current month (double-check)
+          const currentMonthTransactions = response.data.filter((txn: BankAccountTransaction) => {
+            const txnDate = new Date(txn.transactionDate);
+            return txnDate.getFullYear() === year && txnDate.getMonth() === month;
+          });
+          
+          // Sort by date descending (most recent first)
+          currentMonthTransactions.sort((a: BankAccountTransaction, b: BankAccountTransaction) => {
+            return new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime();
+          });
+          
+          setBankAccountTransactions(currentMonthTransactions);
+        } else {
+          setBankAccountTransactions([]);
+        }
+      } catch (error) {
+        console.error('Failed to load bank account transactions:', error);
+        setBankAccountTransactions([]);
+      } finally {
+        setBankAccountTransactionsLoading(false);
+      }
+    };
+    
+    loadBankAccountTransactions();
+  }, [selectedBankAccountId, isAuthenticated]);
 
   // Fetch recent activity on page load
   useEffect(() => {
@@ -1332,174 +1424,8 @@ const Dashboard: React.FC = () => {
                 </Paper>
               </Grid>
 
-              {/* Recent Transactions */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                      Recent Transactions
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Receipt />}
-                      href="/transactions"
-                    >
-                      View All
-                    </Button>
-                  </Box>
-                  {transactionsLoading ? (
-                    <Grid container spacing={2}>
-                      {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <Grid item xs={12} sm={6} md={4} key={i}>
-                          <Card>
-                            <CardContent>
-                              <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
-                              <Skeleton variant="text" width="50%" height={20} sx={{ mb: 2 }} />
-                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
-                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                                <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : recentTransactions.length > 0 ? (
-                    <Grid container spacing={2}>
-                      {recentTransactions.map((transaction) => (
-                        <Grid item xs={12} sm={6} md={4} key={transaction.id}>
-                          <TransactionCard 
-                            transaction={transaction} 
-                            onViewDetails={() => {
-                              // You could add a dialog here or navigate to transactions page
-                              console.log('View transaction details:', transaction);
-                            }}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No recent transactions found
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Your recent transactions will appear here
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Account Summary */}
-              <Grid item xs={12} md={9}>
-                <Paper sx={{ p: 2, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 1 }}>
-                    Account Summary
-                  </Typography>
-            {/* Clear description explaining where amounts come from */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-              This summary shows your total account balances from all bank accounts, savings accounts, and investment accounts. The amounts below represent your current financial position.
-            </Typography>
-            {/* Debug: Show current currency */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Debug: Current currency is {currency}
-            </Typography>
-            {loading ? (
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-              </Grid>
-            ) : financialData ? (
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Balance</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Sum of all your account balances
-                    </Typography>
-                    <Typography variant="h6">{formatCurrency(financialData.totalBalance || 0)}</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Credit Limit</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Combined credit limit from all credit card accounts (the maximum amount you can borrow)
-                    </Typography>
-                    <Typography variant="h6">
-                      {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
-                        .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
-                        .reduce((sum: number, acc: any) => sum + (acc?.currentBalance || 0), 0) : 0))}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Active Accounts</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Number of accounts you have set up
-                    </Typography>
-                    <Typography variant="h6">{financialData.activeAccounts || 0}</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Income</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Total money received from all income sources
-                    </Typography>
-                    <Typography variant="h6" color="success.main">{formatCurrency(financialData.totalIncoming || 0)}</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Expense</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Total money spent on all expenses
-                    </Typography>
-                    <Typography variant="h6" color="error.main">{formatCurrency(financialData.totalOutgoing || 0)}</Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            ) : (
-              <Typography>No financial data available</Typography>
-            )}
-              </Paper>
-              </Grid>
-            </Grid>
-          </Grid>
-
-          {/* Right Sidebar */}
-          <Grid item xs={12} md={3}>
-            <Grid container spacing={3} direction="column">
-              {/* Savings Card */}
-              <Grid item xs={12}>
+               {/* Savings Card */}
+              <Grid item xs={12} md={4}>
                 <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
@@ -1643,40 +1569,9 @@ const Dashboard: React.FC = () => {
                 </Paper>
               </Grid>
 
-              {/* Unpaid Bills & Utilities */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                      Unpaid Bills & Utilities
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Receipt />}
-                      href="/bills"
-                    >
-                      View All Bills
-                    </Button>
-                  </Box>
-                  {unpaidBillsLoading ? (
-                    <Box>
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
-                    </Box>
-                  ) : (
-                    <UnpaidBillsCard
-                      bills={filteredUnpaidBills}
-                      onViewBill={(billId) => navigate(`/bills/${billId}`)}
-                      onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
-                    />
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Recent Activity */}
-              <Grid item xs={12}>
+              
+               {/* Recent Activity */}
+               <Grid item xs={12} md={4}>
                 <Card sx={{ border: '1px solid #e5e5e5', height: '100%' }}>
                   <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
@@ -1873,6 +1768,205 @@ const Dashboard: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
+
+           
+            
+
+             
+            </Grid>
+          </Grid>
+
+          {/* Right Sidebar */}
+          <Grid item xs={12} md={3}>
+            <Grid container spacing={3} direction="column">
+             
+              {/* Bank Account Card */}
+              <Grid item xs={12} md={9}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Bank Accounts
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AccountBalance />}
+                      href="/bank-accounts"
+                    >
+                      Manage Accounts
+                    </Button>
+                  </Box>
+                  <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
+                  
+                  {bankAccountCardLoading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : dashboardBankAccounts.length > 0 ? (
+                    <Box>
+                      {/* Bank Account List */}
+                      <Box sx={{ mb: 3 }}>
+                        {dashboardBankAccounts.map((account) => (
+                          <Card
+                            key={account.id}
+                            sx={{
+                              mb: 2,
+                              cursor: 'pointer',
+                              border: selectedBankAccountId === account.id ? '2px solid #1976d2' : '1px solid #e5e5e5',
+                              '&:hover': {
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                                transform: 'translateY(-2px)',
+                                transition: 'all 0.3s ease'
+                              }
+                            }}
+                            onClick={() => setSelectedBankAccountId(account.id === selectedBankAccountId ? null : account.id)}
+                          >
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <AccountBalance sx={{ fontSize: 32, color: '#1976d2' }} />
+                                  <Box>
+                                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                                      {account.accountName}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {account.accountType} • {account.financialInstitution || 'N/A'}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                                <Box sx={{ textAlign: 'right' }}>
+                                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                                    {formatCurrency(account.currentBalance)}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {account.currency}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Box>
+
+                      {/* Transactions for Selected Account */}
+                      {selectedBankAccountId && (
+                        <Box>
+                          <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
+                          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                            Transactions - {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                          </Typography>
+                          
+                          {bankAccountTransactionsLoading ? (
+                            <Box>
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 1, borderRadius: 1 }} />
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 1, borderRadius: 1 }} />
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                            </Box>
+                          ) : bankAccountTransactions.length > 0 ? (
+                            <TableContainer>
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                                    <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 600 }}>Amount</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {bankAccountTransactions.map((transaction) => (
+                                    <TableRow key={transaction.id} hover>
+                                      <TableCell>
+                                        {new Date(transaction.transactionDate).toLocaleDateString()}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={transaction.category || 'Uncategorized'}
+                                          size="small"
+                                          sx={{ fontSize: '0.75rem' }}
+                                        />
+                                      </TableCell>
+                                      <TableCell
+                                        align="right"
+                                        sx={{
+                                          fontWeight: 600,
+                                          color: transaction.transactionType === 'CREDIT' ? 'success.main' : 'error.main'
+                                        }}
+                                      >
+                                        {transaction.transactionType === 'CREDIT' ? '+' : '-'}
+                                        {formatCurrency(Math.abs(transaction.amount))}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          ) : (
+                            <Box sx={{ textAlign: 'center', py: 4 }}>
+                              <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                              <Typography variant="body2" color="text.secondary">
+                                No transactions found for this month
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <AccountBalance sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No bank accounts found
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        Add a bank account to get started
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate('/bank-accounts')}
+                        sx={{ mt: 2 }}
+                      >
+                        Add Bank Account
+                      </Button>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+ {/* Unpaid Bills & Utilities */}
+ <Grid item xs={12}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Unpaid Bills & Utilities
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Receipt />}
+                      href="/bills"
+                    >
+                      View All Bills
+                    </Button>
+                  </Box>
+                  {unpaidBillsLoading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : (
+                    <UnpaidBillsCard
+                      bills={filteredUnpaidBills}
+                      onViewBill={(billId) => navigate(`/bills/${billId}`)}
+                      onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
+                    />
+                  )}
+                </Paper>
+              </Grid>
+
+             
             </Grid>
           </Grid>
         </Grid>
