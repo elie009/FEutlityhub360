@@ -35,6 +35,8 @@ import {
   IconButton,
   Tooltip,
   LinearProgress,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -66,13 +68,15 @@ import {
   LinearScale,
   BarElement,
   ArcElement,
+  LineElement,
+  PointElement,
   Title,
   Tooltip as ChartTooltip,
   Legend,
   ChartOptions,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
@@ -93,6 +97,8 @@ ChartJS.register(
   LinearScale,
   BarElement,
   ArcElement,
+  LineElement,
+  PointElement,
   Title,
   ChartTooltip,
   Legend,
@@ -215,6 +221,11 @@ const Dashboard: React.FC = () => {
   const [bankAccountTransactions, setBankAccountTransactions] = useState<BankAccountTransaction[]>([]);
   const [bankAccountCardLoading, setBankAccountCardLoading] = useState(false);
   const [bankAccountTransactionsLoading, setBankAccountTransactionsLoading] = useState(false);
+  
+  // Financial Overview tabs state
+  const [financialOverviewTab, setFinancialOverviewTab] = useState<number>(0);
+  const [expenseData, setExpenseData] = useState<{ category: string; amount: number }[]>([]);
+  const [expenseLoading, setExpenseLoading] = useState(false);
   
   // Check if user needs to complete profile
   useEffect(() => {
@@ -496,6 +507,97 @@ const Dashboard: React.FC = () => {
     
     loadBankAccountTransactions();
   }, [selectedBankAccountId, isAuthenticated]);
+
+  // Fetch expense data for expense chart (whole year)
+  useEffect(() => {
+    const loadExpenseData = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setExpenseLoading(true);
+        
+        // Get current year date range (January 1 to December 31)
+        const now = new Date();
+        const year = now.getFullYear();
+        const firstDay = new Date(year, 0, 1); // January 1
+        const lastDay = new Date(year, 11, 31); // December 31
+        
+        const dateFrom = firstDay.toISOString().split('T')[0];
+        const dateTo = lastDay.toISOString().split('T')[0];
+        
+        console.log('Fetching expense data for year:', { dateFrom, dateTo, year });
+        
+        // Fetch all transactions for the entire year
+        // We may need to fetch multiple pages if there are many transactions
+        let allExpenses: BankAccountTransaction[] = [];
+        let page = 1;
+        let hasMore = true;
+        const limit = 1000;
+        
+        while (hasMore) {
+          const response = await apiService.getTransactions({
+            startDate: dateFrom,
+            endDate: dateTo,
+            limit: limit,
+            page: page,
+          });
+          
+          if (response && response.data && response.data.length > 0) {
+            // Filter only DEBIT transactions (expenses)
+            const expenses = response.data.filter(
+              (txn: BankAccountTransaction) => txn.transactionType === 'DEBIT'
+            );
+            allExpenses = [...allExpenses, ...expenses];
+            
+            // Check if there are more pages
+            if (response.data.length < limit || (response.totalCount && allExpenses.length >= response.totalCount)) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        console.log('Total expenses fetched:', allExpenses.length);
+        
+        if (allExpenses.length > 0) {
+          // Group by category and sum amounts
+          const categoryMap = new Map<string, number>();
+          allExpenses.forEach((expense: BankAccountTransaction) => {
+            const category = expense.category || 'Uncategorized';
+            const currentAmount = categoryMap.get(category) || 0;
+            categoryMap.set(category, currentAmount + Math.abs(expense.amount));
+          });
+          
+          // Convert to array and sort by amount (descending)
+          const categoryArray = Array.from(categoryMap.entries())
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 10); // Get top 10
+          
+          console.log('Expense data loaded (year):', {
+            totalExpenses: allExpenses.length,
+            categories: categoryArray.length,
+            categoryArray
+          });
+          
+          setExpenseData(categoryArray);
+        } else {
+          console.log('No expense data found for the year');
+          setExpenseData([]);
+        }
+      } catch (error) {
+        console.error('Failed to load expense data:', error);
+        setExpenseData([]);
+      } finally {
+        setExpenseLoading(false);
+      }
+    };
+    
+    loadExpenseData();
+  }, [isAuthenticated]);
 
   // Fetch recent activity on page load
   useEffect(() => {
@@ -852,6 +954,113 @@ const Dashboard: React.FC = () => {
   };
 
   const cashFlowChartData = prepareCashFlowChartData();
+
+  // Prepare Expense Line Chart data (top 10 categories)
+  const expenseChartData = useMemo(() => {
+    if (!expenseData || expenseData.length === 0) {
+      console.log('Expense chart: No expense data available');
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
+
+    const labels = expenseData.map(item => item.category);
+    const amounts = expenseData.map(item => item.amount);
+
+    console.log('Expense chart data:', { labels, amounts, expenseData });
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Expense Amount',
+          data: amounts,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointHoverBackgroundColor: '#dc2626',
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 3,
+        },
+      ],
+    };
+  }, [expenseData]);
+
+  // Expense Line Chart options
+  const expenseChartOptions: ChartOptions<'line'> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          padding: 15,
+          font: {
+            size: 12,
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: 'bold',
+        },
+        bodyFont: {
+          size: 13,
+        },
+        callbacks: {
+          label: function(context) {
+            const value = context.parsed.y;
+            return `Amount: ${value !== null && value !== undefined ? formatCurrency(value) : '$0.00'}`;
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return formatCurrency(Number(value));
+          },
+          font: {
+            size: 11,
+          },
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+      },
+      x: {
+        ticks: {
+          font: {
+            size: 11,
+          },
+          maxRotation: 45,
+          minRotation: 45,
+        },
+        grid: {
+          display: false,
+        },
+      },
+    },
+  }), [formatCurrency]);
 
   // Prepare Donut Chart data for account transaction counts
   const donutChartData = useMemo(() => {
@@ -1369,27 +1578,96 @@ const Dashboard: React.FC = () => {
               {/* Financial Overview */}
               <Grid item xs={12} md={8}>
                 <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-                    Financial Overview - Monthly Cash Flow
-                  </Typography>
-                  {cashFlowLoading || loading ? (
-                    <Box>
-                      <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
-                    </Box>
-                  ) : cashFlowChartData.length > 0 ? (
-                    <Box sx={{ height: '338px', width: '100%' }}>
-                      <Bar 
-                        key="monthly-cashflow-chart"
-                        data={chartData} 
-                        options={chartOptions}
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No cash flow data available
-                      </Typography>
-                    </Box>
+                  <Box sx={{ mb: 2 }}>
+                  
+                    <Tabs
+                      value={financialOverviewTab}
+                      onChange={(e, newValue) => setFinancialOverviewTab(newValue)}
+                      sx={{
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        mb: 2,
+                        '& .MuiTab-root': {
+                          textTransform: 'none',
+                          fontWeight: 500,
+                          minHeight: 48,
+                          padding: '12px 24px',
+                          transition: 'all 0.3s ease',
+                          borderRadius: '8px 8px 0 0',
+                          marginRight: 1,
+                          color: 'inherit',
+                          '&:hover': {
+                            backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          },
+                        },
+                        '& .Mui-selected': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.12)',
+                          color: 'inherit',
+                          fontWeight: 600,
+                          borderRadius: '8px 8px 0 0',
+                        },
+                        '& .MuiTabs-indicator': {
+                          display: 'none',
+                        },
+                      }}
+                    >
+                      <Tab label="Monthly Cash Flow" />
+                      <Tab label="Expense Analysis (Top 10 - Year)" />
+                    </Tabs>
+                  </Box>
+                  
+                  {/* Cash Flow Tab */}
+                  {financialOverviewTab === 0 && (
+                    <>
+                      {cashFlowLoading || loading ? (
+                        <Box>
+                          <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                        </Box>
+                      ) : cashFlowChartData.length > 0 ? (
+                        <Box sx={{ height: '338px', width: '100%' }}>
+                          <Bar 
+                            key="monthly-cashflow-chart"
+                            data={chartData} 
+                            options={chartOptions}
+                          />
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No cash flow data available
+                          </Typography>
+                        </Box>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Expense Analysis Tab */}
+                  {financialOverviewTab === 1 && (
+                    <>
+                      {expenseLoading ? (
+                        <Box>
+                          <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                        </Box>
+                      ) : expenseData && expenseData.length > 0 && expenseChartData.labels.length > 0 ? (
+                        <Box sx={{ height: '338px', width: '100%' }}>
+                          <Line 
+                            key="expense-chart"
+                            data={expenseChartData} 
+                            options={expenseChartOptions}
+                          />
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                          <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            No expense data available for this month
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Add transactions to see your spending by category
+                          </Typography>
+                        </Box>
+                      )}
+                    </>
                   )}
                 </Paper>
               </Grid>
