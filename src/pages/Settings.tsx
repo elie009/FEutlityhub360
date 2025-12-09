@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -40,6 +41,8 @@ import {
   Radio,
   RadioGroup,
   FormLabel,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -90,6 +93,7 @@ interface ProfileFormData {
 }
 
 const Settings: React.FC = () => {
+  const location = useLocation();
   const { user, hasProfile, userProfile: contextUserProfile, updateUserProfile, logout } = useAuth();
   const { currency, setCurrency, formatCurrency } = useCurrency();
   const [notifications, setNotifications] = useState({
@@ -184,6 +188,14 @@ const Settings: React.FC = () => {
   const userProfile = contextUserProfile;
   const [profileDataLoading, setProfileDataLoading] = useState(false);
   const [profileDataError, setProfileDataError] = useState<string | null>(null);
+
+  // Tab state - determine initial tab from URL hash
+  const getInitialTab = () => {
+    const hash = window.location.hash;
+    if (hash === '#preferences') return 1;
+    return 0; // default to profile
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab);
 
   // Edit profile state
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -1376,17 +1388,75 @@ const Settings: React.FC = () => {
     console.log('=== Settings: Profile check useEffect completed ===');
   }, [user, userProfile, hasProfile]);
 
+  // Handle tab changes and URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash || location.hash;
+      if (hash === '#preferences') {
+        setActiveTab(1);
+      } else {
+        setActiveTab(0);
+        // Ensure hash is set if not present
+        if (!hash || hash === '') {
+          window.history.replaceState(null, '', '#profile');
+        }
+      }
+    };
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    
+    // Check initial hash immediately
+    handleHashChange();
+
+    // Also check on location change (for React Router navigation)
+    const checkHash = () => {
+      setTimeout(handleHashChange, 0);
+    };
+    window.addEventListener('popstate', checkHash);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', checkHash);
+    };
+  }, [location.hash, location.pathname]);
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+    // Update URL hash without triggering navigation
+    if (newValue === 1) {
+      window.history.replaceState(null, '', '#preferences');
+    } else {
+      window.history.replaceState(null, '', '#profile');
+    }
+  };
+
 
   return (
     <Box>
-      
       <Typography variant="h4" gutterBottom>
         Settings
       </Typography>
 
-      <Grid container spacing={3}>
-        {/* Profile Settings */}
-        <Grid item xs={12} md={6}>
+      {/* Tabs Navigation */}
+      <Paper sx={{ mb: 3, mt: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+          variant="fullWidth"
+        >
+          <Tab label="Profile" />
+          <Tab label="Preferences" />
+        </Tabs>
+      </Paper>
+
+      {/* Tab Panels */}
+      {activeTab === 0 && (
+        <Grid container spacing={3}>
+          {/* Profile Settings */}
+          <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Profile Information
@@ -1512,53 +1582,6 @@ const Settings: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Notification Settings */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Notification Preferences
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={notifications.email}
-                    onChange={() => handleNotificationChange('email')}
-                  />
-                }
-                label="Email Notifications"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={notifications.push}
-                    onChange={() => handleNotificationChange('push')}
-                  />
-                }
-                label="Push Notifications"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={notifications.sms}
-                    onChange={() => handleNotificationChange('sms')}
-                  />
-                }
-                label="SMS Notifications"
-              />
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSaveNotifications}
-                sx={{ mt: 2 }}
-                fullWidth
-              >
-                Save Notifications
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
-
         {/* Subscription Information */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
@@ -1674,73 +1697,18 @@ const Settings: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* System Settings */}
+        {/* Security Settings */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              System Settings
+              Security
             </Typography>
             <Grid container spacing={3} sx={{ mt: 2 }}>
               <Grid item xs={12} md={4}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Theme Settings
-                    </Typography>
-                    <FormControlLabel
-                      control={<Switch defaultChecked />}
-                      label="Dark Mode"
-                    />
-                    <FormControlLabel
-                      control={<Switch />}
-                      label="Auto Theme"
-                    />
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Data Management
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      startIcon={<EditIcon />}
-                      fullWidth
-                      sx={{ mb: 1 }}
-                      onClick={handleFeatureNotAvailable}
-                    >
-                      Export Data
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      startIcon={<AddIcon />}
-                      fullWidth
-                      sx={{ mb: 1 }}
-                      onClick={handleFeatureNotAvailable}
-                    >
-                      Import Data
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      startIcon={<DeleteIcon />}
-                      fullWidth
-                      onClick={handleOpenClearDataDialog}
-                    >
-                      Clear data
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Security
+                      Account Security
                     </Typography>
                     <Button
                       variant="outlined"
@@ -1790,7 +1758,153 @@ const Settings: React.FC = () => {
             </Button>
           </Paper>
         </Grid>
-      </Grid>
+        </Grid>
+      )}
+
+      {/* Preferences Tab */}
+      {activeTab === 1 && (
+        <Grid container spacing={3}>
+          {/* Notification Settings */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Notification Preferences
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={notifications.email}
+                      onChange={() => handleNotificationChange('email')}
+                    />
+                  }
+                  label="Email Notifications"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={notifications.push}
+                      onChange={() => handleNotificationChange('push')}
+                    />
+                  }
+                  label="Push Notifications"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={notifications.sms}
+                      onChange={() => handleNotificationChange('sms')}
+                    />
+                  }
+                  label="SMS Notifications"
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveNotifications}
+                  sx={{ mt: 2 }}
+                  fullWidth
+                >
+                  Save Notifications
+                </Button>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Currency Preference */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Currency Preference
+              </Typography>
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel id="currency-label">Preferred Currency</InputLabel>
+                <Select
+                  labelId="currency-label"
+                  id="currency"
+                  value={currency}
+                  label="Preferred Currency"
+                  onChange={(e) => {
+                    const newCurrency = e.target.value;
+                    setCurrency(newCurrency);
+                  }}
+                >
+                  {CURRENCY_OPTIONS.map((option) => (
+                    <MenuItem key={option.code} value={option.code}>
+                      {option.name} ({option.code})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
+          </Grid>
+
+          {/* System Settings */}
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                System Settings
+              </Typography>
+              <Grid container spacing={3} sx={{ mt: 2 }}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Theme Settings
+                      </Typography>
+                      <FormControlLabel
+                        control={<Switch defaultChecked />}
+                        label="Dark Mode"
+                      />
+                      <FormControlLabel
+                        control={<Switch />}
+                        label="Auto Theme"
+                      />
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Data Management
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        startIcon={<EditIcon />}
+                        fullWidth
+                        sx={{ mb: 1 }}
+                        onClick={handleFeatureNotAvailable}
+                      >
+                        Export Data
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        fullWidth
+                        sx={{ mb: 1 }}
+                        onClick={handleFeatureNotAvailable}
+                      >
+                        Import Data
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        fullWidth
+                        onClick={handleOpenClearDataDialog}
+                      >
+                        Clear data
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
 
       {/* Profile Completion Status */}
       {userProfile && userProfile.incomeSources && userProfile.incomeSources.length > 0 && (

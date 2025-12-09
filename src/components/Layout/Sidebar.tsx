@@ -214,23 +214,12 @@ const createMenuItems = (
     {
       text: 'Settings',
       icon: <SettingsIcon />,
-      children: [
-        { 
-          text: 'Profile', 
-          icon: <SettingsIcon />, 
-          path: '/settings'
-        },
-        { 
-          text: 'Preferences', 
-          icon: <SettingsIcon />, 
-          path: '/settings'
-        },
-        { 
-          text: 'Help & Support', 
-          icon: <SupportIcon />, 
-          path: '/support'
-        },
-      ],
+      path: '/settings#profile'
+    },
+    {
+      text: 'Help & Support',
+      icon: <SupportIcon />,
+      path: '/support'
     },
 
     // ============================================
@@ -409,9 +398,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   }, [location.pathname]);
 
   const handleNavigation = (path: string, state?: any) => {
-    navigate(path, { state });
-    // Find the parent menu for this path
-    const parentMenu = findParentMenu(path);
+    // Extract hash from path if present
+    const [basePath, hash] = path.split('#');
+    if (hash) {
+      // Navigate to base path, then set hash
+      navigate(basePath, { state });
+      // Use setTimeout to ensure navigation completes before setting hash
+      setTimeout(() => {
+        window.location.hash = hash;
+      }, 0);
+    } else {
+      navigate(path, { state });
+    }
+    // Find the parent menu for this path (use base path for matching)
+    const parentMenu = findParentMenu(basePath);
     
     if (parentMenu) {
       // Keep the parent menu expanded when navigating to a child
@@ -438,7 +438,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   const isPathActive = (path: string) => {
-    return location.pathname === path;
+    // Strip hash fragment from path for comparison
+    const pathWithoutHash = path.split('#')[0];
+    return location.pathname === pathWithoutHash;
   };
 
   const isChildPathActive = (children: MenuItem[]) => {

@@ -349,11 +349,7 @@ const NotificationCenter: React.FC = () => {
           >
             Delete All
           </Button>
-          <IconButton onClick={handleMenuOpen}>
-            <Badge badgeContent={unreadCount} color="error">
-              <NotificationsActive />
-            </Badge>
-          </IconButton>
+         
           <Menu
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
