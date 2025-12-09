@@ -1071,13 +1071,6 @@ const Dashboard: React.FC = () => {
       color: 'secondary.main',
     },
     {
-      title: 'Total Monthly Income',
-      value: formatCurrency(totalMonthlyIncome || 0),
-      change: 'From income sources',
-      icon: <TrendingUp sx={{ fontSize: 40, color: 'primary.main' }} />,
-      color: 'primary.main',
-    },
-    {
       title: 'Monthly Expense',
       value: formatCurrency(monthlyExpense || 0),
       change: 'Fixed expenses',
@@ -1085,7 +1078,7 @@ const Dashboard: React.FC = () => {
       color: 'success.main',
     },
     {
-      title: 'Net Cash Flow (This Month)',
+      title: 'Net Cash Flow',
       value: formatCurrency(disposableIncome || 0),
       change: 'Available to spend',
       icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
@@ -1166,22 +1159,29 @@ const Dashboard: React.FC = () => {
       </Box>
       
       <Grid container spacing={3}>
-        {/* Stats Cards */}
-        {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2.4} xl={2.4} key={index}>
+        
+
+        {/* Main Content Area and Sidebar */}
+        <Grid container item xs={12} spacing={3}>
+          {/* Main Content Area */}
+          <Grid item xs={12} md={9}>
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              {/* Stats Cards */}
+              {stats.map((stat, index) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={index}>
             <Card 
               sx={{ 
-                cursor: (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? 'pointer' : 'default',
+                cursor: (stat.title === 'Net Cash Flow' || stat.title === 'Current Balance') ? 'pointer' : 'default',
                 height: '100%',
                 border: '1px solid #e5e5e5',
-                '&:hover': (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? {
+                '&:hover': (stat.title === 'Net Cash Flow' || stat.title === 'Current Balance') ? {
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                   transform: 'translateY(-2px)',
                   transition: 'all 0.3s ease'
                 } : {}
               }}
               onClick={
-                stat.title === 'Net Cash Flow (This Month)' ? handleDisposableCardClick : 
+                stat.title === 'Net Cash Flow' ? handleDisposableCardClick : 
                 stat.title === 'Current Balance' ? handleBalanceCardClick : 
                 undefined
               }
@@ -1202,7 +1202,7 @@ const Dashboard: React.FC = () => {
                       >
                         {stat.title}
                       </Typography>
-                      {stat.title === 'Net Cash Flow (This Month)' && (
+                      {stat.title === 'Net Cash Flow' && (
                         <Tooltip
                           title={
                             <Box>
@@ -1257,13 +1257,13 @@ const Dashboard: React.FC = () => {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
-        ))}
+                </Grid>
+              ))}
+            </Grid>
+  
 
-        {/* Main Content Area and Sidebar */}
-        <Grid container item xs={12} spacing={3}>
-          {/* Main Content Area */}
-          <Grid item xs={12} md={9.6}>
+
+
             <Grid container spacing={3}>
               {/* Financial Overview */}
               <Grid item xs={12} md={8}>
@@ -1496,7 +1496,7 @@ const Dashboard: React.FC = () => {
           </Grid>
 
           {/* Right Sidebar */}
-          <Grid item xs={12} md={2.4}>
+          <Grid item xs={12} md={3}>
             <Grid container spacing={3} direction="column">
               {/* Savings Card */}
               <Grid item xs={12}>
