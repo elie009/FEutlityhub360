@@ -19,6 +19,7 @@ import {
   CreditCard,
   Warning,
   CheckCircle,
+  PriorityHigh,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -292,6 +293,30 @@ const LoanScheduleCalendar: React.FC = () => {
               {monthlyPayments.map((dayData) => {
                 const isToday = isCurrentMonth && dayData.date === today.getDate();
                 const hasPayments = dayData.payments.length > 0;
+                const hasOverdue = dayData.payments.some((p) => p.status === PaymentStatus.OVERDUE);
+                const hasPending = dayData.payments.some(
+                  (p) => p.status === PaymentStatus.PENDING || p.status === PaymentStatus.PARTIAL
+                );
+
+                const dayBackground = isToday
+                  ? 'rgba(25, 118, 210, 0.10)'
+                  : hasOverdue
+                    ? 'rgba(211, 47, 47, 0.08)'
+                    : hasPending
+                      ? 'rgba(245, 124, 0, 0.08)'
+                      : hasPayments
+                        ? 'rgba(25, 118, 210, 0.05)'
+                        : 'transparent';
+
+                const dayBorder = isToday
+                  ? '2px solid #1976d2'
+                  : hasOverdue
+                    ? '1px solid #d32f2f'
+                    : hasPending
+                      ? '1px solid #f57c00'
+                      : hasPayments
+                        ? '1px solid #1976d2'
+                        : '1px solid #e5e5e5';
 
                 return (
                   <Grid item xs={12 / 7} key={dayData.date}>
@@ -299,12 +324,29 @@ const LoanScheduleCalendar: React.FC = () => {
                       sx={{
                         minHeight: 60,
                         p: 0.5,
-                        border: isToday ? '2px solid #1976d2' : '1px solid #e5e5e5',
+                        border: dayBorder,
                         borderRadius: 1,
-                        backgroundColor: isToday ? 'rgba(25, 118, 210, 0.05)' : 'transparent',
+                        backgroundColor: dayBackground,
                         position: 'relative',
                       }}
                     >
+                      {hasPayments && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor: hasOverdue
+                              ? '#d32f2f'
+                              : hasPending
+                                ? '#f57c00'
+                                : '#1976d2',
+                          }}
+                        />
+                      )}
                       <Typography
                         variant="caption"
                         sx={{
@@ -358,54 +400,31 @@ const LoanScheduleCalendar: React.FC = () => {
               })}
             </Grid>
 
-            {/* Summary - Only show if there are loans */}
+            {/* Legend - Only show if there are loans */}
             {loans.length > 0 && (
-              <>
-                <Box
-                  sx={{
-                    mt: 2,
-                    pt: 2,
-                    borderTop: '1px solid #e5e5e5',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 1,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                    Total Due This Month:
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2' }}>
-                    {formatCurrency(totalPayments)}
-                  </Typography>
-                </Box>
-
-                {/* Legend - Only show if there are loans */}
-                <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <Chip
-                    icon={<CheckCircle sx={{ fontSize: 12 }} />}
-                    label="Paid"
-                    size="small"
-                    color="success"
-                    sx={{ fontSize: '0.7rem', height: 20 }}
-                  />
-                  <Chip
-                    icon={<Warning sx={{ fontSize: 12 }} />}
-                    label="Pending"
-                    size="small"
-                    color="warning"
-                    sx={{ fontSize: '0.7rem', height: 20 }}
-                  />
-                  <Chip
-                    icon={<Warning sx={{ fontSize: 12 }} />}
-                    label="Overdue"
-                    size="small"
-                    color="error"
-                    sx={{ fontSize: '0.7rem', height: 20 }}
-                  />
-                </Box>
-              </>
+              <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <Chip
+                  icon={<CheckCircle sx={{ fontSize: 12 }} />}
+                  label="Paid"
+                  size="small"
+                  color="success"
+                  sx={{ fontSize: '0.7rem', height: 20 }}
+                />
+                <Chip
+                  icon={<Warning sx={{ fontSize: 12 }} />}
+                  label="Pending"
+                  size="small"
+                  color="warning"
+                  sx={{ fontSize: '0.7rem', height: 20 }}
+                />
+                <Chip
+                  icon={<PriorityHigh sx={{ fontSize: 12 }} />}
+                  label="Overdue"
+                  size="small"
+                  color="error"
+                  sx={{ fontSize: '0.7rem', height: 20 }}
+                />
+              </Box>
             )}
 
             {/* Show message if no loans */}

@@ -236,7 +236,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
       position="fixed" 
       sx={{ 
         zIndex: (theme) => theme.zIndex.drawer + 10,
-        top: { xs: 0, md: '12px' }, // Align with sidebar top margin
+        top: { xs: 0, md: '0px' }, // Align with sidebar top margin
         left: { xs: 0, md: `calc(${sidebarWidth}px + 12px)` }, // Start after sidebar width + left margin
         width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px - 24px)` }, // Width minus sidebar, left margin, and right margin
         borderRadius: { xs: 0, md: '8px' }, // Match sidebar border radius
@@ -246,9 +246,9 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
         }),
       }}
     >
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
+      <Toolbar sx={{ position: 'relative', justifyContent: 'space-between' }}>
         {/* Left side - Mobile menu only */}
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
           {isMobile && onMenuClick && (
             <IconButton
               color="inherit"
@@ -262,42 +262,49 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
           )}
         </Box>
 
-        {/* Right side - Search box, notification bell, settings, and user icon */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: 'auto' }}>
-          {/* Search Bar */}
-          <Box
-            sx={{
-              position: 'relative',
-              borderRadius: 1,
-              width: { xs: '200px', sm: '300px' },
-              maxWidth: '400px',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px 12px',
-              border: '1px solid #e5e5e5',
+        {/* Center - Search Bar */}
+        <Box
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            borderRadius: 1,
+            width: { xs: '250px', sm: '400px', md: '500px', lg: '600px' },
+            maxWidth: '90%',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '4px 12px',
+            border: '1px solid #e5e5e5',
+            backgroundColor: '#ffffff',
+            '&:hover': {
               backgroundColor: '#ffffff',
-              '&:hover': {
-                backgroundColor: '#ffffff',
+              borderColor: '#1976d2',
+            },
+            '&:focus-within': {
+              borderColor: '#1976d2',
+              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)',
+            },
+          }}
+        >
+          <SearchIcon sx={{ color: '#666666', mr: 1, fontSize: '20px' }} />
+          <InputBase
+            placeholder="Search bills, loans, Expense etc"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onKeyPress={handleSearchKeyPress}
+            sx={{
+              color: '#1a1a1a',
+              width: '100%',
+              '& .MuiInputBase-input': {
+                padding: '4px 8px',
+                fontSize: '0.875rem',
               },
             }}
-          >
-            <SearchIcon sx={{ color: '#666666', mr: 1, fontSize: '20px' }} />
-            <InputBase
-              placeholder="Search bills, loans, Expense etc"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onKeyPress={handleSearchKeyPress}
-              sx={{
-                color: '#1a1a1a',
-                width: '100%',
-                '& .MuiInputBase-input': {
-                  padding: '4px 8px',
-                  fontSize: '0.875rem',
-                },
-              }}
-            />
-          </Box>
+          />
+        </Box>
 
+        {/* Right side - Notification bell, settings, and user icon */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, justifyContent: 'flex-end' }}>
           <IconButton 
             color="inherit" 
             onClick={handleNotificationMenuOpen}

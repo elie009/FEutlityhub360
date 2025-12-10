@@ -1595,13 +1595,14 @@ const Dashboard: React.FC = () => {
                           transition: 'all 0.3s ease',
                           borderRadius: '8px 8px 0 0',
                           marginRight: 1,
+                          color: 'text.primary',
                           '&:hover': {
                             backgroundColor: 'rgba(25, 118, 210, 0.08)',
                           },
                         },
-                        '& .Mui-selected': {
+                        '& .MuiTab-root.Mui-selected': {
                           backgroundColor: 'rgba(25, 118, 210, 0.12)',
-                          color: '#1976d2',
+                          color: '#1976d2 !important',
                           fontWeight: 600,
                           borderRadius: '8px 8px 0 0',
                         },
