@@ -178,3 +178,12 @@ export interface ExtractBankStatementResponse {
   metadata?: Record<string, any>;
 }
 
+// Upload Limit Types
+export interface BankStatementUploadLimit {
+  canUpload: boolean;
+  currentUploads: number;
+  uploadLimit: number | null;
+  remainingUploads: number | null;
+  isFreeTier: boolean;
+}
+

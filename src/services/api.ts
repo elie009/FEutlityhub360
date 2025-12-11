@@ -129,15 +129,46 @@ class ApiService {
         console.error('API Service: Error response:', errorData);
         console.error('API Service: Error status:', response.status);
         
-        // Redirect to login on unauthorized/session timeout
+        // Handle unauthorized/session timeout
+        // NEVER redirect or refresh if already on auth page to prevent page reloads
         if (response.status === 401 || response.status === 440) {
           try {
             localStorage.removeItem('authToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
           } catch {}
-          // Use hard redirect to ensure full app reset
-          if (typeof window !== 'undefined') {
+          
+          // Check if we're on the auth page - if so, NEVER redirect
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isOnAuthPage = currentPath.startsWith('/auth') || 
+                              currentPath.startsWith('/login') ||
+                              currentPath === '/' ||
+                              currentPath.startsWith('/register') ||
+                              currentPath.startsWith('/forgot-password') ||
+                              currentPath.startsWith('/reset-password');
+          
+          // Check if this is a login endpoint request (user is trying to login)
+          const isLoginEndpoint = endpoint.includes('/Auth/login') || endpoint.includes('/auth/login');
+          
+          // Check if auth is initializing
+          const isAuthInitializing = typeof window !== 'undefined' && (window as any).__authInitializing === true;
+          
+          // NEVER redirect if:
+          // 1. On auth page
+          // 2. During auth initialization
+          // 3. This is a login endpoint request (user is actively trying to login)
+          if (isOnAuthPage || isAuthInitializing || isLoginEndpoint) {
+            console.log('API Service: 401 detected - skipping redirect to prevent page refresh', {
+              isOnAuthPage,
+              isAuthInitializing,
+              isLoginEndpoint,
+              currentPath,
+              endpoint
+            });
+            // Silently handle 401 - don't redirect, don't refresh, just clear tokens
+            // The error will be thrown and handled by the calling code (LoginForm)
+          } else {
+            console.log('API Service: Redirecting to /auth due to 401');
             window.location.href = '/auth';
           }
         }
@@ -262,7 +293,7 @@ class ApiService {
 
     const response = await this.request<T>(endpoint, {
       ...options,
-      method: 'PUT',
+      method: 'POST',
       headers: {
         ...headers,
         ...options?.headers,
@@ -343,13 +374,7 @@ class ApiService {
     return response as AuthUser;
   }
 
-  async register(registerData: {
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
-    confirmPassword: string;
-  }): Promise<{
+  async register(registerData: RegisterData): Promise<{
     success: boolean;
     message: string;
     data: {
@@ -676,8 +701,8 @@ class ApiService {
       message: string;
       data: User | null;
       errors: string[];
-    }>(`/Users/${userId}`, {
-      method: 'PUT',
+    }>(`/Users/${userId}/update`, {
+      method: 'POST',
       body: JSON.stringify(userData),
     });
     return response;
@@ -860,7 +885,7 @@ class ApiService {
       data: any | null;
       errors: string[];
     }>('/UserProfile/currency', {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ currency }),
     });
     return response;
@@ -922,8 +947,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateUserProfile(profileData);
     }
-    const response = await this.request<any>('/UserProfile', {
-      method: 'PUT',
+    const response = await this.request<any>('/UserProfile/update', {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(profileData),
     });
     if (response && response.success && response.data) {
@@ -978,8 +1003,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateLoan(loanId, updateData);
     }
-    const response = await this.request<any>(`/Loans/${loanId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Loans/${loanId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     
@@ -994,8 +1019,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.deleteLoan(loanId);
     }
-    const response = await this.request<any>(`/Loans/${loanId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/Loans/${loanId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     // Handle the response structure
@@ -1061,8 +1086,8 @@ class ApiService {
       return mockDataService.deletePayment(paymentId);
     }
     
-    const response = await this.request<any>(`/Payments/${paymentId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/Payments/${paymentId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     return response?.data || response || true;
@@ -1220,8 +1245,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateScheduleDueDate(loanId, installmentNumber, newDueDate);
     }
-    const response = await this.request<any>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Loans/${loanId}/schedule/${installmentNumber}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ newDueDate }),
     });
     
@@ -1391,8 +1416,8 @@ class ApiService {
       };
     }
 
-    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
-      method: 'PUT',
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(request),
     });
     
@@ -1411,8 +1436,8 @@ class ApiService {
       };
     }
 
-    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
-      method: 'DELETE',
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     return response;
@@ -1433,7 +1458,7 @@ class ApiService {
 
   async rejectLoan(loanId: string, reason: string): Promise<Loan> {
     return this.request<Loan>(`/Loans/user/${loanId}/reject`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({ reason }),
     });
   }
@@ -1493,7 +1518,7 @@ class ApiService {
 
   async closeLoan(loanId: string): Promise<Loan> {
     return this.request<Loan>(`/Loans/user/${loanId}/close`, {
-      method: 'PUT',
+      method: 'POST',
     });
   }
 
@@ -1620,7 +1645,7 @@ class ApiService {
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
     return this.request<void>(`/Notifications/${notificationId}/read`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
     });
   }
 
@@ -1632,8 +1657,8 @@ class ApiService {
     
     try {
       const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
-        `/Notifications/${notificationId}`,
-        { method: 'DELETE' }
+        `/Notifications/${notificationId}/delete`,
+        { method: 'POST' }  // Using POST as alternative for environments where DELETE is blocked
       );
       return response.data || false;
     } catch (error) {
@@ -1650,8 +1675,8 @@ class ApiService {
     
     try {
       const response = await this.request<{ success: boolean; data: number; message?: string }>(
-        `/Notifications/user/${userId}/all`,
-        { method: 'DELETE' }
+        `/Notifications/user/${userId}/all/delete`,
+        { method: 'POST' }  // Using POST as alternative for environments where DELETE is blocked
       );
       return response.data || 0;
     } catch (error) {
@@ -1770,8 +1795,8 @@ class ApiService {
       return mockBillDataService.updateBill(billId, updateData);
     }
     
-    const response = await this.request<any>(`/Bills/${billId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Bills/${billId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     
@@ -1802,8 +1827,8 @@ class ApiService {
         message: string;
         data: boolean;
         errors: any[];
-      }>(`/Bills/${billId}`, {
-        method: 'DELETE',
+      }>(`/Bills/${billId}/delete`, {
+        method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
       });
       
       console.log('✅ Delete API response:', response);
@@ -1842,7 +1867,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/bills/${billId}/mark-paid`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(requestBody),
     });
     
@@ -1861,7 +1886,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/bills/${billId}/status`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(status),
     });
     
@@ -2092,8 +2117,8 @@ class ApiService {
 
   // Update a utility
   async updateUtility(utilityId: string, updateData: UpdateUtilityRequest): Promise<Utility> {
-    const response = await this.request<any>(`/utilities/${utilityId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/utilities/${utilityId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     return response?.data || response;
@@ -2101,8 +2126,8 @@ class ApiService {
 
   // Delete a utility
   async deleteUtility(utilityId: string): Promise<boolean> {
-    const response = await this.request<any>(`/utilities/${utilityId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/utilities/${utilityId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response?.data || response || true;
   }
@@ -2114,7 +2139,7 @@ class ApiService {
     if (request.bankAccountId) requestBody.bankAccountId = request.bankAccountId;
     
     const response = await this.request<any>(`/utilities/${utilityId}/mark-paid`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(requestBody),
     });
     return response?.data || response;
@@ -2258,8 +2283,8 @@ class ApiService {
 
   // Update existing budget
   async updateBillBudget(budgetId: string, budgetData: Partial<CreateBudgetRequest>): Promise<BillBudget> {
-    const response = await this.request<any>(`/bills/budgets/${budgetId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/bills/budgets/${budgetId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(budgetData),
     });
     
@@ -2271,8 +2296,8 @@ class ApiService {
 
   // Delete budget
   async deleteBillBudget(budgetId: string): Promise<boolean> {
-    const response = await this.request<any>(`/bills/budgets/${budgetId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/bills/budgets/${budgetId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response && response.success;
   }
@@ -2327,7 +2352,7 @@ class ApiService {
   // Mark alert as read
   async markAlertAsRead(alertId: string): Promise<void> {
     await this.request<any>(`/bills/alerts/${alertId}/read`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
     });
   }
 
@@ -2397,7 +2422,7 @@ class ApiService {
   // Confirm or update amount for auto-generated bill
   async confirmBillAmount(billId: string, amount: number, notes?: string): Promise<Bill> {
     const response = await this.request<any>(`/bills/${billId}/confirm-amount`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ amount, notes }),
     });
     
@@ -2476,7 +2501,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.updateBankAccount(accountId, updateData);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'PUT', body: JSON.stringify(updateData) });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/update`, { method: 'POST', body: JSON.stringify(updateData) });  // Using POST as alternative for environments where PUT is blocked
     if (response && response.data) {
       return response.data;
     }
@@ -2487,7 +2512,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.deleteBankAccount(accountId);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'DELETE' });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/delete`, { method: 'POST' });  // Using POST as alternative for environments where DELETE is blocked
     return response?.data || response || true;
   }
 
@@ -2521,7 +2546,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.connectAccount(accountId);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}/connect`, { method: 'PUT' });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/connect`, { method: 'POST' });  // Using POST as alternative for environments where PUT is blocked
     if (response && response.data) {
       return response.data;
     }
@@ -2532,7 +2557,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.disconnectAccount(accountId);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}/disconnect`, { method: 'PUT' });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/disconnect`, { method: 'POST' });  // Using POST as alternative for environments where PUT is blocked
     if (response && response.data) {
       return response.data;
     }
@@ -2668,8 +2693,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/Receivables/${receivableId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Receivables/${receivableId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     if (response && response.data) {
@@ -2682,8 +2707,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/Receivables/${receivableId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/Receivables/${receivableId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response?.data || response || true;
   }
@@ -2867,8 +2892,8 @@ class ApiService {
       return mockTransactionDataService.deleteTransaction(transactionId);
     }
     
-    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     // Handle the new response format: { success: true, message: "string", data: true, errors: [] }
@@ -2886,7 +2911,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/hide`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ reason }),
     });
     
@@ -2904,7 +2929,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/restore`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
     });
     
     if (response && response.data) {
@@ -3046,8 +3071,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for updating transactions');
     }
-    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(transactionData),
     });
     if (response && response.data) {
@@ -3237,8 +3262,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateSavingsAccount(accountId, accountData);
     }
-    const response = await this.request<any>(`/savings/accounts/${accountId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/savings/accounts/${accountId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(accountData),
     });
     return response.data;
@@ -3249,8 +3274,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.deleteSavingsAccount(accountId);
     }
-    await this.request<void>(`/savings/accounts/${accountId}`, {
-      method: 'DELETE',
+    await this.request<void>(`/savings/accounts/${accountId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
   }
 
@@ -3369,7 +3394,7 @@ class ApiService {
       return mockDataService.updateSavingsGoal(accountId, goalData);
     }
     const response = await this.request<any>(`/savings/accounts/${accountId}/goal`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(goalData),
     });
     return response.data;
@@ -3384,7 +3409,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/savings/accounts/${savingsAccountId}/mark-paid`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(requestBody),
     });
     
@@ -3591,8 +3616,8 @@ class ApiService {
         errors: []
       };
     }
-    const response = await this.request<{ success: boolean; message: string; data: boolean; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
-      method: 'DELETE',
+    const response = await this.request<{ success: boolean; message: string; data: boolean; errors: string[] }>(`/IncomeSource/${incomeSourceId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response.data;
   }
@@ -3628,8 +3653,9 @@ class ApiService {
         errors: []
       };
     }
-    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
-      method: 'PUT',
+    // Using POST with /update path as workaround for environments where PUT is blocked by WAF
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}/update`, {
+      method: 'POST',
       body: JSON.stringify(incomeSourceData),
     });
     return response.data;
@@ -3828,8 +3854,8 @@ class ApiService {
     message: string;
     data: boolean;
   }> {
-    const response = await this.request<any>(`/chat/conversations/${conversationId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/chat/conversations/${conversationId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     if (response && response.success) {
@@ -3979,7 +4005,8 @@ class ApiService {
     const queryString = queryParams.toString();
     const endpoint = `/Reports/full${queryString ? `?${queryString}` : ''}`;
     
-    const response = await this.request<any>(endpoint);
+    // Use extended timeout (30 seconds) for full reports as they process multiple sections
+    const response = await this.request<any>(endpoint, {}, 30000);
     
     if (response && response.success && response.data) {
       return response.data;
@@ -4434,6 +4461,16 @@ class ApiService {
     return response?.success ?? false;
   }
 
+  async getBankStatementUploadLimit(): Promise<import('../types/reconciliation').BankStatementUploadLimit> {
+    const endpoint = '/Reconciliation/statements/upload-limit';
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get upload limit');
+  }
+
   async createReconciliation(createData: import('../types/reconciliation').CreateReconciliationRequest): Promise<import('../types/reconciliation').Reconciliation> {
     const response = await this.request<any>('/reconciliation', {
       method: 'POST',
@@ -4572,8 +4609,8 @@ class ApiService {
     isActive?: boolean;
     displayOrder?: number;
   }): Promise<any> {
-    const response = await this.request<any>(`/categories/${categoryId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/categories/${categoryId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     if (response && response.success && response.data) {
@@ -4583,8 +4620,8 @@ class ApiService {
   }
 
   async deleteCategory(categoryId: string): Promise<boolean> {
-    const response = await this.request<any>(`/categories/${categoryId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/categories/${categoryId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     if (response && response.success) {
       return true;
@@ -4628,7 +4665,7 @@ class ApiService {
 
   async updateExpense(expenseId: string, expenseData: any): Promise<any> {
     const response = await this.request<any>(`/Expenses/${expenseId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(expenseData),
     });
     if (response && response.success && response.data) {
@@ -4687,7 +4724,7 @@ class ApiService {
 
   async updateExpenseCategory(categoryId: string, categoryData: any): Promise<any> {
     const response = await this.request<any>(`/Expenses/categories/${categoryId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(categoryData),
     });
     if (response && response.success && response.data) {
@@ -4736,7 +4773,7 @@ class ApiService {
 
   async updateExpenseBudget(budgetId: string, budgetData: any): Promise<any> {
     const response = await this.request<any>(`/Expenses/budgets/${budgetId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(budgetData),
     });
     if (response && response.success && response.data) {
@@ -5040,7 +5077,7 @@ class ApiService {
 
   async updateAllocationPlan(planId: string, planData: any): Promise<any> {
     const response = await this.request<any>(`/Allocation/plans/${planId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(planData),
     });
     if (response && response.success && response.data) {
@@ -5081,7 +5118,7 @@ class ApiService {
 
   async updateAllocationCategory(categoryId: string, categoryData: any): Promise<any> {
     const response = await this.request<any>(`/Allocation/categories/${categoryId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(categoryData),
     });
     if (response && response.success && response.data) {
@@ -5458,7 +5495,7 @@ class ApiService {
   // Update ticket
   async updateTicket(ticketId: string, ticketData: any): Promise<any> {
     const response = await this.request<any>(`/Tickets/${ticketId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(ticketData),
     });
 
@@ -5541,7 +5578,7 @@ class ApiService {
   // Update ticket status
   async updateTicketStatus(ticketId: string, status: string, notes?: string): Promise<any> {
     const response = await this.request<any>(`/Tickets/${ticketId}/status`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({ status, notes }),
     });
 
@@ -5564,7 +5601,7 @@ class ApiService {
   // Assign ticket
   async assignTicket(ticketId: string, assignedTo?: string): Promise<any> {
     const response = await this.request<any>(`/Tickets/${ticketId}/assign`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({ assignedTo }),
     });
 
@@ -5676,7 +5713,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: SubscriptionPlan; message?: string }>(
       `/admin/subscriptions/plans/${planId}`,
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(plan),
       }
     );
@@ -5748,7 +5785,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: UserSubscription; message?: string }>(
       `/admin/subscriptions/users/${subscriptionId}`,
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(subscription),
       }
     );
@@ -5901,7 +5938,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
       '/whitelabel/settings',
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(request),
       }
     );
@@ -6020,7 +6057,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
       `/multiuser/team-members/${memberId}/role`,
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(request),
       }
     );
@@ -6096,7 +6133,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
       `/investments/${investmentId}`,
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(request),
       }
     );

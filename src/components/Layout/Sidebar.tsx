@@ -121,12 +121,12 @@ const createMenuItems = (
           icon: <ReceivablesIcon />, 
           path: '/receivables'
         },
-        // Match with Bank Statement (Bank Feeds) - Premium+ only
-        ...(hasBankFeed ? [{
+        // Reconciliation - Available to all users (Free tier has 3 uploads/month limit)
+        { 
           text: 'Reconciliation', 
           icon: <ReconciliationIcon />, 
           path: '/reconciliation'
-        }] : []),
+        },
       ],
     },
 

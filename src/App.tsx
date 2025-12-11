@@ -211,9 +211,7 @@ const AppRoutes: React.FC = () => {
           } />
           <Route path="reconciliation" element={
             <ProtectedRoute>
-              <PremiumRoute feature="BANK_FEED">
-                <Reconciliation />
-              </PremiumRoute>
+              <Reconciliation />
             </ProtectedRoute>
           } />
           <Route path="loans" element={

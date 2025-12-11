@@ -551,7 +551,7 @@ export const mockDataService = {
   async register(registerData: {
     name: string;
     email: string;
-    phone: string;
+    country: string;
     password: string;
     confirmPassword: string;
   }): Promise<{
@@ -583,7 +583,7 @@ export const mockDataService = {
         userId: userId,
         name: registerData.name,
         email: registerData.email,
-        phone: registerData.phone,
+        phone: '',
         isEmailConfirmed: false,
         createdAt: now,
       },

@@ -23,6 +23,7 @@ interface BasicInfoStepProps {
   onDataUpdate: (data: Partial<OnboardingData>) => void;
   data: OnboardingData;
   onComplete: () => void;
+  userEmail?: string;
 }
 
 const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
@@ -31,6 +32,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
   onDataUpdate,
   data,
   onComplete,
+  userEmail,
 }) => {
   const [errors, setErrors] = React.useState<{[key: string]: string}>({});
 
@@ -175,7 +177,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
               <TextField
                 fullWidth
                 label="Email Address"
-                value={data.firstName && data.lastName ? `${data.firstName.toLowerCase()}.${data.lastName.toLowerCase()}@example.com` : ''}
+                value={userEmail || ''}
                 disabled
                 helperText="This is your registered email address"
                 InputProps={{

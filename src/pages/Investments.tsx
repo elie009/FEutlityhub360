@@ -371,7 +371,7 @@ const Investments: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell align="right">
-                        {investment.totalReturnPercentage !== undefined && (
+                        {investment.totalReturnPercentage !== undefined && investment.totalReturnPercentage !== null && (
                           <Chip
                             label={`${investment.totalReturnPercentage.toFixed(2)}%`}
                             size="small"

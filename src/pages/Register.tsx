@@ -11,22 +11,48 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Visibility,
   VisibilityOff,
   Person,
   Email,
-  Phone,
   Lock,
+  Public,
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { apiService } from '../services/api';
 
+const COUNTRIES = [
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Italy', 'Spain',
+  'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Norway', 'Denmark', 'Finland',
+  'Poland', 'Portugal', 'Greece', 'Ireland', 'Czech Republic', 'Hungary', 'Romania', 'Bulgaria',
+  'Croatia', 'Slovakia', 'Slovenia', 'Lithuania', 'Latvia', 'Estonia', 'Luxembourg', 'Malta',
+  'Cyprus', 'Japan', 'South Korea', 'China', 'India', 'Singapore', 'Malaysia', 'Thailand',
+  'Indonesia', 'Philippines', 'Vietnam', 'Taiwan', 'Hong Kong', 'New Zealand', 'South Africa',
+  'Brazil', 'Argentina', 'Mexico', 'Chile', 'Colombia', 'Peru', 'Venezuela', 'Ecuador',
+  'Uruguay', 'Paraguay', 'Bolivia', 'Panama', 'Costa Rica', 'Guatemala', 'Honduras',
+  'El Salvador', 'Nicaragua', 'Dominican Republic', 'Jamaica', 'Trinidad and Tobago', 'Bahamas',
+  'Barbados', 'Belize', 'Guyana', 'Suriname', 'Egypt', 'Nigeria', 'Kenya', 'Ghana',
+  'Tanzania', 'Uganda', 'Ethiopia', 'Morocco', 'Algeria', 'Tunisia', 'Libya', 'Sudan',
+  'Saudi Arabia', 'United Arab Emirates', 'Israel', 'Turkey', 'Lebanon', 'Jordan', 'Kuwait',
+  'Qatar', 'Oman', 'Bahrain', 'Iraq', 'Iran', 'Pakistan', 'Bangladesh', 'Sri Lanka',
+  'Nepal', 'Myanmar', 'Cambodia', 'Laos', 'Mongolia', 'Kazakhstan', 'Uzbekistan', 'Ukraine',
+  'Russia', 'Belarus', 'Moldova', 'Georgia', 'Armenia', 'Azerbaijan', 'Kyrgyzstan',
+  'Tajikistan', 'Turkmenistan', 'Afghanistan', 'Iceland', 'Liechtenstein', 'Monaco',
+  'San Marino', 'Vatican City', 'Andorra', 'Albania', 'Bosnia and Herzegovina',
+  'North Macedonia', 'Serbia', 'Montenegro', 'Kosovo', 'Other'
+];
+
 interface RegisterFormData {
   name: string;
   email: string;
-  phone: string;
+  country: string;
   password: string;
   confirmPassword: string;
 }
@@ -36,7 +62,7 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
     email: '',
-    phone: '',
+    country: '',
     password: '',
     confirmPassword: '',
   });
@@ -46,6 +72,16 @@ const Register: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Clear error when user starts typing
+    if (error) setError(null);
+  };
+
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -65,13 +101,8 @@ const Register: React.FC = () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       return 'Please enter a valid email address';
     }
-    if (!formData.phone.trim()) {
-      return 'Phone number is required';
-    }
-    // Basic phone validation - just check if it contains numbers
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (phoneDigits.length < 7) {
-      return 'Phone number must contain at least 7 digits';
+    if (!formData.country.trim()) {
+      return 'Country is required';
     }
     if (!formData.password) {
       return 'Password is required';
@@ -193,24 +224,28 @@ const Register: React.FC = () => {
                 ),
               }}
             />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="phone"
-              label="Phone Number"
-              name="phone"
-              autoComplete="tel"
-              value={formData.phone}
-              onChange={handleInputChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Phone />
+            <FormControl margin="normal" required fullWidth>
+              <InputLabel id="country-label">Country</InputLabel>
+              <Select
+                labelId="country-label"
+                id="country"
+                name="country"
+                value={formData.country}
+                label="Country"
+                onChange={handleSelectChange}
+                startAdornment={
+                  <InputAdornment position="start" sx={{ ml: 1 }}>
+                    <Public />
                   </InputAdornment>
-                ),
-              }}
-            />
+                }
+              >
+                {COUNTRIES.map((country) => (
+                  <MenuItem key={country} value={country}>
+                    {country}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <TextField
               margin="normal"
               required

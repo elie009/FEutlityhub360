@@ -228,7 +228,7 @@ export class ApiService {
   async updateUserProfile(profileData: UpdateUserProfileRequest) {
     console.log('API Service: Making updateUserProfile request to /api/UserProfile');
     const response = await this.request<BackendResponse<UserProfileResponse>>('/api/UserProfile', {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(profileData),
     });
     console.log('API Service: updateUserProfile response received:', response);
@@ -305,7 +305,7 @@ export class ApiService {
       return mockDataService.updateLoan(loanId, updateData);
     }
     const response = await this.request(`/Loans/${loanId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(updateData),
     });
     
@@ -368,14 +368,14 @@ export class ApiService {
   // Admin endpoints
   async approveLoan(loanId: string, data: { approvedBy: string; notes?: string }) {
     return this.request(`/Loans/user/${loanId}/approve`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async rejectLoan(loanId: string, data: { reason: string; rejectedBy: string; notes?: string }) {
     return this.request(`/Loans/user/${loanId}/reject`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -394,7 +394,7 @@ export class ApiService {
 
   async closeLoan(loanId: string, data: { closedBy: string; notes?: string }) {
     return this.request(`/Loans/user/${loanId}/close`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
@@ -478,7 +478,7 @@ export class ApiService {
       return Promise.resolve();
     }
     return this.request(`/notifications/${notificationId}/read`, {
-      method: 'PUT',
+      method: 'POST',
     });
   }
 

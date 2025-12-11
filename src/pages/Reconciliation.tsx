@@ -49,13 +49,14 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BankAccount } from '../types/bankAccount';
 import {
   BankStatement,
   Reconciliation,
   ReconciliationSummary,
   TransactionMatchSuggestion,
+  BankStatementUploadLimit,
 } from '../types/reconciliation';
 import { getErrorMessage } from '../utils/validation';
 import BankStatementImportDialog from '../components/Reconciliation/BankStatementImportDialog';
@@ -66,6 +67,7 @@ const ReconciliationPage: React.FC = () => {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const location = useLocation();
+  const navigate = useNavigate();
   
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -88,6 +90,9 @@ const ReconciliationPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<BankStatement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Upload limit state
+  const [uploadLimit, setUploadLimit] = useState<BankStatementUploadLimit | null>(null);
 
   // Load bank accounts
   useEffect(() => {
@@ -109,6 +114,19 @@ const ReconciliationPage: React.FC = () => {
     };
     loadBankAccounts();
   }, [location.state]);
+
+  // Load upload limit
+  useEffect(() => {
+    const loadUploadLimit = async () => {
+      try {
+        const limitInfo = await apiService.getBankStatementUploadLimit();
+        setUploadLimit(limitInfo);
+      } catch (err) {
+        console.error('Failed to load upload limit:', err);
+      }
+    };
+    loadUploadLimit();
+  }, []);
 
   // Load data when account changes
   useEffect(() => {
@@ -143,11 +161,19 @@ const ReconciliationPage: React.FC = () => {
     setSelectedAccountId(event.target.value);
   };
 
-  const handleImportSuccess = () => {
+  const handleImportSuccess = async () => {
     setSuccess('Bank statement imported successfully!');
     loadReconciliationData();
     setShowImportDialog(false);
     setTimeout(() => setSuccess(''), 3000);
+    
+    // Reload upload limit after successful import
+    try {
+      const limitInfo = await apiService.getBankStatementUploadLimit();
+      setUploadLimit(limitInfo);
+    } catch (err) {
+      console.error('Failed to reload upload limit:', err);
+    }
   };
 
   const handleReconciliationSuccess = () => {
@@ -334,6 +360,43 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
+          {/* Upload Limit Card */}
+          {uploadLimit && uploadLimit.uploadLimit !== null && (
+            <Grid item xs={12} md={3}>
+              <Card sx={{ bgcolor: uploadLimit.canUpload ? 'info.light' : 'error.light' }}>
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Monthly Upload Limit
+                  </Typography>
+                  <Typography variant="h6" sx={{ mb: 0.5 }}>
+                    {uploadLimit.currentUploads} / {uploadLimit.uploadLimit}
+                  </Typography>
+                  {uploadLimit.remainingUploads !== null && uploadLimit.remainingUploads > 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      {uploadLimit.remainingUploads} remaining
+                    </Typography>
+                  )}
+                  {!uploadLimit.canUpload && (
+                    <>
+                      <Typography variant="body2" color="error" sx={{ mt: 1, fontWeight: 'bold' }}>
+                        Limit reached
+                      </Typography>
+                      <Button 
+                        variant="contained" 
+                        color="primary"
+                        size="small"
+                        fullWidth
+                        sx={{ mt: 1 }}
+                        onClick={() => navigate('/settings#subscription')}
+                      >
+                        Upgrade
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
       )}
 
@@ -390,24 +453,16 @@ const ReconciliationPage: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Date</TableCell>
                       <TableCell>Book Balance</TableCell>
                       <TableCell>Statement Balance</TableCell>
                       <TableCell>Difference</TableCell>
-                      <TableCell>Matched</TableCell>
-                      <TableCell>Unmatched</TableCell>
                       <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
+                      <TableCell>Monthly Upload Limit</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {reconciliations.map((reconciliation) => (
                       <TableRow key={reconciliation.id}>
-                        <TableCell>{reconciliation.reconciliationName}</TableCell>
-                        <TableCell>
-                          {new Date(reconciliation.reconciliationDate).toLocaleDateString()}
-                        </TableCell>
                         <TableCell>{formatCurrency(reconciliation.bookBalance)}</TableCell>
                         <TableCell>{formatCurrency(reconciliation.statementBalance)}</TableCell>
                         <TableCell>
@@ -417,8 +472,6 @@ const ReconciliationPage: React.FC = () => {
                             {formatCurrency(reconciliation.difference)}
                           </Typography>
                         </TableCell>
-                        <TableCell>{reconciliation.matchedTransactions}</TableCell>
-                        <TableCell>{reconciliation.unmatchedTransactions}</TableCell>
                         <TableCell>
                           <Chip
                             label={reconciliation.status}
@@ -427,27 +480,19 @@ const ReconciliationPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleViewReconciliation(reconciliation)}
-                              >
-                                <Info />
-                              </IconButton>
-                            </Tooltip>
-                            {reconciliation.status !== 'COMPLETED' && (
-                              <Tooltip title="Auto-Match">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleAutoMatch(reconciliation.id)}
-                                  disabled={isLoading}
-                                >
-                                  <AutoFixHigh />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
+                          {uploadLimit ? (
+                            uploadLimit.uploadLimit !== null ? (
+                              <Typography variant="body2">
+                                {uploadLimit.currentUploads} / {uploadLimit.uploadLimit}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="success.main">
+                                Unlimited
+                              </Typography>
+                            )
+                          ) : (
+                            <Typography variant="body2">-</Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

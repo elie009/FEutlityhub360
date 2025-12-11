@@ -13,6 +13,11 @@ import {
   InputAdornment,
   IconButton,
   Divider,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -23,13 +28,34 @@ import {
   Email,
   Lock,
   Person,
-  Phone,
   CheckCircle,
+  Public,
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterData } from '../../types/loan';
 import { validateEmail, validatePassword, validateRequired, getErrorMessage } from '../../utils/validation';
+
+const COUNTRIES = [
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Italy', 'Spain',
+  'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Norway', 'Denmark', 'Finland',
+  'Poland', 'Portugal', 'Greece', 'Ireland', 'Czech Republic', 'Hungary', 'Romania', 'Bulgaria',
+  'Croatia', 'Slovakia', 'Slovenia', 'Lithuania', 'Latvia', 'Estonia', 'Luxembourg', 'Malta',
+  'Cyprus', 'Japan', 'South Korea', 'China', 'India', 'Singapore', 'Malaysia', 'Thailand',
+  'Indonesia', 'Philippines', 'Vietnam', 'Taiwan', 'Hong Kong', 'New Zealand', 'South Africa',
+  'Brazil', 'Argentina', 'Mexico', 'Chile', 'Colombia', 'Peru', 'Venezuela', 'Ecuador',
+  'Uruguay', 'Paraguay', 'Bolivia', 'Panama', 'Costa Rica', 'Guatemala', 'Honduras',
+  'El Salvador', 'Nicaragua', 'Dominican Republic', 'Jamaica', 'Trinidad and Tobago', 'Bahamas',
+  'Barbados', 'Belize', 'Guyana', 'Suriname', 'Egypt', 'Nigeria', 'Kenya', 'Ghana',
+  'Tanzania', 'Uganda', 'Ethiopia', 'Morocco', 'Algeria', 'Tunisia', 'Libya', 'Sudan',
+  'Saudi Arabia', 'United Arab Emirates', 'Israel', 'Turkey', 'Lebanon', 'Jordan', 'Kuwait',
+  'Qatar', 'Oman', 'Bahrain', 'Iraq', 'Iran', 'Pakistan', 'Bangladesh', 'Sri Lanka',
+  'Nepal', 'Myanmar', 'Cambodia', 'Laos', 'Mongolia', 'Kazakhstan', 'Uzbekistan', 'Ukraine',
+  'Russia', 'Belarus', 'Moldova', 'Georgia', 'Armenia', 'Azerbaijan', 'Kyrgyzstan',
+  'Tajikistan', 'Turkmenistan', 'Afghanistan', 'Iceland', 'Liechtenstein', 'Monaco',
+  'San Marino', 'Vatican City', 'Andorra', 'Albania', 'Bosnia and Herzegovina',
+  'North Macedonia', 'Serbia', 'Montenegro', 'Kosovo', 'Other'
+];
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -40,7 +66,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState<RegisterData>({
     name: '',
     email: '',
-    phone: '',
+    country: '',
     password: '',
     confirmPassword: '',
   });
@@ -67,10 +93,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
-    // Validate phone number - just check if it contains enough digits
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (phoneDigits.length < 7) {
-      setError('Phone number must contain at least 7 digits');
+    // Validate country
+    if (!formData.country || !formData.country.trim()) {
+      setError('Country is required');
       return;
     }
 
@@ -102,6 +127,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
   const handleChange = (field: keyof RegisterData) => (
     e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: e.target.value,
+    }));
+  };
+
+  const handleSelectChange = (field: keyof RegisterData) => (
+    e: SelectChangeEvent<string>
   ) => {
     setFormData(prev => ({
       ...prev,
@@ -489,15 +523,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     }}
                   />
 
-                  <TextField
-                    fullWidth
-                    required
-                    id="phone"
-                    label="Phone Number"
-                    name="phone"
-                    autoComplete="tel"
-                    value={formData.phone}
-                    onChange={handleChange('phone')}
+                  <FormControl 
+                    fullWidth 
+                    required 
                     disabled={isLoading}
                     sx={{ 
                       mb: 2.5,
@@ -527,27 +555,29 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                       '& .MuiInputLabel-root.Mui-focused': {
                         color: '#5F9B8C',
                       },
-                      '& input:-webkit-autofill': {
-                        WebkitBoxShadow: '0 0 0 1000px #f8fafc inset',
-                        WebkitTextFillColor: '#1e293b',
-                        caretColor: '#1e293b',
-                        borderRadius: '8px',
-                      },
-                      '& input:-webkit-autofill:hover': {
-                        WebkitBoxShadow: '0 0 0 1000px #f1f5f9 inset',
-                      },
-                      '& input:-webkit-autofill:focus': {
-                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset',
-                      },
                     }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Phone sx={{ color: '#94a3b8' }} />
+                  >
+                    <InputLabel id="country-label">Country</InputLabel>
+                    <Select
+                      labelId="country-label"
+                      id="country"
+                      name="country"
+                      value={formData.country}
+                      label="Country"
+                      onChange={handleSelectChange('country')}
+                      startAdornment={
+                        <InputAdornment position="start" sx={{ ml: 1 }}>
+                          <Public sx={{ color: '#94a3b8' }} />
                         </InputAdornment>
-                      ),
-                    }}
-                  />
+                      }
+                    >
+                      {COUNTRIES.map((country) => (
+                        <MenuItem key={country} value={country}>
+                          {country}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
                   <TextField
                     fullWidth

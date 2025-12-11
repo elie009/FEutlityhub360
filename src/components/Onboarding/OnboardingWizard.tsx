@@ -242,6 +242,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             onDataUpdate={handleDataUpdate}
             data={onboardingData}
             onComplete={() => handleStepComplete(activeStep)}
+            userEmail={user?.email}
           />
         );
       case 'employment':
