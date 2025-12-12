@@ -389,6 +389,15 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
           <Receipt sx={{ mr: 1, fontSize: 16 }} />
           View Details
         </MenuItem>
+        {onEdit && (
+          <MenuItem onClick={() => {
+            onEdit(transaction);
+            handleMenuClose();
+          }}>
+            <Edit sx={{ mr: 1, fontSize: 16 }} />
+            Edit Transaction
+          </MenuItem>
+        )}
       </Menu>
       </Card>
     </Box>

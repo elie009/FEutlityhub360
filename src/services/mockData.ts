@@ -558,12 +558,20 @@ export const mockDataService = {
     success: boolean;
     message: string;
     data: {
-      userId: string;
-      name: string;
-      email: string;
-      phone: string;
-      isEmailConfirmed: boolean;
-      createdAt: string;
+      token: string;
+      refreshToken: string;
+      expiresAt: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        phone: string;
+        country: string;
+        role: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+      };
     } | null;
     errors: Array<{
       field: string;
@@ -580,12 +588,20 @@ export const mockDataService = {
       success: true,
       message: 'User registered successfully',
       data: {
-        userId: userId,
-        name: registerData.name,
-        email: registerData.email,
-        phone: '',
-        isEmailConfirmed: false,
-        createdAt: now,
+        token: 'mock-jwt-token-' + Date.now(),
+        refreshToken: 'mock-refresh-token-' + Date.now(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        user: {
+          id: userId,
+          name: registerData.name,
+          email: registerData.email,
+          phone: '',
+          country: registerData.country,
+          role: 'USER',
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
       },
       errors: [],
     };
@@ -627,7 +643,6 @@ export const mockDataService = {
         amount: source.amount,
         frequency: source.frequency,
         category: source.category,
-        currency: source.currency,
         isActive: true,
         description: source.description,
         company: source.company,
@@ -701,7 +716,6 @@ export const mockDataService = {
           "amount": 0,
           "frequency": "string",
           "category": "string",
-          "currency": "string",
           "isActive": true,
           "description": "string",
           "company": "string",
@@ -748,7 +762,6 @@ export const mockDataService = {
           amount: 5000,
           frequency: 'monthly',
           category: 'Primary',
-          currency: 'USD',
           isActive: true,
           description: 'Monthly salary from full-time employment',
           company: profileData.company,

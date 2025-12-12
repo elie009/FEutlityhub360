@@ -307,8 +307,8 @@ const ReconciliationPage: React.FC = () => {
       {/* Summary Card */}
       {summary && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Book Balance
@@ -319,8 +319,8 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Statement Balance
@@ -331,8 +331,8 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Difference
@@ -346,8 +346,8 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Status
@@ -362,20 +362,16 @@ const ReconciliationPage: React.FC = () => {
           </Grid>
           {/* Upload Limit Card */}
           {uploadLimit && uploadLimit.uploadLimit !== null && (
-            <Grid item xs={12} md={3}>
-              <Card sx={{ bgcolor: uploadLimit.canUpload ? 'info.light' : 'error.light' }}>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ bgcolor: uploadLimit.canUpload ? 'info.light' : 'error.light', height: '100%' }}>
                 <CardContent>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Monthly Upload Limit
                   </Typography>
                   <Typography variant="h6" sx={{ mb: 0.5 }}>
-                    {uploadLimit.currentUploads} / {uploadLimit.uploadLimit}
+                    {uploadLimit.currentUploads} / {uploadLimit.uploadLimit} upalod remaining
                   </Typography>
-                  {uploadLimit.remainingUploads !== null && uploadLimit.remainingUploads > 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      {uploadLimit.remainingUploads} remaining
-                    </Typography>
-                  )}
+                 
                   {!uploadLimit.canUpload && (
                     <>
                       <Typography variant="body2" color="error" sx={{ mt: 1, fontWeight: 'bold' }}>

@@ -6,15 +6,19 @@ export const validateEmail = (email: string): boolean => {
 };
 
 export const validatePhone = (phone: string): boolean => {
-  // Remove all non-digit characters except + at the beginning
-  const cleanedPhone = phone.replace(/[^\d+]/g, '');
+  // Remove any whitespace
+  const cleanedPhone = phone.trim();
   
-  // Check if it contains only digits and optionally starts with +
-  const phoneRegex = /^\+?[\d]+$/;
+  // If empty, return true (phone is optional)
+  if (cleanedPhone === '') {
+    return true;
+  }
   
-  // Must have at least 7 digits (minimum for most countries) and max 15 digits (international standard)
-  const digitsOnly = cleanedPhone.replace(/^\+/, '');
-  return phoneRegex.test(cleanedPhone) && digitsOnly.length >= 7 && digitsOnly.length <= 15;
+  // Check if all characters are digits only
+  const digitsOnlyRegex = /^\d+$/;
+  
+  // Must contain only digits and have more than 5 digits (at least 6)
+  return digitsOnlyRegex.test(cleanedPhone) && cleanedPhone.length > 5;
 };
 
 export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {

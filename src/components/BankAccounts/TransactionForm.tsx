@@ -372,31 +372,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       
       let finalCategories: Array<{ id: string; name: string; type: string; icon?: string; color?: string }> = [];
       
-      // If no categories exist, provide default "Expense" category
+      // Default categories to add if they don't exist
+      const defaultExpense = {
+        id: 'default-expense',
+        name: 'Expense',
+        type: 'EXPENSE',
+        icon: undefined,
+        color: undefined
+      };
+      const defaultTransfer = {
+        id: 'default-transfer',
+        name: 'Bank Transfer',
+        type: 'TRANSFER',
+        icon: 'swap_horiz',
+        color: '#95E1D3'
+      };
+      
+      // If no categories exist, provide default categories
       if (categoriesData.length === 0) {
-        finalCategories = [{
-          id: 'default-expense',
-          name: 'Expense',
-          type: 'EXPENSE',
-          icon: undefined,
-          color: undefined
-        }];
+        finalCategories = [defaultExpense, defaultTransfer];
       } else {
+        finalCategories = [...categoriesData];
+        
         // Ensure "Expense" category is available as default if it doesn't exist
         const expenseCategory = categoriesData.find((cat: any) => 
-          cat.name === 'Expense' || cat.name === 'Expenses'
+          cat.name === 'Expense' || cat.name === 'Expenses' || cat.name === 'EXPENSE'
         );
         if (!expenseCategory) {
-          // Add "Expense" as a default category if it doesn't exist
-          finalCategories = [{
-            id: 'default-expense',
-            name: 'Expense',
-            type: 'EXPENSE',
-            icon: undefined,
-            color: undefined
-          }, ...categoriesData];
-        } else {
-          finalCategories = categoriesData;
+          finalCategories.unshift(defaultExpense);
+        }
+        
+        // Ensure "Transfer" category is available as default if it doesn't exist
+        const transferCategory = categoriesData.find((cat: any) => 
+          cat.name.toLowerCase().includes('transfer') || cat.type === 'TRANSFER'
+        );
+        if (!transferCategory) {
+          finalCategories.push(defaultTransfer);
         }
       }
       
@@ -417,15 +428,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       });
     } catch (error) {
       console.error('Failed to load categories:', error);
-      // Even on error, provide "Expense" as a fallback
-      const fallbackCategories = [{
-        id: 'default-expense',
-        name: 'Expense',
-        type: 'EXPENSE',
-        icon: undefined,
-        color: undefined
-      }];
+      // Even on error, provide default categories as fallback
+      const fallbackCategories = [
+        {
+          id: 'default-expense',
+          name: 'Expense',
+          type: 'EXPENSE',
+          icon: undefined,
+          color: undefined
+        },
+        {
+          id: 'default-transfer',
+          name: 'Bank Transfer',
+          type: 'TRANSFER',
+          icon: 'swap_horiz',
+          color: '#95E1D3'
+        }
+      ];
       setCategories(fallbackCategories);
+      setFinalCategories(fallbackCategories);
       
       // Set default "Expense" category if no category is selected
       setFormData(prev => {
@@ -550,6 +571,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       transactionType: formData.transactionType,
     });
 
+    // Debug logging
+    console.log('Transaction validation debug:', {
+      isEditMode,
+      category: formData.category,
+      transactionPurpose: formData.transactionPurpose,
+      initialTransactionPurpose: initialTransaction?.transactionPurpose,
+      savingsAccountId: formData.savingsAccountId,
+      initialSavingsAccountId: initialTransaction?.savingsAccountId,
+      validationErrors: validationErrors,
+      allFormData: formData,
+      initialTransaction: initialTransaction
+    });
+
+    // Skip category-specific validations for edit mode - be more aggressive
+    if (isEditMode && initialTransaction) {
+      console.log('EDIT MODE: Skipping category validations for existing transaction');
+      // For edit mode, skip all category-specific validations since the transaction was already validated when created
+      const basicErrors = validationErrors.filter(error =>
+        !error.includes('account selection') &&
+        !error.includes('bill selection') &&
+        !error.includes('loan selection') &&
+        !error.includes('Target bank account')
+      );
+      validationErrors.length = 0; // Clear all errors
+      validationErrors.push(...basicErrors); // Add back only basic errors
+      console.log('Filtered errors for edit mode:', basicErrors);
+    }
+
     if (validationErrors.length > 0) {
       setError(validationErrors.join('. '));
       return;
@@ -569,7 +618,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       // For bank transfers, use TRANSFER category and include toBankAccountId
       const isTransfer = isTransferCategory(formData.category);
-      const finalCategory = isTransfer ? 'TRANSFER' : (formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category);
+      // Use the user's selected category - don't override for CREDIT transactions
+      const finalCategory = isTransfer ? 'TRANSFER' : formData.category;
+      
+      // Auto-create TRANSFER category if it doesn't exist (for bank transfers)
+      if (isTransfer) {
+        try {
+          // Check if TRANSFER category exists
+          const existingCategories = await apiService.getAllCategories();
+          const transferCategoryExists = existingCategories.some((cat: any) => 
+            cat.name === 'TRANSFER' || cat.name.toLowerCase().includes('transfer') || cat.type === 'TRANSFER'
+          );
+          
+          if (!transferCategoryExists) {
+            // Create TRANSFER category automatically
+            await apiService.createCategory({
+              name: 'TRANSFER',
+              type: 'TRANSFER',
+              description: 'Bank transfer between accounts',
+              icon: 'swap_horiz',
+              color: '#95E1D3',
+            });
+            console.log('TRANSFER category created automatically');
+          }
+        } catch (categoryError) {
+          console.log('Category check/creation skipped:', categoryError);
+          // Continue anyway - backend might create it
+        }
+      }
       
       const transactionData = {
         bankAccountId: formData.bankAccountId,
@@ -579,7 +655,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         category: finalCategory,
         merchant: isTransfer ? undefined : (formData.merchant.trim() || undefined),
         location: isTransfer ? undefined : (formData.location.trim() || undefined),
-        transactionDate: isTransfer ? new Date().toISOString() : new Date(formData.transactionDate).toISOString(),
+        transactionDate: new Date(formData.transactionDate).toISOString(),
         notes: isTransfer ? undefined : (formData.notes.trim() || undefined),
         isRecurring: isTransfer ? false : formData.isRecurring,
         recurringFrequency: isTransfer ? undefined : (formData.isRecurring ? formData.recurringFrequency : undefined),
@@ -647,8 +723,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       </DialogTitle>
       <DialogContent>
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 2 }}
             action={
               <IconButton
@@ -661,10 +737,49 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </IconButton>
             }
           >
-            <Typography variant="body2" fontWeight="medium" gutterBottom>
-              {error}
-            </Typography>
-            {error.includes('Category') && (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+              <Typography variant="body2" fontWeight="medium" gutterBottom sx={{ flex: 1 }}>
+                {error}
+              </Typography>
+              {error.includes('Savings account selection is required') && (
+                <Tooltip
+                  title={
+                    <Box sx={{ p: 1 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" color="inherit" gutterBottom>
+                        Why this error occurs:
+                      </Typography>
+                      <Typography variant="body2" color="inherit" paragraph>
+                        This error appears when you select a savings-related category (like "savings", "deposit", "investment", "goal", or "fund") but don't specify which savings account the transaction should be linked to.
+                      </Typography>
+                      <Typography variant="subtitle2" fontWeight="bold" color="inherit" gutterBottom>
+                        How to fix it:
+                      </Typography>
+                      <Typography variant="body2" color="inherit">
+                        • Select a savings account from the dropdown that appears when you choose a savings-related category<br/>
+                        • If no savings accounts are available, create one first in the Savings page<br/>
+                        • Make sure the savings account is active and available for transactions
+                      </Typography>
+                    </Box>
+                  }
+                  placement="top"
+                  arrow
+                  sx={{
+                    '& .MuiTooltip-tooltip': {
+                      maxWidth: 400,
+                      bgcolor: 'error.main',
+                      '& .MuiTooltip-arrow': {
+                        color: 'error.main',
+                      },
+                    },
+                  }}
+                >
+                  <IconButton size="small" sx={{ color: 'error.main', p: 0.5 }}>
+                    <HelpIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+            {error.includes('Category') && !error.includes('Savings account') && (
               <Typography variant="caption" component="div" sx={{ mt: 1 }}>
                 <strong>Solution:</strong> Go to Categories page to create the category first, or select an existing category from the dropdown.
               </Typography>
@@ -814,22 +929,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               />
             </Grid>
 
-            {formData.transactionType !== 'CREDIT' && (
-              <Grid item xs={12} sm={6}>
-                {loadingCategories && !formData.transactionPurpose ? (
-                  <Skeleton variant="rectangular" height={56} />
-                ) : (
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <InputLabel required>
-                        {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
-                          ? 'Select Bill' 
-                          : formData.transactionPurpose === 'LOAN' 
-                          ? 'Select Loan' 
-                          : formData.transactionPurpose === 'SAVINGS' 
-                          ? 'Select Savings Account' 
-                          : 'Category'}
-                      </InputLabel>
+            <Grid item xs={12} sm={6}>
+              {loadingCategories && !formData.transactionPurpose ? (
+                <Skeleton variant="rectangular" height={56} />
+              ) : (
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <InputLabel required>
+                      {formData.transactionType === 'CREDIT' 
+                        ? 'Category'
+                        : formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                        ? 'Select Bill' 
+                        : formData.transactionPurpose === 'LOAN' 
+                        ? 'Select Loan' 
+                        : formData.transactionPurpose === 'SAVINGS' 
+                        ? 'Select Savings Account' 
+                        : 'Category'}
+                    </InputLabel>
                       <Tooltip title={
                         formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY'
                           ? "Select a bill to link this transaction to"
@@ -842,8 +958,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                       </Tooltip>
                     </Box>
-                    {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' || 
-                     formData.transactionPurpose === 'LOAN' || formData.transactionPurpose === 'SAVINGS' ? (
+                    {formData.transactionType !== 'CREDIT' && (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' || 
+                     formData.transactionPurpose === 'LOAN' || formData.transactionPurpose === 'SAVINGS') ? (
                       <FormControl fullWidth required>
                         <InputLabel>
                           {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
@@ -953,10 +1069,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         size="small"
                         options={finalCategories
                           .filter((cat) => {
-                            if (formData.transactionType === 'DEBIT') {
-                              return cat.type !== 'INCOME';
+                            if (formData.transactionType === 'CREDIT') {
+                              // For Money In (CREDIT): Only show INCOME, SAVINGS, TRANSFER categories
+                              const allowedTypes = ['INCOME', 'SAVINGS', 'TRANSFER'];
+                              return allowedTypes.includes(cat.type?.toUpperCase() || '');
+                            } else {
+                              // For Money Out (DEBIT): Exclude INCOME categories
+                              return cat.type?.toUpperCase() !== 'INCOME';
                             }
-                            return true;
                           })
                           .sort((a, b) => a.name.localeCompare(b.name))
                           .map(cat => cat.name)}
@@ -1016,7 +1136,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   </Box>
                 )}
               </Grid>
-            )}
 
             {/* Reference Number Field - Hide if Bank transfer is selected */}
             {!showTransferSelector && (
@@ -1138,32 +1257,53 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             {showTransferSelector && (
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }}>
-                  <Typography variant="subtitle2" color="primary">
-                    Bank Transfer
-                  </Typography>
-                </Divider>
-                <FormControl fullWidth required>
-                  <InputLabel>To Bank Account</InputLabel>
-                  <Select
-                    value={formData.toBankAccountId}
-                    onChange={handleSelectChange('toBankAccountId')}
-                    label="To Bank Account"
-                  >
-                    {bankAccounts
-                      .filter(account => account.id !== formData.bankAccountId)
-                      .map((account) => (
-                        <MenuItem key={account.id} value={account.id}>
-                          {account.accountName} - {formatCurrency(account.currentBalance)}
-                        </MenuItem>
-                      ))}
-                    {bankAccounts.length === 1 && (
-                      <MenuItem disabled>No other bank accounts available</MenuItem>
-                    )}
-                  </Select>
-                </FormControl>
-              </Grid>
+              <>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }}>
+                    <Typography variant="subtitle2" color="primary">
+                      Bank Transfer
+                    </Typography>
+                  </Divider>
+                  <FormControl fullWidth required>
+                    <InputLabel>To Bank Account</InputLabel>
+                    <Select
+                      value={formData.toBankAccountId}
+                      onChange={handleSelectChange('toBankAccountId')}
+                      label="To Bank Account"
+                    >
+                      {bankAccounts
+                        .filter(account => account.id !== formData.bankAccountId)
+                        .map((account) => (
+                          <MenuItem key={account.id} value={account.id}>
+                            {account.accountName} - {formatCurrency(account.currentBalance)}
+                          </MenuItem>
+                        ))}
+                      {bankAccounts.length === 1 && (
+                        <MenuItem disabled>No other bank accounts available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Transfer Date"
+                    type="datetime-local"
+                    value={formData.transactionDate}
+                    onChange={handleInputChange('transactionDate')}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Description (Optional)"
+                    value={formData.description}
+                    onChange={handleInputChange('description')}
+                    placeholder="e.g., Transfer to savings"
+                  />
+                </Grid>
+              </>
             )}
 
             {/* Hide these fields if Bank transfer is selected */}

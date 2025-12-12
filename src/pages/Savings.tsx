@@ -89,10 +89,11 @@ const Savings: React.FC = () => {
 
   const [transferData, setTransferData] = useState({
     bankAccountId: '',
+    toBankAccountId: '', // Add this for bank transfer target
     amount: '',
     description: '',
     transferType: 'deposit' as 'deposit' | 'withdrawal',
-    method: 'bank transaction' as 'bank transaction' | 'cash',
+    method: 'bank transaction' as 'bank transaction' | 'cash' | 'bank transfer', // Add 'bank transfer'
   });
 
   const [formLoading, setFormLoading] = useState(false);
@@ -280,24 +281,69 @@ const Savings: React.FC = () => {
       setFormLoading(true);
       setError('');
 
-      // Use the new unified savings transaction API
-      const transactionData: any = {
-        savingsAccountId: selectedAccount.id,
-        amount: parseFloat(transferData.amount),
-        transactionType: transferData.transferType === 'deposit' ? 'DEPOSIT' : 'WITHDRAWAL',
-        description: transferData.description,
-        category: 'TRANSFER',
-        currency: 'USD',
-        method: transferData.method,
-        notes: `${transferData.transferType === 'deposit' ? 'Deposit to' : 'Withdrawal from'} savings account via ${transferData.method}`
-      };
+      if (transferData.method === 'bank transfer') {
+        // Validate that source and target accounts are different
+        if (transferData.bankAccountId === transferData.toBankAccountId) {
+          throw new Error('Source and target bank accounts cannot be the same for a transfer');
+        }
 
-      // Only include sourceBankAccountId for bank transactions
-      if (transferData.method === 'bank transaction') {
-        transactionData.sourceBankAccountId = transferData.bankAccountId;
+        // Create bank transfer transactions (both debit and credit)
+        const transactionDate = new Date().toISOString();
+
+        const debitTransaction = {
+          bankAccountId: transferData.bankAccountId, // Source account (debit)
+          amount: parseFloat(transferData.amount),
+          transactionType: 'DEBIT' as const,
+          description: `Transfer to ${bankAccounts.find(acc => acc.id === transferData.toBankAccountId)?.accountName || 'Bank Account'}: ${transferData.description}`,
+          category: 'bank transfer',
+          transactionDate: transactionDate,
+          currency: 'USD',
+          transactionPurpose: 'TRANSFER',
+        };
+
+        const creditTransaction = {
+          bankAccountId: transferData.toBankAccountId, // Target account (credit)
+          amount: parseFloat(transferData.amount),
+          transactionType: 'CREDIT' as const,
+          description: `Transfer from ${bankAccounts.find(acc => acc.id === transferData.bankAccountId)?.accountName || 'Bank Account'}: ${transferData.description}`,
+          category: 'bank transfer',
+          transactionDate: transactionDate,
+          currency: 'USD',
+          transactionPurpose: 'TRANSFER',
+        };
+
+        try {
+          // Create debit transaction first
+          console.log('Creating debit transaction:', debitTransaction);
+          await apiService.createBankTransaction(debitTransaction);
+
+          // Create credit transaction
+          console.log('Creating credit transaction:', creditTransaction);
+          await apiService.createBankTransaction(creditTransaction);
+        } catch (transferError: any) {
+          console.error('Bank transfer error:', transferError);
+          throw new Error(`Bank transfer failed: ${transferError.message || 'Unknown error'}`);
+        }
+      } else {
+        // Use the existing savings transaction API for bank transaction and cash
+        const transactionData: any = {
+          savingsAccountId: selectedAccount.id,
+          amount: parseFloat(transferData.amount),
+          transactionType: transferData.transferType === 'deposit' ? 'DEPOSIT' : 'WITHDRAWAL',
+          description: transferData.description,
+          category: 'TRANSFER',
+          currency: 'USD',
+          method: transferData.method,
+          notes: `${transferData.transferType === 'deposit' ? 'Deposit to' : 'Withdrawal from'} savings account via ${transferData.method}`
+        };
+
+        // Only include sourceBankAccountId for bank transactions
+        if (transferData.method === 'bank transaction') {
+          transactionData.sourceBankAccountId = transferData.bankAccountId;
+        }
+
+        await apiService.createSavingsTransaction(transactionData);
       }
-
-      await apiService.createSavingsTransaction(transactionData);
 
       setSuccess(`Transfer ${transferData.transferType} completed successfully!`);
       setShowTransferDialog(false);
@@ -337,6 +383,7 @@ const Savings: React.FC = () => {
   const resetTransferForm = () => {
     setTransferData({
       bankAccountId: '',
+      toBankAccountId: '', // Reset this for bank transfer target
       amount: '',
       description: '',
       transferType: 'deposit',
@@ -405,6 +452,7 @@ const Savings: React.FC = () => {
     setSelectedAccount(account);
     setTransferData({
       bankAccountId: bankAccounts.length > 0 ? bankAccounts[0].id : '',
+      toBankAccountId: '', // Reset this for bank transfer target
       amount: '',
       description: '',
       transferType: 'deposit',
@@ -1088,22 +1136,23 @@ const Savings: React.FC = () => {
                 <InputLabel>Payment Method</InputLabel>
                 <Select
                   value={transferData.method}
-                  onChange={(e) => setTransferData({ ...transferData, method: e.target.value as 'bank transaction' | 'cash' })}
+                  onChange={(e) => setTransferData({ ...transferData, method: e.target.value as 'bank transaction' | 'cash' | 'bank transfer' })}
                   label="Payment Method"
                 >
                   <MenuItem value="bank transaction">Bank Transaction</MenuItem>
+                  <MenuItem value="bank transfer">Bank Transfer</MenuItem> {/* Add this */}
                   <MenuItem value="cash">Cash</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            {transferData.method === 'bank transaction' && (
+            {transferData.method === 'bank transfer' && (
               <Grid item xs={12}>
                 <FormControl fullWidth required>
-                  <InputLabel>Bank Account</InputLabel>
+                  <InputLabel>Source Bank Account</InputLabel>
                   <Select
                     value={transferData.bankAccountId}
                     onChange={(e) => setTransferData({ ...transferData, bankAccountId: e.target.value })}
-                    label="Bank Account"
+                    label="Source Bank Account"
                   >
                     {bankAccounts.map((account) => (
                       <MenuItem key={account.id} value={account.id}>
@@ -1111,6 +1160,47 @@ const Savings: React.FC = () => {
                       </MenuItem>
                     ))}
                   </Select>
+                </FormControl>
+              </Grid>
+            )}
+            {transferData.method === 'bank transfer' && (
+              <Grid item xs={12}>
+                <FormControl fullWidth required>
+                  <InputLabel>Target Bank Account</InputLabel>
+                  <Select
+                    value={transferData.toBankAccountId}
+                    onChange={(e) => setTransferData({ ...transferData, toBankAccountId: e.target.value })}
+                    label="Target Bank Account"
+                  >
+                    {bankAccounts
+                      .filter(account => account.id !== transferData.bankAccountId) // Exclude source account
+                      .map((account) => (
+                        <MenuItem key={account.id} value={account.id}>
+                          {account.accountName} - {formatCurrency(account.currentBalance)}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            {(transferData.method === 'bank transaction' || transferData.method === 'cash') && transferData.transferType === 'deposit' && (
+              <Grid item xs={12}>
+                <FormControl fullWidth required>
+                  <InputLabel>Target Bank Account (Source of Funds)</InputLabel>
+                  <Select
+                    value={transferData.bankAccountId}
+                    onChange={(e) => setTransferData({ ...transferData, bankAccountId: e.target.value })}
+                    label="Target Bank Account (Source of Funds)"
+                  >
+                    {bankAccounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.accountName} - {formatCurrency(account.currentBalance)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Select the bank account from which the deposit amount will be transferred
+                  </Typography>
                 </FormControl>
               </Grid>
             )}
@@ -1141,7 +1231,13 @@ const Savings: React.FC = () => {
           <Button
             onClick={handleTransfer}
             variant="contained"
-            disabled={formLoading || !transferData.bankAccountId || !transferData.amount || !transferData.description}
+            disabled={
+              formLoading ||
+              !transferData.amount ||
+              !transferData.description ||
+              (transferData.method === 'bank transaction' && !transferData.bankAccountId) ||
+              (transferData.method === 'bank transfer' && (!transferData.bankAccountId || !transferData.toBankAccountId))
+            }
           >
             {formLoading ? 'Processing...' : 'Transfer'}
           </Button>

@@ -30,6 +30,19 @@ const maskAccountNumber = (accountNumber?: string): string => {
   return '•••• •••• •••• ' + cleaned.slice(-4);
 };
 
+// Mask card number for display (show last 4 digits from iban field)
+const maskCardNumber = (cardNumber?: string): string => {
+  if (!cardNumber) return '•••• •••• •••• ••••';
+  // Remove dashes and spaces
+  const cleaned = cardNumber.replace(/[\s-]/g, '');
+  // If it's padded with zeros (e.g., 0000000000001234), extract last 4
+  if (cleaned.length === 16 && cleaned.startsWith('000000000000')) {
+    return '•••• •••• •••• ' + cleaned.slice(-4);
+  }
+  if (cleaned.length <= 4) return '•••• •••• •••• ' + cleaned;
+  return '•••• •••• •••• ' + cleaned.slice(-4);
+};
+
 // Get card gradient based on account type
 const getCardGradient = (accountType: string): string => {
   switch (accountType.toLowerCase()) {
@@ -354,7 +367,7 @@ const BankAccountCardSlider: React.FC<BankAccountCardSliderProps> = ({
                         textShadow: '0 2px 4px rgba(0,0,0,0.2)',
                       }}
                     >
-                      {maskAccountNumber(account.accountNumber)}
+                      {maskCardNumber(account.iban)}
                     </Typography>
                   </Box>
 

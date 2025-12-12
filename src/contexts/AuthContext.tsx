@@ -262,12 +262,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error(response.message || 'Registration failed');
       }
       
-      // Registration successful - user needs to login after registration
-      // The new API doesn't automatically log in the user
-      console.log('AuthContext: Registration completed successfully');
-      console.log('AuthContext: User data from registration response:', response.data);
-      
-      // Registration completed successfully - redirect will be handled by RegisterForm
+      // Auto-login after successful registration
+      if (response.data?.token && response.data?.user) {
+        const userData: User = {
+          id: response.data.user.id,
+          name: response.data.user.name,
+          email: response.data.user.email,
+          phone: response.data.user.phone,
+          role: response.data.user.role,
+          isActive: response.data.user.isActive,
+          kycVerified: false, // Default for new registrations
+          createdAt: response.data.user.createdAt,
+          updatedAt: response.data.user.updatedAt,
+        };
+        localStorage.setItem('authToken', response.data.token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        console.log('AuthContext: Registration and auto-login completed successfully');
+      } else {
+        console.log('AuthContext: Registration completed but no token/user data returned');
+      }
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
@@ -355,16 +369,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(user));
       console.log('AuthContext: User data refreshed successfully and saved to localStorage');
       console.log('AuthContext: After setUser - isAuthenticated should be true');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to refresh user data:', error);
-      // Only logout if it's not a 401 error (which means token is invalid)
-      if (error instanceof Error && error.message.includes('401')) {
+      // Check if it's a 401 error (invalid/expired token)
+      const is401Error = error?.status === 401 || 
+                         error?.message?.includes('401') || 
+                         error?.message?.includes('Unauthorized');
+      
+      if (is401Error) {
         console.log('Token is invalid or expired, clearing auth data');
         logout();
       } else {
         // For other errors, just log but don't logout
         console.log('Non-auth error during refresh, keeping current state');
       }
+      // Re-throw the error so callers can handle it
+      throw error;
     }
   };
 
@@ -408,10 +428,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.removeItem('userProfile');
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle 401 errors gracefully - don't throw, just return false
+      const is401Error = error?.status === 401 || 
+                         error?.message?.includes('401') || 
+                         error?.message?.includes('Unauthorized');
+      
+      if (is401Error) {
+        console.log('AuthContext: Profile check returned 401 - token may be invalid');
+        // Don't throw - let the caller handle it
+      } else {
+        console.error('AuthContext: Profile check failed:', error);
+      }
+      
       setHasProfile(false);
       setUserProfile(null);
       sessionStorage.removeItem('userProfile');
+      
+      // Re-throw if it's not a 401 (so other errors can be handled)
+      if (!is401Error) {
+        throw error;
+      }
+      
       return false;
     } finally {
       setProfileLoading(false);
@@ -436,6 +474,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initAuth = async () => {
+      // Set flag to prevent redirects during auth initialization
+      if (typeof window !== 'undefined') {
+        (window as any).__authInitializing = true;
+      }
+      
       console.log('AuthContext: Initializing auth...');
       const token = localStorage.getItem('authToken');
       const savedUser = localStorage.getItem('user');
@@ -449,9 +492,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(userData);
           console.log('AuthContext: User data loaded from localStorage:', userData.email);
           
-          // Check user profile
+          // Check user profile - handle 401 errors gracefully
           console.log('AuthContext: Checking user profile...');
-          await checkUserProfile();
+          try {
+            await checkUserProfile();
+          } catch (profileError: any) {
+            // If profile check fails with 401, it's okay - token might be invalid
+            const is401Error = profileError?.status === 401 || 
+                             profileError?.message?.includes('401') || 
+                             profileError?.message?.includes('Unauthorized');
+            if (is401Error) {
+              console.log('AuthContext: Profile check returned 401, token may be invalid');
+              // Clear auth data but don't throw - we'll handle it below
+              logout();
+            } else {
+              // For other errors, just log but continue
+              console.error('AuthContext: Profile check failed:', profileError);
+            }
+          }
         } catch (error) {
           console.error('AuthContext: Failed to initialize auth:', error);
           console.log('AuthContext: Clearing invalid data and continuing without auth');
@@ -463,14 +521,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Try to refresh user data from API
           await refreshUser();
           await checkUserProfile();
-        } catch (error) {
+        } catch (error: any) {
           console.error('AuthContext: Failed to refresh user:', error);
-          console.log('AuthContext: Clearing invalid token and continuing without auth');
-          logout();
+          // Check if it's a 401 error (invalid/expired token)
+          const is401Error = error?.status === 401 || 
+                           error?.message?.includes('401') || 
+                           error?.message?.includes('Unauthorized');
+          
+          if (is401Error) {
+            console.log('AuthContext: Token is invalid or expired, clearing auth data');
+            // Silently clear invalid token without redirecting (we're already handling auth)
+            logout();
+          } else {
+            console.log('AuthContext: Non-auth error during refresh, clearing token and continuing without auth');
+            logout();
+          }
         }
       } else {
         console.log('AuthContext: ❌ No token found, user not authenticated');
         console.log('AuthContext: This means user needs to login first!');
+      }
+      
+      // Clear the auth initialization flag
+      if (typeof window !== 'undefined') {
+        (window as any).__authInitializing = false;
       }
       
       console.log('AuthContext: Setting loading to false');

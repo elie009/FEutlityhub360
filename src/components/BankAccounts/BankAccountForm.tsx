@@ -76,7 +76,7 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
       setFormData({
         accountName: account.accountName,
         accountType: account.accountType,
-        initialBalance: account.initialBalance,
+        initialBalance: account.currentBalance,
         currency: account.currency,
         description: account.description || '',
         financialInstitution: account.financialInstitution || '',
@@ -473,6 +473,25 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
                 helperText="Enter how much money is currently in this account"
               />
             </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <InputLabel>Card Number</InputLabel>
+                <Tooltip title="Your debit or credit card number. Enter the last 4 digits for privacy, or the full card number if you want to enable Transaction Analyzer features. This helps identify transactions automatically." arrow>
+                  <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                </Tooltip>
+              </Box>
+              <TextField
+                name="iban"
+                label="Card Number"
+                value={formatIban(formData.iban)}
+                onChange={handleIbanChange}
+                fullWidth
+                inputProps={{ maxLength: 19 }}
+                placeholder="1234 or full Card Number"
+                helperText="Last 4 digits for privacy, or full number for Transaction Analyzer"
+              />
+            </Grid>
             
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -723,25 +742,6 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 International Information (Optional)
               </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <InputLabel>Card Number</InputLabel>
-                <Tooltip title="Your debit or credit card number. Enter the last 4 digits for privacy, or the full card number if you want to enable Transaction Analyzer features. This helps identify transactions automatically." arrow>
-                  <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                </Tooltip>
-              </Box>
-              <TextField
-                name="iban"
-                label="Card Number"
-                value={formatIban(formData.iban)}
-                onChange={handleIbanChange}
-                fullWidth
-                inputProps={{ maxLength: 19 }} // 16 characters + 3 dashes
-                placeholder="1234 or full Card Number"
-                helperText="Last 4 digits for privacy, or full number for Transaction Analyzer"
-              />
             </Grid>
             
             <Grid item xs={12} sm={6}>

@@ -117,6 +117,11 @@ const createMenuItems = (
           path: '/income-sources'
         },
         { 
+          text: 'Categories', 
+          icon: <CategoryIcon />, 
+          path: '/categories'
+        },
+        { 
           text: 'Money Owed to You', 
           icon: <ReceivablesIcon />, 
           path: '/receivables'
@@ -146,11 +151,6 @@ const createMenuItems = (
           text: 'Expenses', 
           icon: <ExpensesIcon />, 
           path: '/expenses'
-        },
-        { 
-          text: 'Categories', 
-          icon: <CategoryIcon />, 
-          path: '/categories'
         },
         { 
           text: 'Utilities', 

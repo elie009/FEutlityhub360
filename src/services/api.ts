@@ -378,12 +378,20 @@ class ApiService {
     success: boolean;
     message: string;
     data: {
-      userId: string;
-      name: string;
-      email: string;
-      phone: string;
-      isEmailConfirmed: boolean;
-      createdAt: string;
+      token: string;
+      refreshToken: string;
+      expiresAt: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        phone: string;
+        country: string;
+        role: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+      };
     } | null;
     errors: Array<{
       field: string;
@@ -397,12 +405,20 @@ class ApiService {
       success: boolean;
       message: string;
       data: {
-        userId: string;
-        name: string;
-        email: string;
-        phone: string;
-        isEmailConfirmed: boolean;
-        createdAt: string;
+        token: string;
+        refreshToken: string;
+        expiresAt: string;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone: string;
+          country: string;
+          role: string;
+          isActive: boolean;
+          createdAt: string;
+          updatedAt: string;
+        };
       } | null;
       errors: Array<{
         field: string;
@@ -727,7 +743,6 @@ class ApiService {
       amount: number;
       frequency: string;
       category: string;
-      currency: string;
       description: string;
       company: string;
     }>;
@@ -761,7 +776,6 @@ class ApiService {
       amount: number;
       frequency: string;
       category: string;
-      currency: string;
       isActive: boolean;
       description: string;
       company: string;

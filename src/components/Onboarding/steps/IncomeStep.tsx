@@ -42,6 +42,32 @@ const IncomeStep: React.FC<IncomeStepProps> = ({
   data,
   onComplete,
 }) => {
+  // Format number with commas (e.g., 30000 -> "30,000")
+  const formatNumberWithCommas = (value: number): string => {
+    if (value === 0) return '';
+    return value.toLocaleString('en-US');
+  };
+
+  // Parse string with commas back to number (e.g., "30,000" -> 30000)
+  const parseFormattedNumber = (value: string): number => {
+    const cleanedValue = value.replace(/,/g, '');
+    const parsed = parseFloat(cleanedValue);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Handle amount input change with comma formatting
+  const handleAmountChange = (index: number, inputValue: string) => {
+    // Remove all non-digit characters except decimal point
+    const cleanedValue = inputValue.replace(/[^0-9.]/g, '');
+    // Ensure only one decimal point
+    const parts = cleanedValue.split('.');
+    const sanitizedValue = parts.length > 2 
+      ? parts[0] + '.' + parts.slice(1).join('') 
+      : cleanedValue;
+    const numericValue = parseFloat(sanitizedValue) || 0;
+    updateIncomeSource(index, 'amount', numericValue);
+  };
+
   const frequencies = [
     { value: 'weekly', label: 'Weekly' },
     { value: 'bi-weekly', label: 'Bi-weekly' },
@@ -62,21 +88,12 @@ const IncomeStep: React.FC<IncomeStepProps> = ({
     'Other',
   ];
 
-  const currencies = [
-    { value: 'USD', label: 'USD ($)' },
-    { value: 'EUR', label: 'EUR (€)' },
-    { value: 'GBP', label: 'GBP (£)' },
-    { value: 'CAD', label: 'CAD (C$)' },
-    { value: 'AUD', label: 'AUD (A$)' },
-  ];
-
   const addIncomeSource = () => {
     const newIncomeSources = [...data.incomeSources, {
       name: '',
       amount: 0,
       frequency: 'monthly',
       category: 'Other',
-      currency: 'USD',
       description: '',
       company: '',
     }];
@@ -199,13 +216,14 @@ const IncomeStep: React.FC<IncomeStepProps> = ({
                   <TextField
                     fullWidth
                     label="Amount"
-                    type="number"
-                    value={source.amount}
-                    onChange={(e) => updateIncomeSource(index, 'amount', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    value={formatNumberWithCommas(source.amount)}
+                    onChange={(e) => handleAmountChange(index, e.target.value)}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">$</InputAdornment>,
                     }}
                     helperText="How much do you earn?"
+                    placeholder="e.g., 30,000"
                   />
                 </Grid>
                 
@@ -226,7 +244,7 @@ const IncomeStep: React.FC<IncomeStepProps> = ({
                   </FormControl>
                 </Grid>
                 
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
                     <InputLabel>Category</InputLabel>
                     <Select
@@ -237,23 +255,6 @@ const IncomeStep: React.FC<IncomeStepProps> = ({
                       {categories.map((category) => (
                         <MenuItem key={category} value={category}>
                           {category}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth>
-                    <InputLabel>Currency</InputLabel>
-                    <Select
-                      value={source.currency}
-                      onChange={(e) => updateIncomeSource(index, 'currency', e.target.value)}
-                      label="Currency"
-                    >
-                      {currencies.map((currency) => (
-                        <MenuItem key={currency.value} value={currency.value}>
-                          {currency.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -307,7 +308,7 @@ const IncomeStep: React.FC<IncomeStepProps> = ({
                 </Typography>
               </Box>
               <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
-                ${totalMonthlyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {totalMonthlyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Based on {data.incomeSources.length} income source{data.incomeSources.length !== 1 ? 's' : ''}

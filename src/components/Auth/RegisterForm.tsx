@@ -116,8 +116,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
     try {
       await register(formData);
-      // Registration successful - redirect to home page
-      navigate('/');
+      // Registration successful - user is now logged in, redirect to dashboard
+      navigate('/dashboard');
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Registration failed'));
     } finally {

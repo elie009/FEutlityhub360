@@ -32,12 +32,11 @@ interface QuickAddTransactionFormProps {
   defaultCategory?: string;
 }
 
-const ALL_CATEGORIES = [
-  ...categorySuggestions.transfer,
-  ...categorySuggestions.bill,
-  ...categorySuggestions.savings,
-  ...categorySuggestions.loan,
-  ...categorySuggestions.other
+// Fallback categories for new users who don't have transaction history yet
+const FALLBACK_CATEGORIES = [
+  'food', 'groceries', 'gas', 'transportation', 'entertainment',
+  'shopping', 'restaurant', 'coffee', 'utilities', 'rent',
+  'phone bill', 'internet', 'insurance', 'subscription', 'savings'
 ];
 
 const QuickAddTransactionForm: React.FC<QuickAddTransactionFormProps> = ({
@@ -59,6 +58,40 @@ const QuickAddTransactionForm: React.FC<QuickAddTransactionFormProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [userCategories, setUserCategories] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
+  // Fetch user's transaction categories
+  const fetchUserCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      // Get recent transactions to extract categories
+      const recentTransactions = await apiService.getRecentTransactions(100); // Get up to 100 recent transactions
+
+      // Extract unique categories from transactions
+      const categories = Array.from(new Set(recentTransactions
+        .map(transaction => transaction.category)
+        .filter(category => category && category.trim() !== '')
+        .map(category => category.toLowerCase().trim())
+      ));
+
+      // Sort categories alphabetically
+      categories.sort();
+
+      // If no categories found, use fallback categories
+      if (categories.length === 0) {
+        setUserCategories(FALLBACK_CATEGORIES);
+      } else {
+        setUserCategories(categories);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user categories:', error);
+      // Use fallback categories if API fails
+      setUserCategories(FALLBACK_CATEGORIES);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -71,6 +104,8 @@ const QuickAddTransactionForm: React.FC<QuickAddTransactionFormProps> = ({
         transactionDate: new Date().toISOString().slice(0, 16),
       });
       setError('');
+      // Fetch user categories when modal opens
+      fetchUserCategories();
     }
   }, [open, defaultAccountId, defaultCategory, bankAccounts]);
 
@@ -237,16 +272,17 @@ const QuickAddTransactionForm: React.FC<QuickAddTransactionFormProps> = ({
 
           <Autocomplete
             size="small"
-            options={ALL_CATEGORIES}
+            options={userCategories}
             value={formData.category}
             onChange={handleCategoryChange}
             freeSolo
+            loading={categoriesLoading}
             renderInput={(params) => (
               <TextField
                 {...params}
                 label="Category"
                 required
-                placeholder="Search or type category..."
+                placeholder={categoriesLoading ? "Loading categories..." : "Search or type category..."}
               />
             )}
             renderOption={(props, option) => (

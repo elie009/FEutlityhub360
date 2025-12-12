@@ -43,9 +43,11 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
       case 'lastName':
         return value.trim().length >= 2 ? '' : 'Last name must be at least 2 characters';
       case 'phone':
-        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-        return value.trim().length >= 10 && phoneRegex.test(value.replace(/[\s\-\(\)]/g, '')) 
-          ? '' : 'Please enter a valid phone number';
+        const cleanedPhone = value.trim();
+        const digitsOnlyRegex = /^\d+$/;
+        // Phone must contain only digits and have more than 5 digits
+        return cleanedPhone === '' || (digitsOnlyRegex.test(cleanedPhone) && cleanedPhone.length > 5)
+          ? '' : 'Phone number must contain only digits and be more than 5 digits';
       default:
         return '';
     }

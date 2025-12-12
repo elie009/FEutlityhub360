@@ -45,7 +45,7 @@ interface IncomeStatementTabProps {
 const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({ 
   startDate, 
   endDate, 
-  period = 'MONTHLY',
+  period = 'YEARLY',
   onRefresh 
 }) => {
   const { formatCurrency } = useCurrency();

@@ -138,20 +138,21 @@ export const validateTransactionForm = (formData: {
   
   // Category-specific validation (only for DEBIT transactions with category)
   if (formData.transactionType !== 'CREDIT' && formData.category) {
-    if (isBillCategory(formData.category) && !formData.billId) {
-      errors.push('Bill selection is required for bill-related transactions');
-    }
-    
-    if (isSavingsCategory(formData.category) && !formData.savingsAccountId) {
-      errors.push('Savings account selection is required for savings-related transactions');
-    }
-    
-    if (isLoanCategory(formData.category) && !formData.loanId) {
-      errors.push('Loan selection is required for loan-related transactions');
-    }
-    
-    if (isTransferCategory(formData.category) && !formData.toBankAccountId) {
-      errors.push('Target bank account is required for bank transfer transactions');
+    // Check transfer category first - transfers don't need any linked accounts
+    if (isTransferCategory(formData.category)) {
+      if (!formData.toBankAccountId) {
+        errors.push('Target bank account is required for bank transfer transactions');
+      }
+      // Transfer categories skip all other validations
+    } else {
+      // Only check other categories if it's not a transfer
+      if (isBillCategory(formData.category) && !formData.billId) {
+        errors.push('Bill selection is required for bill-related transactions');
+      } else if (isSavingsCategory(formData.category) && !formData.savingsAccountId) {
+        errors.push('Savings account selection is required for savings-related transactions');
+      } else if (isLoanCategory(formData.category) && !formData.loanId) {
+        errors.push('Loan selection is required for loan-related transactions');
+      }
     }
   }
   
