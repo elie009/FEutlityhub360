@@ -657,13 +657,26 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       </Box>
       
       {/* Menu Items */}
-      <Box 
-        sx={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          overflowX: 'hidden', 
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
           pt: 1,
           pb: open ? 20 : 0, // Add padding bottom to make room for promotional card when open
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#B3EE9A',
+            borderRadius: '3px',
+            '&:hover': {
+              background: '#C8F5B4',
+            },
+          },
         }}
       >
         <List sx={{ px: 0.5, py: 0.5 }}>
@@ -792,19 +805,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
-          '&::-webkit-scrollbar': {
-            width: '6px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'transparent',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: '#cccccc',
-            borderRadius: '3px',
-            '&:hover': {
-              background: '#999999',
-            },
-          },
         },
       }}
       open={true} // Always open, but with different widths
