@@ -15,18 +15,11 @@ import {
   TableHead,
   Divider,
   useTheme,
-  IconButton,
-  Tooltip,
   Chip,
   Paper,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import {
   Assessment,
-  Refresh,
   TrendingUp,
   TrendingDown,
   CheckCircle,
@@ -38,7 +31,7 @@ import { IncomeStatementDto, IncomeStatementItemDto } from '../../types/financia
 interface IncomeStatementTabProps {
   startDate?: Date;
   endDate?: Date;
-  period?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  period?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
   onRefresh?: () => void;
 }
 
@@ -53,21 +46,40 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
   const [loading, setLoading] = useState(true);
   const [incomeStatement, setIncomeStatement] = useState<IncomeStatementDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentPeriod, setCurrentPeriod] = useState(period);
   const [includeComparison, setIncludeComparison] = useState(false);
 
   useEffect(() => {
-    fetchIncomeStatement();
-  }, [startDate, endDate, currentPeriod, includeComparison]);
+    // For CUSTOM period, only fetch if we have valid dates
+    if (period === 'CUSTOM') {
+      if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+        fetchIncomeStatement();
+      } else {
+        // Clear the data if dates are not valid for CUSTOM period
+        setIncomeStatement(null);
+        setLoading(false);
+      }
+    } else {
+      // For predefined periods, always fetch
+      fetchIncomeStatement();
+    }
+  }, [startDate, endDate, period, includeComparison]);
 
   const fetchIncomeStatement = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      console.log('[IncomeStatementTab] Making API call with:', {
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+        period,
+        includeComparison
+      });
+
       const data = await apiService.getIncomeStatement(
         startDate?.toISOString(),
         endDate?.toISOString(),
-        currentPeriod,
+        period,
         includeComparison
       );
       setIncomeStatement(data);
@@ -78,10 +90,6 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
     }
   };
 
-  const handleRefresh = () => {
-    fetchIncomeStatement();
-    if (onRefresh) onRefresh();
-  };
 
   const renderItem = (item: IncomeStatementItemDto, index: number) => (
     <TableRow key={index} hover>
@@ -154,11 +162,7 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
 
   if (error) {
     return (
-      <Alert severity="error" action={
-        <IconButton color="inherit" size="small" onClick={handleRefresh}>
-          <Refresh />
-        </IconButton>
-      }>
+      <Alert severity="error">
         {error}
       </Alert>
     );
@@ -184,25 +188,6 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
             Period: {new Date(incomeStatement.periodStart).toLocaleDateString()} -{' '}
             {new Date(incomeStatement.periodEnd).toLocaleDateString()}
           </Typography>
-        </Box>
-        <Box display="flex" gap={2} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Period</InputLabel>
-            <Select
-              value={currentPeriod}
-              label="Period"
-              onChange={(e) => setCurrentPeriod(e.target.value as 'MONTHLY' | 'QUARTERLY' | 'YEARLY')}
-            >
-              <MenuItem value="MONTHLY">Monthly</MenuItem>
-              <MenuItem value="QUARTERLY">Quarterly</MenuItem>
-              <MenuItem value="YEARLY">Yearly</MenuItem>
-            </Select>
-          </FormControl>
-          <Tooltip title="Refresh">
-            <IconButton onClick={handleRefresh}>
-              <Refresh />
-            </IconButton>
-          </Tooltip>
         </Box>
       </Box>
 
@@ -235,7 +220,7 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body2" color="text.secondary"  gutterBottom>
                 Net Income
               </Typography>
               <Box display="flex" alignItems="center">
@@ -388,21 +373,21 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
       {/* Net Income Summary */}
       <Paper elevation={3} sx={{ p: 3, bgcolor: netIncome >= 0 ? 'success.light' : 'error.light' }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h5" fontWeight="bold" sx={{ color: 'white' }}>
+          <Typography variant="h5" fontWeight="bold" sx={{ color: 'text.secondary' }}>
             Net Income
           </Typography>
           <Box display="flex" alignItems="center">
             {netIncome >= 0 ? (
-              <CheckCircle sx={{ color: 'white', mr: 1 }} />
+              <CheckCircle sx={{ color: 'text.secondary', mr: 1 }} />
             ) : (
-              <TrendingDown sx={{ color: 'white', mr: 1 }} />
+              <TrendingDown sx={{ color: 'text.secondary', mr: 1 }} />
             )}
-            <Typography variant="h4" fontWeight="bold" sx={{ color: 'white' }}>
+            <Typography variant="h4" fontWeight="bold" sx={{ color: 'text.secondary' }}>
               {formatCurrency(netIncome)}
             </Typography>
           </Box>
         </Box>
-        <Typography variant="body2" sx={{ mt: 1, color: 'white' }}>
+        <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
           {netIncome >= 0 
             ? 'You have a positive net income this period.' 
             : 'You have a negative net income this period. Consider reducing expenses or increasing revenue.'}

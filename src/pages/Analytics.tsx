@@ -107,7 +107,7 @@ const Analytics: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
+  const [period, setPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM'>('CUSTOM');
   const [activeTab, setActiveTab] = useState(0);
   const [reportData, setReportData] = useState<FinancialReportDto | null>(null);
   const [summary, setSummary] = useState<FinancialSummaryDto | null>(null);
@@ -283,6 +283,12 @@ const Analytics: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = () => {
+    // Trigger a refresh of the financial data
+    console.log('[Analytics] Submit clicked with dates:', { startDate, endDate, period });
+    fetchFinancialData();
   };
 
   const formatCurrency = (value: number | undefined | null) => {
@@ -842,11 +848,22 @@ const Analytics: React.FC = () => {
               label="Data Period"
               onChange={(e) => setPeriod(e.target.value as any)}
             >
+              <MenuItem value="CUSTOM">Select Period</MenuItem>
               <MenuItem value="MONTHLY">Monthly</MenuItem>
               <MenuItem value="QUARTERLY">Quarterly</MenuItem>
               <MenuItem value="YEARLY">Yearly</MenuItem>
             </Select>
           </FormControl>
+          {/* Submit Button */}
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            size="small"
+            sx={{ ml: 2 }}
+          >
+            Submit
+          </Button>
           {/* Variance Dashboard Button */}
           <Button
             variant="outlined"
@@ -866,11 +883,7 @@ const Analytics: React.FC = () => {
           >
             Export
           </Button>
-          <Tooltip title="Refresh Data">
-            <IconButton onClick={fetchFinancialData} color="primary" size="small">
-              <Refresh />
-            </IconButton>
-          </Tooltip>
+         
         </Box>
       </Box>
 
@@ -1303,7 +1316,12 @@ const Analytics: React.FC = () => {
 
         {/* Tab 1: Income Statement */}
         {activeTab === 1 && (
-          <IncomeStatementTab period={period} />
+          <IncomeStatementTab
+            period={period}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 2: Balance Sheet */}
@@ -1313,7 +1331,7 @@ const Analytics: React.FC = () => {
 
         {/* Tab 3: Cash Flow Statement */}
         {activeTab === 3 && (
-          <CashFlowStatementTab period={period} />
+          <CashFlowStatementTab period={period === 'CUSTOM' ? 'MONTHLY' : period} />
         )}
 
         {/* Tab 4: Financial Ratios */}
@@ -1328,7 +1346,7 @@ const Analytics: React.FC = () => {
 
         {/* Tab 6: Budget vs Actual */}
         {activeTab === 6 && (
-          <BudgetVsActualTab period={period} />
+          <BudgetVsActualTab period={period === 'CUSTOM' ? 'MONTHLY' : period} />
         )}
 
         {/* Tab 7: Custom */}

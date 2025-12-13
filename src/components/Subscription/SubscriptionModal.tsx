@@ -78,7 +78,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ open, onClose }) 
       case 'STARTER':
         return '#4caf50'; // Green
       case 'PROFESSIONAL':
-        return '#9e9e9e'; // Gray
+        return '#004E9B'; // Dark Blue
       case 'ENTERPRISE':
         return '#ffc107'; // Gold/Yellow
       default:
@@ -196,8 +196,22 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ open, onClose }) 
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 3,
-          maxHeight: '90vh',
+          borderRadius: 4,
+          boxShadow: '0 32px 64px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(25, 118, 210, 0.08)',
+          border: '1px solid rgba(25, 118, 210, 0.12)',
+          maxHeight: '95vh',
+          background: 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 50%, #1976d2 100%)',
+            borderRadius: '4px 4px 0 0',
+          },
         },
       }}
     >
@@ -224,8 +238,22 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ open, onClose }) 
               <ArrowBack />
             </IconButton>
           )}
-          <Typography variant="h4" component="h2" sx={{ fontWeight: 700, color: '#1a1a1a' }}>
-            {showPaymentForm ? 'Complete Payment' : 'Choose Your Plan'}
+          <Typography
+            variant="h4"
+            component="h2"
+            sx={{
+              fontWeight: 800,
+              background: showPaymentForm
+                ? 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)'
+                : 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.02em',
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+          >
+            {showPaymentForm ? '💳 Complete Payment' : '🚀 Choose Your Plan'}
           </Typography>
         </Box>
         <IconButton
@@ -258,8 +286,51 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ open, onClose }) 
         ) : (
           <>
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <Typography variant="body1" sx={{ color: '#666666', mb: 3 }}>
-                Select the perfect plan for your financial management needs
+              <Typography
+                variant="h5"
+                sx={{
+                  color: '#1976d2',
+                  mb: 2,
+                  fontSize: '1.8rem',
+                  fontWeight: 700,
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 50%, #1976d2 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  textShadow: '0 2px 4px rgba(25, 118, 210, 0.1)',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.3,
+                  animation: 'fadeInUp 0.8s ease-out',
+                  '@keyframes fadeInUp': {
+                    '0%': {
+                      opacity: 0,
+                      transform: 'translateY(20px)',
+                    },
+                    '100%': {
+                      opacity: 1,
+                      transform: 'translateY(0)',
+                    },
+                  },
+                }}
+              >
+                ✨ Select the perfect plan for your financial management needs
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: '#666666',
+                  fontSize: '1.1rem',
+                  fontWeight: 400,
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  maxWidth: '800px',
+                  mx: 'auto',
+                  lineHeight: 1.6,
+                  marginBottom: '10px',
+                  opacity: 0.9,
+                }}
+              >
+                Choose the plan that fits your lifestyle and take control of your financial future
               </Typography>
               
               {/* Billing Cycle Toggle */}
