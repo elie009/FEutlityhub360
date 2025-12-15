@@ -69,16 +69,28 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
       setLoading(true);
       setError(null);
 
+      // Convert dates to date-only strings (YYYY-MM-DD) to avoid timezone issues
+      const formatDateOnly = (date: Date | undefined): string | undefined => {
+        if (!date) return undefined;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDateStr = formatDateOnly(startDate);
+      const endDateStr = formatDateOnly(endDate);
+
       console.log('[IncomeStatementTab] Making API call with:', {
-        startDate: startDate?.toISOString(),
-        endDate: endDate?.toISOString(),
+        startDate: startDateStr,
+        endDate: endDateStr,
         period,
         includeComparison
       });
 
       const data = await apiService.getIncomeStatement(
-        startDate?.toISOString(),
-        endDate?.toISOString(),
+        startDateStr,
+        endDateStr,
         period,
         includeComparison
       );

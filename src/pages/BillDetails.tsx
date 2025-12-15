@@ -31,6 +31,8 @@ import BudgetTracker from '../components/Bills/BudgetTracker';
 import TrendChart from '../components/Bills/TrendChart';
 import BillHistoryTable from '../components/Bills/BillHistoryTable';
 import { SimpleFinanceLoader } from '../components/Common';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const BillDetails: React.FC = () => {
   const { provider, billType } = useParams<{ provider: string; billType: string }>();
@@ -77,13 +79,191 @@ const BillDetails: React.FC = () => {
     navigate('/bills');
   };
 
+  const generatePDF = () => {
+    if (!historyData) return null;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPosition = 20;
+
+    // Helper function to add a new page if needed
+    const checkPageBreak = (requiredSpace: number) => {
+      if (yPosition + requiredSpace > pageHeight - 20) {
+        doc.addPage();
+        yPosition = 20;
+      }
+    };
+
+    // Header
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Provider Analytics Report', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 10;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Provider: ${decodeURIComponent(provider!)}`, pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text(`Bill Type: ${billType}`, pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 15;
+
+    // Analytics Summary
+    checkPageBreak(50);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Analytics Summary', 14, yPosition);
+    yPosition += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const analyticsData = [
+      ['Total Spent', `$${formatCurrency(historyData.analytics.totalSpent)}`],
+      ['Monthly Average (Weighted)', `$${formatCurrency(historyData.analytics.averageWeighted)}`],
+      ['Monthly Average (Simple)', `$${formatCurrency(historyData.analytics.averageSimple)}`],
+      ['Highest Bill', `$${formatCurrency(historyData.analytics.highestBill)}`],
+      ['Lowest Bill', `$${formatCurrency(historyData.analytics.lowestBill)}`],
+      ['Bill Count', `${historyData.analytics.billCount || historyData.analytics.monthCount || historyData.totalCount || 0} months`],
+    ];
+
+    if (historyData.analytics.averageSeasonal) {
+      analyticsData.push(['Seasonal Average', `$${formatCurrency(historyData.analytics.averageSeasonal)}`]);
+    }
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Metric', 'Value']],
+      body: analyticsData,
+      theme: 'striped',
+      headStyles: { fillColor: [25, 118, 210], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 10 },
+      margin: { left: 14, right: 14 },
+    });
+    yPosition = (doc as any).lastAutoTable.finalY + 15;
+
+    // Trend Analysis
+    checkPageBreak(30);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Trend Analysis', 14, yPosition);
+    yPosition += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const trendText = 
+      historyData.analytics.trend === 'increasing' ? '↗️ Increasing' :
+      historyData.analytics.trend === 'decreasing' ? '↘️ Decreasing' :
+      '➡️ Stable';
+    
+    doc.text(`Trend Status: ${trendText}`, 14, yPosition);
+    yPosition += 10;
+
+    // Forecast Information
+    if (historyData.forecast) {
+      checkPageBreak(30);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Forecast', 14, yPosition);
+      yPosition += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Estimated Amount: $${formatCurrency(historyData.forecast.estimatedAmount)}`, 14, yPosition);
+      yPosition += 6;
+      doc.text(`Calculation Method: ${historyData.forecast.calculationMethod}`, 14, yPosition);
+      yPosition += 6;
+      doc.text(`Confidence: ${historyData.forecast.confidence}`, 14, yPosition);
+      if (historyData.forecast.estimatedForMonth) {
+        yPosition += 6;
+        doc.text(`Estimated For: ${historyData.forecast.estimatedForMonth}`, 14, yPosition);
+      }
+      if (historyData.forecast.recommendation) {
+        yPosition += 6;
+        doc.text(`Recommendation: ${historyData.forecast.recommendation}`, 14, yPosition);
+      }
+      yPosition += 10;
+    }
+
+    // Budget Status
+    if (budgetStatus) {
+      checkPageBreak(30);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Budget Status', 14, yPosition);
+      yPosition += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Monthly Budget: $${formatCurrency(budgetStatus.monthlyBudget)}`, 14, yPosition);
+      yPosition += 6;
+      doc.text(`Current Bill: $${formatCurrency(budgetStatus.currentBill)}`, 14, yPosition);
+      yPosition += 6;
+      doc.text(`Remaining: $${formatCurrency(budgetStatus.remaining)}`, 14, yPosition);
+      yPosition += 6;
+      doc.text(`Percentage Used: ${budgetStatus.percentageUsed.toFixed(1)}%`, 14, yPosition);
+      yPosition += 6;
+      doc.text(`Status: ${budgetStatus.status}`, 14, yPosition);
+      if (budgetStatus.message) {
+        yPosition += 6;
+        doc.text(`Message: ${budgetStatus.message}`, 14, yPosition);
+      }
+      yPosition += 10;
+    }
+
+    // Bill History Table
+    checkPageBreak(50);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bill History', 14, yPosition);
+    yPosition += 8;
+
+    const tableData = historyData.bills.map(bill => {
+      const dueDate = new Date(bill.dueDate).toLocaleDateString();
+      const paidDate = bill.paidAt ? new Date(bill.paidAt).toLocaleDateString() : 'Not Paid';
+      return [
+        dueDate,
+        `$${formatCurrency(bill.amount)}`,
+        bill.status,
+        paidDate,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Due Date', 'Amount', 'Status', 'Paid Date']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [25, 118, 210], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 40, halign: 'right' },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 40 },
+      },
+    });
+
+    return doc;
+  };
+
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log('Export data');
+    const doc = generatePDF();
+    if (doc) {
+      const fileName = `Provider_Analytics_${decodeURIComponent(provider!)}_${billType}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+    }
   };
 
   const handlePrint = () => {
-    window.print();
+    const doc = generatePDF();
+    if (doc) {
+      // Open print preview
+      doc.autoPrint();
+      window.open(doc.output('bloburl'), '_blank');
+    }
   };
 
   const handleShare = () => {
