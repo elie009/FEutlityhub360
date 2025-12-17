@@ -42,6 +42,7 @@ const BillForm: React.FC<BillFormProps> = ({
     billType: BillType.UTILITY,
     amount: 0,
     dueDate: new Date(),
+    statementDate: null as Date | null,
     frequency: BillFrequency.MONTHLY,
     status: BillStatus.PENDING,
     notes: '',
@@ -64,6 +65,7 @@ const BillForm: React.FC<BillFormProps> = ({
         billType: bill.billType || BillType.UTILITY,
         amount: bill.amount || 0,
         dueDate: new Date(bill.dueDate) || new Date(),
+        statementDate: bill.statementDate ? new Date(bill.statementDate) : null,
         frequency: bill.frequency || BillFrequency.MONTHLY,
         status: bill.status || BillStatus.PENDING,
         notes: bill.notes || '',
@@ -78,6 +80,7 @@ const BillForm: React.FC<BillFormProps> = ({
         billType: BillType.UTILITY,
         amount: 0,
         dueDate: new Date(),
+        statementDate: null,
         frequency: BillFrequency.MONTHLY,
         status: BillStatus.PENDING,
         notes: '',
@@ -165,6 +168,7 @@ const BillForm: React.FC<BillFormProps> = ({
       const billData = {
         ...formData,
         dueDate: formData.dueDate.toISOString(),
+        statementDate: formData.statementDate ? formData.statementDate.toISOString() : undefined,
       };
 
       if (bill) {
@@ -291,6 +295,26 @@ const BillForm: React.FC<BillFormProps> = ({
                   fullWidth
                   required
                   helperText="Select the day of the month when this bill is usually due"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Statement Date (Optional)"
+                  type="date"
+                  value={formData.statementDate ? formData.statementDate.toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const dateValue = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      statementDate: dateValue ? new Date(dateValue) : null,
+                    }));
+                  }}
+                  fullWidth
+                  helperText="Date when the bill/invoice was issued (optional)"
                   InputLabelProps={{
                     shrink: true,
                   }}

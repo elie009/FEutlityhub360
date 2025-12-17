@@ -189,6 +189,17 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
   const { revenue, expenses } = incomeStatement;
   const netIncome = incomeStatement.netIncome;
 
+  // Display period: use startDate/endDate directly if CUSTOM period, otherwise use incomeStatement dates
+  const getPeriodDisplay = () => {
+    if (period === 'CUSTOM' && startDate && endDate) {
+      // Display dates directly without formatting
+      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+    } else {
+      // Use dates from incomeStatement
+      return `${new Date(incomeStatement.periodStart).toLocaleDateString()} - ${new Date(incomeStatement.periodEnd).toLocaleDateString()}`;
+    }
+  };
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -197,8 +208,7 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
             Income Statement
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Period: {new Date(incomeStatement.periodStart).toLocaleDateString()} -{' '}
-            {new Date(incomeStatement.periodEnd).toLocaleDateString()}
+            Period: {getPeriodDisplay()}
           </Typography>
         </Box>
       </Box>

@@ -148,6 +148,8 @@ const Analytics: React.FC = () => {
       // Fetch full financial report
       const report = await apiService.getFullFinancialReport({
         period,
+        startDate: startDate && startDate.trim() !== '' ? startDate : undefined,
+        endDate: endDate && endDate.trim() !== '' ? endDate : undefined,
         includeComparison: true,
         includeInsights: true,
         includePredictions: true,
@@ -1326,7 +1328,10 @@ const Analytics: React.FC = () => {
 
         {/* Tab 2: Balance Sheet */}
         {activeTab === 2 && (
-          <BalanceSheetTab />
+          <BalanceSheetTab 
+            asOfDate={endDate ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 3: Cash Flow Statement */}

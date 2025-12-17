@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -40,23 +40,24 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState<Date>(asOfDate || new Date());
 
-  useEffect(() => {
-    fetchBalanceSheet();
-  }, [currentDate]);
-
-  const fetchBalanceSheet = async () => {
+  const fetchBalanceSheet = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await apiService.getBalanceSheet(currentDate.toISOString());
       setBalanceSheet(data);
-      if (onRefresh) onRefresh();
+      // Don't call onRefresh automatically - it causes infinite loops
+      // onRefresh should only be called manually by user action
     } catch (err: any) {
       setError(err.message || 'Failed to load balance sheet');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentDate]);
+
+  useEffect(() => {
+    fetchBalanceSheet();
+  }, [fetchBalanceSheet]);
 
   const handleRefresh = () => {
     fetchBalanceSheet();

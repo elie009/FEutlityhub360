@@ -30,6 +30,7 @@ export interface Bill {
   billType: BillType;
   amount: number;
   dueDate: string;
+  statementDate?: string;
   frequency: BillFrequency;
   status: BillStatus;
   createdAt: string;
@@ -49,6 +50,7 @@ export interface CreateBillRequest {
   billType: BillType;
   amount: number;
   dueDate: string;
+  statementDate?: string;
   frequency: BillFrequency;
   notes?: string;
   provider?: string;
@@ -61,6 +63,7 @@ export interface UpdateBillRequest {
   billType?: BillType;
   amount?: number;
   dueDate?: string;
+  statementDate?: string;
   frequency?: BillFrequency;
   status?: BillStatus;
   notes?: string;

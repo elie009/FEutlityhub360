@@ -105,6 +105,41 @@ ChartJS.register(
   ChartDataLabels
 );
 
+// Helper function to truncate transaction descriptions
+const truncateTransactionDescription = (description: string, maxLength: number = 30): string => {
+  if (!description) {
+    return 'Transaction';
+  }
+  
+  // Check if description starts with a category prefix like [CATEGORY]
+  const categoryMatch = description.match(/^(\[[^\]]+\]\s*)/);
+  
+  if (categoryMatch) {
+    const prefix = categoryMatch[1];
+    const restOfDescription = description.substring(prefix.length);
+    
+    // Truncate the rest, leaving room for " . . ."
+    const availableLength = maxLength - prefix.length - 5;
+    if (restOfDescription.length > availableLength && availableLength > 0) {
+      return prefix + restOfDescription.substring(0, availableLength) + ' . . .';
+    }
+    
+    // If prefix is too long, just truncate everything
+    if (prefix.length >= maxLength - 5) {
+      return description.substring(0, maxLength - 5) + ' . . .';
+    }
+    
+    return prefix + restOfDescription;
+  }
+  
+  // No category prefix, just truncate
+  if (description.length > maxLength) {
+    return description.substring(0, maxLength - 5) + ' . . .';
+  }
+  
+  return description;
+};
+
 const Dashboard: React.FC = () => {
   const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
   const { formatCurrency, currency } = useCurrency();
@@ -2068,12 +2103,12 @@ const Dashboard: React.FC = () => {
           </Grid>
 
           {/* Right Sidebar */}
-          <Grid item xs={12} md={3}>
-            <Grid container spacing={3} direction="column">
+          <Grid item xs={12} md={3} sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+            <Grid container spacing={3} direction="column" sx={{ width: '100%', maxWidth: '100%' }}>
              
               {/* Bank Account Card */}
               <Grid item xs={12} md={9}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
                       Bank Accounts
@@ -2094,9 +2129,9 @@ const Dashboard: React.FC = () => {
                       <Skeleton variant="rectangular" width="100%" height={220} sx={{ mb: 2, borderRadius: 3 }} />
                     </Box>
                   ) : dashboardBankAccounts.length > 0 ? (
-                    <Box>
+                    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                       {/* Bank Account Card Slider */}
-                      <Box sx={{ mb: 3 }}>
+                      <Box sx={{ mb: 3, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                         <BankAccountCardSlider
                           accounts={dashboardBankAccounts}
                           selectedAccountId={selectedBankAccountId}
@@ -2106,7 +2141,7 @@ const Dashboard: React.FC = () => {
 
                       {/* Transactions for Selected Account */}
                       {selectedBankAccountId && (
-                        <Box>
+                        <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                           <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
                           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
                             Transactions - {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
@@ -2119,7 +2154,7 @@ const Dashboard: React.FC = () => {
                               <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
                             </Box>
                           ) : bankAccountTransactions.length > 0 ? (
-                            <Box>
+                            <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
                               {bankAccountTransactions.map((transaction) => {
                                 const transactionDate = new Date(transaction.transactionDate);
                                 const formattedDate = transactionDate.toLocaleDateString('en-US', {
@@ -2142,6 +2177,9 @@ const Dashboard: React.FC = () => {
                                       mb: 2,
                                       pb: 2,
                                       borderBottom: '1px solid #e5e5e5',
+                                      width: '100%',
+                                      maxWidth: '100%',
+                                      overflow: 'hidden',
                                       '&:last-child': {
                                         borderBottom: 'none',
                                         mb: 0,
@@ -2150,7 +2188,7 @@ const Dashboard: React.FC = () => {
                                     }}
                                   >
                                     {/* Category Chip */}
-                                    <Box sx={{ mr: 1.5, mt: 0.5 }}>
+                                    <Box sx={{ mr: 1.5, mt: 0.5, flexShrink: 0 }}>
                                       <Chip
                                         label={transaction.category || 'Uncategorized'}
                                         size="small"
@@ -2158,41 +2196,63 @@ const Dashboard: React.FC = () => {
                                           fontSize: '0.7rem',
                                           height: 20,
                                           minWidth: 60,
+                                          maxWidth: 80,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
                                         }}
                                       />
                                     </Box>
                                     
                                     {/* Transaction Details */}
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0, maxWidth: 'calc(100% - 100px)', overflow: 'hidden' }}>
                                       {/* Title and Amount Row */}
                                       <Box
                                         sx={{
                                           display: 'flex',
                                           justifyContent: 'space-between',
                                           alignItems: 'flex-start',
-                                          gap: 2,
+                                          gap: 1,
                                           mb: 0.5,
+                                          width: '100%',
+                                          minWidth: 0,
                                         }}
                                       >
-                                        <Typography
-                                          variant="body2"
+                                        <Box
+                                          component="div"
                                           sx={{
-                                            fontWeight: 500,
-                                            color: '#1a1a1a',
-                                            flex: 1,
+                                            flex: '1 1 auto',
+                                            minWidth: 0,
+                                            maxWidth: '100%',
                                             overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
+                                            display: 'flex',
                                           }}
                                         >
-                                          {transaction.description || 'Transaction'}
-                                        </Typography>
+                                          <Typography
+                                            variant="body2"
+                                            component="span"
+                                            sx={{
+                                              fontWeight: 500,
+                                              color: '#1a1a1a',
+                                              minWidth: 0,
+                                              maxWidth: '100%',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap',
+                                              display: 'inline-block',
+                                            }}
+                                            title={transaction.description || 'Transaction'}
+                                          >
+                                            {truncateTransactionDescription(transaction.description || 'Transaction')}
+                                          </Typography>
+                                        </Box>
                                         <Typography
                                           variant="body2"
+                                          component="div"
                                           sx={{
                                             fontWeight: 600,
                                             color: transaction.transactionType === 'CREDIT' ? 'success.main' : 'error.main',
                                             whiteSpace: 'nowrap',
+                                            flexShrink: 0,
                                             ml: 'auto',
                                           }}
                                         >
