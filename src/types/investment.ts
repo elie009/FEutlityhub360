@@ -12,6 +12,7 @@ export interface Investment {
   unrealizedGainLoss?: number;
   realizedGainLoss?: number;
   totalReturnPercentage?: number;
+  dateOfInvestment?: string;
   currency: string;
   description?: string;
   isActive: boolean;
@@ -27,6 +28,7 @@ export interface CreateInvestmentRequest {
   accountNumber?: string;
   initialInvestment: number;
   currentValue?: number;
+  dateOfInvestment?: string;
   currency?: string;
   description?: string;
 }
@@ -37,6 +39,7 @@ export interface UpdateInvestmentRequest {
   accountType?: string;
   brokerName?: string;
   currentValue?: number;
+  dateOfInvestment?: string;
   description?: string;
   isActive?: boolean;
 }

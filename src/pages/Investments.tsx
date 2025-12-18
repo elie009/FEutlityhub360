@@ -59,6 +59,7 @@ const Investments: React.FC = () => {
     accountNumber: '',
     initialInvestment: 0,
     currentValue: 0,
+    dateOfInvestment: '',
     currency: 'USD',
     description: '',
   });
@@ -99,6 +100,16 @@ const Investments: React.FC = () => {
     }
   };
 
+  const formatDateForInput = (dateString?: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
   const handleOpenDialog = (investment?: Investment) => {
     if (investment) {
       setSelectedInvestment(investment);
@@ -110,6 +121,7 @@ const Investments: React.FC = () => {
         accountNumber: investment.accountNumber || '',
         initialInvestment: investment.initialInvestment,
         currentValue: investment.currentValue,
+        dateOfInvestment: formatDateForInput(investment.dateOfInvestment),
         currency: investment.currency,
         description: investment.description || '',
       });
@@ -123,6 +135,7 @@ const Investments: React.FC = () => {
         accountNumber: '',
         initialInvestment: 0,
         currentValue: 0,
+        dateOfInvestment: '',
         currency: 'USD',
         description: '',
       });
@@ -133,17 +146,18 @@ const Investments: React.FC = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setSelectedInvestment(null);
-    setFormData({
-      accountName: '',
-      investmentType: 'STOCK',
-      accountType: '',
-      brokerName: '',
-      accountNumber: '',
-      initialInvestment: 0,
-      currentValue: 0,
-      currency: 'USD',
-      description: '',
-    });
+      setFormData({
+        accountName: '',
+        investmentType: 'STOCK',
+        accountType: '',
+        brokerName: '',
+        accountNumber: '',
+        initialInvestment: 0,
+        currentValue: 0,
+        dateOfInvestment: '',
+        currency: 'USD',
+        description: '',
+      });
   };
 
   const handleSave = async () => {
@@ -159,6 +173,7 @@ const Investments: React.FC = () => {
           accountType: formData.accountType || undefined,
           brokerName: formData.brokerName || undefined,
           currentValue: formData.currentValue,
+          dateOfInvestment: formData.dateOfInvestment || undefined,
           description: formData.description || undefined,
         };
         await apiService.updateInvestment(selectedInvestment.id, updateRequest);
@@ -465,6 +480,18 @@ const Investments: React.FC = () => {
                 value={formData.accountNumber}
                 onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
                 placeholder="Last 4 digits"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date of Investment"
+                type="date"
+                value={formData.dateOfInvestment}
+                onChange={(e) => setFormData({ ...formData, dateOfInvestment: e.target.value })}
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
