@@ -345,14 +345,12 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
     });
   };
 
-  // Handle file upload with AI extraction
-  const handleFileUploadWithAI = async (file: File, isCSV: boolean) => {
+  // Handle file upload with AI extraction (Asynchronous)
+  const handleFileUploadAsync = async (file: File) => {
     setIsExtracting(true);
     setError('');
     
     try {
-      let extracted: ExtractBankStatementResponse;
-      
       // Validate bank account is selected
       if (!selectedBankAccountId) {
         setError('Please select a target bank account before uploading the file');
@@ -360,49 +358,13 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
         return;
       }
 
-      // Use analyze-pdf endpoint for PDF files, extract endpoint for CSV files
-      if (!isCSV && file.name.toLowerCase().endsWith('.pdf')) {
-        // Use AI-powered PDF analysis endpoint
-        extracted = await apiService.analyzePDFWithAI(file, selectedBankAccountId);
-      } else {
-        // Use general extraction endpoint for CSV files
-        extracted = await apiService.extractBankStatement(file, selectedBankAccountId);
-      }
+      await apiService.uploadBankStatementAsync(file, selectedBankAccountId);
       
-      // Populate form with extracted data
-      if (extracted.statementName) {
-        setFormData(prev => ({
-          ...prev,
-          statementName: extracted.statementName,
-          statementStartDate: extracted.statementStartDate || prev.statementStartDate,
-          statementEndDate: extracted.statementEndDate || prev.statementEndDate,
-          openingBalance: extracted.openingBalance?.toString() || prev.openingBalance,
-          closingBalance: extracted.closingBalance?.toString() || prev.closingBalance,
-          importFormat: extracted.importFormat || (isCSV ? 'CSV' : 'PDF'),
-          importSource: extracted.importSource || file.name,
-        }));
-      }
-      
-      // Set extracted items
-      if (extracted.statementItems && extracted.statementItems.length > 0) {
-        setStatementItems(extracted.statementItems);
-        setExtractedData(extracted);
-        setShowReview(true);
-      } else {
-        setError('No transactions found in the file. Please check the file format.');
-      }
-      
-      if (isCSV) {
-        setCsvFile(file);
-        setPdfFile(null);
-      } else {
-        setPdfFile(file);
-        setCsvFile(null);
-      }
+      // Success! The file is uploaded and will be processed by the utility
+      onSuccess();
+      onClose(); // Close dialog as processing is now backgrounded
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to extract transactions from file. Please try manual entry.'));
-      // Fallback to manual entry
-      setShowReview(false);
+      setError(getErrorMessage(err, 'Failed to upload bank statement for processing.'));
     } finally {
       setIsExtracting(false);
     }
@@ -418,8 +380,11 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
       return;
     }
     
-    // Use AI extraction instead of local parsing
-    await handleFileUploadWithAI(file, true);
+    // Use new async upload flow
+    await handleFileUploadAsync(file);
+    
+    // Reset input
+    event.target.value = '';
   };
 
   // Extract text from PDF file
@@ -619,8 +584,8 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
       return;
     }
     
-    // Use AI extraction instead of local parsing
-    await handleFileUploadWithAI(file, false);
+    // Use new async upload flow
+    await handleFileUploadAsync(file);
     
     // Reset input
     event.target.value = '';
@@ -666,6 +631,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
         })),
       });
       onSuccess();
+      onClose();
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to import bank statement'));
     } finally {
@@ -783,7 +749,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
               id="csv-upload-input"
               type="file"
               onChange={handleFileUpload}
-              disabled={isParsing}
+              disabled={isParsing || isExtracting}
             />
             <label htmlFor="csv-upload-input">
               <Button
@@ -793,7 +759,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
                 disabled={isExtracting || isParsing}
                 sx={{ textTransform: 'none' }}
               >
-                {isExtracting ? 'AI Extracting...' : isParsing ? 'Parsing CSV...' : 'Upload CSV File (AI)'}
+                {isExtracting ? 'Uploading...' : 'Upload CSV for Processing'}
               </Button>
             </label>
             {csvFile && (
@@ -838,7 +804,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
               id="pdf-upload-input"
               type="file"
               onChange={handlePDFUpload}
-              disabled={isParsing}
+              disabled={isParsing || isExtracting}
             />
             <label htmlFor="pdf-upload-input">
               <Button
@@ -849,7 +815,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
                 sx={{ textTransform: 'none' }}
                 color="error"
               >
-                {isExtracting ? 'AI Extracting...' : isParsing ? 'Parsing PDF...' : 'Upload PDF File (AI)'}
+                {isExtracting ? 'Uploading...' : 'Upload PDF for Processing'}
               </Button>
             </label>
             {pdfFile && (
@@ -870,13 +836,12 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
           </Box>
           <Alert severity="info" sx={{ mt: 2 }}>
             <Typography variant="caption" component="div">
-              <strong>AI-Powered Extraction:</strong>
+              <strong>Async Processing:</strong>
               <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem' }}>
-                <li>AI automatically extracts all transactions from your statement</li>
-                <li>Works with both text-based and scanned PDFs</li>
-                <li>Review and edit extracted data before importing</li>
-                <li>Supports all common bank statement formats</li>
-                <li>Accurately identifies dates, amounts, descriptions, and transaction types</li>
+                <li>Your file will be uploaded and added to the processing queue</li>
+                <li>The PyOCRReader utility will extract transactions in the background</li>
+                <li>You can track the status in the "Bank Statement Uploads" table</li>
+                <li>Once status is "DONE", you can review and confirm the transactions</li>
               </ul>
             </Typography>
           </Alert>

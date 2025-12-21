@@ -169,19 +169,19 @@ The bills page is fully responsive:
 
 ## ❓ Common Questions
 
-**Q: Can I schedule automatic payments?**
-A: You can mark bills as "Auto-Pay" for tracking, but actual automatic payments need to be set up with your bank or service provider.
+**Q: Can I schedule automatic payments?** <br>
+A: You can mark bills as "Auto-Pay" for tracking, but actual automatic payments need to be set up with your bank or service provider. <br>
 
-**Q: What if a bill amount changes?**
-A: Simply edit the bill and update the amount. The change will be reflected in future calculations.
+**Q: What if a bill amount changes?** <br>
+A: Simply edit the bill and update the amount. The change will be reflected in future calculations. <br>
 
-**Q: How do I track bills I pay yearly?**
-A: Set the frequency to "Yearly" and the due date to when it's typically due. You'll be reminded once per year.
+**Q: How do I track bills I pay yearly?** <br>
+A: Set the frequency to "Yearly" and the due date to when it's typically due. You'll be reminded once per year. <br>
 
-**Q: Can I see payment history for a bill?**
-A: Yes! Click on a bill to see its details and payment history.
+**Q: Can I see payment history for a bill?** <br>
+A: Yes! Click on a bill to see its details and payment history. <br>
 
-**Q: What happens if I miss a bill?**
+**Q: What happens if I miss a bill?** <br>
 A: The bill will be marked as "Overdue" and will appear in your alerts. Mark it as paid when you make the payment.
 
 ---

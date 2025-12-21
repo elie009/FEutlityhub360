@@ -187,3 +187,41 @@ export interface BankStatementUploadLimit {
   isFreeTier: boolean;
 }
 
+// Async Upload Types
+export interface BankStatementUpload {
+  id: string;
+  userId: string;
+  bankAccountId: string;
+  originalFileName: string;
+  fileType: string;
+  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'COMPLETED' | 'FAILED';
+  errorMessage?: string;
+  processedBankStatementId?: string;
+  retryCount: number;
+  createdAt: string;
+  processedAt?: string;
+  updatedAt: string;
+}
+
+export interface StagingTransaction {
+  id: string;
+  uploadId: string;
+  transactionDate: string;
+  amount: number;
+  transactionType: string;
+  description?: string;
+  referenceNumber?: string;
+  merchant?: string;
+  category?: string;
+  balanceAfterTransaction: number;
+}
+
+export interface ConfirmBankStatementUploadRequest {
+  statementName: string;
+  statementStartDate: string;
+  statementEndDate: string;
+  openingBalance: number;
+  closingBalance: number;
+  transactions: StagingTransaction[];
+}
+

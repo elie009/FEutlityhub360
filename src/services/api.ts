@@ -97,10 +97,20 @@ class ApiService {
 
   private async request<T>(endpoint: string, options: RequestInit = {}, customTimeout?: number): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    // If body is FormData, don't set Content-Type (browser will set it with boundary)
+    const isFormData = options.body instanceof FormData;
+    const authHeaders = this.getAuthHeaders();
+    
+    // Remove Content-Type from headers if sending FormData
+    if (isFormData && authHeaders['Content-Type']) {
+      delete authHeaders['Content-Type'];
+    }
+    
     const requestConfig: RequestInit = {
       ...options,
       headers: {
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options.headers,
       },
     };
@@ -4388,58 +4398,6 @@ class ApiService {
 
   // ==================== RECONCILIATION APIs ====================
 
-  async extractBankStatement(file: File, bankAccountId: string): Promise<import('../types/reconciliation').ExtractBankStatementResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bankAccountId', bankAccountId);
-
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/reconciliation/statements/extract`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to extract bank statement');
-    }
-
-    const result = await response.json();
-    if (result && result.success && result.data) {
-      return result.data;
-    }
-    throw new Error(result.message || 'Failed to extract bank statement');
-  }
-
-  async analyzePDFWithAI(file: File, bankAccountId: string): Promise<import('../types/reconciliation').ExtractBankStatementResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bankAccountId', bankAccountId);
-
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/reconciliation/statements/analyze-pdf`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to analyze PDF with AI');
-    }
-
-    const result = await response.json();
-    if (result && result.success && result.data) {
-      return result.data;
-    }
-    throw new Error(result.message || 'Failed to analyze PDF with AI');
-  }
-
   async importBankStatement(importData: import('../types/reconciliation').ImportBankStatementRequest): Promise<import('../types/reconciliation').BankStatement> {
     // Use extended timeout (120 seconds) for bank statement import as it processes many items
     const response = await this.request<any>('/reconciliation/statements/import', {
@@ -4563,6 +4521,65 @@ class ApiService {
   async getReconciliationSummary(bankAccountId: string, reconciliationDate?: string): Promise<import('../types/reconciliation').ReconciliationSummary> {
     const queryParams = reconciliationDate ? `?reconciliationDate=${reconciliationDate}` : '';
     const response = await this.request<any>(`/reconciliation/summary/${bankAccountId}${queryParams}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  // ASYNC BANK STATEMENT UPLOAD
+  async uploadBankStatementAsync(file: File, bankAccountId: string): Promise<import('../types/reconciliation').BankStatementUpload> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bankAccountId', bankAccountId);
+    
+    // The request method will automatically handle FormData and not set Content-Type
+    const response = await this.request<any>('/reconciliation/statements/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getUserUploads(bankAccountId: string): Promise<import('../types/reconciliation').BankStatementUpload[]> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/account/${bankAccountId}`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async getUploadStatus(uploadId: string): Promise<import('../types/reconciliation').BankStatementUpload> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/status`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async cancelUpload(uploadId: string): Promise<boolean> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/cancel`, {
+      method: 'POST',
+    });
+    return response?.success ?? false;
+  }
+
+  async getStagingTransactions(uploadId: string): Promise<import('../types/reconciliation').StagingTransaction[]> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/staging`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async confirmUpload(uploadId: string, confirmData: import('../types/reconciliation').ConfirmBankStatementUploadRequest): Promise<import('../types/reconciliation').BankStatement> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(confirmData),
+    });
     if (response && response.data) {
       return response.data;
     }
@@ -5935,16 +5952,26 @@ class ApiService {
 
   // Get white-label settings
   async getWhiteLabelSettings(): Promise<WhiteLabelSettings> {
-    const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
-      '/whitelabel/settings',
-      {
-        method: 'GET',
+    try {
+      const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
+        '/whitelabel/settings',
+        {
+          method: 'GET',
+        }
+      );
+      if (response && response.success && response.data) {
+        return response.data;
       }
-    );
-    if (response && response.success && response.data) {
-      return response.data;
+      throw new Error(response?.message || 'Failed to get white-label settings');
+    } catch (error: any) {
+      // Re-throw with status code if available
+      if (error?.status) {
+        const enhancedError = new Error(error.message || 'Failed to get white-label settings');
+        (enhancedError as any).status = error.status;
+        throw enhancedError;
+      }
+      throw error;
     }
-    throw new Error(response?.message || 'Failed to get white-label settings');
   }
 
   // Update white-label settings

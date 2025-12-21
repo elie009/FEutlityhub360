@@ -116,11 +116,20 @@ export const WhiteLabelProvider: React.FC<WhiteLabelProviderProps> = ({ children
         setTheme(baseTheme);
       }
     } catch (error: any) {
+      const errorStatus = error?.status || error?.response?.status;
+      const errorMessage = error?.message || '';
+      
       // Handle 401 errors gracefully - user is not authenticated yet
-      if (error?.status === 401) {
+      if (errorStatus === 401) {
         // Silently use default theme - this is expected when user is not logged in
         setTheme(baseTheme);
+      } else if (errorStatus === 400 || errorMessage.includes('Enterprise feature') || errorMessage.includes('Premium Plus')) {
+        // Handle subscription restriction - user doesn't have Enterprise plan
+        // Silently use default theme - this is expected for non-Enterprise users
+        setTheme(baseTheme);
+        // Don't log as error - this is expected behavior for non-Enterprise users
       } else {
+        // Only log unexpected errors
         console.error('Failed to load white-label settings:', error);
         setTheme(baseTheme);
       }

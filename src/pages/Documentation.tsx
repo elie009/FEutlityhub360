@@ -149,6 +149,9 @@ const Documentation: React.FC = () => {
       // First, preserve <br> tags by converting them to a placeholder
       let html = text.replace(/<br>/gim, '___BR_TAG___');
       
+      // Handle numbered lists first (before other processing)
+      html = html.replace(/^(\d+)\. (.*$)/gim, '<li class="numbered">$2</li>');
+      
       html = html
         // Headers
         .replace(/^### (.*$)/gim, '<h3>$1</h3>')
@@ -158,12 +161,14 @@ const Documentation: React.FC = () => {
         .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
         // Italic
         .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-        // Numbered lists
-        .replace(/^(\d+)\. (.*$)/gim, '<li>$2</li>')
         // Bullet lists
         .replace(/^\* (.*$)/gim, '<li>$1</li>')
         .replace(/^- (.*$)/gim, '<li>$1</li>')
-        // Wrap consecutive list items
+        // Wrap consecutive numbered list items in <ol>
+        .replace(/(<li class="numbered">.*<\/li>\n?)+/gim, (match) => {
+          return '<ol>' + match.replace(/class="numbered"/g, '') + '</ol>';
+        })
+        // Wrap consecutive bullet list items in <ul>
         .replace(/(<li>.*<\/li>\n?)+/gim, '<ul>$&</ul>')
         // Line breaks - convert double newlines to paragraph breaks
         .replace(/\n\n/gim, '</p><p>')

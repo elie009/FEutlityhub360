@@ -111,13 +111,13 @@ From your dashboard, you can easily navigate to:
 
 ## ❓ Common Questions
 
-**Q: Why doesn't my total balance match my actual bank balance?**
-A: Make sure all your accounts are connected and synced. Check Settings → Bank Accounts.
+**Q: Why doesn't my total balance match my actual bank balance?** <br>
+A: Make sure all your accounts are connected and synced. Check Settings → Bank Accounts. <br>
 
-**Q: How do I change what appears on my dashboard?**
-A: The dashboard shows all active accounts and bills. Manage them in their respective sections.
+**Q: How do I change what appears on my dashboard?** <br>
+A: The dashboard shows all active accounts and bills. Manage them in their respective sections. <br>
 
-**Q: Can I export dashboard data?**
+**Q: Can I export dashboard data?** <br>
 A: Yes! Use the Reports & Analytics section to export detailed reports.
 
 ---
