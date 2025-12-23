@@ -79,7 +79,7 @@ const ReconciliationPage: React.FC = () => {
   const [bankStatements, setBankStatements] = useState<BankStatement[]>([]);
   const [bankUploads, setBankUploads] = useState<BankStatementUpload[]>([]);
   const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [activeTab, setActiveTab] = useState(0);
@@ -112,8 +112,15 @@ const ReconciliationPage: React.FC = () => {
         const stateAccountId = (location.state as any)?.accountId;
         if (stateAccountId && accounts.find(acc => acc.id === stateAccountId)) {
           setSelectedAccountId(stateAccountId);
-        } else if (accounts.length > 0 && !selectedAccountId) {
-          setSelectedAccountId(accounts[0].id);
+        } else if (accounts.length > 0) {
+          // Always set the first account if no account is currently selected
+          setSelectedAccountId(prev => {
+            // Only set if no account is currently selected
+            if (!prev && accounts.length > 0) {
+              return accounts[0].id;
+            }
+            return prev;
+          });
         }
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to load bank accounts'));
@@ -135,15 +142,11 @@ const ReconciliationPage: React.FC = () => {
     loadUploadLimit();
   }, []);
 
-  // Load data when account changes
-  useEffect(() => {
-    if (selectedAccountId) {
-      loadReconciliationData();
-    }
-  }, [selectedAccountId]);
-
   const loadReconciliationData = useCallback(async () => {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     setError('');
@@ -165,6 +168,20 @@ const ReconciliationPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [selectedAccountId]);
+
+  // Load data when account changes
+  useEffect(() => {
+    if (selectedAccountId) {
+      loadReconciliationData();
+    } else {
+      // Reset data when no account is selected
+      setReconciliations([]);
+      setBankStatements([]);
+      setBankUploads([]);
+      setSummary(null);
+      setIsLoading(false);
+    }
+  }, [selectedAccountId, loadReconciliationData]);
 
   // Poll for upload status updates
   useEffect(() => {
@@ -319,15 +336,22 @@ const ReconciliationPage: React.FC = () => {
               <FormControl fullWidth>
                 <InputLabel>Select Bank Account</InputLabel>
                 <Select
-                  value={selectedAccountId}
+                  value={selectedAccountId || ''}
                   onChange={handleAccountChange}
                   label="Select Bank Account"
+                  disabled={bankAccounts.length === 0}
                 >
-                  {bankAccounts.map((account) => (
-                    <MenuItem key={account.id} value={account.id}>
-                      {account.accountName} ({account.accountType})
+                  {bankAccounts.length === 0 ? (
+                    <MenuItem disabled value="">
+                      No bank accounts available
                     </MenuItem>
-                  ))}
+                  ) : (
+                    bankAccounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.accountName} ({account.accountType})
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
             </Grid>
@@ -445,14 +469,18 @@ const ReconciliationPage: React.FC = () => {
 
       {/* Action Buttons */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <Button
-          variant="contained"
-          startIcon={<Upload />}
-          onClick={() => setShowImportDialog(true)}
-          disabled={!selectedAccountId}
-        >
-          Import Bank Statement
-        </Button>
+        <Tooltip title={!selectedAccountId ? "Please select a bank account first" : ""}>
+          <span>
+            <Button
+              variant="contained"
+              startIcon={<Upload />}
+              onClick={() => setShowImportDialog(true)}
+              disabled={!selectedAccountId || bankAccounts.length === 0}
+            >
+              Import Bank Statement
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           variant="outlined"
           startIcon={<AccountBalance />}

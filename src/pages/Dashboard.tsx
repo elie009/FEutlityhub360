@@ -763,10 +763,15 @@ const Dashboard: React.FC = () => {
         response = await apiService.updateUserProfile(profileData);
         setProfileSuccess('Profile updated successfully!');
       } else {
+        // Filter out empty income sources (those with no name or zero amount)
+        const validIncomeSources = profileFormData.incomeSources.filter(source => 
+          source.name && source.name.trim() !== '' && source.amount > 0
+        );
+        
         // Create new profile
         response = await apiService.createUserProfile({
           ...profileData,
-          incomeSources: profileFormData.incomeSources,
+          incomeSources: validIncomeSources,
         });
         setProfileSuccess('Profile created successfully!');
       }

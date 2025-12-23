@@ -24,11 +24,245 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { Close, Delete, CheckCircle, Edit, Save, Cancel, Add } from '@mui/icons-material';
+import { Close, Delete, CheckCircle, Edit, Save, Cancel, Add, DragHandle } from '@mui/icons-material';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { apiService } from '../../services/api';
 import { StagingTransaction, BankStatementUpload } from '../../types/reconciliation';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { getErrorMessage } from '../../utils/validation';
+
+// Sortable Row Component
+interface SortableRowProps {
+  transaction: StagingTransaction;
+  editingId: string | null;
+  editingTransaction: StagingTransaction | null;
+  formatCurrency: (amount: number) => string;
+  onEdit: (transaction: StagingTransaction) => void;
+  onRemove: (id: string) => void;
+  onEditFieldChange: (field: keyof StagingTransaction, value: any) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  categories: Array<{ id: string; name: string; type?: string }>;
+  loadingCategories: boolean;
+}
+
+const SortableRow: React.FC<SortableRowProps> = ({
+  transaction,
+  editingId,
+  editingTransaction,
+  formatCurrency,
+  onEdit,
+  onRemove,
+  onEditFieldChange,
+  onSaveEdit,
+  onCancelEdit,
+  categories,
+  loadingCategories,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: transaction.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const isEditing = editingId === transaction.id;
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        cursor: isEditing ? 'default' : 'move',
+        '&:hover': {
+          backgroundColor: isEditing ? 'transparent' : 'action.hover',
+        },
+      }}
+    >
+      {isEditing ? (
+        <>
+          <TableCell sx={{ minWidth: 50, maxWidth: 50, p: 1 }}>
+            <IconButton
+              size="small"
+              {...attributes}
+              {...listeners}
+              disabled
+              sx={{ cursor: 'not-allowed', opacity: 0.3 }}
+            >
+              <DragHandle fontSize="small" />
+            </IconButton>
+          </TableCell>
+          <TableCell sx={{ minWidth: 120, maxWidth: 120 }}>
+            <TextField
+              type="date"
+              value={editingTransaction?.transactionDate?.split('T')[0] || ''}
+              onChange={(e) => onEditFieldChange('transactionDate', e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+          </TableCell>
+          <TableCell sx={{ minWidth: 200 }}>
+            <TextField
+              value={editingTransaction?.description || ''}
+              onChange={(e) => onEditFieldChange('description', e.target.value)}
+              size="small"
+              fullWidth
+            />
+          </TableCell>
+          <TableCell sx={{ minWidth: 100, maxWidth: 100 }}>
+            <FormControl size="small" fullWidth>
+              <Select
+                value={editingTransaction?.transactionType || 'DEBIT'}
+                onChange={(e) => onEditFieldChange('transactionType', e.target.value)}
+              >
+                <MenuItem value="DEBIT">DEBIT</MenuItem>
+                <MenuItem value="CREDIT">CREDIT</MenuItem>
+              </Select>
+            </FormControl>
+          </TableCell>
+          <TableCell align="right" sx={{ minWidth: 120, maxWidth: 120 }}>
+            <TextField
+              type="number"
+              value={editingTransaction?.amount || 0}
+              onChange={(e) => onEditFieldChange('amount', parseFloat(e.target.value) || 0)}
+              size="small"
+              fullWidth
+              inputProps={{ step: 0.01, min: 0 }}
+            />
+          </TableCell>
+          <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>
+            <TextField
+              value={editingTransaction?.referenceNumber || ''}
+              onChange={(e) => onEditFieldChange('referenceNumber', e.target.value)}
+              size="small"
+              fullWidth
+            />
+          </TableCell>
+          <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>
+            <TextField
+              value={editingTransaction?.merchant || ''}
+              onChange={(e) => onEditFieldChange('merchant', e.target.value)}
+              size="small"
+              fullWidth
+            />
+          </TableCell>
+          <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>
+            <FormControl size="small" fullWidth>
+              <Select
+                value={editingTransaction?.category || ''}
+                onChange={(e) => onEditFieldChange('category', e.target.value)}
+                displayEmpty
+                disabled={loadingCategories}
+              >
+                <MenuItem value="">
+                  <em>Select Category</em>
+                </MenuItem>
+                {categories.map((category) => (
+                  <MenuItem key={category.id} value={category.name}>
+                    {category.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </TableCell>
+          <TableCell align="center">
+            <IconButton 
+              size="small" 
+              color="primary" 
+              onClick={onSaveEdit}
+              title="Save"
+            >
+              <Save fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              color="default" 
+              onClick={onCancelEdit}
+              title="Cancel"
+            >
+              <Cancel fontSize="small" />
+            </IconButton>
+          </TableCell>
+        </>
+      ) : (
+        <>
+          <TableCell sx={{ minWidth: 50, maxWidth: 50, p: 1 }}>
+            <IconButton
+              size="small"
+              {...attributes}
+              {...listeners}
+              sx={{ cursor: 'grab', '&:active': { cursor: 'grabbing' } }}
+              title="Drag to reorder"
+            >
+              <DragHandle fontSize="small" />
+            </IconButton>
+          </TableCell>
+          <TableCell>
+            {transaction.transactionDate 
+              ? new Date(transaction.transactionDate).toLocaleDateString() 
+              : '-'}
+          </TableCell>
+          <TableCell>{transaction.description || '-'}</TableCell>
+          <TableCell>
+            <Chip 
+              label={transaction.transactionType} 
+              size="small" 
+              color={transaction.transactionType === 'CREDIT' ? 'success' : 'default'}
+              variant="outlined"
+            />
+          </TableCell>
+          <TableCell align="right">{formatCurrency(transaction.amount)}</TableCell>
+          <TableCell>{transaction.referenceNumber || '-'}</TableCell>
+          <TableCell>{transaction.merchant || '-'}</TableCell>
+          <TableCell>{transaction.category || '-'}</TableCell>
+          <TableCell align="center">
+            <IconButton 
+              size="small" 
+              color="primary" 
+              onClick={() => onEdit(transaction)}
+              title="Edit"
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              color="error" 
+              onClick={() => onRemove(transaction.id)}
+              title="Delete"
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          </TableCell>
+        </>
+      )}
+    </TableRow>
+  );
+};
 
 interface StagingTransactionsModalProps {
   open: boolean;
@@ -51,6 +285,16 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<StagingTransaction | null>(null);
   const [newTransactionIds, setNewTransactionIds] = useState<Set<string>>(new Set());
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; type?: string }>>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   const [formData, setFormData] = useState({
     statementName: '',
     statementStartDate: '',
@@ -59,42 +303,75 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     closingBalance: 0,
   });
 
-  useEffect(() => {
-    if (open && upload) {
-      loadStagingTransactions();
-      setFormData({
-        statementName: upload.originalFileName.replace(/\.[^/.]+$/, ""),
-        statementStartDate: '',
-        statementEndDate: '',
-        openingBalance: 0,
-        closingBalance: 0,
-      });
-    }
-  }, [open, upload]);
-
-  const loadStagingTransactions = async () => {
+  const loadStagingTransactions = React.useCallback(async () => {
     if (!upload) return;
     setIsLoading(true);
     setError('');
     try {
       const data = await apiService.getStagingTransactions(upload.id);
-      setTransactions(data);
+      setTransactions(data || []);
       
       // Auto-populate dates if transactions exist
-      if (data.length > 0) {
-        const sorted = [...data].sort((a, b) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime());
-        setFormData(prev => ({
-          ...prev,
-          statementStartDate: sorted[0].transactionDate.split('T')[0],
-          statementEndDate: sorted[sorted.length - 1].transactionDate.split('T')[0],
-        }));
+      if (data && data.length > 0) {
+        const sorted = [...data]
+          .filter(t => t && t.transactionDate)
+          .sort((a, b) => {
+            try {
+              return new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime();
+            } catch {
+              return 0;
+            }
+          });
+        if (sorted.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            statementStartDate: sorted[0].transactionDate?.split('T')[0] || '',
+            statementEndDate: sorted[sorted.length - 1].transactionDate?.split('T')[0] || '',
+          }));
+        }
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load extracted transactions.'));
+      setTransactions([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [upload]);
+
+  const loadCategories = React.useCallback(async () => {
+    setLoadingCategories(true);
+    try {
+      const data = await apiService.getAllCategories();
+      setCategories(data || []);
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && upload) {
+      loadStagingTransactions();
+      loadCategories();
+      setFormData({
+        statementName: upload.originalFileName?.replace(/\.[^/.]+$/, "") || '',
+        statementStartDate: '',
+        statementEndDate: '',
+        openingBalance: 0,
+        closingBalance: 0,
+      });
+    } else if (!open) {
+      // Reset state when modal closes
+      setTransactions([]);
+      setError('');
+      setEditingId(null);
+      setEditingTransaction(null);
+      setNewTransactionIds(new Set());
+      setCategories([]);
+    }
+  }, [open, upload, loadStagingTransactions, loadCategories]);
 
   const handleRemoveTransaction = (id: string) => {
     setTransactions(transactions.filter(t => t.id !== id));
@@ -142,6 +419,24 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
   const handleEditFieldChange = (field: keyof StagingTransaction, value: any) => {
     if (!editingTransaction) return;
     setEditingTransaction({ ...editingTransaction, [field]: value });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setTransactions((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        
+        // Safety check: ensure both indices are valid
+        if (oldIndex === -1 || newIndex === -1) {
+          return items;
+        }
+        
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
 
   const handleAddTransaction = () => {
@@ -292,153 +587,58 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer component={Paper} sx={{ maxHeight: 400, overflowX: 'auto' }}>
-            <Table stickyHeader size="small" sx={{ minWidth: 1000 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ minWidth: 120, maxWidth: 120 }}>Date</TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>Description</TableCell>
-                  <TableCell sx={{ minWidth: 100, maxWidth: 100 }}>Type</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 120, maxWidth: 120 }}>Amount</TableCell>
-                  <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>Reference</TableCell>
-                  <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>Merchant</TableCell>
-                  <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>Category</TableCell>
-                  <TableCell align="center" sx={{ minWidth: 100, maxWidth: 100 }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {transactions.map((t) => (
-                  <TableRow key={t.id}>
-                    {editingId === t.id ? (
-                      <>
-                        <TableCell sx={{ minWidth: 120, maxWidth: 120 }}>
-                          <TextField
-                            type="date"
-                            value={editingTransaction?.transactionDate.split('T')[0] || ''}
-                            onChange={(e) => handleEditFieldChange('transactionDate', e.target.value)}
-                            size="small"
-                            InputLabelProps={{ shrink: true }}
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 200 }}>
-                          <TextField
-                            value={editingTransaction?.description || ''}
-                            onChange={(e) => handleEditFieldChange('description', e.target.value)}
-                            size="small"
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 100, maxWidth: 100 }}>
-                          <FormControl size="small" fullWidth>
-                            <Select
-                              value={editingTransaction?.transactionType || 'DEBIT'}
-                              onChange={(e) => handleEditFieldChange('transactionType', e.target.value)}
-                            >
-                              <MenuItem value="DEBIT">DEBIT</MenuItem>
-                              <MenuItem value="CREDIT">CREDIT</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </TableCell>
-                        <TableCell align="right" sx={{ minWidth: 120, maxWidth: 120 }}>
-                          <TextField
-                            type="number"
-                            value={editingTransaction?.amount || 0}
-                            onChange={(e) => handleEditFieldChange('amount', parseFloat(e.target.value) || 0)}
-                            size="small"
-                            fullWidth
-                            inputProps={{ step: 0.01, min: 0 }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>
-                          <TextField
-                            value={editingTransaction?.referenceNumber || ''}
-                            onChange={(e) => handleEditFieldChange('referenceNumber', e.target.value)}
-                            size="small"
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>
-                          <TextField
-                            value={editingTransaction?.merchant || ''}
-                            onChange={(e) => handleEditFieldChange('merchant', e.target.value)}
-                            size="small"
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>
-                          <TextField
-                            value={editingTransaction?.category || ''}
-                            onChange={(e) => handleEditFieldChange('category', e.target.value)}
-                            size="small"
-                            fullWidth
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton 
-                            size="small" 
-                            color="primary" 
-                            onClick={handleSaveEdit}
-                            title="Save"
-                          >
-                            <Save fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            color="default" 
-                            onClick={handleCancelEdit}
-                            title="Cancel"
-                          >
-                            <Cancel fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell>{new Date(t.transactionDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{t.description || '-'}</TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={t.transactionType} 
-                            size="small" 
-                            color={t.transactionType === 'CREDIT' ? 'success' : 'default'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell align="right">{formatCurrency(t.amount)}</TableCell>
-                        <TableCell>{t.referenceNumber || '-'}</TableCell>
-                        <TableCell>{t.merchant || '-'}</TableCell>
-                        <TableCell>{t.category || '-'}</TableCell>
-                        <TableCell align="center">
-                          <IconButton 
-                            size="small" 
-                            color="primary" 
-                            onClick={() => handleEditTransaction(t)}
-                            title="Edit"
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleRemoveTransaction(t.id)}
-                            title="Delete"
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </>
-                    )}
-                  </TableRow>
-                ))}
-                {transactions.length === 0 && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <TableContainer component={Paper} sx={{ maxHeight: 400, overflowX: 'auto' }}>
+              <Table stickyHeader size="small" sx={{ minWidth: 1000 }}>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={8} align="center">No transactions found.</TableCell>
+                    <TableCell sx={{ minWidth: 50, maxWidth: 50 }}></TableCell>
+                    <TableCell sx={{ minWidth: 120, maxWidth: 120 }}>Date</TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>Description</TableCell>
+                    <TableCell sx={{ minWidth: 100, maxWidth: 100 }}>Type</TableCell>
+                    <TableCell align="right" sx={{ minWidth: 120, maxWidth: 120 }}>Amount</TableCell>
+                    <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>Reference</TableCell>
+                    <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>Merchant</TableCell>
+                    <TableCell sx={{ minWidth: 150, maxWidth: 150 }}>Category</TableCell>
+                    <TableCell align="center" sx={{ minWidth: 100, maxWidth: 100 }}>Actions</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {transactions.length > 0 ? (
+                    <SortableContext
+                      items={transactions.map(t => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {transactions.map((t) => (
+                      <SortableRow
+                        key={t.id}
+                        transaction={t}
+                        editingId={editingId}
+                        editingTransaction={editingTransaction}
+                        formatCurrency={formatCurrency}
+                        onEdit={handleEditTransaction}
+                        onRemove={handleRemoveTransaction}
+                        onEditFieldChange={handleEditFieldChange}
+                        onSaveEdit={handleSaveEdit}
+                        onCancelEdit={handleCancelEdit}
+                        categories={categories}
+                        loadingCategories={loadingCategories}
+                      />
+                      ))}
+                    </SortableContext>
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={9} align="center">No transactions found.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DndContext>
         )}
       </DialogContent>
       <DialogActions>

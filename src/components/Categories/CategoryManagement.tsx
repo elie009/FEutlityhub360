@@ -129,6 +129,21 @@ const CategoryManagement: React.FC = () => {
       if (isMountedRef.current) {
         setCategories(data);
         setLoading(false);
+        
+        // If user has no categories and no filter is applied, automatically create default categories
+        if (data.length === 0 && !filterType) {
+          try {
+            await apiService.createDefaultCategories();
+            // Reload categories after creating defaults
+            const updatedData = await apiService.getAllCategories();
+            if (isMountedRef.current) {
+              setCategories(updatedData);
+            }
+          } catch (createErr: any) {
+            // Silently fail - user can manually create categories or use seed button
+            console.log('Auto-create default categories failed:', createErr);
+          }
+        }
       }
     } catch (err: any) {
       // Ignore abort errors (from canceled requests)

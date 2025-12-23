@@ -4670,6 +4670,16 @@ class ApiService {
     throw new Error(response?.message || 'Failed to seed system categories');
   }
 
+  async createDefaultCategories(): Promise<boolean> {
+    const response = await this.request<any>('/categories/create-default', {
+      method: 'POST',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to create default categories');
+  }
+
   // ============================================
   // Expense Management API Methods
   // ============================================

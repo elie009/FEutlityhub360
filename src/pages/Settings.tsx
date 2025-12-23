@@ -813,7 +813,17 @@ const Settings: React.FC = () => {
     setProfileError(null);
 
     try {
-      const newProfile = await apiService.createUserProfile(profileFormData);
+      // Filter out empty income sources (those with no name or zero amount)
+      const validIncomeSources = profileFormData.incomeSources.filter(source => 
+        source.name && source.name.trim() !== '' && source.amount > 0
+      );
+      
+      const profileDataWithValidIncomeSources = {
+        ...profileFormData,
+        incomeSources: validIncomeSources,
+      };
+      
+      const newProfile = await apiService.createUserProfile(profileDataWithValidIncomeSources);
       setProfileSuccess('Profile created successfully!');
       setShowProfileForm(false);
       // Update context with new profile
