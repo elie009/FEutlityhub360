@@ -119,6 +119,7 @@ export const validateTransactionForm = (formData: {
   loanId?: string;
   toBankAccountId?: string;
   transactionType?: 'DEBIT' | 'CREDIT';
+  isSplit?: boolean;
 }): string[] => {
   const errors: string[] = [];
   
@@ -132,7 +133,15 @@ export const validateTransactionForm = (formData: {
   }
   
   // Category is only required for DEBIT transactions (CREDIT transactions get category automatically set)
-  if (formData.transactionType !== 'CREDIT' && !formData.category) {
+  // Skip category requirement for split transactions (categories are on splits, not main transaction)
+  // Also skip if billId, loanId, or savingsAccountId is provided (these are valid categorizations)
+  if (formData.transactionType !== 'CREDIT' && 
+      !formData.category && 
+      !formData.isSplit &&
+      !formData.billId &&  // Skip if bill is linked
+      !formData.loanId &&  // Skip if loan is linked
+      !formData.savingsAccountId)  // Skip if savings is linked
+  {
     errors.push('Category is required for debit transactions');
   }
   
@@ -313,6 +322,7 @@ export const validateTransactionWithDoubleEntry = (formData: {
   loanId?: string;
   toBankAccountId?: string;
   transactionType?: 'DEBIT' | 'CREDIT';
+  isSplit?: boolean;
 }): string[] => {
   const errors: string[] = [];
   

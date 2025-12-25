@@ -185,7 +185,47 @@ const BillForm: React.FC<BillFormProps> = ({
       
       onClose();
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to save bill'));
+      // Extract detailed error messages from API response
+      let errorMessage = 'Failed to save bill';
+      
+      if (err instanceof Error) {
+        const error = err as any;
+        
+        // Check if there are field-specific errors in the errorData
+        if (error.errorData?.errors && typeof error.errorData.errors === 'object') {
+          const fieldErrors: string[] = [];
+          Object.keys(error.errorData.errors).forEach(field => {
+            const fieldErrorMessages = error.errorData.errors[field];
+            if (Array.isArray(fieldErrorMessages)) {
+              fieldErrorMessages.forEach((message: string) => {
+                fieldErrors.push(message); // Just show the message, field name is clear from context
+              });
+            } else if (typeof fieldErrorMessages === 'string') {
+              fieldErrors.push(fieldErrorMessages);
+            }
+          });
+          
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors.join('. ');
+          } else {
+            errorMessage = error.errorData.title || error.message || errorMessage;
+          }
+        } 
+        // Check if there's a message in errorData
+        else if (error.errorData?.message) {
+          errorMessage = error.errorData.message;
+        }
+        // Check if there's an errors array
+        else if (error.errors && Array.isArray(error.errors)) {
+          errorMessage = error.errors.join('. ');
+        }
+        // Fall back to error message
+        else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -203,6 +203,14 @@ export interface BankStatementUpload {
   updatedAt: string;
 }
 
+export interface TransactionSplit {
+  id: string;
+  amount: number;
+  billId?: string;
+  category?: string;
+  description?: string;
+}
+
 export interface StagingTransaction {
   id: string;
   uploadId: string;
@@ -214,6 +222,8 @@ export interface StagingTransaction {
   merchant?: string;
   category?: string;
   balanceAfterTransaction: number;
+  splits?: TransactionSplit[]; // Optional splits for this transaction
+  isSplit?: boolean; // Flag to indicate if this transaction is split
 }
 
 export interface ConfirmBankStatementUploadRequest {

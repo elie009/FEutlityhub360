@@ -24,7 +24,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { Close, Delete, CheckCircle, Edit, Save, Cancel, Add, DragHandle } from '@mui/icons-material';
+import { Close, Delete, CheckCircle, Edit, Save, Cancel, Add, DragHandle, Download, Upload, CallSplit } from '@mui/icons-material';
 import {
   DndContext,
   closestCenter,
@@ -43,9 +43,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { apiService } from '../../services/api';
-import { StagingTransaction, BankStatementUpload } from '../../types/reconciliation';
+import { StagingTransaction, BankStatementUpload, TransactionSplit } from '../../types/reconciliation';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { getErrorMessage } from '../../utils/validation';
+import SplitTransactionDialog from './SplitTransactionDialog';
+import { Bill, BillStatus } from '../../types/bill';
 
 // Sortable Row Component
 interface SortableRowProps {
@@ -55,6 +57,7 @@ interface SortableRowProps {
   formatCurrency: (amount: number) => string;
   onEdit: (transaction: StagingTransaction) => void;
   onRemove: (id: string) => void;
+  onSplit: (transaction: StagingTransaction) => void;
   onEditFieldChange: (field: keyof StagingTransaction, value: any) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
@@ -69,6 +72,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   formatCurrency,
   onEdit,
   onRemove,
+  onSplit,
   onEditFieldChange,
   onSaveEdit,
   onCancelEdit,
@@ -97,7 +101,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
       ref={setNodeRef}
       style={style}
       sx={{
-        cursor: isEditing ? 'default' : 'move',
+        cursor: isEditing ? 'default' : 'default',
         '&:hover': {
           backgroundColor: isEditing ? 'transparent' : 'action.hover',
         },
@@ -216,8 +220,16 @@ const SortableRow: React.FC<SortableRowProps> = ({
               size="small"
               {...attributes}
               {...listeners}
-              sx={{ cursor: 'grab', '&:active': { cursor: 'grabbing' } }}
+              sx={{ 
+                cursor: 'grab', 
+                '&:active': { cursor: 'grabbing' },
+                touchAction: 'none', // Prevent touch scrolling on mobile
+                '&:focus': {
+                  outline: 'none',
+                },
+              }}
               title="Drag to reorder"
+              tabIndex={0}
             >
               <DragHandle fontSize="small" />
             </IconButton>
@@ -239,7 +251,19 @@ const SortableRow: React.FC<SortableRowProps> = ({
           <TableCell align="right">{formatCurrency(transaction.amount)}</TableCell>
           <TableCell>{transaction.referenceNumber || '-'}</TableCell>
           <TableCell>{transaction.merchant || '-'}</TableCell>
-          <TableCell>{transaction.category || '-'}</TableCell>
+          <TableCell>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {transaction.category || '-'}
+              {transaction.isSplit && transaction.splits && transaction.splits.length > 0 && (
+                <Chip
+                  label={`${transaction.splits.length} split${transaction.splits.length > 1 ? 's' : ''}`}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                />
+              )}
+            </Box>
+          </TableCell>
           <TableCell align="center">
             <IconButton 
               size="small" 
@@ -248,6 +272,14 @@ const SortableRow: React.FC<SortableRowProps> = ({
               title="Edit"
             >
               <Edit fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              color="secondary" 
+              onClick={() => onSplit(transaction)}
+              title="Split Transaction"
+            >
+              <CallSplit fontSize="small" />
             </IconButton>
             <IconButton 
               size="small" 
@@ -287,10 +319,19 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
   const [newTransactionIds, setNewTransactionIds] = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<Array<{ id: string; name: string; type?: string }>>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [loadingBills, setLoadingBills] = useState(false);
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
+  const [transactionToSplit, setTransactionToSplit] = useState<StagingTransaction | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Drag and drop sensors
+  // Drag and drop sensors with activation constraints
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Require 5px of movement before activating drag
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -351,10 +392,24 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     }
   }, []);
 
+  const loadBills = React.useCallback(async () => {
+    setLoadingBills(true);
+    try {
+      const response = await apiService.getUserBills({ status: BillStatus.PENDING });
+      setBills(response.data || []);
+    } catch (err) {
+      console.error('Failed to load bills:', err);
+      setBills([]);
+    } finally {
+      setLoadingBills(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (open && upload) {
       loadStagingTransactions();
       loadCategories();
+      loadBills();
       setFormData({
         statementName: upload.originalFileName?.replace(/\.[^/.]+$/, "") || '',
         statementStartDate: '',
@@ -370,8 +425,11 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
       setEditingTransaction(null);
       setNewTransactionIds(new Set());
       setCategories([]);
+      setBills([]);
+      setShowSplitDialog(false);
+      setTransactionToSplit(null);
     }
-  }, [open, upload, loadStagingTransactions, loadCategories]);
+  }, [open, upload, loadStagingTransactions, loadCategories, loadBills]);
 
   const handleRemoveTransaction = (id: string) => {
     setTransactions(transactions.filter(t => t.id !== id));
@@ -419,6 +477,23 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
   const handleEditFieldChange = (field: keyof StagingTransaction, value: any) => {
     if (!editingTransaction) return;
     setEditingTransaction({ ...editingTransaction, [field]: value });
+  };
+
+  const handleSplitTransaction = (transaction: StagingTransaction) => {
+    setTransactionToSplit(transaction);
+    setShowSplitDialog(true);
+  };
+
+  const handleSaveSplit = (transaction: StagingTransaction, splits: TransactionSplit[]) => {
+    const updatedTransaction: StagingTransaction = {
+      ...transaction,
+      splits: splits,
+      isSplit: true,
+    };
+
+    setTransactions(
+      transactions.map((t) => (t.id === transaction.id ? updatedTransaction : t))
+    );
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -473,6 +548,203 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     setEditingTransaction({ ...newTransaction });
   };
 
+  const handleDownloadCSV = () => {
+    if (transactions.length === 0) {
+      setError('No transactions to download');
+      return;
+    }
+
+    // Define CSV headers
+    const headers = ['Date', 'Description', 'Type', 'Amount', 'Reference', 'Merchant', 'Category'];
+    
+    // Convert transactions to CSV rows
+    const csvRows = [
+      headers.join(','),
+      ...transactions.map(transaction => {
+        const date = transaction.transactionDate 
+          ? new Date(transaction.transactionDate).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: '2-digit', 
+              day: '2-digit' 
+            })
+          : '';
+        const description = `"${(transaction.description || '').replace(/"/g, '""')}"`;
+        // Ensure transactionType is DEBIT or CREDIT, default to DEBIT if empty
+        const type = (transaction.transactionType === 'DEBIT' || transaction.transactionType === 'CREDIT') 
+          ? transaction.transactionType 
+          : (transaction.transactionType || 'DEBIT');
+        const amount = transaction.amount?.toFixed(2) || '0.00';
+        const reference = `"${(transaction.referenceNumber || '').replace(/"/g, '""')}"`;
+        const merchant = `"${(transaction.merchant || '').replace(/"/g, '""')}"`;
+        const category = `"${(transaction.category || '').replace(/"/g, '""')}"`;
+        
+        return [date, description, type, amount, reference, merchant, category].join(',');
+      })
+    ];
+
+    // Create CSV content
+    const csvContent = csvRows.join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const fileName = `Extracted_Transactions_${upload?.originalFileName?.replace(/\.[^/.]+$/, '') || 'export'}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleImportCSV = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if file is CSV
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setError('Please select a CSV file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setError('CSV file must contain at least a header row and one data row');
+          return;
+        }
+
+        // Parse header row
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        
+        // Expected headers: Date, Description, Type, Amount, Reference, Merchant, Category
+        const dateIndex = headers.findIndex(h => h.toLowerCase() === 'date');
+        const descriptionIndex = headers.findIndex(h => h.toLowerCase() === 'description');
+        const typeIndex = headers.findIndex(h => h.toLowerCase() === 'type');
+        const amountIndex = headers.findIndex(h => h.toLowerCase() === 'amount');
+        const referenceIndex = headers.findIndex(h => h.toLowerCase() === 'reference');
+        const merchantIndex = headers.findIndex(h => h.toLowerCase() === 'merchant');
+        const categoryIndex = headers.findIndex(h => h.toLowerCase() === 'category');
+
+        if (dateIndex === -1 || descriptionIndex === -1 || typeIndex === -1 || amountIndex === -1) {
+          setError('CSV file must contain Date, Description, Type, and Amount columns');
+          return;
+        }
+
+        // Parse CSV rows (skip header)
+        const importedTransactions: StagingTransaction[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line.trim()) continue;
+
+          // Parse CSV line (handle quoted values)
+          const values: string[] = [];
+          let currentValue = '';
+          let inQuotes = false;
+
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              values.push(currentValue.trim());
+              currentValue = '';
+            } else {
+              currentValue += char;
+            }
+          }
+          values.push(currentValue.trim()); // Add last value
+
+          // Extract values
+          const dateStr = values[dateIndex]?.replace(/^"|"$/g, '') || '';
+          const description = values[descriptionIndex]?.replace(/^"|"$/g, '') || '';
+          const type = values[typeIndex]?.replace(/^"|"$/g, '').toUpperCase() || 'DEBIT';
+          const amountStr = values[amountIndex]?.replace(/^"|"$/g, '') || '0';
+          const reference = values[referenceIndex]?.replace(/^"|"$/g, '') || '';
+          const merchant = values[merchantIndex]?.replace(/^"|"$/g, '') || '';
+          const category = values[categoryIndex]?.replace(/^"|"$/g, '') || '';
+
+          // Validate and convert date
+          let transactionDate = dateStr;
+          if (dateStr) {
+            // Handle MM/DD/YYYY format (e.g., "01/05/2025")
+            if (dateStr.includes('/')) {
+              const parts = dateStr.split('/');
+              if (parts.length === 3) {
+                const month = parts[0].padStart(2, '0');
+                const day = parts[1].padStart(2, '0');
+                const year = parts[2];
+                // Create date in YYYY-MM-DD format
+                transactionDate = `${year}-${month}-${day}`;
+              }
+            } else {
+              // Try to parse date in other formats
+              const date = new Date(dateStr);
+              if (!isNaN(date.getTime())) {
+                transactionDate = date.toISOString().split('T')[0];
+              }
+            }
+          }
+
+          // Validate type
+          const transactionType = (type === 'DEBIT' || type === 'CREDIT') ? type : 'DEBIT';
+
+          // Parse amount
+          const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;
+
+          if (!upload) continue;
+
+          const transaction: StagingTransaction = {
+            id: `imported-${Date.now()}-${i}`,
+            uploadId: upload.id,
+            transactionDate: transactionDate || new Date().toISOString().split('T')[0],
+            amount: amount,
+            transactionType: transactionType,
+            description: description,
+            referenceNumber: reference,
+            merchant: merchant,
+            category: category,
+            balanceAfterTransaction: 0,
+          };
+
+          importedTransactions.push(transaction);
+        }
+
+        if (importedTransactions.length === 0) {
+          setError('No valid transactions found in CSV file');
+          return;
+        }
+
+        // Replace existing transactions with imported ones
+        setTransactions(importedTransactions);
+        setError('');
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } catch (err) {
+        setError(getErrorMessage(err, 'Failed to parse CSV file. Please check the format.'));
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Failed to read CSV file');
+    };
+
+    reader.readAsText(file);
+  };
+
   const handleConfirm = async () => {
     if (!upload) return;
     if (!formData.statementName.trim()) {
@@ -487,10 +759,70 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     setIsConfirming(true);
     setError('');
     try {
-      await apiService.confirmUpload(upload.id, {
-        ...formData,
-        transactions: transactions
-      });
+      // Helper function to convert date string to ISO DateTime
+      const convertToISODateTime = (dateStr: string): string => {
+        if (!dateStr) return new Date().toISOString();
+        
+        // If it's already a full ISO string, return as is
+        if (dateStr.includes('T') || dateStr.includes('Z')) {
+          try {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString();
+            }
+          } catch {
+            // Fall through to date-only parsing
+          }
+        }
+        
+        // Handle MM/DD/YYYY format (e.g., "01/05/2025")
+        if (dateStr.includes('/')) {
+          const parts = dateStr.split('/');
+          if (parts.length === 3) {
+            const month = parts[0].padStart(2, '0');
+            const day = parts[1].padStart(2, '0');
+            const year = parts[2];
+            // Create date in YYYY-MM-DD format, then convert to ISO
+            const isoDate = `${year}-${month}-${day}`;
+            return `${isoDate}T00:00:00.000Z`;
+          }
+        }
+        
+        // If it's just a date (YYYY-MM-DD), convert to full DateTime
+        if (dateStr.length === 10 && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return `${dateStr}T00:00:00.000Z`;
+        }
+        
+        // Try to parse and convert to ISO
+        try {
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString();
+          }
+        } catch {
+          // If parsing fails, use current date
+        }
+        
+        return new Date().toISOString();
+      };
+
+      // Transform transactions to ensure dates are in ISO DateTime format
+      const transformedTransactions = transactions.map(transaction => ({
+        ...transaction,
+        transactionDate: convertToISODateTime(transaction.transactionDate)
+      }));
+
+      // Transform statement dates to ISO DateTime format
+      const confirmData = {
+        statementName: formData.statementName,
+        statementStartDate: convertToISODateTime(formData.statementStartDate),
+        statementEndDate: convertToISODateTime(formData.statementEndDate),
+        openingBalance: formData.openingBalance,
+        closingBalance: formData.closingBalance,
+        transactions: transformedTransactions
+      };
+
+      await apiService.confirmUpload(upload.id, confirmData);
       onSuccess();
       onClose();
     } catch (err) {
@@ -571,15 +903,42 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
           <Typography variant="subtitle2">
             Extracted Transactions ({transactions.length})
           </Typography>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Add />}
-            onClick={handleAddTransaction}
-            disabled={isLoading}
-          >
-            Add Transaction
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Upload />}
+              onClick={handleImportCSV}
+              disabled={isLoading || !upload}
+            >
+              Import CSV
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Download />}
+              onClick={handleDownloadCSV}
+              disabled={isLoading || transactions.length === 0}
+            >
+              Download CSV
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Add />}
+              onClick={handleAddTransaction}
+              disabled={isLoading}
+            >
+              Add Transaction
+            </Button>
+          </Box>
         </Box>
         
         {isLoading ? (
@@ -622,6 +981,7 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
                         formatCurrency={formatCurrency}
                         onEdit={handleEditTransaction}
                         onRemove={handleRemoveTransaction}
+                        onSplit={handleSplitTransaction}
                         onEditFieldChange={handleEditFieldChange}
                         onSaveEdit={handleSaveEdit}
                         onCancelEdit={handleCancelEdit}
@@ -652,6 +1012,18 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
           {isConfirming ? 'Confirming...' : 'Confirm & Finalize'}
         </Button>
       </DialogActions>
+
+      <SplitTransactionDialog
+        open={showSplitDialog}
+        onClose={() => {
+          setShowSplitDialog(false);
+          setTransactionToSplit(null);
+        }}
+        transaction={transactionToSplit}
+        bills={bills}
+        categories={categories}
+        onSave={handleSaveSplit}
+      />
     </Dialog>
   );
 };

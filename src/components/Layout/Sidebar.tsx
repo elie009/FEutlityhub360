@@ -756,7 +756,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             </Box>
 
             {/* Call to Action Button */}
-            <Button
+            {/* <Button
               variant="contained"
               onClick={() => setSubscriptionModalOpen(true)}
               sx={{
@@ -774,7 +774,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               }}
             >
               Upgrade Now
-            </Button>
+            </Button> */}
           </Card>
         </Box>
       )}

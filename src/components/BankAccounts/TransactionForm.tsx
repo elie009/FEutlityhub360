@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -35,6 +35,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
+  CallSplit as CallSplitIcon,
 } from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { BankAccount } from '../../types/bankAccount';
@@ -50,7 +51,10 @@ import {
   validateTransactionForm,
   generateEnhancedDescription
 } from '../../utils/categoryLogic';
-import { BillStatus } from '../../types/bill';
+import { Bill, BillStatus } from '../../types/bill';
+import SplitTransactionDialog from '../Reconciliation/SplitTransactionDialog';
+import { TransactionSplit } from '../../types/reconciliation';
+import { getLatestBillsByName } from '../../utils/billUtils';
 
 interface TransactionFormProps {
   open: boolean;
@@ -83,13 +87,6 @@ interface BankAccountTransaction {
   transactionPurpose?: string;
 }
 
-interface Bill {
-  id: string;
-  billName: string;
-  amount: number;
-  status: string;
-  billType?: string;
-}
 
 interface Loan {
   id: string;
@@ -180,6 +177,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [showLoanSelector, setShowLoanSelector] = useState(false);
   const [showTransferSelector, setShowTransferSelector] = useState(false);
   const [showHelpSection, setShowHelpSection] = useState(false);
+  
+  // State for split transaction
+  const [splits, setSplits] = useState<TransactionSplit[]>([]);
+  const [isSplit, setIsSplit] = useState(false);
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -250,6 +252,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         setShowSavingsSelector(false);
         setShowLoanSelector(false);
         setShowTransferSelector(false);
+        // Reset split state
+        setSplits([]);
+        setIsSplit(false);
       }
       setError('');
     }
@@ -284,6 +289,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setLoadingBills(false);
     }
   }, []);
+
+  // Filter bills to show only the latest due date for each bill name (remove duplicates)
+  const filteredBills = useMemo(() => getLatestBillsByName(bills), [bills]);
 
   const loadLoans = useCallback(async () => {
     setLoadingLoans(true);
@@ -559,6 +567,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setError('');
 
     // Enhanced validation using category logic with double-entry accounting validation
+    // Skip category requirement if this is a split transaction (categories are on splits)
     const validationErrors = validateTransactionWithDoubleEntry({
       bankAccountId: formData.bankAccountId,
       amount: parseFloat(formData.amount),
@@ -569,6 +578,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       loanId: formData.loanId,
       toBankAccountId: formData.toBankAccountId,
       transactionType: formData.transactionType,
+      isSplit: isSplit && splits.length > 0,
     });
 
     // Debug logging
@@ -597,6 +607,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       validationErrors.length = 0; // Clear all errors
       validationErrors.push(...basicErrors); // Add back only basic errors
       console.log('Filtered errors for edit mode:', basicErrors);
+    }
+
+    // Validate splits if transaction is split
+    if (isSplit && splits.length > 0) {
+      const totalSplitAmount = splits.reduce((sum, split) => sum + (split.amount || 0), 0);
+      const transactionAmount = parseFloat(formData.amount);
+      if (Math.abs(totalSplitAmount - transactionAmount) > 0.01) {
+        validationErrors.push(`Split amounts (${totalSplitAmount.toFixed(2)}) must equal transaction amount (${transactionAmount.toFixed(2)})`);
+      }
+      if (splits.some(split => !split.billId && !split.category)) {
+        validationErrors.push('Each split must have either a bill or category selected');
+      }
     }
 
     if (validationErrors.length > 0) {
@@ -647,7 +669,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         }
       }
       
-      const transactionData = {
+      const transactionData: any = {
         bankAccountId: formData.bankAccountId,
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
@@ -667,6 +689,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         loanId: formData.loanId || undefined,
         toBankAccountId: formData.toBankAccountId || undefined,
         transactionPurpose: formData.transactionPurpose || undefined,
+        // Split transaction support
+        splits: isSplit && splits.length > 0 ? splits : undefined,
+        isSplit: isSplit && splits.length > 0,
       };
 
       if (isEditMode && initialTransaction) {
@@ -918,15 +943,50 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                required
-                label="Amount"
-                type="number"
-                value={formData.amount}
-                onChange={handleInputChange('amount')}
-                inputProps={{ min: 0.01, step: 0.01 }}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Amount"
+                  type="number"
+                  value={formData.amount}
+                  onChange={handleInputChange('amount')}
+                  inputProps={{ min: 0.01, step: 0.01 }}
+                  disabled={isSplit && splits.length > 0}
+                  helperText={isSplit && splits.length > 0 ? `${splits.length} split${splits.length > 1 ? 's' : ''} configured` : undefined}
+                />
+                {formData.transactionType === 'DEBIT' && !isEditMode && (
+                  <Tooltip title="Split this transaction across multiple bills or categories">
+                    <IconButton
+                      onClick={() => {
+                        if (!formData.amount || parseFloat(formData.amount) <= 0) {
+                          setError('Please enter an amount first');
+                          return;
+                        }
+                        setShowSplitDialog(true);
+                      }}
+                      color={isSplit ? 'primary' : 'default'}
+                      sx={{ mt: 1 }}
+                    >
+                      <CallSplitIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+              {isSplit && splits.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Chip
+                    label={`Split into ${splits.length} allocation${splits.length > 1 ? 's' : ''}`}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                    onDelete={() => {
+                      setSplits([]);
+                      setIsSplit(false);
+                    }}
+                  />
+                </Box>
+              )}
             </Grid>
 
             <Grid item xs={12} sm={6}>
@@ -986,25 +1046,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                           onChange={(e) => {
                             const value = e.target.value;
                             if (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') {
-                              const selectedBill = bills.find(b => b.id === value);
+                              const selectedBill = filteredBills.find(b => b.id === value);
                               setFormData(prev => ({
                                 ...prev,
                                 billId: value,
-                                category: selectedBill ? `Bill: ${selectedBill.billName}` : prev.category,
+                                // Don't set a fake category - leave it empty when bill is selected
+                                // The backend will handle categorization based on billId
+                                category: prev.category, // Keep existing category or leave empty
                               }));
                             } else if (formData.transactionPurpose === 'LOAN') {
                               const selectedLoan = loans.find(l => l.id === value);
                               setFormData(prev => ({
                                 ...prev,
                                 loanId: value,
-                                category: selectedLoan ? `Loan: ${selectedLoan.purpose}` : prev.category,
+                                // Don't set a fake category - leave it empty when loan is selected
+                                // The backend will handle categorization based on loanId
+                                category: prev.category, // Keep existing category or leave empty
                               }));
                             } else if (formData.transactionPurpose === 'SAVINGS') {
                               const selectedSavings = savingsAccounts.find(s => s.id === value);
                               setFormData(prev => ({
                                 ...prev,
                                 savingsAccountId: value,
-                                category: selectedSavings ? `Savings: ${selectedSavings.name}` : prev.category,
+                                // Don't set a fake category - leave it empty when savings is selected
+                                // The backend will handle categorization based on savingsAccountId
+                                category: prev.category, // Keep existing category or leave empty
                               }));
                             }
                           }}
@@ -1013,8 +1079,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         {formData.transactionType === 'DEBIT' && (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') ? (
                           loadingBills ? (
                             <MenuItem disabled>Loading bills...</MenuItem>
-                          ) : bills.length > 0 ? (
-                            bills
+                          ) : filteredBills.length > 0 ? (
+                            filteredBills
                               .filter(bill => {
                                 // For UTILITY, only show utility bills
                                 if (formData.transactionPurpose === 'UTILITY') {
@@ -1171,8 +1237,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                       onChange={handleSelectChange('billId')}
                       label="Select Bill"
                     >
-                      {bills.length > 0 ? (
-                        bills.map((bill) => (
+                      {filteredBills.length > 0 ? (
+                        filteredBills.map((bill) => (
                           <MenuItem key={bill.id} value={bill.id}>
                             {bill.billName} - ${bill.amount.toFixed(2)} ({bill.status})
                           </MenuItem>
@@ -1418,6 +1484,38 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </>
         )}
       </DialogActions>
+
+      <SplitTransactionDialog
+        open={showSplitDialog}
+        onClose={() => {
+          setShowSplitDialog(false);
+        }}
+        transaction={
+          formData.amount && parseFloat(formData.amount) > 0
+            ? {
+                id: 'temp-transaction',
+                uploadId: '',
+                transactionDate: new Date(formData.transactionDate).toISOString(),
+                amount: parseFloat(formData.amount),
+                transactionType: formData.transactionType,
+                description: formData.description,
+                referenceNumber: formData.referenceNumber,
+                merchant: formData.merchant,
+                category: formData.category,
+                balanceAfterTransaction: 0,
+                splits: splits,
+                isSplit: isSplit,
+              }
+            : null
+        }
+        bills={getLatestBillsByName(bills)}
+        categories={categories}
+        onSave={(transaction, newSplits) => {
+          setSplits(newSplits);
+          setIsSplit(true);
+          setShowSplitDialog(false);
+        }}
+      />
     </Dialog>
   );
 };

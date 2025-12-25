@@ -906,17 +906,6 @@ const Bills: React.FC = () => {
                                 <Edit fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                            {bill.status === BillStatus.PENDING && (
-                              <Tooltip title="Mark as Paid">
-                                <IconButton
-                                  size="small"
-                                  color="success"
-                                  onClick={() => handleMarkAsPaid(bill.id)}
-                                >
-                                  <CheckCircleIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
                             <Tooltip title="Delete">
                               <IconButton
                                 size="small"

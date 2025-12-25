@@ -4576,10 +4576,12 @@ class ApiService {
   }
 
   async confirmUpload(uploadId: string, confirmData: import('../types/reconciliation').ConfirmBankStatementUploadRequest): Promise<import('../types/reconciliation').BankStatement> {
+    // Use extended timeout (120 seconds) for confirm upload as it processes many transactions,
+    // auto-matches with existing transactions, and creates new transactions
     const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/confirm`, {
       method: 'POST',
       body: JSON.stringify(confirmData),
-    });
+    }, 120000); // 120 seconds timeout
     if (response && response.data) {
       return response.data;
     }
