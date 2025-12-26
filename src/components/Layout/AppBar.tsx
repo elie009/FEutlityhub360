@@ -246,69 +246,90 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
         }),
       }}
     >
-      <Toolbar sx={{ position: 'relative', justifyContent: 'space-between' }}>
-        {/* Left side - Mobile menu only */}
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+      <Toolbar sx={{ 
+        position: 'relative', 
+        justifyContent: 'space-between',
+        minHeight: { xs: '56px', sm: '64px' }, // Consistent toolbar height
+        padding: { xs: '0 8px', sm: '0 16px' }, // Reduced padding on mobile
+      }}>
+        {/* Left side - Menu button and Search Bar */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          flex: 1,
+          gap: 1,
+          minWidth: { xs: '48px', sm: 'auto' }, // Ensure space for menu button
+        }}>
           {isMobile && onMenuClick && (
             <IconButton
               color="inherit"
               aria-label="open drawer"
               onClick={onMenuClick}
               edge="start"
-              sx={{ mr: 2, color: '#1a1a1a' }}
+              sx={{ color: '#1a1a1a', padding: { xs: '8px', sm: '12px' }, flexShrink: 0 }}
             >
               <MenuIcon />
             </IconButton>
           )}
-        </Box>
-
-        {/* Center - Search Bar */}
-        <Box
-          sx={{
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            borderRadius: 1,
-            width: { xs: '250px', sm: '400px', md: '500px', lg: '600px' },
-            maxWidth: '90%',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 12px',
-            border: '1px solid #e5e5e5',
-            backgroundColor: '#ffffff',
-            '&:hover': {
-              backgroundColor: '#ffffff',
-              borderColor: '#1976d2',
-            },
-            '&:focus-within': {
-              borderColor: '#1976d2',
-              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)',
-            },
-          }}
-        >
-          <SearchIcon sx={{ color: '#666666', mr: 1, fontSize: '20px' }} />
-          <InputBase
-            placeholder="Search bills, loans, Expense etc"
-            value={searchQuery}
-            onChange={handleSearchChange}
-            onKeyPress={handleSearchKeyPress}
+          
+          {/* Search Bar */}
+          <Box
             sx={{
-              color: '#1a1a1a',
-              width: '100%',
-              '& .MuiInputBase-input': {
-                padding: '4px 8px',
-                fontSize: '0.875rem',
+              borderRadius: 1,
+              width: { xs: '200px', sm: '300px', md: '400px', lg: '500px' },
+              maxWidth: { xs: 'calc(100vw - 200px)', sm: 'none' },
+              display: 'flex',
+              alignItems: 'center',
+              padding: '4px 12px',
+              border: '1px solid #e5e5e5',
+              backgroundColor: '#ffffff',
+              '&:hover': {
+                backgroundColor: '#ffffff',
+                borderColor: '#1976d2',
+              },
+              '&:focus-within': {
+                borderColor: '#1976d2',
+                boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)',
               },
             }}
-          />
+          >
+            <SearchIcon sx={{ color: '#666666', mr: 1, fontSize: '20px' }} />
+            <InputBase
+              placeholder="Search bills, loans, Expense etc"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onKeyPress={handleSearchKeyPress}
+              sx={{
+                color: '#1a1a1a',
+                width: '100%',
+                '& .MuiInputBase-input': {
+                  padding: '4px 8px',
+                  fontSize: '0.875rem',
+                },
+              }}
+            />
+          </Box>
         </Box>
 
         {/* Right side - Notification bell, settings, and user icon */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, justifyContent: 'flex-end' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 0.5, sm: 1.5 }, 
+          flex: 1, 
+          justifyContent: 'flex-end',
+          minHeight: '48px', // Ensure consistent height
+        }}>
           <IconButton 
             color="inherit" 
             onClick={handleNotificationMenuOpen}
-            sx={{ color: '#1a1a1a' }}
+            sx={{ 
+              color: '#1a1a1a',
+              padding: { xs: '8px', sm: '12px' }, // Consistent padding on mobile
+              '& .MuiSvgIcon-root': {
+                fontSize: { xs: '20px', sm: '24px' }, // Slightly smaller on mobile
+              }
+            }}
           >
             <Badge badgeContent={unreadCount} color="error">
               <NotificationsIcon />
@@ -447,7 +468,13 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
           <IconButton
             color="inherit"
             onClick={() => navigate('/settings')}
-            sx={{ color: '#1a1a1a' }}
+            sx={{ 
+              color: '#1a1a1a',
+              padding: { xs: '8px', sm: '12px' }, // Consistent padding on mobile
+              '& .MuiSvgIcon-root': {
+                fontSize: { xs: '20px', sm: '24px' }, // Slightly smaller on mobile
+              }
+            }}
           >
             <SettingsIcon />
           </IconButton>
@@ -458,7 +485,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
               alignItems: 'center',
               gap: 1,
               cursor: 'pointer',
-              padding: '4px 8px',
+              padding: { xs: '2px 4px', sm: '4px 8px' }, // Reduced padding on mobile
               borderRadius: 1,
               '&:hover': {
                 backgroundColor: 'rgba(0, 0, 0, 0.05)',
@@ -466,7 +493,12 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
             }}
             onClick={handleProfileMenuOpen}
           >
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', mr: 1 }}>
+            <Box sx={{ 
+              display: { xs: 'none', sm: 'flex' }, // Hide user info text on mobile
+              flexDirection: 'column', 
+              alignItems: 'flex-end', 
+              mr: 1 
+            }}>
               <Typography variant="body2" sx={{ color: '#1a1a1a', fontWeight: 500, fontSize: '0.875rem' }}>
                 {user?.name || 'User'}
               </Typography>
@@ -474,7 +506,13 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
                 Admin
               </Typography>
             </Box>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: '#B3EE9A', color: '#1a1a1a', fontWeight: 600 }}>
+            <Avatar sx={{ 
+              width: { xs: 28, sm: 32 }, 
+              height: { xs: 28, sm: 32 }, 
+              bgcolor: '#B3EE9A', 
+              color: '#1a1a1a', 
+              fontWeight: 600 
+            }}>
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </Avatar>
           </Box>

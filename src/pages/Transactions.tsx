@@ -236,6 +236,25 @@ const TransactionsPage: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
+  // Keyboard shortcut: Ctrl + Alt + T to open Add Transaction modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check if Ctrl + Alt + T is pressed
+      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        setShowAddTransactionModal(true);
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array - setShowAddTransactionModal is stable from useState
+
   // Handle search button click
   const handleSearch = () => {
     if (user?.id) {
@@ -1111,23 +1130,27 @@ const TransactionsPage: React.FC = () => {
           >
             {showFiltersSection ? (isMobile ? 'Hide Filters' : 'Hide Filters') : (isMobile ? 'Show Filters' : 'Show Filters')}
           </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Receipt />}
-            onClick={handleCreateTransaction}
-            disabled={bankAccounts.length === 0}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0.5, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Add Transaction' : 'Add Transaction'}
-          </Button>
+          <Tooltip title="Add Transaction (Ctrl + Alt + T)" arrow>
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Receipt />}
+                onClick={handleCreateTransaction}
+                disabled={bankAccounts.length === 0}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ 
+                  mr: { xs: 0.5, sm: 1 },
+                  flex: { xs: '1 1 auto', sm: '0 0 auto' },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  py: { xs: 0.75, sm: 1 },
+                  px: { xs: 1.5, sm: 2 }
+                }}
+              >
+                {isMobile ? 'Add Transaction' : 'Add Transaction'}
+              </Button>
+            </span>
+          </Tooltip>
           <input
             accept="image/jpeg,image/jpg,image/png"
             style={{ display: 'none' }}
