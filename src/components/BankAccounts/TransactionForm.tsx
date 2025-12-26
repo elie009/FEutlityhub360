@@ -224,6 +224,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           setShowLoanSelector(!!initialTransaction.loanId);
         }
         setShowTransferSelector(false); // Don't show transfer selector in edit mode
+        
+        // Load existing splits if transaction has them
+        const transactionWithSplits = initialTransaction as any;
+        if (transactionWithSplits.splits && Array.isArray(transactionWithSplits.splits) && transactionWithSplits.splits.length > 0) {
+          setSplits(transactionWithSplits.splits);
+          setIsSplit(true);
+        } else {
+          // Reset split state if no splits exist
+          setSplits([]);
+          setIsSplit(false);
+        }
       } else {
         // Reset form when dialog opens for new transaction - use smart defaults
         const accountId = defaultAccountId || (bankAccounts.length > 0 ? bankAccounts[0].id : '');
@@ -955,7 +966,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   disabled={isSplit && splits.length > 0}
                   helperText={isSplit && splits.length > 0 ? `${splits.length} split${splits.length > 1 ? 's' : ''} configured` : undefined}
                 />
-                {formData.transactionType === 'DEBIT' && !isEditMode && (
+                {formData.transactionType === 'DEBIT' && (
                   <Tooltip title="Split this transaction across multiple bills or categories">
                     <IconButton
                       onClick={() => {

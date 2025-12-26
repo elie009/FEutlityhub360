@@ -39,7 +39,7 @@ import {
   Public,
   Description,
 } from '@mui/icons-material';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterData } from '../../types/loan';
 import { validateEmail, validatePassword, validateRequired, getErrorMessage } from '../../utils/validation';
@@ -192,7 +192,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               }}
             >
               <Box
-                component={Link}
+                component={RouterLink}
                 to="/"
                 sx={{
                   display: 'inline-flex',
