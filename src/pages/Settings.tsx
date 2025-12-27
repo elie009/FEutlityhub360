@@ -647,7 +647,7 @@ const Settings: React.FC = () => {
         setClearDataResult(response.data);
         
         // Clear local storage after successful API call
-        sessionStorage.removeItem('userProfile');
+        localStorage.removeItem('userProfile');
         localStorage.removeItem('preferredCurrency');
         
         // Clear browser cache if available

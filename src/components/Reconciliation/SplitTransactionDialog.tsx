@@ -135,17 +135,20 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
   const handleSave = () => {
     if (!transaction) return;
 
-    if (!validateSplits()) {
-      return;
-    }
-
     // Filter out empty splits
     const validSplits = splits.filter(
       (split) => split.amount > 0 && (split.billId || split.category)
     );
 
+    // Allow saving even if no splits remain (converts back to regular transaction)
     if (validSplits.length === 0) {
-      setErrors({ total: 'At least one split is required' });
+      // If no splits, just save empty array - backend will handle converting to regular transaction
+      onSave(transaction, []);
+      onClose();
+      return;
+    }
+
+    if (!validateSplits()) {
       return;
     }
 
@@ -343,7 +346,6 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                       size="small"
                       color="error"
                       onClick={() => handleRemoveSplit(split.id)}
-                      disabled={splits.length === 1}
                     >
                       <Delete fontSize="small" />
                     </IconButton>
@@ -370,9 +372,12 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={!isBalanced || splits.length === 0}
+          disabled={
+            splits.length > 0 && 
+            splits.some(s => (!s.billId && !s.category) || !s.amount || s.amount <= 0)
+          }
         >
-          Save Split
+          {splits.length === 0 ? 'Convert to Regular Transaction' : 'Save Split'}
         </Button>
       </DialogActions>
     </Dialog>

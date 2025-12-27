@@ -66,6 +66,7 @@ import BankStatementImportDialog from '../components/Reconciliation/BankStatemen
 import ReconciliationDialog from '../components/Reconciliation/ReconciliationDialog';
 import TransactionMatchingDialog from '../components/Reconciliation/TransactionMatchingDialog';
 import StagingTransactionsModal from '../components/Reconciliation/StagingTransactionsModal';
+import BankStatementTransactionsModal from '../components/Reconciliation/BankStatementTransactionsModal';
 
 const ReconciliationPage: React.FC = () => {
   const { user } = useAuth();
@@ -89,6 +90,7 @@ const ReconciliationPage: React.FC = () => {
   const [showReconciliationDialog, setShowReconciliationDialog] = useState(false);
   const [showMatchingDialog, setShowMatchingDialog] = useState(false);
   const [showStagingModal, setShowStagingModal] = useState(false);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [selectedReconciliation, setSelectedReconciliation] = useState<Reconciliation | null>(null);
   const [selectedStatement, setSelectedStatement] = useState<BankStatement | null>(null);
   const [selectedUpload, setSelectedUpload] = useState<BankStatementUpload | null>(null);
@@ -701,10 +703,10 @@ const ReconciliationPage: React.FC = () => {
                                 size="small"
                                 onClick={() => {
                                   setSelectedStatement(statement);
-                                  setShowMatchingDialog(true);
+                                  setShowTransactionsModal(true);
                                 }}
                               >
-                                <Info />
+                                <Visibility />
                               </IconButton>
                             </Tooltip>
                             {!statement.isReconciled && (
@@ -774,6 +776,15 @@ const ReconciliationPage: React.FC = () => {
               setActiveTab(1); // Switch to Bank Statements tab
               setTimeout(() => setSuccess(''), 3000);
             }}
+          />
+
+          <BankStatementTransactionsModal
+            open={showTransactionsModal}
+            onClose={() => {
+              setShowTransactionsModal(false);
+              setSelectedStatement(null);
+            }}
+            statement={selectedStatement}
           />
         </>
       )}

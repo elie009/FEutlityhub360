@@ -141,7 +141,7 @@ const truncateTransactionDescription = (description: string, maxLength: number =
 };
 
 const Dashboard: React.FC = () => {
-  const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
+  const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile, profileLoading } = useAuth();
   const { formatCurrency, currency } = useCurrency();
   const navigate = useNavigate();
   const [financialData, setFinancialData] = useState<any>(null);
@@ -198,9 +198,22 @@ const Dashboard: React.FC = () => {
       company: ''
     }]
   });
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileFormLoading, setProfileFormLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
+  
+  // Profile in localStorage check (shared across tabs)
+  const profileInSessionStorage = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('userProfile');
+      return stored !== null && stored !== 'null' && stored !== '';
+    } catch {
+      return false;
+    }
+  }, []);
+  
+  // Checking profile state
+  const [checkingProfile, setCheckingProfile] = useState(false);
   
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -717,7 +730,7 @@ const Dashboard: React.FC = () => {
 
   const handleCreateProfile = async () => {
     try {
-      setProfileLoading(true);
+      setProfileFormLoading(true);
       setProfileError('');
       setProfileSuccess('');
 
@@ -763,15 +776,10 @@ const Dashboard: React.FC = () => {
         response = await apiService.updateUserProfile(profileData);
         setProfileSuccess('Profile updated successfully!');
       } else {
-        // Filter out empty income sources (those with no name or zero amount)
-        const validIncomeSources = profileFormData.incomeSources.filter(source => 
-          source.name && source.name.trim() !== '' && source.amount > 0
-        );
-        
         // Create new profile
         response = await apiService.createUserProfile({
           ...profileData,
-          incomeSources: validIncomeSources,
+          incomeSources: profileFormData.incomeSources,
         });
         setProfileSuccess('Profile created successfully!');
       }
@@ -825,7 +833,7 @@ const Dashboard: React.FC = () => {
         setProfileError(error.message || 'Failed to create profile');
       }
     } finally {
-      setProfileLoading(false);
+      setProfileFormLoading(false);
     }
   };
 
@@ -2070,28 +2078,217 @@ const Dashboard: React.FC = () => {
                           </Card>
                         </Grid>
                       </Grid>
-                    ) : (
-                      <Alert 
-                        severity="info" 
-                        icon={<InfoIcon />}
-                        sx={{ 
-                          background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
-                          border: '1px solid',
-                          borderColor: 'info.light'
-                        }}
-                      >
-                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                          Profile Setup Required
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary" component="div">
-                          <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                            <li>Complete your profile to see financial data</li>
-                            <li>Add income sources to get started</li>
-                            <li>Set up financial goals</li>
+                    ) : (() => {
+                      // Check if user has income sources (even without profile)
+                      const hasIncomeSources = incomeSourcesSummary?.incomeSources?.length > 0 || 
+                                              incomeSourcesSummary?.totalSources > 0;
+                      
+                      // If profile exists in localStorage, we definitely have a profile (just loading from AuthContext)
+                      // Never show "Profile Setup Required" if profile exists in localStorage OR if user has income sources
+                      const hasProfileData = hasProfile || (userProfile && userProfile.id) || profileInSessionStorage || hasIncomeSources;
+                      const isLoading = profileLoading || checkingProfile || (profileInSessionStorage && !hasProfile);
+                      
+                      if (isLoading) {
+                        return (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Loading profile data...
+                            </Typography>
                           </Box>
-                        </Typography>
-                      </Alert>
-                    )}
+                        );
+                      } else if (recentActivity) {
+                        // TypeScript type guard - recentActivity is not null here
+                        const activity: {
+                          incomeSourcesCount: number;
+                          totalMonthlyIncome: number;
+                          totalMonthlyGoals: number;
+                          disposableAmount: number;
+                          hasProfile: boolean;
+                          profileStatus: string;
+                        } = recentActivity;
+                        return (
+                          <Grid container spacing={2}>
+                        {/* Profile Status */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: activity.hasProfile 
+                                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                                : 'linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%)',
+                              borderColor: activity.hasProfile ? 'success.light' : 'warning.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <AccountCircle 
+                                  sx={{ 
+                                    fontSize: 24, 
+                                    color: activity.hasProfile ? 'success.main' : 'warning.main',
+                                    mr: 1 
+                                  }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Profile Status
+                                </Typography>
+                              </Box>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontWeight: 600,
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {activity.profileStatus}
+                              </Typography>
+                              <Chip
+                                label={`${activity.incomeSourcesCount} income source${activity.incomeSourcesCount !== 1 ? 's' : ''}`}
+                                size="small"
+                                color={activity.hasProfile ? 'success' : 'warning'}
+                                variant="outlined"
+                                sx={{ 
+                                  color: '#1a1a1a',
+                                  '& .MuiChip-label': { color: '#1a1a1a' }
+                                }}
+                              />
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Monthly Income */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                              borderColor: 'primary.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <TrendingUpIcon 
+                                  sx={{ fontSize: 24, color: 'primary.main', mr: 1 }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Monthly Income
+                                </Typography>
+                              </Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                {formatCurrency(activity.totalMonthlyIncome)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                From {activity.incomeSourcesCount} source{activity.incomeSourcesCount !== 1 ? 's' : ''}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Monthly Goals */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(156, 39, 176, 0.05) 100%)',
+                              borderColor: 'secondary.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <TrackChanges 
+                                  sx={{ fontSize: 24, color: 'secondary.main', mr: 1 }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Monthly Goals
+                                </Typography>
+                              </Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                {formatCurrency(activity.totalMonthlyGoals)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                Savings, Investment & Emergency
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Disposable Amount */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: activity.disposableAmount >= 0
+                                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                                : 'linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(244, 67, 54, 0.05) 100%)',
+                              borderColor: activity.disposableAmount >= 0 ? 'success.light' : 'error.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <MoneyIcon 
+                                  sx={{ 
+                                    fontSize: 24, 
+                                    color: activity.disposableAmount >= 0 ? 'success.main' : 'error.main',
+                                    mr: 1 
+                                  }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Disposable Amount
+                                </Typography>
+                              </Box>
+                              <Typography 
+                                variant="h6" 
+                                sx={{ 
+                                  fontWeight: 700, 
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {formatCurrency(activity.disposableAmount)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                Available this month
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      </Grid>
+                        );
+                      } else if (hasProfileData) {
+                        // Has profile or income sources but no recent activity data yet
+                        return (
+                          <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              No recent activity data available
+                            </Typography>
+                          </Box>
+                        );
+                      } else {
+                        // No profile and no income sources - show setup required
+                        return (
+                          <Alert 
+                            severity="info" 
+                            icon={<InfoIcon />}
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                              border: '1px solid',
+                              borderColor: 'info.light'
+                            }}
+                          >
+                            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                              Profile Setup Required
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" component="div">
+                              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                                <li>Complete your profile to see financial data</li>
+                                <li>Add income sources to get started</li>
+                                <li>Set up financial goals</li>
+                              </Box>
+                            </Typography>
+                          </Alert>
+                        );
+                      }
+                    })()}
                   </CardContent>
                 </Card>
               </Grid>

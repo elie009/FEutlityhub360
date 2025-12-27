@@ -167,14 +167,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setHasProfile(true);
         setUserProfile(profile);
         isActiveUser = true;
-        sessionStorage.setItem('userProfile', JSON.stringify(profile));
+        localStorage.setItem('userProfile', JSON.stringify(profile));
        
       } else {
         // No profile data - clear session and state
         console.log('AuthContext: ❌ No profile found - profile:', !!profile);
         setHasProfile(false);
         setUserProfile(null);
-        sessionStorage.removeItem('userProfile');
+        localStorage.removeItem('userProfile');
       }
 
       
@@ -413,7 +413,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         setHasProfile(true);
         setUserProfile(profile);
-        sessionStorage.setItem('userProfile', JSON.stringify(profile));
+        localStorage.setItem('userProfile', JSON.stringify(profile));
         
         // Also save preferredCurrency to localStorage for faster access
         if (profile.preferredCurrency) {
@@ -425,7 +425,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // No profile data - clear session and state
         setHasProfile(false);
         setUserProfile(null);
-        sessionStorage.removeItem('userProfile');
+        localStorage.removeItem('userProfile');
         return false;
       }
     } catch (error: any) {
@@ -554,9 +554,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
-  // Load profile from session on mount if available
+  // Load profile from localStorage on mount if available
   useEffect(() => {
-    const savedProfile = sessionStorage.getItem('userProfile');
+    const savedProfile = localStorage.getItem('userProfile');
     if (savedProfile && isAuthenticated) {
       try {
         const profile = JSON.parse(savedProfile);
@@ -566,12 +566,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (profile.preferredCurrency) {
           localStorage.setItem('preferredCurrency', profile.preferredCurrency);
         }
-        console.log('AuthContext: Loaded profile from session with preferredCurrency:', profile.preferredCurrency);
+        console.log('AuthContext: Loaded profile from localStorage with preferredCurrency:', profile.preferredCurrency);
       } catch (error) {
         console.error('AuthContext: Error parsing saved profile:', error);
-        sessionStorage.removeItem('userProfile');
+        localStorage.removeItem('userProfile');
       }
     }
+  }, [isAuthenticated]);
+
+  // Listen for storage changes across tabs (cross-tab sync)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'userProfile') {
+        if (e.newValue && isAuthenticated) {
+          try {
+            const profile = JSON.parse(e.newValue);
+            setUserProfile(profile);
+            setHasProfile(true);
+            console.log('AuthContext: Profile synced from another tab');
+          } catch (error) {
+            console.error('AuthContext: Error parsing profile from storage event:', error);
+          }
+        } else if (e.newValue === null) {
+          // Profile was removed in another tab
+          setUserProfile(null);
+          setHasProfile(false);
+          console.log('AuthContext: Profile removed in another tab');
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [isAuthenticated]);
 
   const value: AuthContextType = {

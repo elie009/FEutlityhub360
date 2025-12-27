@@ -459,9 +459,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       return (
         <ListItem key={item.text} disablePadding sx={{ mb: 0.25 }}>
           <ListItemButton
+            component={item.path ? "a" : "div"}
+            href={item.path || undefined}
             selected={false}
-            onClick={() => {
+            onClick={(e: React.MouseEvent<HTMLElement>) => {
               if (item.path) {
+                e.preventDefault(); // Prevent default anchor navigation
                 handleNavigation(item.path, item.state);
               }
             }}
@@ -510,11 +513,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       <React.Fragment key={item.text}>
         <ListItem disablePadding sx={{ mb: 0.25 }}>
           <ListItemButton
+            component={!hasChildren && item.path ? "a" : "div"}
+            href={!hasChildren && item.path ? item.path : undefined}
             selected={false}
-            onClick={() => {
+            onClick={(e: React.MouseEvent<HTMLElement>) => {
               if (hasChildren) {
+                e.preventDefault();
                 handleSectionToggle(item.text);
               } else if (item.path) {
+                e.preventDefault(); // Prevent default anchor navigation
                 handleNavigation(item.path, item.state);
               }
             }}

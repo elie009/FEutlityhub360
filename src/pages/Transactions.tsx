@@ -17,6 +17,7 @@ import {
   FilterList, FilterListOff, CloudUpload, Delete,
   ContentPaste, AutoAwesome, Search, Close,
   Save, Bookmark, Edit, CheckBox, CheckBoxOutlineBlank,
+  ExpandMore, ExpandLess,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -127,6 +128,7 @@ const TransactionsPage: React.FC = () => {
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
   const [selectedBillId, setSelectedBillId] = useState<string>('');
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
+  const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
   const [selectedSavingsAccountId, setSelectedSavingsAccountId] = useState<string>('');
   const [isLoadingLinkedData, setIsLoadingLinkedData] = useState(false);
   const [closedMonthsMap, setClosedMonthsMap] = useState<Map<string, Set<string>>>(new Map()); // Map<bankAccountId, Set<"YYYY-MM">>
@@ -298,7 +300,15 @@ const TransactionsPage: React.FC = () => {
         apiService.getBankAccountSummary(),
       ]);
 
-      setTransactions(transactionsResponse.data);
+      // Ensure transactions have proper structure and splits are arrays
+      const processedTransactions = (transactionsResponse.data || []).map((t: BankAccountTransaction) => ({
+        ...t,
+        splits: Array.isArray(t.splits) ? t.splits : (t.splits ? [t.splits] : []),
+        isSplit: t.isSplit || false,
+        splitCount: t.splitCount || (Array.isArray(t.splits) ? t.splits.length : 0)
+      }));
+      
+      setTransactions(processedTransactions);
       setAnalytics(analyticsData);
       setBankAccountAnalytics(bankAccountAnalyticsData);
       setBankAccountSummary(bankAccountSummaryData);
@@ -2257,6 +2267,11 @@ const TransactionsPage: React.FC = () => {
                     </Box>
                   )}
                 </TableCell>
+                <TableCell align="center" sx={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                    SPLIT
+                  </Typography>
+                </TableCell>
                 <TableCell align="center" sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                     <IconButton
@@ -2285,7 +2300,7 @@ const TransactionsPage: React.FC = () => {
                     {groupBy !== 'none' && (
                       <TableRow>
                         <TableCell 
-                          colSpan={isBatchMode ? 8 : 7}
+                          colSpan={isBatchMode ? 9 : 8}
                           sx={{ 
                             bgcolor: 'action.hover', 
                             fontWeight: 'bold',
@@ -2301,9 +2316,10 @@ const TransactionsPage: React.FC = () => {
                     )}
                     {groupTransactions.map((transaction) => {
                 const isCredit = transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT';
+                const isExpanded = expandedSplits.has(transaction.id);
                 return (
+                  <React.Fragment key={transaction.id}>
                 <TableRow 
-                  key={transaction.id} 
                   hover
                   sx={{
                     backgroundColor: isCredit ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
@@ -2510,6 +2526,35 @@ const TransactionsPage: React.FC = () => {
                       sx={{ fontSize: '0.75rem' }}
                     />
                   </TableCell>
+                  <TableCell align="center" sx={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                    {transaction.isSplit && transaction.splitCount && transaction.splitCount > 1 && Array.isArray(transaction.splits) && transaction.splits.length > 0 ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const newExpanded = new Set(expandedSplits);
+                            if (newExpanded.has(transaction.id)) {
+                              newExpanded.delete(transaction.id);
+                            } else {
+                              newExpanded.add(transaction.id);
+                            }
+                            setExpandedSplits(newExpanded);
+                          }}
+                          sx={{ padding: '4px' }}
+                          aria-label={expandedSplits.has(transaction.id) ? 'Collapse splits' : 'Expand splits'}
+                        >
+                          {expandedSplits.has(transaction.id) ? <ExpandLess /> : <ExpandMore />}
+                        </IconButton>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'medium' }}>
+                          {transaction.splitCount}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                        -
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="center" sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                       <IconButton
@@ -2538,6 +2583,73 @@ const TransactionsPage: React.FC = () => {
                     </Box>
                   </TableCell>
                 </TableRow>
+                {/* Split rows - shown when expanded */}
+                {transaction.isSplit && transaction.splits && Array.isArray(transaction.splits) && isExpanded && transaction.splits
+                  .filter((split) => split != null)
+                  .map((split, index) => (
+                    <TableRow 
+                      key={`${transaction.id}-split-${index}`}
+                      sx={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        '& td': {
+                          paddingLeft: '48px',
+                          borderLeft: '2px solid',
+                          borderColor: 'divider'
+                        }
+                      }}
+                    >
+                      {isBatchMode && <TableCell />}
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            →
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                            {formatDateWithTime(transaction.transactionDate)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem', flex: 1 }}>
+                            {split.description || transaction.description || ''}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', color: isCredit ? 'success.main' : 'error.main' }}>
+                          {isCredit ? '+' : '-'}
+                          {formatCurrency(Math.abs(split.amount || 0))}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={split.category || transaction.category || 'Uncategorized'} 
+                          color="primary"
+                          size="small"
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                          {transaction.accountName || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={transaction.transactionType} 
+                          color={isCredit ? 'success' : 'error'}
+                          size="small"
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                          -
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {/* Split rows are not editable */}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  </React.Fragment>
                 );
                     })}
                   </React.Fragment>

@@ -2652,6 +2652,21 @@ class ApiService {
     return false;
   }
 
+  // Recalculate balance from transactions
+  async recalculateBalance(bankAccountId: string): Promise<number> {
+    if (isMockDataEnabled()) {
+      // Return mock balance
+      return 1000.00;
+    }
+    const response = await this.request<any>(`/BankAccounts/${bankAccountId}/recalculate-balance`, {
+      method: 'POST',
+    });
+    if (response && response.success && typeof response.data === 'number') {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to recalculate balance');
+  }
+
   // Utility method for formatting currency
   formatCurrency(amount: number, currency: string = 'USD'): string {
     return new Intl.NumberFormat('en-US', {

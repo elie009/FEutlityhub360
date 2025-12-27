@@ -963,8 +963,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   value={formData.amount}
                   onChange={handleInputChange('amount')}
                   inputProps={{ min: 0.01, step: 0.01 }}
-                  disabled={isSplit && splits.length > 0}
-                  helperText={isSplit && splits.length > 0 ? `${splits.length} split${splits.length > 1 ? 's' : ''} configured` : undefined}
+                  disabled={false}
+                  helperText={isSplit && splits.length > 0 ? `${splits.length} split${splits.length > 1 ? 's' : ''} configured. Adjust splits to match new amount.` : undefined}
                 />
                 {formData.transactionType === 'DEBIT' && (
                   <Tooltip title="Split this transaction across multiple bills or categories">
@@ -1522,8 +1522,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         bills={getLatestBillsByName(bills)}
         categories={categories}
         onSave={(transaction, newSplits) => {
-          setSplits(newSplits);
-          setIsSplit(true);
+          if (newSplits.length === 0) {
+            // If no splits remain, convert back to regular transaction
+            setSplits([]);
+            setIsSplit(false);
+          } else {
+            setSplits(newSplits);
+            setIsSplit(true);
+          }
           setShowSplitDialog(false);
         }}
       />

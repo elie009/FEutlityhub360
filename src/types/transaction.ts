@@ -29,6 +29,18 @@ export interface BankAccountTransaction {
   deletedAt?: string;
   deletedBy?: string;
   deleteReason?: string;
+  // Split transaction support
+  splits?: TransactionSplit[];
+  isSplit?: boolean;
+  splitCount?: number;
+}
+
+export interface TransactionSplit {
+  id: string;
+  amount: number;
+  billId?: string;
+  category?: string;
+  description?: string;
 }
 
 export interface TransactionFilters {

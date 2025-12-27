@@ -578,6 +578,7 @@ const BankAccounts: React.FC = () => {
         open={showTransactionsModal}
         onClose={handleCloseTransactionsModal}
         account={accountForTransactions}
+        onBalanceRecalculated={loadBankAccounts}
       />
 
       {/* Reconciliation Guide Dialog */}
