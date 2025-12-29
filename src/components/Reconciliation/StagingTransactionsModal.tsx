@@ -313,6 +313,7 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
   const [transactions, setTransactions] = useState<StagingTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<StagingTransaction | null>(null);
@@ -832,7 +833,92 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     }
   };
 
+  const handleSaveStaging = async () => {
+    if (!upload) return;
+
+    setIsSaving(true);
+    setError('');
+    try {
+      // Helper function to convert date string to ISO DateTime (same as in handleConfirm)
+      const convertToISODateTime = (dateStr: string): string => {
+        if (!dateStr) return new Date().toISOString();
+        
+        if (dateStr.includes('T') || dateStr.includes('Z')) {
+          try {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString();
+            }
+          } catch {
+            // Fall through
+          }
+        }
+        
+        if (dateStr.includes('/')) {
+          const parts = dateStr.split('/');
+          if (parts.length === 3) {
+            const month = parts[0].padStart(2, '0');
+            const day = parts[1].padStart(2, '0');
+            const year = parts[2];
+            const isoDate = `${year}-${month}-${day}`;
+            return `${isoDate}T00:00:00.000Z`;
+          }
+        }
+        
+        if (dateStr.length === 10 && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return `${dateStr}T00:00:00.000Z`;
+        }
+        
+        try {
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString();
+          }
+        } catch {
+          // If parsing fails, use current date
+        }
+        
+        return new Date().toISOString();
+      };
+
+      // Transform transactions to ensure dates are in ISO DateTime format
+      const transformedTransactions = transactions.map(transaction => ({
+        ...transaction,
+        transactionDate: convertToISODateTime(transaction.transactionDate)
+      }));
+
+      // Transform statement dates to ISO DateTime format
+      const saveData = {
+        statementName: formData.statementName || '',
+        statementStartDate: formData.statementStartDate ? convertToISODateTime(formData.statementStartDate) : '',
+        statementEndDate: formData.statementEndDate ? convertToISODateTime(formData.statementEndDate) : '',
+        openingBalance: formData.openingBalance || 0,
+        closingBalance: formData.closingBalance || 0,
+        transactions: transformedTransactions
+      };
+
+      // Call save endpoint (backend endpoint needs to be created)
+      await apiService.saveStagingTransactions(upload.id, saveData);
+      
+      // Reload staging transactions to ensure sync with backend
+      await loadStagingTransactions();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to save staging transactions.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!upload) return null;
+
+  // Calculate totals
+  const totalDebit = transactions
+    .filter(t => t.transactionType === 'DEBIT')
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+  
+  const totalCredit = transactions
+    .filter(t => t.transactionType === 'CREDIT')
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
@@ -900,9 +986,19 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="subtitle2">
-            Extracted Transactions ({transactions.length})
-          </Typography>
+          <Box>
+            <Typography variant="subtitle2">
+              Extracted Transactions ({transactions.length})
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+              <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 'medium' }}>
+                Total Debit: {formatCurrency(totalDebit)}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 'medium' }}>
+                Total Credit: {formatCurrency(totalCredit)}
+              </Typography>
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <input
               ref={fileInputRef}
@@ -995,6 +1091,26 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
                       <TableCell colSpan={9} align="center">No transactions found.</TableCell>
                     </TableRow>
                   )}
+                  {/* Totals Row */}
+                  {transactions.length > 0 && (
+                    <TableRow sx={{ backgroundColor: 'action.hover', fontWeight: 'bold' }}>
+                      <TableCell colSpan={3} align="right" sx={{ fontWeight: 'bold' }}>
+                        <strong>Totals:</strong>
+                      </TableCell>
+                      <TableCell></TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 'bold' }}>
+                            Debit: {formatCurrency(totalDebit)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 'bold' }}>
+                            Credit: {formatCurrency(totalCredit)}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell colSpan={4}></TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -1002,11 +1118,19 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isConfirming}>Cancel</Button>
+        <Button onClick={onClose} disabled={isConfirming || isSaving}>Cancel</Button>
+        <Button 
+          variant="outlined" 
+          onClick={handleSaveStaging} 
+          disabled={isSaving || isConfirming || transactions.length === 0 || isLoading}
+          startIcon={isSaving ? <CircularProgress size={20} /> : <Save />}
+        >
+          {isSaving ? 'Saving...' : 'Save Staging Transactions'}
+        </Button>
         <Button 
           variant="contained" 
           onClick={handleConfirm} 
-          disabled={isConfirming || transactions.length === 0 || isLoading}
+          disabled={isConfirming || isSaving || transactions.length === 0 || isLoading}
           startIcon={isConfirming ? <CircularProgress size={20} /> : <CheckCircle />}
         >
           {isConfirming ? 'Confirming...' : 'Confirm & Finalize'}

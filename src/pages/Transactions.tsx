@@ -17,7 +17,7 @@ import {
   FilterList, FilterListOff, CloudUpload, Delete,
   ContentPaste, AutoAwesome, Search, Close,
   Save, Bookmark, Edit, CheckBox, CheckBoxOutlineBlank,
-  ExpandMore, ExpandLess,
+  ExpandMore, ExpandLess, Download,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -138,6 +138,14 @@ const TransactionsPage: React.FC = () => {
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<BankAccountTransaction | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Import/Export state
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<string>('');
   
   // Saved Filter Presets
   interface FilterPreset {
@@ -444,6 +452,369 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
+  // Helper function to filter transactions (matches the filtering logic in render)
+  const getFilteredTransactions = (): BankAccountTransaction[] => {
+    let filtered = transactions;
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.description?.toLowerCase().includes(query) ||
+        t.merchant?.toLowerCase().includes(query) ||
+        t.referenceNumber?.toLowerCase().includes(query) ||
+        t.category?.toLowerCase().includes(query)
+      );
+    }
+    
+    if (columnFilters.dateFrom) {
+      filtered = filtered.filter(t => {
+        const tDate = new Date(t.transactionDate);
+        const filterDate = new Date(columnFilters.dateFrom);
+        filterDate.setHours(0, 0, 0, 0);
+        return tDate >= filterDate;
+      });
+    }
+    
+    if (columnFilters.dateTo) {
+      filtered = filtered.filter(t => {
+        const tDate = new Date(t.transactionDate);
+        const filterDate = new Date(columnFilters.dateTo);
+        filterDate.setHours(23, 59, 59, 999);
+        return tDate <= filterDate;
+      });
+    }
+    
+    if (columnFilters.category) {
+      filtered = filtered.filter(t => 
+        t.category?.toLowerCase().includes(columnFilters.category.toLowerCase())
+      );
+    }
+    
+    if (columnFilters.transactionType) {
+      filtered = filtered.filter(t => 
+        t.transactionType?.toLowerCase() === columnFilters.transactionType.toLowerCase()
+      );
+    }
+    
+    if (columnFilters.amountMin) {
+      filtered = filtered.filter(t => 
+        t.amount >= parseFloat(columnFilters.amountMin)
+      );
+    }
+    
+    if (columnFilters.amountMax) {
+      filtered = filtered.filter(t => 
+        t.amount <= parseFloat(columnFilters.amountMax)
+      );
+    }
+    
+    if (filters.bankAccountId) {
+      filtered = filtered.filter(t => t.bankAccountId === filters.bankAccountId);
+    }
+    
+    if (filters.category) {
+      filtered = filtered.filter(t => t.category === filters.category);
+    }
+    
+    if (filters.transactionType) {
+      filtered = filtered.filter(t => 
+        t.transactionType?.toLowerCase() === filters.transactionType?.toLowerCase()
+      );
+    }
+    
+    return filtered;
+  };
+
+  // Export transactions to CSV
+  const handleExportTransactions = () => {
+    try {
+      const transactionsToExport = getFilteredTransactions();
+
+      if (transactionsToExport.length === 0) {
+        setError('No transactions to export');
+        return;
+      }
+
+      // Define CSV headers
+      const headers = [
+        'Date',
+        'Description',
+        'Amount',
+        'Type',
+        'Category',
+        'Account',
+        'Merchant',
+        'Location',
+        'Reference Number',
+        'Notes',
+        'Balance After'
+      ];
+
+      // Convert transactions to CSV rows
+      const csvRows = transactionsToExport.map(transaction => {
+        const account = bankAccounts.find(acc => acc.id === transaction.bankAccountId);
+        const accountName = account ? `${account.accountName}${account.accountNumber ? ` (${account.accountNumber})` : ''}` : '';
+        
+        // Format date as ISO string for better CSV compatibility
+        const transactionDate = new Date(transaction.transactionDate);
+        const formattedDate = transactionDate.toISOString().replace('T', ' ').substring(0, 19);
+        
+        return [
+          formattedDate,
+          `"${(transaction.description || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
+          transaction.amount.toString(),
+          transaction.transactionType,
+          transaction.category || '',
+          accountName,
+          transaction.merchant || '',
+          transaction.location || '',
+          transaction.referenceNumber || '',
+          `"${(transaction.notes || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
+          transaction.balanceAfterTransaction.toString()
+        ].join(',');
+      });
+
+      // Combine headers and rows
+      const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export transactions');
+    }
+  };
+
+  // Parse CSV line (handles quoted fields)
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result;
+  };
+
+  // Handle file selection for import
+  const handleImportFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+        setImportError('Please select a CSV file');
+        return;
+      }
+      setImportFile(file);
+      setImportError(null);
+    }
+  };
+
+  // Import transactions from CSV
+  const handleImportTransactions = async () => {
+    if (!importFile) {
+      setImportError('Please select a CSV file');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+    setImportProgress('Reading file...');
+
+    try {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split(/\r?\n/).filter(line => line.trim());
+          
+          if (lines.length < 2) {
+            throw new Error('CSV file must have at least a header row and one data row');
+          }
+
+          // Parse header row
+          const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+          
+          // Find column indices (flexible matching)
+          const dateIndex = headers.findIndex(h => 
+            h.includes('date') || h.includes('transaction date')
+          );
+          const amountIndex = headers.findIndex(h => 
+            h.includes('amount') || h.includes('transaction amount')
+          );
+          const typeIndex = headers.findIndex(h => 
+            h.includes('type') || h.includes('transaction type')
+          );
+          const descriptionIndex = headers.findIndex(h => 
+            h.includes('description') || h.includes('details') || h.includes('memo')
+          );
+          const categoryIndex = headers.findIndex(h => h.includes('category'));
+          const accountIndex = headers.findIndex(h => 
+            h.includes('account') || h.includes('bank account')
+          );
+          const merchantIndex = headers.findIndex(h => h.includes('merchant'));
+          const locationIndex = headers.findIndex(h => h.includes('location'));
+          const referenceIndex = headers.findIndex(h => 
+            h.includes('reference') || h.includes('ref')
+          );
+          const notesIndex = headers.findIndex(h => h.includes('notes'));
+
+          if (dateIndex === -1 || amountIndex === -1 || descriptionIndex === -1) {
+            throw new Error('CSV must contain columns: Date, Amount, and Description');
+          }
+
+          // Parse data rows
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            
+            if (values.length < headers.length) {
+              errorCount++;
+              continue;
+            }
+
+            const dateStr = values[dateIndex]?.trim();
+            const amountStr = values[amountIndex]?.trim();
+            const description = values[descriptionIndex]?.trim().replace(/^"|"$/g, '');
+            const type = values[typeIndex]?.trim().toLowerCase() || 'debit';
+            const category = values[categoryIndex]?.trim() || '';
+            const accountName = values[accountIndex]?.trim() || '';
+            const merchant = values[merchantIndex]?.trim() || '';
+            const location = values[locationIndex]?.trim() || '';
+            const reference = values[referenceIndex]?.trim() || '';
+            const notes = values[notesIndex]?.trim().replace(/^"|"$/g, '') || '';
+
+            // Find bank account by name or use first available
+            let bankAccountId = bankAccounts[0]?.id || '';
+            if (accountName) {
+              const account = bankAccounts.find(acc => 
+                acc.accountName.toLowerCase().includes(accountName.toLowerCase()) ||
+                acc.accountNumber?.includes(accountName)
+              );
+              if (account) {
+                bankAccountId = account.id;
+              }
+            }
+
+            if (!bankAccountId) {
+              errorCount++;
+              continue;
+            }
+
+            // Parse date
+            let transactionDate = new Date();
+            if (dateStr) {
+              const parsedDate = new Date(dateStr);
+              if (!isNaN(parsedDate.getTime())) {
+                transactionDate = parsedDate;
+              }
+            }
+
+            // Parse amount
+            const amount = parseFloat(amountStr?.replace(/[^0-9.-]/g, '') || '0');
+            if (isNaN(amount) || amount === 0) {
+              errorCount++;
+              continue;
+            }
+
+            // Determine transaction type
+            let transactionType: 'CREDIT' | 'DEBIT' = 'DEBIT';
+            if (type.includes('credit') || type.includes('income') || amount < 0) {
+              transactionType = 'CREDIT';
+            }
+
+            const transactionData = {
+              bankAccountId,
+              amount: Math.abs(amount),
+              transactionType,
+              description: description || 'Imported transaction',
+              category: category || undefined,
+              merchant: merchant || undefined,
+              location: location || undefined,
+              referenceNumber: reference || undefined,
+              notes: notes || undefined,
+              transactionDate: transactionDate.toISOString(),
+            };
+
+            setImportProgress(`Processing row ${i}/${lines.length - 1}...`);
+
+            // Create transaction via API
+            try {
+              await apiService.createBankTransaction(transactionData);
+              successCount++;
+            } catch (err: any) {
+              console.error(`Error importing transaction ${i}:`, err);
+              errorCount++;
+            }
+          }
+
+          setImportProgress(`Import complete! ${successCount} imported, ${errorCount} errors`);
+          
+          // Reload transactions
+          setTimeout(() => {
+            loadTransactionsAndAnalytics();
+            setShowImportDialog(false);
+            setImportFile(null);
+            setImportProgress('');
+            if (successCount > 0) {
+              setAnalyzerSuccess(`Successfully imported ${successCount} transaction(s)`);
+            }
+            if (errorCount > 0) {
+              setAnalyzerError(`Failed to import ${errorCount} transaction(s). Please check the data format.`);
+            }
+          }, 1500);
+
+        } catch (err: any) {
+          setImportError(err.message || 'Failed to parse CSV file');
+          setImportProgress('');
+        } finally {
+          setIsImporting(false);
+        }
+      };
+
+      reader.onerror = () => {
+        setImportError('Failed to read file');
+        setIsImporting(false);
+        setImportProgress('');
+      };
+
+      reader.readAsText(importFile);
+    } catch (err: any) {
+      setImportError(err.message || 'Failed to import transactions');
+      setIsImporting(false);
+      setImportProgress('');
+    }
+  };
+
   const handleCreateTransaction = () => {
     setShowAddTransactionModal(true);
   };
@@ -587,18 +958,52 @@ const TransactionsPage: React.FC = () => {
   // Batch Actions
   const handleBatchDelete = async () => {
     if (selectedTransactions.size === 0) return;
-    if (!window.confirm(`Delete ${selectedTransactions.size} transaction(s)?`)) return;
     
+    // Filter out transactions that cannot be deleted (closed months)
+    const deletableTransactions = Array.from(selectedTransactions).filter(id => {
+      const transaction = transactions.find(t => t.id === id);
+      return transaction && !isTransactionMonthClosed(transaction);
+    });
+    
+    const closedTransactions = Array.from(selectedTransactions).filter(id => {
+      const transaction = transactions.find(t => t.id === id);
+      return transaction && isTransactionMonthClosed(transaction);
+    });
+    
+    if (closedTransactions.length > 0) {
+      const closedCount = closedTransactions.length;
+      const totalCount = selectedTransactions.size;
+      if (deletableTransactions.length === 0) {
+        setError(`Cannot delete ${closedCount} transaction(s): Month is closed for these transactions.`);
+        return;
+      }
+      if (!window.confirm(
+        `${closedCount} of ${totalCount} selected transaction(s) cannot be deleted (month is closed). ` +
+        `Do you want to delete the remaining ${deletableTransactions.length} transaction(s)?`
+      )) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Delete ${selectedTransactions.size} transaction(s)?`)) return;
+    }
+    
+    setIsDeleting(true);
     try {
-      const deletePromises = Array.from(selectedTransactions).map(id => 
-        apiService.deleteTransaction(id)
-      );
-      await Promise.all(deletePromises);
-      setSelectedTransactions(new Set());
-      setIsBatchMode(false);
-      loadTransactionsAndAnalytics();
+      const result = await apiService.bulkDeleteTransactions(deletableTransactions);
+      
+      if (result.failed > 0) {
+        setError(`Successfully deleted ${result.success} transaction(s), but ${result.failed} failed. Please check the transactions page.`);
+      } else {
+        // Success - clear selection and reload
+        setSelectedTransactions(new Set());
+        setIsBatchMode(false);
+      }
+      
+      await loadTransactionsAndAnalytics();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, 'Failed to delete some transactions'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1040,6 +1445,9 @@ const TransactionsPage: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell align="center" sx={{ width: '50px' }}>
+                      <Skeleton variant="text" width={20} height={20} />
+                    </TableCell>
                     <TableCell sx={{ width: isBatchMode ? '350px' : '380px' }}>
                       <Skeleton variant="text" width={120} height={20} />
                     </TableCell>
@@ -1063,6 +1471,9 @@ const TransactionsPage: React.FC = () => {
                 <TableBody>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
                     <TableRow key={i}>
+                      <TableCell align="center">
+                        <Skeleton variant="text" width={20} height={20} />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                           <Skeleton variant="text" width={100} height={20} />
@@ -1213,6 +1624,21 @@ const TransactionsPage: React.FC = () => {
             }}
           >
             {isMobile ? '' : 'Refresh'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Download />}
+            onClick={handleExportTransactions}
+            disabled={isLoading || transactions.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              minWidth: { xs: 'auto', sm: 100 },
+              px: { xs: 1, sm: 2 }
+            }}
+            title="Export transactions to CSV"
+          >
+            {isMobile ? '' : 'Export'}
           </Button>
         </Box>
       </Box>
@@ -1855,11 +2281,12 @@ const TransactionsPage: React.FC = () => {
             size="small"
             variant="contained"
             color="error"
-            startIcon={<Delete />}
+            startIcon={isDeleting ? <CircularProgress size={16} /> : <Delete />}
             onClick={handleBatchDelete}
+            disabled={isDeleting}
             aria-label="Delete selected transactions"
           >
-            Delete
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
           <Button
             size="small"
@@ -2115,6 +2542,11 @@ const TransactionsPage: React.FC = () => {
                     />
                   </TableCell>
                 )}
+                <TableCell align="center" sx={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                    #
+                  </Typography>
+                </TableCell>
                 <TableCell sx={{ 
                   width: isBatchMode ? '350px' : '380px', 
                   minWidth: isBatchMode ? '350px' : '380px',
@@ -2300,7 +2732,7 @@ const TransactionsPage: React.FC = () => {
                     {groupBy !== 'none' && (
                       <TableRow>
                         <TableCell 
-                          colSpan={isBatchMode ? 9 : 8}
+                          colSpan={isBatchMode ? 10 : 9}
                           sx={{ 
                             bgcolor: 'action.hover', 
                             fontWeight: 'bold',
@@ -2317,6 +2749,8 @@ const TransactionsPage: React.FC = () => {
                     {groupTransactions.map((transaction) => {
                 const isCredit = transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT';
                 const isExpanded = expandedSplits.has(transaction.id);
+                // Calculate global row number
+                const globalIndex = filteredTransactions.findIndex(t => t.id === transaction.id) + 1;
                 return (
                   <React.Fragment key={transaction.id}>
                 <TableRow 
@@ -2346,6 +2780,11 @@ const TransactionsPage: React.FC = () => {
                       />
                     </TableCell>
                   )}
+                  <TableCell align="center" sx={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                      {globalIndex}
+                    </Typography>
+                  </TableCell>
                   <TableCell
                     onDoubleClick={() => {
                       if (!isTransactionMonthClosed(transaction)) {
@@ -2599,6 +3038,11 @@ const TransactionsPage: React.FC = () => {
                       }}
                     >
                       {isBatchMode && <TableCell />}
+                      <TableCell align="center" sx={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          -
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
@@ -3541,6 +3985,7 @@ const TransactionsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
     </Container>
   );
 };

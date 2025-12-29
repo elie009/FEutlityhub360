@@ -58,7 +58,6 @@ import {
   CameraAlt,
   Smartphone,
   SmartToy,
-  Sms,
   CloudUpload,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -282,7 +281,7 @@ const LandingPage: React.FC = () => {
                 </Typography>
                 <Typography variant="h5" sx={{ mb: 4, opacity: 0.9, fontWeight: 300, color: 'white' }}>
                   Comprehensive financial management platform powered by AI. Upload receipts and let AI track your 
-                  expenses automatically. Get instant SMS notifications for all transactions via mobile app integration.
+                  expenses automatically. Get intelligent insights and predictions to optimize your financial future.
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
                   <Button
@@ -360,8 +359,8 @@ const LandingPage: React.FC = () => {
         </Container>
       </Box>
 
-      {/* AI-Powered Features Section - HIGHLIGHTED */}
-      <Box sx={{ 
+
+      {/* <Box sx={{ 
         background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
         py: 10,
         position: 'relative',
@@ -389,7 +388,6 @@ const LandingPage: React.FC = () => {
           </Box>
 
           <Grid container spacing={4}>
-            {/* AI Receipt Scanner */}
             <Grid item xs={12} md={6}>
               <Zoom in={isVisible} timeout={1200}>
                 <Card
@@ -488,7 +486,6 @@ const LandingPage: React.FC = () => {
               </Zoom>
             </Grid>
 
-            {/* SMS Integration */}
             <Grid item xs={12} md={6}>
               <Zoom in={isVisible} timeout={1400}>
                 <Card
@@ -531,53 +528,54 @@ const LandingPage: React.FC = () => {
                           boxShadow: 3,
                         }}
                       >
-                        <Smartphone sx={{ fontSize: 35 }} />
+                        <Analytics sx={{ fontSize: 35 }} />
                       </Box>
                       <Box>
                         <Chip 
-                          icon={<Sms />} 
-                          label="MOBILE INTEGRATED" 
+                          icon={<SmartToy />} 
+                          label="AI-POWERED" 
                           color="info" 
                           size="small" 
                           sx={{ mb: 1, fontWeight: 'bold' }}
                         />
                         <Typography variant="h4" component="h3" fontWeight="bold" color="black">
-                          SMS Transaction Alerts
+                          Predictive Financial Insights
                         </Typography>
                       </Box>
                     </Box>
 
                     <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
-                      Stay updated on-the-go with real-time SMS notifications! 📱💬
+                      See your financial future before it happens! 🔮📊
                     </Typography>
 
                     <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
-                      Our mobile app integration sends instant SMS notifications for every transaction, 
-                      keeping you informed wherever you are. Never miss a payment or suspicious activity!
+                      Our advanced AI analyzes your spending patterns and predicts future expenses, 
+                      helping you make smarter financial decisions. Get personalized insights and forecasts 
+                      tailored to your unique financial behavior!
                     </Typography>
 
                     <Box sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
                       <Typography variant="subtitle2" fontWeight="bold" color="black" gutterBottom>
-                        ✓ Key Benefits:
+                        ✓ Powerful Features:
                       </Typography>
                       <Stack spacing={1}>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Sms sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Instant SMS alerts for all transactions</Typography>
+                          <TrendingUp sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Predictive spending forecasts & budget recommendations</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Smartphone sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Seamless mobile app integration</Typography>
+                          <Assessment sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Deep spending pattern analysis & trend detection</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Security sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Enhanced security with real-time monitoring</Typography>
+                          <Timeline sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
+                          <Typography variant="body2">Personalized financial health score & improvement tips</Typography>
                         </Box>
                       </Stack>
                     </Box>
 
                     <Chip 
-                      label="Real-Time • Secure • Always Connected" 
+                      label="Intelligent • Predictive • Personalized" 
                       variant="outlined" 
                       color="info"
                       sx={{ fontWeight: 'bold', color: 'black' }}
@@ -588,7 +586,6 @@ const LandingPage: React.FC = () => {
             </Grid>
           </Grid>
 
-          {/* Additional Feature Highlight Banner */}
           <Box sx={{ mt: 6, textAlign: 'center' }}>
             <Paper
               elevation={0}
@@ -608,9 +605,8 @@ const LandingPage: React.FC = () => {
             </Paper>
           </Box>
         </Container>
-      </Box>
+      </Box> */}
 
-      {/* Services Section */}
       <Box sx={{ bgcolor: 'White', py: 10, position: 'relative' }} ref={servicesRef}>
         <Container maxWidth="lg">
           <Box textAlign="center" mb={8}>

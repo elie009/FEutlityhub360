@@ -5,7 +5,8 @@ import {
   SelectChangeEvent, Dialog, DialogTitle, DialogContent, DialogActions,
   Skeleton, IconButton, Accordion, AccordionSummary, AccordionDetails,
   Chip, Tooltip, LinearProgress, Stepper, Step, StepLabel, StepContent,
-  Paper, Divider,
+  Paper, Divider, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import {
   Add as AddIcon, Delete as DeleteIcon, Receipt as ReceiptIcon,
@@ -13,8 +14,13 @@ import {
   ExpandMore as ExpandMoreIcon, CheckCircle as CheckCircleIcon,
   School as SchoolIcon, Lightbulb as LightbulbIcon,
   TrendingUp as TrendingUpIcon, AccountBalance as AccountBalanceIcon,
+  ViewModule as ViewModuleIcon, TableChart as TableChartIcon,
+  Edit as EditIcon, Sync as SyncIcon, Link as LinkIcon,
+  LinkOff as LinkOffIcon, CompareArrows as ReconcileIcon,
+  Lock as LockIcon, Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import { BankAccount, BankAccountFilters } from '../types/bankAccount';
 import { getErrorMessage } from '../utils/validation';
@@ -29,6 +35,7 @@ import PlaidLinkDialog from '../components/BankAccounts/PlaidLinkDialog';
 
 const BankAccounts: React.FC = () => {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
   
   // Bank Account Management State
@@ -47,6 +54,7 @@ const BankAccounts: React.FC = () => {
   const [accountForReconciliation, setAccountForReconciliation] = useState<BankAccount | null>(null);
   const [showCloseMonthDialog, setShowCloseMonthDialog] = useState(false);
   const [accountForCloseMonth, setAccountForCloseMonth] = useState<BankAccount | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   // Bank Account Management Functions
   const loadBankAccounts = useCallback(async () => {
@@ -177,6 +185,30 @@ const BankAccounts: React.FC = () => {
 
   const handleClearFilters = () => {
     setFilters({});
+  };
+
+  const handleViewModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newViewMode: 'cards' | 'table' | null,
+  ) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+    }
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getAccountTypeLabel = (type: string): string => {
+    switch (type) {
+      case 'checking': return 'Checking';
+      case 'savings': return 'Savings';
+      case 'credit_card': return 'Credit Card';
+      case 'investment': return 'Investment';
+      case 'bank': return 'Bank';
+      default: return type;
+    }
   };
 
   return (
@@ -437,6 +469,29 @@ const BankAccounts: React.FC = () => {
             Clear Filters
           </Button>
         </Tooltip>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            View:
+          </Typography>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            size="small"
+            aria-label="view mode"
+          >
+            <ToggleButton value="cards" aria-label="cards view">
+              <Tooltip title="Card view">
+                <ViewModuleIcon />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="table" aria-label="table view">
+              <Tooltip title="Table view">
+                <TableChartIcon />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
       </Box>
 
       {/* Bank Accounts Grid */}
@@ -534,7 +589,7 @@ const BankAccounts: React.FC = () => {
             </Button>
           </Box>
         </Card>
-      ) : (
+      ) : viewMode === 'cards' ? (
         <Grid container spacing={3}>
           {Array.isArray(bankAccounts) && bankAccounts.map((account) => (
             <Grid item xs={12} sm={6} md={4} key={account.id}>
@@ -552,6 +607,178 @@ const BankAccounts: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Account Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Connection</TableCell>
+                <TableCell align="right">Balance</TableCell>
+                <TableCell>Transactions</TableCell>
+                <TableCell>Updated</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {Array.isArray(bankAccounts) && bankAccounts.map((account) => (
+                <TableRow key={account.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium">
+                      {account.accountName}
+                    </Typography>
+                    {account.description && (
+                      <Typography variant="caption" color="text.secondary">
+                        {account.description}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getAccountTypeLabel(account.accountType)}
+                      size="small"
+                      color={
+                        account.accountType === 'checking' ? 'primary' :
+                        account.accountType === 'savings' ? 'success' :
+                        account.accountType === 'credit_card' ? 'error' :
+                        account.accountType === 'investment' ? 'info' : 'default'
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={account.isActive ? 'Active' : 'Inactive'}
+                      size="small"
+                      color={account.isActive ? 'success' : 'warning'}
+                      icon={account.isActive ? <CheckCircleIcon sx={{ fontSize: 16 }} /> : <WarningIcon sx={{ fontSize: 16 }} />}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {account.isConnected ? (
+                      <Chip
+                        label="Connected"
+                        size="small"
+                        color="info"
+                        icon={<LinkIcon sx={{ fontSize: 16 }} />}
+                      />
+                    ) : (
+                      <Chip
+                        label="Manual"
+                        size="small"
+                        variant="outlined"
+                        icon={<LinkOffIcon sx={{ fontSize: 16 }} />}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body2"
+                      fontWeight="bold"
+                      color={account.currentBalance >= 0 ? 'success.main' : 'error.main'}
+                    >
+                      {formatCurrency(account.currentBalance, { currencyCode: account.currency })}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {account.transactionCount}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {formatDate(account.updatedAt)}
+                    </Typography>
+                    {account.lastSyncedAt && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Synced: {formatDate(account.lastSyncedAt)}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                      <Tooltip title="Edit account">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditBankAccount(account)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="View transactions">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewTransactions(account)}
+                        >
+                          <ReceiptIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {account.isConnected ? (
+                        <>
+                          <Tooltip title="Sync now">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleSyncBankAccount(account.id)}
+                            >
+                              <SyncIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Disconnect">
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => handleDisconnectBankAccount(account.id)}
+                            >
+                              <LinkOffIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <Tooltip title="Connect">
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => handleConnectBankAccount(account)}
+                          >
+                            <LinkIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Reconcile">
+                        <IconButton
+                          size="small"
+                          color="secondary"
+                          onClick={() => handleReconcile(account)}
+                        >
+                          <ReconcileIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Close month">
+                        <IconButton
+                          size="small"
+                          color="warning"
+                          onClick={() => handleCloseMonth(account)}
+                        >
+                          <LockIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete account">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteBankAccount(account.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {/* Bank Account Form Dialog */}

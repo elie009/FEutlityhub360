@@ -2940,7 +2940,40 @@ class ApiService {
       return response.data || true;
     }
     
-    return response?.data || response || true;
+    throw new Error(response?.message || 'Failed to delete transaction');
+  }
+
+  async bulkDeleteTransactions(transactionIds: string[]): Promise<{ success: number; failed: number; failedIds: string[]; failureReasons: string[] }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation - delete individually
+      const results = await Promise.allSettled(
+        transactionIds.map(id => mockTransactionDataService.deleteTransaction(id))
+      );
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      return {
+        success: successful,
+        failed: failed,
+        failedIds: [],
+        failureReasons: []
+      };
+    }
+    
+    const response = await this.request<any>('/BankAccounts/transactions/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ transactionIds }),
+    });
+    
+    if (response && response.success && response.data) {
+      return {
+        success: response.data.successful || 0,
+        failed: response.data.failed || 0,
+        failedIds: response.data.failedTransactionIds || [],
+        failureReasons: response.data.failureReasons || []
+      };
+    }
+    
+    throw new Error(response?.message || 'Failed to delete transactions');
   }
 
   async hideTransaction(transactionId: string, reason?: string): Promise<boolean> {
@@ -4588,6 +4621,17 @@ class ApiService {
       return response.data;
     }
     return [];
+  }
+
+  async saveStagingTransactions(uploadId: string, saveData: any): Promise<any> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/save-staging`, {
+      method: 'POST',
+      body: JSON.stringify(saveData),
+    });
+    if (response && response.success) {
+      return response.data;
+    }
+    return response;
   }
 
   async confirmUpload(uploadId: string, confirmData: import('../types/reconciliation').ConfirmBankStatementUploadRequest): Promise<import('../types/reconciliation').BankStatement> {
