@@ -388,9 +388,10 @@ class ApiService {
     success: boolean;
     message: string;
     data: {
-      token: string;
-      refreshToken: string;
-      expiresAt: string;
+      token?: string | null;
+      refreshToken?: string | null;
+      expiresAt?: string | null;
+      requiresEmailVerification?: boolean;
       user: {
         id: string;
         name: string;
@@ -399,6 +400,7 @@ class ApiService {
         country: string;
         role: string;
         isActive: boolean;
+        emailVerified?: boolean;
         createdAt: string;
         updatedAt: string;
       };
@@ -415,9 +417,10 @@ class ApiService {
       success: boolean;
       message: string;
       data: {
-        token: string;
-        refreshToken: string;
-        expiresAt: string;
+        token?: string | null;
+        refreshToken?: string | null;
+        expiresAt?: string | null;
+        requiresEmailVerification?: boolean;
         user: {
           id: string;
           name: string;
@@ -426,6 +429,7 @@ class ApiService {
           country: string;
           role: string;
           isActive: boolean;
+          emailVerified?: boolean;
           createdAt: string;
           updatedAt: string;
         };
@@ -451,6 +455,38 @@ class ApiService {
       message: string;
       data: {};
     }>('/Auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    return response;
+  }
+
+  async verifyEmail(email: string, token: string): Promise<{
+    success: boolean;
+    message: string;
+    data: boolean;
+  }> {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: boolean;
+    }>('/Auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, token }),
+    });
+    return response;
+  }
+
+  async resendVerificationEmail(email: string): Promise<{
+    success: boolean;
+    message: string;
+    data: boolean;
+  }> {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: boolean;
+    }>('/Auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });

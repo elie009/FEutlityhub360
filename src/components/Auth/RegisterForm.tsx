@@ -132,8 +132,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
     try {
       await register(formData);
-      // Registration successful - user is now logged in, redirect to dashboard
-      navigate('/dashboard');
+      // Registration successful - redirect to email verification page
+      navigate('/verify-email', { 
+        state: { 
+          email: formData.email,
+          message: 'Registration successful! Please check your email to verify your account.' 
+        } 
+      });
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Registration failed'));
     } finally {

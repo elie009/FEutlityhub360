@@ -25,6 +25,7 @@ import {
   Fade,
   Slide,
   Zoom,
+  CircularProgress,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -62,20 +63,48 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useAuth } from '../contexts/AuthContext';
 import AnimatedParticlesBackground from '../components/Auth/AnimatedParticlesBackground';
 
 const LandingPage: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { formatCurrency } = useCurrency();
+  const { isAuthenticated, isLoading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const servicesRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
 
+  // Quick check: if authenticated or token exists, redirect immediately
+  // (Wrapper should handle this, but this is a safety check)
   useEffect(() => {
-    setIsVisible(true);
-  }, []);
+    if (!isLoading) {
+      if (isAuthenticated) {
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+      
+      // If there's a token, the wrapper should have handled it, but just in case
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        // Quick redirect - wrapper already validated
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+      
+      // No token and not authenticated - show landing page
+      setCheckingSession(false);
+      setIsVisible(true);
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  useEffect(() => {
+    if (!checkingSession && !isLoading) {
+      setIsVisible(true);
+    }
+  }, [checkingSession, isLoading]);
 
   const handleGetStarted = () => {
     navigate('/auth');
@@ -165,6 +194,23 @@ const LandingPage: React.FC = () => {
       avatar: 'ED'
     },
   ];
+
+  // Show loading spinner while checking session
+  if (checkingSession || isLoading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif'
+        }}
+      >
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>

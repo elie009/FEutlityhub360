@@ -206,3 +206,6 @@ const BankStatementTransactionsModal: React.FC<BankStatementTransactionsModalPro
 
 export default BankStatementTransactionsModal;
 
+
+
+

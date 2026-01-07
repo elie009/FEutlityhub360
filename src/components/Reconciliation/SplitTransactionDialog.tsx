@@ -162,6 +162,27 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
     onClose();
   };
 
+  // Compute if form can be saved (includes balance check)
+  // Must be before early return to follow React Hooks rules
+  const canSave = useMemo(() => {
+    // Can always save if no splits (converts to regular transaction)
+    if (splits.length === 0) return true;
+    
+    // If no transaction, cannot save
+    if (!transaction) return false;
+    
+    // Check if all splits have required fields (either billId or category)
+    const allSplitsValid = splits.every(s => 
+      (s.billId || s.category) && s.amount && s.amount > 0
+    );
+    
+    // Check if total is balanced
+    const total = splits.reduce((sum, split) => sum + (split.amount || 0), 0);
+    const isBalanced = Math.abs(total - transaction.amount) < 0.01;
+    
+    return allSplitsValid && isBalanced;
+  }, [splits, transaction]);
+
   if (!transaction) return null;
 
   const remainingAmount = getRemainingAmount();
@@ -372,10 +393,7 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={
-            splits.length > 0 && 
-            splits.some(s => (!s.billId && !s.category) || !s.amount || s.amount <= 0)
-          }
+          disabled={!canSave}
         >
           {splits.length === 0 ? 'Convert to Regular Transaction' : 'Save Split'}
         </Button>

@@ -47,11 +47,13 @@ import {
   isBillCategory,
   isSavingsCategory,
   isLoanCategory,
+  isInvestmentCategory,
   isTransferCategory,
   validateTransactionForm,
   generateEnhancedDescription
 } from '../../utils/categoryLogic';
 import { Bill, BillStatus } from '../../types/bill';
+import { Investment } from '../../types/investment';
 import SplitTransactionDialog from '../Reconciliation/SplitTransactionDialog';
 import { TransactionSplit } from '../../types/reconciliation';
 import { getLatestBillsByName } from '../../utils/billUtils';
@@ -84,6 +86,7 @@ interface BankAccountTransaction {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  investmentId?: string;
   transactionPurpose?: string;
 }
 
@@ -110,6 +113,7 @@ const ALL_CATEGORIES = [
   ...categorySuggestions.transfer,
   ...categorySuggestions.bill,
   ...categorySuggestions.savings,
+  ...categorySuggestions.investment,
   ...categorySuggestions.loan,
   ...categorySuggestions.other
 ];
@@ -150,8 +154,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     billId: '',
     savingsAccountId: '',
     loanId: '',
+    investmentId: '',
     toBankAccountId: '', // For bank transfers
-    transactionPurpose: '', // BILL, UTILITY, SAVINGS, LOAN, OTHER
+    transactionPurpose: '', // BILL, UTILITY, SAVINGS, LOAN, INVESTMENT, OTHER
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -161,6 +166,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [bills, setBills] = useState<Bill[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
   const [finalCategories, setFinalCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
   
@@ -169,12 +175,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [loadingBills, setLoadingBills] = useState(false);
   const [loadingLoans, setLoadingLoans] = useState(false);
   const [loadingSavingsAccounts, setLoadingSavingsAccounts] = useState(false);
+  const [loadingInvestments, setLoadingInvestments] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   
   // State for dynamic form fields
   const [showBillSelector, setShowBillSelector] = useState(false);
   const [showSavingsSelector, setShowSavingsSelector] = useState(false);
   const [showLoanSelector, setShowLoanSelector] = useState(false);
+  const [showInvestmentSelector, setShowInvestmentSelector] = useState(false);
   const [showTransferSelector, setShowTransferSelector] = useState(false);
   const [showHelpSection, setShowHelpSection] = useState(false);
   
@@ -207,6 +215,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           billId: initialTransaction.billId || '',
           savingsAccountId: initialTransaction.savingsAccountId || '',
           loanId: initialTransaction.loanId || '',
+          investmentId: (initialTransaction as any).investmentId || '',
           toBankAccountId: '',
           transactionPurpose: (initialTransaction as any).transactionPurpose || '',
         });
@@ -217,11 +226,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           setShowBillSelector(transactionPurpose === 'BILL' || transactionPurpose === 'UTILITY');
           setShowSavingsSelector(transactionPurpose === 'SAVINGS');
           setShowLoanSelector(transactionPurpose === 'LOAN');
+          setShowInvestmentSelector(transactionPurpose === 'INVESTMENT');
         } else {
-          // Fallback to showing selectors if linked to bill/savings/loan
+          // Fallback to showing selectors if linked to bill/savings/loan/investment
           setShowBillSelector(!!initialTransaction.billId);
           setShowSavingsSelector(!!initialTransaction.savingsAccountId);
           setShowLoanSelector(!!initialTransaction.loanId);
+          setShowInvestmentSelector(!!(initialTransaction as any).investmentId);
         }
         setShowTransferSelector(false); // Don't show transfer selector in edit mode
         
@@ -255,6 +266,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           billId: '',
           savingsAccountId: '',
           loanId: '',
+          investmentId: '',
           toBankAccountId: '',
           transactionPurpose: '',
         });
@@ -262,6 +274,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         setShowBillSelector(false);
         setShowSavingsSelector(false);
         setShowLoanSelector(false);
+        setShowInvestmentSelector(false);
         setShowTransferSelector(false);
         // Reset split state
         setSplits([]);
@@ -375,6 +388,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [bankAccounts]);
 
+  const loadInvestments = useCallback(async () => {
+    setLoadingInvestments(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Investment API may not be available if user doesn't have access
+      const investmentsData = await apiService.getInvestments().catch((error) => {
+        console.log('Investments API not available or user does not have access:', error);
+        return [];
+      });
+      
+      const activeInvestments = Array.isArray(investmentsData) 
+        ? investmentsData.filter((inv: Investment) => inv.isActive !== false)
+        : [];
+      
+      setInvestments(activeInvestments);
+    } catch (error) {
+      console.error('Failed to load investments:', error);
+      setInvestments([]);
+    } finally {
+      setLoadingInvestments(false);
+    }
+  }, []);
+
   const loadBankAccounts = useCallback(async () => {
     setLoadingBankAccounts(true);
     // Bank accounts are passed as props, but we simulate loading to show skeleton
@@ -487,9 +524,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       loadBills();
       loadLoans();
       loadSavingsAccounts();
+      loadInvestments();
       loadCategories();
     }
-  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts, loadCategories]);
+  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts, loadInvestments, loadCategories]);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -516,12 +554,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: '',
         savingsAccountId: '',
         loanId: '',
+        investmentId: '',
       }));
       
       // Don't show separate selectors anymore - they're in Category dropdown
       setShowBillSelector(false);
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
+      setShowInvestmentSelector(false);
       setShowTransferSelector(false);
     }
 
@@ -533,12 +573,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: '',
         savingsAccountId: '',
         loanId: '',
+        investmentId: '',
         toBankAccountId: '',
         transactionPurpose: '',
       }));
       setShowBillSelector(false);
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
+      setShowInvestmentSelector(false);
       setShowTransferSelector(false);
     }
     // If transaction type changes to DEBIT and category is empty, set default to "Expense"
@@ -557,12 +599,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setShowBillSelector(isBillCategory(category));
     setShowSavingsSelector(isSavingsCategory(category));
     setShowLoanSelector(isLoanCategory(category));
+    setShowInvestmentSelector(isInvestmentCategory(category));
     setShowTransferSelector(isTransferCategory(category));
     
     // Clear other references when category changes
     if (!isBillCategory(category)) setFormData(prev => ({ ...prev, billId: '' }));
     if (!isSavingsCategory(category)) setFormData(prev => ({ ...prev, savingsAccountId: '' }));
     if (!isLoanCategory(category)) setFormData(prev => ({ ...prev, loanId: '' }));
+    if (!isInvestmentCategory(category)) setFormData(prev => ({ ...prev, investmentId: '' }));
     if (!isTransferCategory(category)) setFormData(prev => ({ ...prev, toBankAccountId: '' }));
   };
 
@@ -587,6 +631,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       billId: formData.billId,
       savingsAccountId: formData.savingsAccountId,
       loanId: formData.loanId,
+      investmentId: formData.investmentId,
       toBankAccountId: formData.toBankAccountId,
       transactionType: formData.transactionType,
       isSplit: isSplit && splits.length > 0,
@@ -698,6 +743,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: formData.billId || undefined,
         savingsAccountId: formData.savingsAccountId || undefined,
         loanId: formData.loanId || undefined,
+        investmentId: formData.investmentId || undefined,
         toBankAccountId: formData.toBankAccountId || undefined,
         transactionPurpose: formData.transactionPurpose || undefined,
         // Split transaction support
@@ -1326,6 +1372,41 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         ))
                       ) : (
                         <MenuItem disabled>No loans available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                )}
+              </Grid>
+            )}
+
+            {showInvestmentSelector && !formData.transactionPurpose && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Investment Account
+                  </Typography>
+                </Divider>
+                {loadingInvestments ? (
+                  <Box>
+                    <Skeleton variant="text" width="30%" height={24} sx={{ mb: 1 }} />
+                    <Skeleton variant="rectangular" width="100%" height={56} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth required>
+                    <InputLabel>Select Investment Account</InputLabel>
+                    <Select
+                      value={formData.investmentId}
+                      onChange={handleSelectChange('investmentId')}
+                      label="Select Investment Account"
+                    >
+                      {investments.length > 0 ? (
+                        investments.map((investment) => (
+                          <MenuItem key={investment.id} value={investment.id}>
+                            {investment.accountName} {investment.brokerName ? `(${investment.brokerName})` : ''} - ${investment.currentValue.toFixed(2)}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>No investment accounts available</MenuItem>
                       )}
                     </Select>
                   </FormControl>

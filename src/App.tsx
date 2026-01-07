@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, Box, Typography, CircularProgress } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -12,6 +12,7 @@ import AuthPage from './components/Auth/AuthPage';
 import ForgotPasswordForm from './components/Auth/ForgotPasswordForm';
 import ResetPasswordForm from './components/Auth/ResetPasswordForm';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
@@ -86,6 +87,72 @@ const UrlNormalizer: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return <>{children}</>;
 };
 
+// Component to check session before showing landing page
+const LandingPageWrapper: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const [checkingToken, setCheckingToken] = React.useState(true);
+
+  React.useEffect(() => {
+    const checkTokenAndRedirect = async () => {
+      // Wait for auth context to finish loading
+      if (isLoading) {
+        return;
+      }
+
+      // If authenticated, redirect to dashboard
+      if (isAuthenticated) {
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+
+      // Check if there's a token in localStorage
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        // Token exists but user is not authenticated - validate it
+        try {
+          const { apiService } = await import('./services/api');
+          await apiService.getCurrentUser();
+          // Token is valid - redirect to dashboard
+          navigate('/dashboard', { replace: true });
+          return;
+        } catch (error: any) {
+          // Token is invalid - clear it
+          const is401Error = error?.status === 401 || 
+                            error?.message?.includes('401') || 
+                            error?.message?.includes('Unauthorized');
+          if (is401Error) {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+          }
+        }
+      }
+
+      // No token or invalid token - show landing page
+      setCheckingToken(false);
+    };
+
+    checkTokenAndRedirect();
+  }, [isAuthenticated, isLoading, navigate]);
+
+  // Show loading while checking token
+  if (checkingToken || isLoading) {
+    return (
+      <Box 
+        display="flex" 
+        justifyContent="center" 
+        alignItems="center" 
+        minHeight="100vh"
+      >
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return <LandingPage />;
+};
+
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
@@ -99,6 +166,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/forgot-password" element={<ForgotPasswordForm />} />
         <Route path="/reset-password" element={<ResetPasswordForm />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/subscription/success" element={<SubscriptionSuccess />} />
         <Route path="/subscription/cancel" element={<SubscriptionCancel />} />
@@ -110,7 +178,7 @@ const AppRoutes: React.FC = () => {
               <Layout />
             </ProtectedRoute>
           ) : (
-            <LandingPage />
+            <LandingPageWrapper />
           )
         }>
           {/* Protected routes - only accessible when authenticated */}

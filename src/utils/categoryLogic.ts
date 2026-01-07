@@ -4,6 +4,7 @@ export interface CategorySuggestions {
   bill: string[];
   savings: string[];
   loan: string[];
+  investment: string[];
   transfer: string[];
   other: string[];
 }
@@ -16,9 +17,14 @@ export const categorySuggestions: CategorySuggestions = {
     'streaming service', 'phone service', 'internet service'
   ],
   savings: [
-    'savings', 'deposit', 'investment', 'emergency fund',
+    'savings', 'deposit', 'emergency fund',
     'retirement savings', 'vacation fund', 'house fund',
-    'car fund', 'education fund', 'investment deposit'
+    'car fund', 'education fund'
+  ],
+  investment: [
+    'investment', 'invest', 'investments', 'stock', 'stocks',
+    'mutual fund', 'etf', 'bond', 'bonds', 'portfolio',
+    'brokerage', 'trading', 'securities'
   ],
   loan: [
     'loan payment', 'repayment', 'debt payment', 
@@ -50,8 +56,26 @@ export const isBillCategory = (category: string): boolean => {
  * Check if a category is savings-related
  */
 export const isSavingsCategory = (category: string): boolean => {
-  const savingsKeywords = ['savings', 'deposit', 'investment', 'goal', 'fund'];
+  const savingsKeywords = ['savings', 'deposit', 'goal', 'fund'];
+  const categoryLower = category.toLowerCase();
+  // Exclude investment keywords to avoid conflicts
+  if (categoryLower.includes('investment') || categoryLower.includes('invest') ||
+      categoryLower.includes('stock') || categoryLower.includes('bond') ||
+      categoryLower.includes('brokerage') || categoryLower.includes('trading')) {
+    return false;
+  }
   return savingsKeywords.some(keyword => 
+    categoryLower.includes(keyword)
+  );
+};
+
+/**
+ * Check if a category is investment-related
+ */
+export const isInvestmentCategory = (category: string): boolean => {
+  const investmentKeywords = ['investment', 'invest', 'investments', 'stock', 'stocks',
+    'mutual fund', 'etf', 'bond', 'bonds', 'portfolio', 'brokerage', 'trading', 'securities'];
+  return investmentKeywords.some(keyword => 
     category.toLowerCase().includes(keyword)
   );
 };
@@ -89,10 +113,11 @@ export const getCategorySuggestions = (input: string): string[] => {
 };
 
 /**
- * Get category type (bill, savings, loan, transfer, other)
+ * Get category type (bill, savings, loan, investment, transfer, other)
  */
-export const getCategoryType = (category: string): 'bill' | 'savings' | 'loan' | 'transfer' | 'other' => {
+export const getCategoryType = (category: string): 'bill' | 'savings' | 'loan' | 'investment' | 'transfer' | 'other' => {
   if (isBillCategory(category)) return 'bill';
+  if (isInvestmentCategory(category)) return 'investment';
   if (isSavingsCategory(category)) return 'savings';
   if (isLoanCategory(category)) return 'loan';
   if (isTransferCategory(category)) return 'transfer';
@@ -102,7 +127,7 @@ export const getCategoryType = (category: string): 'bill' | 'savings' | 'loan' |
 /**
  * Get all suggestions for a specific category type
  */
-export const getSuggestionsByType = (type: 'bill' | 'savings' | 'loan' | 'transfer' | 'other'): string[] => {
+export const getSuggestionsByType = (type: 'bill' | 'savings' | 'loan' | 'investment' | 'transfer' | 'other'): string[] => {
   return categorySuggestions[type];
 };
 
@@ -117,6 +142,7 @@ export const validateTransactionForm = (formData: {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  investmentId?: string;
   toBankAccountId?: string;
   transactionType?: 'DEBIT' | 'CREDIT';
   isSplit?: boolean;
@@ -134,13 +160,14 @@ export const validateTransactionForm = (formData: {
   
   // Category is only required for DEBIT transactions (CREDIT transactions get category automatically set)
   // Skip category requirement for split transactions (categories are on splits, not main transaction)
-  // Also skip if billId, loanId, or savingsAccountId is provided (these are valid categorizations)
+  // Also skip if billId, loanId, savingsAccountId, or investmentId is provided (these are valid categorizations)
   if (formData.transactionType !== 'CREDIT' && 
       !formData.category && 
       !formData.isSplit &&
       !formData.billId &&  // Skip if bill is linked
       !formData.loanId &&  // Skip if loan is linked
-      !formData.savingsAccountId)  // Skip if savings is linked
+      !formData.savingsAccountId &&  // Skip if savings is linked
+      !formData.investmentId)  // Skip if investment is linked
   {
     errors.push('Category is required for debit transactions');
   }
@@ -157,6 +184,8 @@ export const validateTransactionForm = (formData: {
       // Only check other categories if it's not a transfer
       if (isBillCategory(formData.category) && !formData.billId) {
         errors.push('Bill selection is required for bill-related transactions');
+      } else if (isInvestmentCategory(formData.category) && !formData.investmentId) {
+        errors.push('Investment account selection is required for investment-related transactions');
       } else if (isSavingsCategory(formData.category) && !formData.savingsAccountId) {
         errors.push('Savings account selection is required for savings-related transactions');
       } else if (isLoanCategory(formData.category) && !formData.loanId) {
@@ -174,7 +203,7 @@ export const validateTransactionForm = (formData: {
 export const generateEnhancedDescription = (
   originalDescription: string,
   category: string,
-  referenceType?: 'bill' | 'savings' | 'loan' | 'transfer',
+  referenceType?: 'bill' | 'savings' | 'loan' | 'investment' | 'transfer',
   referenceName?: string
 ): string => {
   if (referenceType === 'bill') {
@@ -185,6 +214,9 @@ export const generateEnhancedDescription = (
   }
   if (referenceType === 'loan') {
     return `Loan Payment - ${originalDescription}`;
+  }
+  if (referenceType === 'investment') {
+    return `Investment - ${originalDescription}`;
   }
   if (referenceType === 'transfer') {
     return `Bank Transfer - ${originalDescription}`;
@@ -219,6 +251,7 @@ export const validateDoubleEntry = (formData: {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  investmentId?: string;
 }): DoubleEntryValidationResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -242,6 +275,7 @@ export const validateDoubleEntry = (formData: {
     // Check transaction type
     const isTransfer = isTransferCategory(formData.category || '') || !!formData.toBankAccountId;
     const isBillPayment = !!formData.billId || isBillCategory(formData.category || '');
+    const isInvestmentTransaction = !!formData.investmentId || isInvestmentCategory(formData.category || '');
     const isSavingsDeposit = !!formData.savingsAccountId || isSavingsCategory(formData.category || '');
     const isLoanPayment = !!formData.loanId || isLoanCategory(formData.category || '');
 
@@ -258,6 +292,12 @@ export const validateDoubleEntry = (formData: {
       // Bill payment:
       // Debit: Expense Account (Expense) - increases
       // Credit: Bank Account (Asset) - decreases
+      debitTotal = formData.amount;
+      creditTotal = formData.amount;
+    } else if (isInvestmentTransaction) {
+      // Investment transaction:
+      // Debit: Investment Account (Asset) - increases (for deposits/credits)
+      // Credit: Bank Account (Asset) - decreases (for withdrawals/debits)
       debitTotal = formData.amount;
       creditTotal = formData.amount;
     } else if (isSavingsDeposit) {
@@ -296,7 +336,7 @@ export const validateDoubleEntry = (formData: {
   }
 
   // Warnings for potential issues
-  if (formData.transactionType === 'DEBIT' && !formData.category && !formData.billId && !formData.savingsAccountId && !formData.loanId) {
+  if (formData.transactionType === 'DEBIT' && !formData.category && !formData.billId && !formData.savingsAccountId && !formData.loanId && !formData.investmentId) {
     warnings.push('Consider adding a category for better accounting classification');
   }
 
@@ -320,6 +360,7 @@ export const validateTransactionWithDoubleEntry = (formData: {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  investmentId?: string;
   toBankAccountId?: string;
   transactionType?: 'DEBIT' | 'CREDIT';
   isSplit?: boolean;
@@ -341,6 +382,7 @@ export const validateTransactionWithDoubleEntry = (formData: {
       billId: formData.billId,
       savingsAccountId: formData.savingsAccountId,
       loanId: formData.loanId,
+      investmentId: formData.investmentId,
     });
     
     errors.push(...doubleEntryResult.errors);

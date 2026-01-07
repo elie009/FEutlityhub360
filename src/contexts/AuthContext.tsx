@@ -262,7 +262,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error(response.message || 'Registration failed');
       }
       
-      // Auto-login after successful registration
+      // Check if email verification is required
+      if (response.data?.requiresEmailVerification || !response.data?.token) {
+        // Don't auto-login - user needs to verify email first
+        // The RegisterForm will handle redirecting to verification page
+        console.log('AuthContext: Registration successful, email verification required');
+        return;
+      }
+      
+      // Auto-login after successful registration (if email already verified)
       if (response.data?.token && response.data?.user) {
         const userData: User = {
           id: response.data.user.id,

@@ -148,7 +148,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   // Financial Overview period states
-  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined);
   
   // Monthly cash flow data
@@ -275,6 +275,12 @@ const Dashboard: React.FC = () => {
   const [expenseData, setExpenseData] = useState<{ category: string; amount: number }[]>([]);
   const [expenseLoading, setExpenseLoading] = useState(false);
   
+  // Generate array of 5 years (current year + 4 previous years)
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  }, []);
+  
   // Check if user needs to complete profile
   useEffect(() => {
     if (user && !hasProfile) {
@@ -376,8 +382,7 @@ const Dashboard: React.FC = () => {
       
       try {
         setCashFlowLoading(true);
-        const currentYear = new Date().getFullYear();
-        const response = await apiService.getMonthlyCashFlow(currentYear);
+        const response = await apiService.getMonthlyCashFlow(selectedYear);
         console.log('Monthly Cash Flow API Response:', response);
         console.log('Monthly Data:', response?.monthlyData);
         if (response?.monthlyData) {
@@ -395,7 +400,7 @@ const Dashboard: React.FC = () => {
     };
     
     loadMonthlyCashFlow();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedYear]);
 
   // Fetch income sources with summary on page load
   useEffect(() => {
@@ -564,9 +569,8 @@ const Dashboard: React.FC = () => {
       try {
         setExpenseLoading(true);
         
-        // Get current year date range (January 1 to December 31)
-        const now = new Date();
-        const year = now.getFullYear();
+        // Get selected year date range (January 1 to December 31)
+        const year = selectedYear;
         const firstDay = new Date(year, 0, 1); // January 1
         const lastDay = new Date(year, 11, 31); // December 31
         
@@ -645,7 +649,7 @@ const Dashboard: React.FC = () => {
     };
     
     loadExpenseData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedYear]);
 
   // Fetch recent activity on page load
   useEffect(() => {
@@ -1626,8 +1630,23 @@ const Dashboard: React.FC = () => {
               {/* Financial Overview */}
               <Grid item xs={12} md={8}>
                 <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Box sx={{ mb: 2 }}>
-                  
+                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {/* Year Filter Dropdown */}
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <InputLabel>Year</InputLabel>
+                      <Select
+                        value={selectedYear}
+                        label="Year"
+                        onChange={(e) => setSelectedYear(e.target.value as number)}
+                      >
+                        {availableYears.map((year) => (
+                          <MenuItem key={year} value={year}>
+                            {year}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    
                     <Tabs
                       value={financialOverviewTab}
                       onChange={(e, newValue) => setFinancialOverviewTab(newValue)}
