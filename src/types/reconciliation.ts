@@ -234,4 +234,3 @@ export interface ConfirmBankStatementUploadRequest {
   closingBalance: number;
   transactions: StagingTransaction[];
 }
-
