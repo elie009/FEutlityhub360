@@ -1330,13 +1330,20 @@ const Analytics: React.FC = () => {
         {activeTab === 2 && (
           <BalanceSheetTab 
             asOfDate={endDate ? new Date(endDate) : undefined}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
             onRefresh={handleSubmit}
           />
         )}
 
         {/* Tab 3: Cash Flow Statement */}
         {activeTab === 3 && (
-          <CashFlowStatementTab period={period === 'CUSTOM' ? 'MONTHLY' : period} />
+          <CashFlowStatementTab 
+            period={period === 'CUSTOM' ? 'MONTHLY' : period}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 4: Financial Ratios */}
@@ -1351,7 +1358,12 @@ const Analytics: React.FC = () => {
 
         {/* Tab 6: Budget vs Actual */}
         {activeTab === 6 && (
-          <BudgetVsActualTab period={period === 'CUSTOM' ? 'MONTHLY' : period} />
+          <BudgetVsActualTab 
+            period={period === 'CUSTOM' ? 'MONTHLY' : period}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 7: Custom */}

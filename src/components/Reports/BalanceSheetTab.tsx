@@ -29,10 +29,12 @@ import { BalanceSheetDto, BalanceSheetItemDto } from '../../types/financialRepor
 
 interface BalanceSheetTabProps {
   asOfDate?: Date;
+  startDate?: Date;
+  endDate?: Date;
   onRefresh?: () => void;
 }
 
-const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }) => {
+const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, startDate, endDate, onRefresh }) => {
   const { formatCurrency } = useCurrency();
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,11 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getBalanceSheet(currentDate.toISOString());
+      const data = await apiService.getBalanceSheet(
+        currentDate.toISOString(),
+        startDate?.toISOString(),
+        endDate?.toISOString()
+      );
       setBalanceSheet(data);
       // Don't call onRefresh automatically - it causes infinite loops
       // onRefresh should only be called manually by user action
@@ -53,7 +59,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     } finally {
       setLoading(false);
     }
-  }, [currentDate]);
+  }, [currentDate, startDate, endDate]);
 
   useEffect(() => {
     fetchBalanceSheet();

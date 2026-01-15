@@ -4187,9 +4187,11 @@ class ApiService {
   }
 
   // Get balance sheet
-  async getBalanceSheet(asOfDate?: string): Promise<import('../types/financialReport').BalanceSheetDto> {
+  async getBalanceSheet(asOfDate?: string, startDate?: string, endDate?: string): Promise<import('../types/financialReport').BalanceSheetDto> {
     const queryParams = new URLSearchParams();
     if (asOfDate) queryParams.append('asOfDate', asOfDate);
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
     
     const queryString = queryParams.toString();
     const endpoint = `/Reports/balance-sheet${queryString ? `?${queryString}` : ''}`;
