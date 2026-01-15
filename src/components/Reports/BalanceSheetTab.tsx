@@ -16,6 +16,9 @@ import {
   useTheme,
   IconButton,
   Tooltip,
+  TextField,
+  Button,
+  Paper,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -41,15 +44,19 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, startDate, 
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState<Date>(asOfDate || new Date());
+  const [localStartDate, setLocalStartDate] = useState<string>(startDate ? startDate.toISOString().split('T')[0] : '');
+  const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
 
   const fetchBalanceSheet = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      const start = localStartDate ? new Date(localStartDate) : undefined;
+      const end = localEndDate ? new Date(localEndDate) : undefined;
       const data = await apiService.getBalanceSheet(
         currentDate.toISOString(),
-        startDate?.toISOString(),
-        endDate?.toISOString()
+        start?.toISOString(),
+        end?.toISOString()
       );
       setBalanceSheet(data);
       // Don't call onRefresh automatically - it causes infinite loops
@@ -59,7 +66,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, startDate, 
     } finally {
       setLoading(false);
     }
-  }, [currentDate, startDate, endDate]);
+  }, [currentDate, localStartDate, localEndDate]);
 
   useEffect(() => {
     fetchBalanceSheet();
@@ -122,6 +129,68 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, startDate, 
 
   return (
     <Box>
+      {/* Date Filter Section */}
+      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <AccountBalance color="primary" />
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Balance Sheet
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                As of {currentDate.toLocaleDateString()}
+              </Typography>
+            </Box>
+          </Box>
+          <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+            <TextField
+              label="Start Date"
+              type="date"
+              value={localStartDate}
+              onChange={(e) => setLocalStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              to
+            </Typography>
+            <TextField
+              label="End Date"
+              type="date"
+              value={localEndDate}
+              onChange={(e) => {
+                setLocalEndDate(e.target.value);
+                if (e.target.value) {
+                  setCurrentDate(new Date(e.target.value));
+                }
+              }}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={fetchBalanceSheet}
+              size="small"
+            >
+              Apply
+            </Button>
+            <Tooltip title="Refresh">
+              <IconButton onClick={handleRefresh} size="small">
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Paper>
+
       {/* Balance Validation Alert */}
       {balanceSheet.isBalanced ? (
         <Alert 

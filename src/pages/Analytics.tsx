@@ -815,57 +815,6 @@ const Analytics: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Date Range Picker */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              size="small"
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{ minWidth: 150 }}
-            />
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              to
-            </Typography>
-            <TextField
-              label="End Date"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              size="small"
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{ minWidth: 150 }}
-            />
-          </Box>
-          <FormControl sx={{ minWidth: 150 }} size="small">
-            <InputLabel>Data Period</InputLabel>
-            <Select
-              value={period}
-              label="Data Period"
-              onChange={(e) => setPeriod(e.target.value as any)}
-            >
-              <MenuItem value="CUSTOM">Select Period</MenuItem>
-              <MenuItem value="MONTHLY">Monthly</MenuItem>
-              <MenuItem value="QUARTERLY">Quarterly</MenuItem>
-              <MenuItem value="YEARLY">Yearly</MenuItem>
-            </Select>
-          </FormControl>
-          {/* Submit Button */}
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            size="small"
-            sx={{ ml: 2 }}
-          >
-            Submit
-          </Button>
           {/* Variance Dashboard Button */}
           <Button
             variant="outlined"
@@ -885,7 +834,6 @@ const Analytics: React.FC = () => {
           >
             Export
           </Button>
-         
         </Box>
       </Box>
 

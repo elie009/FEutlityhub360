@@ -19,6 +19,12 @@ import {
   Tooltip,
   Chip,
   Paper,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -50,19 +56,24 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
   const [loading, setLoading] = useState(true);
   const [cashFlowStatement, setCashFlowStatement] = useState<CashFlowStatementDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [localStartDate, setLocalStartDate] = useState<string>(startDate ? startDate.toISOString().split('T')[0] : '');
+  const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
+  const [localPeriod, setLocalPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>(period);
 
   useEffect(() => {
     fetchCashFlowStatement();
-  }, [startDate, endDate, period]);
+  }, [localStartDate, localEndDate, localPeriod]);
 
   const fetchCashFlowStatement = async () => {
     try {
       setLoading(true);
       setError(null);
+      const start = localStartDate ? new Date(localStartDate) : undefined;
+      const end = localEndDate ? new Date(localEndDate) : undefined;
       const data = await apiService.getCashFlowStatement(
-        startDate?.toISOString(),
-        endDate?.toISOString(),
-        period
+        start?.toISOString(),
+        end?.toISOString(),
+        localPeriod
       );
       setCashFlowStatement(data);
     } catch (err: any) {
@@ -204,22 +215,75 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h5" gutterBottom>
-            Cash Flow Statement
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Period: {new Date(cashFlowStatement.periodStart).toLocaleDateString()} -{' '}
-            {new Date(cashFlowStatement.periodEnd).toLocaleDateString()}
-          </Typography>
+      {/* Date Filter Section */}
+      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <AccountBalance color="primary" />
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Cash Flow Statement
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Period: {new Date(cashFlowStatement.periodStart).toLocaleDateString()} -{' '}
+                {new Date(cashFlowStatement.periodEnd).toLocaleDateString()}
+              </Typography>
+            </Box>
+          </Box>
+          <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+            <TextField
+              label="Start Date"
+              type="date"
+              value={localStartDate}
+              onChange={(e) => setLocalStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              to
+            </Typography>
+            <TextField
+              label="End Date"
+              type="date"
+              value={localEndDate}
+              onChange={(e) => setLocalEndDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+            <FormControl sx={{ minWidth: 150 }} size="small">
+              <InputLabel>Period</InputLabel>
+              <Select
+                value={localPeriod}
+                label="Period"
+                onChange={(e) => setLocalPeriod(e.target.value as any)}
+              >
+                <MenuItem value="MONTHLY">Monthly</MenuItem>
+                <MenuItem value="QUARTERLY">Quarterly</MenuItem>
+                <MenuItem value="YEARLY">Yearly</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={fetchCashFlowStatement}
+              size="small"
+            >
+              Apply
+            </Button>
+            <Tooltip title="Refresh">
+              <IconButton onClick={handleRefresh} size="small">
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={handleRefresh}>
-            <Refresh />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      </Paper>
 
       {cashFlowStatement.isBalanced ? (
         <Alert severity="success" sx={{ mb: 2 }} icon={<CheckCircle />}>
