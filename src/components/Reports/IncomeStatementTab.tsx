@@ -21,10 +21,6 @@ import {
   Button,
   IconButton,
   Tooltip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import {
   Assessment,
@@ -32,10 +28,13 @@ import {
   TrendingDown,
   CheckCircle,
   Refresh,
+  Download,
+  PictureAsPdf,
 } from '@mui/icons-material';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { apiService } from '../../services/api';
 import { IncomeStatementDto, IncomeStatementItemDto } from '../../types/financialReport';
+import { getApiBaseUrl } from '../../config/environment';
 
 interface IncomeStatementTabProps {
   startDate?: Date;
@@ -59,8 +58,8 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
   const [localStartDate, setLocalStartDate] = useState<string>(startDate ? startDate.toISOString().split('T')[0] : '');
   const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
   const [localPeriod, setLocalPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM'>(period);
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM format
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     // For CUSTOM period, only fetch if we have valid dates
@@ -108,55 +107,79 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
     fetchIncomeStatement();
   };
 
-  const handleMonthChange = (monthYear: string) => {
-    setSelectedMonth(monthYear);
-    // Set start and end dates for the selected month
-    const [year, month] = monthYear.split('-');
-    const firstDay = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const lastDay = new Date(parseInt(year), parseInt(month), 0);
-    
-    setLocalStartDate(firstDay.toISOString().split('T')[0]);
-    setLocalEndDate(lastDay.toISOString().split('T')[0]);
-    setLocalPeriod('MONTHLY');
-  };
+  const viewRdlcReport = async () => {
+    try {
+      if (!localStartDate || !localEndDate) {
+        setError('Please select a date range first');
+        return;
+      }
 
-  const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    // Set start and end dates for the selected year
-    const firstDay = new Date(year, 0, 1);
-    const lastDay = new Date(year, 11, 31);
-    
-    setLocalStartDate(firstDay.toISOString().split('T')[0]);
-    setLocalEndDate(lastDay.toISOString().split('T')[0]);
-    setLocalPeriod('YEARLY');
-  };
+      setLoading(true);
+      
+      // Get auth token
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
 
-  const generateYears = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear; i >= currentYear - 5; i--) {
-      years.push(i);
+      // Build URL with query parameters
+      const baseUrl = getApiBaseUrl();
+      const url = `${baseUrl}/Reports/income-statement/rdlc?startDate=${localStartDate}&endDate=${localEndDate}&format=PDF`;
+
+      // Fetch the report
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to generate report' }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      // Get the blob from response
+      const blob = await response.blob();
+      
+      // Clean up old URL if exists
+      if (reportUrl) {
+        window.URL.revokeObjectURL(reportUrl);
+      }
+      
+      // Create blob URL for viewing
+      const pdfUrl = window.URL.createObjectURL(blob);
+      setReportUrl(pdfUrl);
+      setShowReport(true);
+      setError(null);
+    } catch (error: any) {
+      console.error('Error viewing RDLC report:', error);
+      setError(error.message || 'Failed to view report');
+    } finally {
+      setLoading(false);
     }
-    return years;
   };
 
-  const generateMonths = () => {
-    return [
-      { value: '01', label: 'January' },
-      { value: '02', label: 'February' },
-      { value: '03', label: 'March' },
-      { value: '04', label: 'April' },
-      { value: '05', label: 'May' },
-      { value: '06', label: 'June' },
-      { value: '07', label: 'July' },
-      { value: '08', label: 'August' },
-      { value: '09', label: 'September' },
-      { value: '10', label: 'October' },
-      { value: '11', label: 'November' },
-      { value: '12', label: 'December' },
-    ];
+  const downloadCurrentReport = () => {
+    if (!reportUrl) return;
+    
+    const a = document.createElement('a');
+    a.href = reportUrl;
+    a.download = `IncomeStatement_${localStartDate}_${localEndDate}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
+  const closeReport = () => {
+    if (reportUrl) {
+      window.URL.revokeObjectURL(reportUrl);
+    }
+    setReportUrl(null);
+    setShowReport(false);
+  };
 
   const renderItem = (item: IncomeStatementItemDto, index: number) => (
     <TableRow key={index} hover>
@@ -250,39 +273,46 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
             </Box>
           </Box>
           <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
-            {/* Month/Year Selectors */}
-            <FormControl sx={{ minWidth: 120 }} size="small">
-              <InputLabel>Year</InputLabel>
-              <Select
-                value={selectedYear}
-                label="Year"
-                onChange={(e) => handleYearChange(Number(e.target.value))}
-              >
-                {generateYears().map(year => (
-                  <MenuItem key={year} value={year}>{year}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl sx={{ minWidth: 130 }} size="small">
-              <InputLabel>Month</InputLabel>
-              <Select
-                value={selectedMonth.split('-')[1] || ''}
-                label="Month"
-                onChange={(e) => handleMonthChange(`${selectedYear}-${e.target.value}`)}
-              >
-                {generateMonths().map(month => (
-                  <MenuItem key={month.value} value={month.value}>{month.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* Date Range Pickers */}
+            <TextField
+              label="Start Date"
+              type="date"
+              value={localStartDate}
+              onChange={(e) => setLocalStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 150 }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              value={localEndDate}
+              onChange={(e) => setLocalEndDate(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 150 }}
+            />
             <Button
               variant="contained"
               color="primary"
               onClick={fetchIncomeStatement}
               size="small"
+              disabled={!localStartDate || !localEndDate}
             >
               Apply
             </Button>
+            <Tooltip title="View PDF Report">
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<PictureAsPdf />}
+                onClick={viewRdlcReport}
+                size="small"
+                disabled={!localStartDate || !localEndDate}
+              >
+                View Report
+              </Button>
+            </Tooltip>
             <Tooltip title="Refresh">
               <IconButton onClick={handleRefresh} size="small">
                 <Refresh />
@@ -291,6 +321,48 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
           </Box>
         </Box>
       </Paper>
+
+      {/* RDLC Report Viewer */}
+      {showReport && reportUrl && (
+        <Paper elevation={3} sx={{ mb: 3 }}>
+          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Box display="flex" alignItems="center" gap={1}>
+                <PictureAsPdf color="error" />
+                <Typography variant="h6" fontWeight="bold">
+                  Income Statement Report
+                </Typography>
+              </Box>
+              <Box display="flex" gap={1}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<Download />}
+                  onClick={downloadCurrentReport}
+                >
+                  Download
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={closeReport}
+                >
+                  Close
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ width: '100%', height: '800px', bgcolor: 'white' }}>
+            <iframe
+              src={reportUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 'none' }}
+              title="Income Statement Report"
+            />
+          </Box>
+        </Paper>
+      )}
 
       {/* Loading State */}
       {loading && (
