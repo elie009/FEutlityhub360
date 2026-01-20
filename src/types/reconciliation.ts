@@ -209,9 +209,7 @@ export interface TransactionSplit {
   billId?: string;
   category?: string;
   description?: string;
-}
-
-export interface StagingTransaction {
+}export interface StagingTransaction {
   id: string;
   uploadId: string;
   transactionDate: string;
