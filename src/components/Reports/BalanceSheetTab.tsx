@@ -249,39 +249,6 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     </TableRow>
   );
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box p={3}>
-        <Alert 
-          severity="error" 
-          action={
-            <IconButton color="inherit" size="small" onClick={handleRefresh}>
-              <Refresh />
-            </IconButton>
-          }
-        >
-          {error}
-        </Alert>
-      </Box>
-    );
-  }
-
-  if (!balanceSheet) {
-    return (
-      <Box p={3}>
-        <Alert severity="info">No balance sheet data available</Alert>
-      </Box>
-    );
-  }
-
   return (
     <Box>
       {/* Date Filter Section */}
@@ -378,8 +345,37 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
         </Box>
       </Paper>
 
+      {/* Loading State */}
+      {loading && (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
+      )}
+
+      {/* Error State */}
+      {!loading && error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }}
+          action={
+            <IconButton color="inherit" size="small" onClick={handleRefresh}>
+              <Refresh />
+            </IconButton>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* No Data State */}
+      {!loading && !error && !balanceSheet && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          No balance sheet data available
+        </Alert>
+      )}
+
       {/* RDLC Report Viewer */}
-      {showReport && reportUrl && (
+      {!loading && showReport && reportUrl && (
         <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Balance Sheet Report (PDF)</Typography>
@@ -408,316 +404,31 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
       )}
 
       {/* Balance Validation Alert */}
-      {balanceSheet.isBalanced ? (
-        <Alert 
-          severity="success" 
-          icon={<CheckCircle />}
-          sx={{ mb: 3 }}
-        >
-          Balance sheet is balanced: Assets = Liabilities + Net Worth
-        </Alert>
-      ) : (
-        <Alert 
-          severity="warning" 
-          icon={<ErrorIcon />}
-          sx={{ mb: 3 }}
-        >
-          Balance sheet is not balanced. Difference: {formatCurrency(
-            Math.abs(balanceSheet.totalAssets - balanceSheet.totalLiabilitiesAndEquity)
+      {!loading && !error && balanceSheet && (
+        <>
+          {balanceSheet.isBalanced ? (
+            <Alert 
+              severity="success" 
+              icon={<CheckCircle />}
+              sx={{ mb: 3 }}
+            >
+              Balance sheet is balanced: Assets = Liabilities + Net Worth
+            </Alert>
+          ) : (
+            <Alert 
+              severity="warning" 
+              icon={<ErrorIcon />}
+              sx={{ mb: 3 }}
+            >
+              Balance sheet is not balanced. Difference: {formatCurrency(
+                Math.abs(balanceSheet.totalAssets - balanceSheet.totalLiabilitiesAndEquity)
+              )}
+            </Alert>
           )}
-        </Alert>
+        </>
       )}
 
-      {/* Balance Sheet Content */}
-      <Grid container spacing={3}>
-        {/* ASSETS SECTION */}
-        <Grid item xs={12} md={6}>
-          <Card elevation={3}>
-            <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
-                <AccountBalance color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h5" fontWeight="bold">
-                  ASSETS
-                </Typography>
-              </Box>
-              <Divider sx={{ mb: 2 }} />
-
-              {/* Current Assets */}
-              {balanceSheet.assets.currentAssets.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                    Current Assets
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {balanceSheet.assets.currentAssets.map((item, index) =>
-                          renderBalanceSheetItem(item, index)
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Total Current Assets:
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(balanceSheet.assets.totalCurrentAssets)}
-                    </Typography>
-                  </Box>
-                  <Divider />
-                </>
-              )}
-
-              {/* Fixed Assets */}
-              {balanceSheet.assets.fixedAssets.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                    Fixed Assets
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {balanceSheet.assets.fixedAssets.map((item, index) =>
-                          renderBalanceSheetItem(item, index)
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Total Fixed Assets:
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(balanceSheet.assets.totalFixedAssets)}
-                    </Typography>
-                  </Box>
-                  <Divider />
-                </>
-              )}
-
-              {/* Other Assets */}
-              {balanceSheet.assets.otherAssets.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                    Other Assets
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {balanceSheet.assets.otherAssets.map((item, index) =>
-                          renderBalanceSheetItem(item, index)
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Total Other Assets:
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(balanceSheet.assets.totalOtherAssets)}
-                    </Typography>
-                  </Box>
-                  <Divider />
-                </>
-              )}
-
-              {/* Total Assets */}
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                mt={3}
-                p={2}
-                sx={{
-                  backgroundColor: theme.palette.primary.light,
-                  borderRadius: 1,
-                }}
-              >
-                <Typography variant="h6" fontWeight="bold">
-                  TOTAL ASSETS
-                </Typography>
-                <Typography variant="h6" fontWeight="bold">
-                  {formatCurrency(balanceSheet.totalAssets)}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* LIABILITIES & EQUITY SECTION */}
-        <Grid item xs={12} md={6}>
-          <Card elevation={3}>
-            <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
-                <AccountBalance color="error" sx={{ mr: 1 }} />
-                <Typography variant="h5" fontWeight="bold">
-                  LIABILITIES & NET WORTH
-                </Typography>
-              </Box>
-              <Divider sx={{ mb: 2 }} />
-
-              {/* Current Liabilities */}
-              {balanceSheet.liabilities.currentLiabilities.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                    Current Liabilities
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {balanceSheet.liabilities.currentLiabilities.map((item, index) =>
-                          renderBalanceSheetItem(item, index)
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Total Current Liabilities:
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(balanceSheet.liabilities.totalCurrentLiabilities)}
-                    </Typography>
-                  </Box>
-                  <Divider />
-                </>
-              )}
-
-              {/* Long-term Liabilities */}
-              {balanceSheet.liabilities.longTermLiabilities.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                    Long-term Liabilities
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {balanceSheet.liabilities.longTermLiabilities.map((item, index) =>
-                          renderBalanceSheetItem(item, index)
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Total Long-term Liabilities:
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(balanceSheet.liabilities.totalLongTermLiabilities)}
-                    </Typography>
-                  </Box>
-                  <Divider />
-                </>
-              )}
-
-              {/* Total Liabilities */}
-              <Box display="flex" justifyContent="space-between" mt={2} mb={2} px={1}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  TOTAL LIABILITIES:
-                </Typography>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {formatCurrency(balanceSheet.liabilities.totalLiabilities)}
-                </Typography>
-              </Box>
-              <Divider sx={{ mb: 2 }} />
-
-              {/* Net Worth Section */}
-              <Typography variant="subtitle1" fontWeight="bold" mb={1} mt={2}>
-                Net Worth (What You Own)
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>
-                        <Typography variant="body2">Owner's Capital</Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="medium">
-                          {formatCurrency(balanceSheet.equity.ownersCapital)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Typography variant="body2">Retained Earnings</Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="medium">
-                          {formatCurrency(balanceSheet.equity.retainedEarnings)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <Box display="flex" justifyContent="space-between" mt={1} mb={2} px={1}>
-                <Typography variant="body2" fontWeight="bold">
-                  Total Net Worth:
-                </Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {formatCurrency(balanceSheet.equity.totalEquity)}
-                </Typography>
-              </Box>
-              <Divider />
-
-              {/* Total Liabilities & Net Worth */}
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                mt={3}
-                p={2}
-                sx={{
-                  backgroundColor: theme.palette.secondary.light,
-                  borderRadius: 1,
-                }}
-              >
-                <Typography variant="h6" fontWeight="bold">
-                  TOTAL LIABILITIES & NET WORTH
-                </Typography>
-                <Typography variant="h6" fontWeight="bold">
-                  {formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Summary Footer */}
-      <Box mt={3}>
-        <Card elevation={1}>
-          <CardContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="text.secondary">
-                  Total Assets
-                </Typography>
-                <Typography variant="h6" fontWeight="bold">
-                  {formatCurrency(balanceSheet.totalAssets)}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="text.secondary">
-                  Total Liabilities
-                </Typography>
-                <Typography variant="h6" fontWeight="bold" color="error">
-                  {formatCurrency(balanceSheet.liabilities.totalLiabilities)}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="text.secondary">
-                  Total Net Worth
-                </Typography>
-                <Typography variant="h6" fontWeight="bold" color="success.main">
-                  {formatCurrency(balanceSheet.equity.totalEquity)}
-                </Typography>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      </Box>
+      
     </Box>
   );
 };

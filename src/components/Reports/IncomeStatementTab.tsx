@@ -61,21 +61,11 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
   const [reportUrl, setReportUrl] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
 
+  // Only fetch on initial mount
   useEffect(() => {
-    // For CUSTOM period, only fetch if we have valid dates
-    if (localPeriod === 'CUSTOM') {
-      if (localStartDate && localEndDate) {
-        fetchIncomeStatement();
-      } else {
-        // Clear the data if dates are not valid for CUSTOM period
-        setIncomeStatement(null);
-        setLoading(false);
-      }
-    } else {
-      // For predefined periods, always fetch
-      fetchIncomeStatement();
-    }
-  }, [localStartDate, localEndDate, localPeriod, includeComparison]);
+    fetchIncomeStatement();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchIncomeStatement = async () => {
     try {
@@ -107,7 +97,7 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
     fetchIncomeStatement();
   };
 
-  const viewRdlcReport = async () => {
+  const applyAndViewReport = async () => {
     try {
       if (!localStartDate || !localEndDate) {
         setError('Please select a date range first');
@@ -115,11 +105,29 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
       }
 
       setLoading(true);
-      
+      setError(null);
+
+      // First, fetch the income statement data
+      console.log('[IncomeStatementTab] Making API call with:', {
+        startDate: localStartDate,
+        endDate: localEndDate,
+        period: localPeriod,
+        includeComparison
+      });
+
+      const data = await apiService.getIncomeStatement(
+        localStartDate || undefined,
+        localEndDate || undefined,
+        localPeriod,
+        includeComparison
+      );
+      setIncomeStatement(data);
+
       // Get auth token
       const token = localStorage.getItem('authToken');
       if (!token) {
         setError('Authentication required');
+        setLoading(false);
         return;
       }
 
@@ -155,8 +163,8 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
       setShowReport(true);
       setError(null);
     } catch (error: any) {
-      console.error('Error viewing RDLC report:', error);
-      setError(error.message || 'Failed to view report');
+      console.error('Error applying and viewing report:', error);
+      setError(error.message || 'Failed to apply and view report');
     } finally {
       setLoading(false);
     }
@@ -292,21 +300,12 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 150 }}
             />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={fetchIncomeStatement}
-              size="small"
-              disabled={!localStartDate || !localEndDate}
-            >
-              Apply
-            </Button>
-            <Tooltip title="View PDF Report">
+            <Tooltip title="Apply dates and view PDF report">
               <Button
                 variant="contained"
-                color="secondary"
+                color="primary"
                 startIcon={<PictureAsPdf />}
-                onClick={viewRdlcReport}
+                onClick={applyAndViewReport}
                 size="small"
                 disabled={!localStartDate || !localEndDate}
               >
@@ -383,212 +382,7 @@ const IncomeStatementTab: React.FC<IncomeStatementTabProps> = ({
         <Alert severity="info">No income statement data available. Please select a date range and click Apply.</Alert>
       )}
 
-      {/* Summary Cards */}
-      {!loading && !error && incomeStatement && (
-        <>
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Revenue
-                  </Typography>
-                  <Typography variant="h4" color="success.main" fontWeight="bold">
-                    {formatCurrency(incomeStatement.revenue.totalRevenue)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Expenses
-                  </Typography>
-                  <Typography variant="h4" color="error.main" fontWeight="bold">
-                    {formatCurrency(incomeStatement.expenses.totalExpenses)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="body2" color="text.secondary"  gutterBottom>
-                    Net Income
-                  </Typography>
-                  <Box display="flex" alignItems="center">
-                    {incomeStatement.netIncome >= 0 ? (
-                      <TrendingUp sx={{ color: 'success.main', mr: 1 }} />
-                    ) : (
-                      <TrendingDown sx={{ color: 'error.main', mr: 1 }} />
-                    )}
-                    <Typography
-                      variant="h4"
-                      color={incomeStatement.netIncome >= 0 ? 'success.main' : 'error.main'}
-                      fontWeight="bold"
-                    >
-                      {formatCurrency(incomeStatement.netIncome)}
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Revenue Section */}
-          <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom color="success.main">
-              Revenue
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Operating Revenue
-                </Typography>
-                <Box sx={{ pl: 2, mt: 1 }}>
-                  <Typography variant="body2">Salary Income: {formatCurrency(incomeStatement.revenue.salaryIncome)}</Typography>
-                  <Typography variant="body2">Business Income: {formatCurrency(incomeStatement.revenue.businessIncome)}</Typography>
-                  <Typography variant="body2">Freelance Income: {formatCurrency(incomeStatement.revenue.freelanceIncome)}</Typography>
-                  <Typography variant="body2">Other Operating: {formatCurrency(incomeStatement.revenue.otherOperatingRevenue)}</Typography>
-                </Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>
-                  Total Operating Revenue: {formatCurrency(incomeStatement.revenue.totalOperatingRevenue)}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Other Revenue
-                </Typography>
-                <Box sx={{ pl: 2, mt: 1 }}>
-                  <Typography variant="body2">Investment Income: {formatCurrency(incomeStatement.revenue.investmentIncome)}</Typography>
-                  <Typography variant="body2">Interest Income: {formatCurrency(incomeStatement.revenue.interestIncome)}</Typography>
-                  <Typography variant="body2">Rental Income: {formatCurrency(incomeStatement.revenue.rentalIncome)}</Typography>
-                  <Typography variant="body2">Dividend Income: {formatCurrency(incomeStatement.revenue.dividendIncome)}</Typography>
-                  <Typography variant="body2">Other Income: {formatCurrency(incomeStatement.revenue.otherIncome)}</Typography>
-                </Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>
-                  Total Other Revenue: {formatCurrency(incomeStatement.revenue.totalOtherRevenue)}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
-
-          {/* Expenses Section */}
-          <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom color="error.main">
-              Expenses
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Operating Expenses
-                </Typography>
-                <Box sx={{ pl: 2, mt: 1 }}>
-                  <Typography variant="body2">Utilities: {formatCurrency(incomeStatement.expenses.utilitiesExpense)}</Typography>
-                  <Typography variant="body2">Rent: {formatCurrency(incomeStatement.expenses.rentExpense)}</Typography>
-                  <Typography variant="body2">Insurance: {formatCurrency(incomeStatement.expenses.insuranceExpense)}</Typography>
-                  <Typography variant="body2">Subscriptions: {formatCurrency(incomeStatement.expenses.subscriptionExpense)}</Typography>
-                  <Typography variant="body2">Food: {formatCurrency(incomeStatement.expenses.foodExpense)}</Typography>
-                  <Typography variant="body2">Transportation: {formatCurrency(incomeStatement.expenses.transportationExpense)}</Typography>
-                  <Typography variant="body2">Healthcare: {formatCurrency(incomeStatement.expenses.healthcareExpense)}</Typography>
-                  <Typography variant="body2">Education: {formatCurrency(incomeStatement.expenses.educationExpense)}</Typography>
-                  <Typography variant="body2">Entertainment: {formatCurrency(incomeStatement.expenses.entertainmentExpense)}</Typography>
-                  <Typography variant="body2">Other Operating: {formatCurrency(incomeStatement.expenses.otherOperatingExpenses)}</Typography>
-                </Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>
-                  Total Operating Expenses: {formatCurrency(incomeStatement.expenses.totalOperatingExpenses)}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Financial Expenses
-                </Typography>
-                <Box sx={{ pl: 2, mt: 1 }}>
-                  <Typography variant="body2">Interest Expense: {formatCurrency(incomeStatement.expenses.interestExpense)}</Typography>
-                  <Typography variant="body2">Loan Fees: {formatCurrency(incomeStatement.expenses.loanFeesExpense)}</Typography>
-                </Box>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>
-                  Total Financial Expenses: {formatCurrency(incomeStatement.expenses.totalFinancialExpenses)}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Paper>
-
-          {/* Comparison Section */}
-          {incomeStatement.comparison && (
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Comparison with Previous Period
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" color="text.secondary">Revenue Change</Typography>
-              <Typography
-                variant="h6"
-                color={incomeStatement.comparison.revenueChange >= 0 ? 'success.main' : 'error.main'}
-              >
-                {incomeStatement.comparison.revenueChange >= 0 ? '+' : ''}
-                {formatCurrency(incomeStatement.comparison.revenueChange)} (
-                {incomeStatement.comparison.revenueChangePercentage.toFixed(1)}%)
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" color="text.secondary">Expenses Change</Typography>
-              <Typography
-                variant="h6"
-                color={incomeStatement.comparison.expensesChange >= 0 ? 'error.main' : 'success.main'}
-              >
-                {incomeStatement.comparison.expensesChange >= 0 ? '+' : ''}
-                {formatCurrency(incomeStatement.comparison.expensesChange)} (
-                {incomeStatement.comparison.expensesChangePercentage.toFixed(1)}%)
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" color="text.secondary">Net Income Change</Typography>
-              <Typography
-                variant="h6"
-                color={incomeStatement.comparison.netIncomeChange >= 0 ? 'success.main' : 'error.main'}
-              >
-                {incomeStatement.comparison.netIncomeChange >= 0 ? '+' : ''}
-                {formatCurrency(incomeStatement.comparison.netIncomeChange)} (
-                {incomeStatement.comparison.netIncomeChangePercentage.toFixed(1)}%)
-              </Typography>
-            </Grid>
-          </Grid>
-          </Paper>
-          )}
-
-          {/* Net Income Summary */}
-          <Paper elevation={3} sx={{ p: 3, bgcolor: incomeStatement.netIncome >= 0 ? 'success.light' : 'error.light' }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5" fontWeight="bold" sx={{ color: 'text.secondary' }}>
-                Net Income
-              </Typography>
-              <Box display="flex" alignItems="center">
-                {incomeStatement.netIncome >= 0 ? (
-                  <CheckCircle sx={{ color: 'text.secondary', mr: 1 }} />
-                ) : (
-                  <TrendingDown sx={{ color: 'text.secondary', mr: 1 }} />
-                )}
-                <Typography variant="h4" fontWeight="bold" sx={{ color: 'text.secondary' }}>
-                  {formatCurrency(incomeStatement.netIncome)}
-                </Typography>
-              </Box>
-            </Box>
-            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-              {incomeStatement.netIncome >= 0 
-                ? 'You have a positive net income this period.' 
-                : 'You have a negative net income this period. Consider reducing expenses or increasing revenue.'}
-            </Typography>
-          </Paper>
-        </>
-      )}
+   
     </Box>
   );
 };

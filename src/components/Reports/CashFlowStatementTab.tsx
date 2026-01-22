@@ -60,9 +60,11 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
   const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
   const [localPeriod, setLocalPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>(period);
 
+  // Only fetch on initial mount
   useEffect(() => {
     fetchCashFlowStatement();
-  }, [localStartDate, localEndDate, localPeriod]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchCashFlowStatement = async () => {
     try {

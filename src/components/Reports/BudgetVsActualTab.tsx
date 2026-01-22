@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -61,11 +61,7 @@ const BudgetVsActualTab: React.FC<BudgetVsActualTabProps> = ({
   const [localStartDate, setLocalStartDate] = useState<string>(startDate ? startDate.toISOString().split('T')[0] : '');
   const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
 
-  useEffect(() => {
-    fetchReport();
-  }, [localStartDate, localEndDate, currentPeriod]);
-
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -77,13 +73,18 @@ const BudgetVsActualTab: React.FC<BudgetVsActualTabProps> = ({
         currentPeriod
       );
       setReport(data);
-      if (onRefresh) onRefresh();
+      // Don't call onRefresh here as it causes infinite loop
+      // onRefresh should only be called on manual user actions
     } catch (err: any) {
       setError(err.message || 'Failed to load budget vs actual report');
     } finally {
       setLoading(false);
     }
-  };
+  }, [localStartDate, localEndDate, currentPeriod]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
 
   const handleRefresh = () => {
     fetchReport();
