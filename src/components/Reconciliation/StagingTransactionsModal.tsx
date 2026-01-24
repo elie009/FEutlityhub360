@@ -324,6 +324,7 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
   const [loadingBills, setLoadingBills] = useState(false);
   const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [transactionToSplit, setTransactionToSplit] = useState<StagingTransaction | null>(null);
+  const [previousClosingBalance, setPreviousClosingBalance] = useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Drag and drop sensors with activation constraints
@@ -406,16 +407,57 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     }
   }, []);
 
+  const loadPreviousBankStatement = React.useCallback(async () => {
+    if (!upload?.bankAccountId) return;
+    
+    try {
+      // Fetch all bank statements for this account
+      const statements = await apiService.getBankStatements(upload.bankAccountId);
+      
+      if (statements && statements.length > 0) {
+        // Sort by statement end date descending to get the most recent
+        const sortedStatements = statements
+          .filter(s => s.statementEndDate) // Only consider statements with end dates
+          .sort((a, b) => {
+            const dateA = new Date(a.statementEndDate);
+            const dateB = new Date(b.statementEndDate);
+            return dateB.getTime() - dateA.getTime();
+          });
+        
+        if (sortedStatements.length > 0) {
+          const previousStatement = sortedStatements[0];
+          const prevClosingBalance = previousStatement.closingBalance || 0;
+          
+          // Store the previous closing balance for comparison
+          setPreviousClosingBalance(prevClosingBalance);
+          
+          // Set opening balance from previous statement's closing balance
+          setFormData(prev => ({
+            ...prev,
+            openingBalance: prevClosingBalance
+          }));
+        } else {
+          // No previous statements
+          setPreviousClosingBalance(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load previous bank statement:', err);
+      // Don't show error to user, just use default opening balance of 0
+    }
+  }, [upload]);
+
   useEffect(() => {
     if (open && upload) {
       loadStagingTransactions();
       loadCategories();
       loadBills();
+      loadPreviousBankStatement(); // Load opening balance from previous statement
       setFormData({
         statementName: upload.originalFileName?.replace(/\.[^/.]+$/, "") || '',
         statementStartDate: '',
         statementEndDate: '',
-        openingBalance: 0,
+        openingBalance: 0, // Will be updated by loadPreviousBankStatement
         closingBalance: 0,
       });
     } else if (!open) {
@@ -429,8 +471,31 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
       setBills([]);
       setShowSplitDialog(false);
       setTransactionToSplit(null);
+      setPreviousClosingBalance(null);
     }
-  }, [open, upload, loadStagingTransactions, loadCategories, loadBills]);
+  }, [open, upload, loadStagingTransactions, loadCategories, loadBills, loadPreviousBankStatement]);
+
+  // Auto-calculate closing balance when opening balance or transactions change
+  useEffect(() => {
+    const totalDebit = transactions
+      .filter(t => t.transactionType === 'DEBIT')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    const totalCredit = transactions
+      .filter(t => t.transactionType === 'CREDIT')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    const calculated = formData.openingBalance + totalCredit - totalDebit;
+    
+    // Round to 3 decimal places to avoid floating point precision issues
+    const roundedClosingBalance = Math.round(calculated * 1000) / 1000;
+    
+    // Update closing balance automatically
+    setFormData(prev => ({
+      ...prev,
+      closingBalance: roundedClosingBalance
+    }));
+  }, [formData.openingBalance, transactions]);
 
   const handleRemoveTransaction = (id: string) => {
     setTransactions(transactions.filter(t => t.id !== id));
@@ -920,8 +985,22 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
     .filter(t => t.transactionType === 'CREDIT')
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
+  // Calculate closing balance automatically: Opening Balance + Credits - Debits
+  const calculatedClosingBalance = formData.openingBalance + totalCredit - totalDebit;
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={(event, reason) => {
+        // Only allow closing via the close button, not by clicking backdrop or pressing ESC
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+          return;
+        }
+        onClose();
+      }}
+      maxWidth="xl" 
+      fullWidth
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">Review Extracted Transactions</Typography>
@@ -937,6 +1016,25 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {/* Opening Balance Mismatch Warning */}
+        {previousClosingBalance !== null && 
+         Math.abs(formData.openingBalance - previousClosingBalance) > 0.01 && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+              Opening Balance Mismatch
+            </Typography>
+            <Typography variant="body2" gutterBottom>
+              The opening balance ({formatCurrency(formData.openingBalance)}) doesn't match the previous statement's closing balance ({formatCurrency(previousClosingBalance)}).
+            </Typography>
+            <Typography variant="body2" gutterBottom>
+              <strong>Difference: {formatCurrency(Math.abs(formData.openingBalance - previousClosingBalance))}</strong>
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              ⚠️ <strong>Warning:</strong> Your opening balance should match the closing balance from your previous statement to maintain accurate records. Please verify your opening balance before proceeding.
+            </Typography>
           </Alert>
         )}
 
@@ -978,11 +1076,44 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
               label="Closing Balance"
               type="number"
               value={formData.closingBalance}
-              onChange={(e) => setFormData({ ...formData, closingBalance: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value) || 0;
+                const rounded = Math.round(value * 1000) / 1000; // Round to 3 decimal places
+                setFormData({ ...formData, closingBalance: rounded });
+              }}
               size="small"
               sx={{ width: 150 }}
+              inputProps={{ step: 0.001 }}
             />
           </Box>
+          
+          {/* Closing Balance Calculation Summary */}
+          {transactions.length > 0 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Closing Balance Calculation:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography variant="body2">
+                  Opening Balance: <strong>{formatCurrency(formData.openingBalance)}</strong>
+                </Typography>
+                <Typography variant="body2" color="success.main">
+                  + Credits: <strong>{formatCurrency(totalCredit)}</strong>
+                </Typography>
+                <Typography variant="body2" color="error.main">
+                  - Debits: <strong>{formatCurrency(totalDebit)}</strong>
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                  = Calculated: <strong>{formatCurrency(calculatedClosingBalance)}</strong>
+                </Typography>
+                {Math.abs(calculatedClosingBalance - formData.closingBalance) > 0.01 && (
+                  <Typography variant="body2" color="warning.main" sx={{ fontWeight: 'bold' }}>
+                    ⚠ Difference: <strong>{formatCurrency(Math.abs(calculatedClosingBalance - formData.closingBalance))}</strong>
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          )}
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>

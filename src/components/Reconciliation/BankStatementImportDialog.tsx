@@ -143,7 +143,8 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
   // Check if opening balance matches previous closing balance (with debouncing)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      if (previousClosingBalance !== null && formData.openingBalance) {
+      // Only validate if we have a previous statement (indicated by previousStatementInfo)
+      if (previousStatementInfo && previousClosingBalance !== null && formData.openingBalance) {
         const currentOpeningBal = parseFloat(formData.openingBalance) || 0;
         const difference = Math.abs(previousClosingBalance - currentOpeningBal);
         
@@ -171,7 +172,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
     }, 2000); // 2 second debounce
 
     return () => clearTimeout(debounceTimer);
-  }, [formData.openingBalance, previousClosingBalance]);
+  }, [formData.openingBalance, previousClosingBalance, previousStatementInfo]);
 
   // Check for balance mismatch when user manually changes closing balance (with debouncing)
   useEffect(() => {
@@ -229,13 +230,16 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
             );
             const previousStatement = sortedStatements[0];
             
+            // Get the last closing balance from the most recent statement
+            const lastClosingBalance = previousStatement.closingBalance || 0;
+            
             // Store previous closing balance for validation
-            setPreviousClosingBalance(previousStatement.closingBalance);
+            setPreviousClosingBalance(lastClosingBalance);
             
             // Set opening balance from previous closing balance
             setFormData(prev => ({
               ...prev,
-              openingBalance: previousStatement.closingBalance.toFixed(2)
+              openingBalance: lastClosingBalance.toFixed(2)
             }));
             
             // Set info message
@@ -243,14 +247,25 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
               `Auto-filled from "${previousStatement.statementName}" (${new Date(previousStatement.statementEndDate).toLocaleDateString()})`
             );
           } else {
-            // No previous statements, clear opening balance
+            // No previous statements, set closing balance to 0
+            const lastClosingBalance = 0;
+            setPreviousClosingBalance(lastClosingBalance);
+            setFormData(prev => ({
+              ...prev,
+              openingBalance: lastClosingBalance.toFixed(2)
+            }));
             setPreviousStatementInfo('');
-            setPreviousClosingBalance(null);
           }
         } catch (err) {
           console.error('Failed to fetch previous statement:', err);
+          // On error, set closing balance to 0
+          const lastClosingBalance = 0;
+          setPreviousClosingBalance(lastClosingBalance);
+          setFormData(prev => ({
+            ...prev,
+            openingBalance: lastClosingBalance.toFixed(2)
+          }));
           setPreviousStatementInfo('');
-          setPreviousClosingBalance(null);
         }
       };
       

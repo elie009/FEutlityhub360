@@ -2,22 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Grid,
-  Card,
-  CardContent,
   Alert,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableRow,
-  TableHead,
-  Divider,
-  useTheme,
   IconButton,
   Tooltip,
-  Chip,
   Paper,
   TextField,
   Button,
@@ -28,15 +16,12 @@ import {
 } from '@mui/material';
 import {
   AccountBalance,
-  CheckCircle,
-  Error as ErrorIcon,
   Refresh,
-  TrendingUp,
-  TrendingDown,
+  PictureAsPdf,
 } from '@mui/icons-material';
-import { useCurrency } from '../../contexts/CurrencyContext';
 import { apiService } from '../../services/api';
-import { CashFlowStatementDto, CashFlowItemDto } from '../../types/financialReport';
+import { getApiBaseUrl } from '../../config/envLoader';
+import { CashFlowStatementDto } from '../../types/financialReport';
 
 interface CashFlowStatementTabProps {
   startDate?: Date;
@@ -51,14 +36,24 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
   period = 'MONTHLY',
   onRefresh 
 }) => {
-  const { formatCurrency } = useCurrency();
-  const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [cashFlowStatement, setCashFlowStatement] = useState<CashFlowStatementDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [localStartDate, setLocalStartDate] = useState<string>(startDate ? startDate.toISOString().split('T')[0] : '');
-  const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
+  const defaultStart = (() => {
+    if (startDate) return startDate.toISOString().split('T')[0];
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  })();
+  const defaultEnd = (() => {
+    if (endDate) return endDate.toISOString().split('T')[0];
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
+  })();
+  const [localStartDate, setLocalStartDate] = useState<string>(defaultStart);
+  const [localEndDate, setLocalEndDate] = useState<string>(defaultEnd);
   const [localPeriod, setLocalPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>(period);
+  const [reportUrl, setReportUrl] = useState<string>('');
+  const [showReport, setShowReport] = useState<boolean>(false);
 
   // Only fetch on initial mount
   useEffect(() => {
@@ -66,7 +61,7 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchCashFlowStatement = async () => {
+  const fetchCashFlowStatement = async (): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
@@ -78,8 +73,10 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
         localPeriod
       );
       setCashFlowStatement(data);
+      return true;
     } catch (err: any) {
       setError(err.message || 'Failed to load cash flow statement');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -90,102 +87,54 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
     if (onRefresh) onRefresh();
   };
 
-  const renderCashFlowItem = (item: CashFlowItemDto, index: number) => (
-    <TableRow key={index} hover>
-      <TableCell>{item.description}</TableCell>
-      <TableCell>
-        <Chip label={item.category} size="small" variant="outlined" />
-      </TableCell>
-      <TableCell align="right">{formatCurrency(item.amount)}</TableCell>
-      <TableCell>{new Date(item.transactionDate).toLocaleDateString()}</TableCell>
-    </TableRow>
-  );
+  const handleApplyAndViewReport = async () => {
+    const ok = await fetchCashFlowStatement();
+    if (ok) await viewRdlcReportWithDates(localStartDate, localEndDate);
+    if (onRefresh) onRefresh();
+  };
 
-  const renderSection = (
-    title: string,
-    inflows: number,
-    outflowItems: CashFlowItemDto[],
-    outflowTotal: number,
-    netCash: number,
-    icon: React.ReactNode
-  ) => (
-    <Card sx={{ mb: 3 }}>
-      <CardContent>
-        <Box display="flex" alignItems="center" mb={2}>
-          {icon}
-          <Typography variant="h6" sx={{ ml: 1 }}>
-            {title}
-          </Typography>
-        </Box>
-        <Divider sx={{ mb: 2 }} />
-        
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Cash Inflows
-            </Typography>
-            <Typography variant="h6" color="success.main">
-              {formatCurrency(inflows)}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Cash Outflows
-            </Typography>
-            <Typography variant="h6" color="error.main">
-              {formatCurrency(outflowTotal)}
-            </Typography>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 2 }} />
-
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="subtitle1" fontWeight="bold">
-            Net Cash Flow
-          </Typography>
-          <Box display="flex" alignItems="center">
-            {netCash >= 0 ? (
-              <TrendingUp sx={{ color: 'success.main', mr: 1 }} />
-            ) : (
-              <TrendingDown sx={{ color: 'error.main', mr: 1 }} />
-            )}
-            <Typography
-              variant="h6"
-              color={netCash >= 0 ? 'success.main' : 'error.main'}
-              fontWeight="bold"
-            >
-              {formatCurrency(netCash)}
-            </Typography>
-          </Box>
-        </Box>
-
-        {outflowItems.length > 0 && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" gutterBottom>
-              Transaction Details
-            </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell>Date</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {outflowItems.map((item, index) => renderCashFlowItem(item, index))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
+  const viewRdlcReportWithDates = async (startDateStr: string, endDateStr: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        return;
+      }
+      if (!startDateStr || !endDateStr) {
+        setError('Please set Start Date and End Date before viewing the RDLC report.');
+        return;
+      }
+      const baseUrl = getApiBaseUrl();
+      const params = new URLSearchParams({
+        startDate: startDateStr,
+        endDate: endDateStr,
+        format: 'PDF',
+      });
+      const url = `${baseUrl}/Reports/cash-flow/rdlc?${params.toString()}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/pdf',
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Session expired. Please log in again.');
+          return;
+        }
+        const errorData = await response.json().catch(() => ({ message: 'Failed to load report' }));
+        throw new Error(errorData.message || 'Failed to load report');
+      }
+      const blob = await response.blob();
+      const pdfUrl = window.URL.createObjectURL(blob);
+      setReportUrl(pdfUrl);
+      setShowReport(true);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate PDF report');
+    }
+  };
 
   if (loading) {
     return (
@@ -213,8 +162,6 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
     );
   }
 
-  const { operatingActivities, investingActivities, financingActivities } = cashFlowStatement;
-
   return (
     <Box>
       {/* Date Filter Section */}
@@ -227,8 +174,7 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
                 Cash Flow Statement
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Period: {new Date(cashFlowStatement.periodStart).toLocaleDateString()} -{' '}
-                {new Date(cashFlowStatement.periodEnd).toLocaleDateString()}
+                Period: {new Date(localStartDate).toLocaleDateString()} – {new Date(localEndDate).toLocaleDateString()}
               </Typography>
             </Box>
           </Box>
@@ -270,14 +216,18 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
                 <MenuItem value="YEARLY">Yearly</MenuItem>
               </Select>
             </FormControl>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={fetchCashFlowStatement}
-              size="small"
-            >
-              Apply
-            </Button>
+            <Tooltip title="Apply date range and view PDF report">
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<PictureAsPdf />}
+                onClick={handleApplyAndViewReport}
+                size="small"
+                disabled={!localStartDate || !localEndDate}
+              >
+                View Report
+              </Button>
+            </Tooltip>
             <Tooltip title="Refresh">
               <IconButton onClick={handleRefresh} size="small">
                 <Refresh />
@@ -287,86 +237,35 @@ const CashFlowStatementTab: React.FC<CashFlowStatementTabProps> = ({
         </Box>
       </Paper>
 
-      {cashFlowStatement.isBalanced ? (
-        <Alert severity="success" sx={{ mb: 2 }} icon={<CheckCircle />}>
-          Cash flow statement is balanced: Beginning Cash + Net Cash Flow = Ending Cash
-        </Alert>
-      ) : (
-        <Alert severity="warning" sx={{ mb: 2 }} icon={<ErrorIcon />}>
-          Cash flow statement is not balanced. Difference: {formatCurrency(
-            Math.abs(cashFlowStatement.endingCash - 
-              (cashFlowStatement.beginningCash + cashFlowStatement.netCashFlow))
-          )}
-        </Alert>
-      )}
-
-      {/* Operating Activities */}
-      {renderSection(
-        'Operating Activities',
-        operatingActivities.totalOperatingInflows,
-        operatingActivities.outflowItems,
-        operatingActivities.totalOperatingOutflows,
-        operatingActivities.netCashFromOperations,
-        <AccountBalance color="primary" />
-      )}
-
-      {/* Investing Activities */}
-      {renderSection(
-        'Investing Activities',
-        investingActivities.totalInvestingInflows,
-        investingActivities.outflowItems,
-        investingActivities.totalInvestingOutflows,
-        investingActivities.netCashFromInvesting,
-        <TrendingUp color="secondary" />
-      )}
-
-      {/* Financing Activities */}
-      {renderSection(
-        'Financing Activities',
-        financingActivities.totalFinancingInflows,
-        financingActivities.outflowItems,
-        financingActivities.totalFinancingOutflows,
-        financingActivities.netCashFromFinancing,
-        <TrendingDown color="warning" />
-      )}
-
-      {/* Summary */}
-      <Paper elevation={2} sx={{ p: 3, mt: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Summary
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">
-              Beginning Cash
-            </Typography>
-            <Typography variant="h6">{formatCurrency(cashFlowStatement.beginningCash)}</Typography>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" color="text.secondary">
-              Net Cash Flow
-            </Typography>
-            <Typography
-              variant="h6"
-              color={cashFlowStatement.netCashFlow >= 0 ? 'success.main' : 'error.main'}
+      {/* RDLC Report Viewer */}
+      {showReport && reportUrl && (
+        <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Cash Flow Statement Report (PDF)</Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setShowReport(false);
+                window.URL.revokeObjectURL(reportUrl);
+                setReportUrl('');
+              }}
             >
-              {formatCurrency(cashFlowStatement.netCashFlow)}
-            </Typography>
-          </Grid>
-          <Grid item xs={12}>
-            <Divider />
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="body2" color="text.secondary">
-              Ending Cash
-            </Typography>
-            <Typography variant="h5" fontWeight="bold">
-              {formatCurrency(cashFlowStatement.endingCash)}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
+              Close Report
+            </Button>
+          </Box>
+          <Box sx={{ width: '100%', height: '800px', border: '1px solid', borderColor: 'divider' }}>
+            <iframe
+              src={reportUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 'none' }}
+              title="Cash Flow Statement Report"
+            />
+          </Box>
+        </Paper>
+      )}
+
     </Box>
   );
 };

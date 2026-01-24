@@ -136,7 +136,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     }
   }, []); // Run once on mount
 
-  const fetchBalanceSheetWithDates = async (startDate: string, endDate: string) => {
+  const fetchBalanceSheetWithDates = async (startDate: string, endDate: string): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
@@ -149,21 +149,24 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
       );
       setBalanceSheet(data);
       setCurrentDate(end);
+      return true;
     } catch (err: any) {
       setError(err.message || 'Failed to load balance sheet');
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchBalanceSheet = () => {
+  const handleRefresh = () => {
     fetchBalanceSheetWithDates(localStartDate, localEndDate);
-    // Also refresh the RDLC report
-    viewRdlcReportWithDates(localStartDate, localEndDate);
+    if (onRefresh) onRefresh();
   };
 
-  const handleRefresh = () => {
-    fetchBalanceSheet();
+  const handleApplyAndViewReport = async () => {
+    const ok = await fetchBalanceSheetWithDates(localStartDate, localEndDate);
+    if (ok) await viewRdlcReportWithDates(localStartDate, localEndDate);
+    if (onRefresh) onRefresh();
   };
 
   // Get today's date in YYYY-MM-DD format for max date attribute
@@ -225,10 +228,6 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     } catch (err: any) {
       setError(err.message || 'Failed to generate PDF report');
     }
-  };
-
-  const viewRdlcReport = async () => {
-    await viewRdlcReportWithDates(localStartDate, localEndDate);
   };
 
   const renderBalanceSheetItem = (item: BalanceSheetItemDto, index: number) => (
@@ -315,21 +314,12 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               sx={{ minWidth: 150 }}
               disabled={period !== 'CUSTOM'}
             />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={fetchBalanceSheet}
-              size="small"
-              disabled={!localEndDate}
-            >
-              Apply
-            </Button>
-            <Tooltip title="View PDF Report">
+            <Tooltip title="Apply date range and view PDF report">
               <Button
                 variant="contained"
-                color="secondary"
+                color="primary"
                 startIcon={<PictureAsPdf />}
-                onClick={viewRdlcReport}
+                onClick={handleApplyAndViewReport}
                 size="small"
                 disabled={!localEndDate}
               >
