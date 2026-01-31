@@ -222,9 +222,7 @@ export interface TransactionSplit {
   balanceAfterTransaction: number;
   splits?: TransactionSplit[]; // Optional splits for this transaction
   isSplit?: boolean; // Flag to indicate if this transaction is split
-}
-
-export interface ConfirmBankStatementUploadRequest {
+}export interface ConfirmBankStatementUploadRequest {
   statementName: string;
   statementStartDate: string;
   statementEndDate: string;
