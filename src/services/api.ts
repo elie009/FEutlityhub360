@@ -5718,7 +5718,7 @@ class ApiService {
   // Update ticket status
   async updateTicketStatus(ticketId: string, status: string, notes?: string): Promise<any> {
     const response = await this.request<any>(`/Tickets/${ticketId}/status`, {
-      method: 'POST',
+      method: 'PUT',
       body: JSON.stringify({ status, notes }),
     });
 

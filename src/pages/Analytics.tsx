@@ -805,6 +805,7 @@ const Analytics: React.FC = () => {
   return (
     <Box>
       {/* Header */}
+      <br></br>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" gutterBottom>

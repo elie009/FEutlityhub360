@@ -21,13 +21,14 @@ import {
 import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
-  AccountCircle,
   Search as SearchIcon,
   Settings as SettingsIcon,
   CheckCircle,
   Payment,
   Warning,
   Info,
+  AccountBalance as WalletIcon,
+  AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -225,151 +226,221 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
 
   const handleSearchKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && searchQuery.trim()) {
-      // Redirect to documentation page with search query
+      navigate(`/documentation?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
       navigate(`/documentation?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
     }
   };
 
   return (
-    <MuiAppBar 
-      position="fixed" 
-      sx={{ 
+    <MuiAppBar
+      position="fixed"
+      elevation={0}
+      sx={{
         zIndex: (theme) => theme.zIndex.drawer + 10,
-        top: { xs: 0, md: '0px' }, // Align with sidebar top margin
-        left: { xs: 0, md: `calc(${sidebarWidth}px + 12px)` }, // Start after sidebar width + left margin
-        width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px - 24px)` }, // Width minus sidebar, left margin, and right margin
-        borderRadius: { xs: 0, md: '8px' }, // Match sidebar border radius
+        top: 12,
+        left: { xs: 0, md: `calc(${sidebarWidth}px + 24px)` },
+        width: { xs: '100%', md: `calc(100% - ${sidebarWidth}px - 48px)` },
+        bgcolor: 'background.paper',
+        borderBottom: '1px solid',
+        borderColor: 'grey.200',
+        boxShadow: 1,
+        borderRadius: { xs: 0, md: 2 },
+        ml: 0,
+        mr: { xs: 0, md: 3 },
         transition: (theme) => theme.transitions.create(['width', 'left'], {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.enteringScreen,
         }),
       }}
     >
-      <Toolbar sx={{ 
-        position: 'relative', 
-        justifyContent: 'space-between',
-        minHeight: { xs: '56px', sm: '64px' }, // Consistent toolbar height
-        padding: { xs: '0 8px', sm: '0 16px' }, // Reduced padding on mobile
-      }}>
-        {/* Left side - Menu button and Search Bar */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          flex: 1,
-          gap: 1,
-          minWidth: { xs: '48px', sm: 'auto' }, // Ensure space for menu button
-        }}>
+      <Toolbar
+        sx={{
+          py: '5px',
+          px: { xs: 2, sm: 3 },
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        {/* Left: Menu (mobile) + Logo + Title + Subtitle */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
           {isMobile && onMenuClick && (
             <IconButton
               color="inherit"
               aria-label="open drawer"
               onClick={onMenuClick}
               edge="start"
-              sx={{ color: '#1a1a1a', padding: { xs: '8px', sm: '12px' }, flexShrink: 0 }}
+              sx={{ color: 'grey.900', p: 1 }}
             >
               <MenuIcon />
             </IconButton>
           )}
-          
-          {/* Search Bar */}
           <Box
             sx={{
-              borderRadius: 1,
-              width: { xs: '200px', sm: '300px', md: '400px', lg: '500px' },
-              maxWidth: { xs: 'calc(100vw - 200px)', sm: 'none' },
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              bgcolor: '#b3ee9a',
+              boxShadow: '0 4px 14px rgba(179, 238, 154, 0.3)',
               display: 'flex',
               alignItems: 'center',
-              padding: '4px 12px',
-              border: '1px solid #e5e5e5',
-              backgroundColor: '#ffffff',
-              '&:hover': {
-                backgroundColor: '#ffffff',
-                borderColor: '#1976d2',
-              },
+              justifyContent: 'center',
+            }}
+          >
+            <MoneyIcon sx={{ fontSize: 20, color: 'grey.900' }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontSize: '1.25rem', fontWeight: 600, color: 'grey.900', lineHeight: 1.2 }}>
+              Personal Finance Hub
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'grey.500', fontSize: '0.75rem' }}>
+              Financial Dashboard
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Center: Search bar (rounded-full, flex-1 max-w-md) */}
+        <Box
+          component="form"
+          onSubmit={handleSearchSubmit}
+          sx={{
+            flex: 1,
+            maxWidth: { xs: '100%', sm: 400, md: 448 },
+            mx: { xs: 1, sm: 2 },
+            display: { xs: 'none', sm: 'block' },
+          }}
+        >
+          <Box
+            sx={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              height: 44,
+              bgcolor: 'grey.50',
+              border: '1px solid',
+              borderColor: 'grey.200',
+              borderRadius: 9999,
+              '&:hover': { borderColor: 'grey.300' },
               '&:focus-within': {
-                borderColor: '#1976d2',
-                boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)',
+                borderColor: '#b3ee9a',
+                bgcolor: 'background.paper',
+                boxShadow: '0 0 0 2px rgba(179, 238, 154, 0.2)',
               },
             }}
           >
-            <SearchIcon sx={{ color: '#666666', mr: 1, fontSize: '20px' }} />
+            <SearchIcon
+              sx={{
+                position: 'absolute',
+                left: 16,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 20,
+                color: 'grey.400',
+              }}
+            />
             <InputBase
-              placeholder="Search bills, loans, Expense etc"
+              placeholder="Search transactions, bills, accounts..."
               value={searchQuery}
               onChange={handleSearchChange}
               onKeyPress={handleSearchKeyPress}
               sx={{
-                color: '#1a1a1a',
                 width: '100%',
-                '& .MuiInputBase-input': {
-                  padding: '4px 8px',
-                  fontSize: '0.875rem',
-                },
+                height: '100%',
+                pl: 6,
+                pr: 2,
+                fontSize: '0.875rem',
+                color: 'grey.900',
+                '& .MuiInputBase-input::placeholder': { color: 'grey.400', opacity: 1 },
               }}
             />
           </Box>
         </Box>
 
-        {/* Right side - Notification bell, settings, and user icon */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: { xs: 0.5, sm: 1.5 }, 
-          flex: 1, 
-          justifyContent: 'flex-end',
-          minHeight: '48px', // Ensure consistent height
-        }}>
-          <IconButton 
-            color="inherit" 
-            onClick={handleNotificationMenuOpen}
-            sx={{ 
-              color: '#1a1a1a',
-              padding: { xs: '8px', sm: '12px' }, // Consistent padding on mobile
-              '& .MuiSvgIcon-root': {
-                fontSize: { xs: '20px', sm: '24px' }, // Slightly smaller on mobile
-              }
+        {/* Right: Pill with Notifications, Wallet, Avatar */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            bgcolor: 'grey.50',
+            borderRadius: 9999,
+            px: 1.5,
+            py: 1,
+            border: '1px solid',
+            borderColor: 'grey.200',
+            flexShrink: 0,
+          }}
+        >
+          <Badge
+            badgeContent={unreadCount}
+            color="error"
+            sx={{
+              '& .MuiBadge-badge': {
+                minWidth: 20,
+                height: 20,
+                fontSize: '0.75rem',
+              },
             }}
           >
-            <Badge badgeContent={unreadCount} color="error">
+            <IconButton
+              onClick={handleNotificationMenuOpen}
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                color: 'grey.500',
+                '&:hover': { bgcolor: 'grey.100', color: 'grey.900' },
+                '& .MuiSvgIcon-root': { fontSize: 20 },
+              }}
+            >
               <NotificationsIcon />
-            </Badge>
-          </IconButton>
+            </IconButton>
+          </Badge>
 
-          {/* Notification Dropdown Menu */}
           <Menu
             anchorEl={notificationAnchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             open={Boolean(notificationAnchorEl)}
             onClose={handleNotificationMenuClose}
             PaperProps={{
               sx: {
-                width: { xs: '90vw', sm: 500, md: 600 },
-                maxWidth: '90vw',
-                maxHeight: { xs: 'calc(100vh - 100px)', sm: 'calc(100vh - 80px)' },
-                mt: 1,
+                width: { xs: '90vw', sm: 320 },
+                maxWidth: 320,
+                maxHeight: 'calc(100vh - 100px)',
+                mt: 1.5,
+                borderRadius: 2,
+                boxShadow: 4,
+                border: '1px solid',
+                borderColor: 'grey.200',
+                overflow: 'hidden',
               },
             }}
           >
-            <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'grey.900' }}>
                 Notifications
               </Typography>
-              {unreadCount > 0 && (
-                <Typography variant="caption" color="text.secondary">
-                  {unreadCount} unread
-                </Typography>
-              )}
+              <Button
+                size="small"
+                onClick={() => {
+                  navigate('/notifications');
+                  handleNotificationMenuClose();
+                }}
+                sx={{ textTransform: 'none', fontSize: '0.75rem', color: '#5ba842', minWidth: 'auto', p: 0 }}
+              >
+                Mark all read
+              </Button>
             </Box>
             <Divider />
-            <Box sx={{ overflow: 'auto', maxHeight: { xs: 'calc(100vh - 200px)', sm: 'calc(100vh - 180px)' } }}>
+            <Box sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
               {loadingNotifications ? (
                 <Box sx={{ p: 3, textAlign: 'center' }}>
                   <Typography variant="body2" color="text.secondary">
@@ -389,14 +460,12 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
                     <MenuItem
                       onClick={() => handleNotificationClick(notification)}
                       sx={{
-                        bgcolor: notification.isRead ? 'transparent' : 'action.hover',
+                        bgcolor: notification.isRead ? 'transparent' : 'grey.50',
                         py: 1.5,
                         px: 2,
                         whiteSpace: 'normal',
                         width: '100%',
-                        '&:hover': {
-                          bgcolor: 'action.selected',
-                        },
+                        '&:hover': { bgcolor: 'grey.100' },
                       }}
                     >
                       <ListItemIcon sx={{ minWidth: 40, alignSelf: 'flex-start', pt: 0.5 }}>
@@ -404,45 +473,16 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
                       </ListItemIcon>
                       <ListItemText
                         primary={
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: notification.isRead ? 400 : 600,
-                              mb: 0.5,
-                              whiteSpace: 'normal',
-                              wordBreak: 'break-word',
-                              overflowWrap: 'break-word',
-                            }}
-                          >
+                          <Typography variant="body2" sx={{ fontWeight: notification.isRead ? 400 : 600, mb: 0.5 }}>
                             {notification.message}
                           </Typography>
                         }
                         secondary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-                            <Typography 
-                              variant="caption" 
-                              color="text.secondary"
-                              sx={{
-                                whiteSpace: 'normal',
-                                wordBreak: 'break-word',
-                              }}
-                            >
-                              {formatDate(notification.createdAt)}
-                            </Typography>
-                            {!notification.isRead && (
-                              <Chip
-                                label="New"
-                                size="small"
-                                color="primary"
-                                sx={{ height: 18, fontSize: '0.65rem' }}
-                              />
-                            )}
-                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(notification.createdAt)}
+                          </Typography>
                         }
-                        sx={{
-                          width: '100%',
-                          margin: 0,
-                        }}
+                        sx={{ margin: 0 }}
                       />
                     </MenuItem>
                     {index < recentNotifications.length - 1 && <Divider />}
@@ -464,71 +504,61 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
               </Button>
             </Box>
           </Menu>
-          
-          <IconButton
-            color="inherit"
-            onClick={() => navigate('/settings')}
-            sx={{ 
-              color: '#1a1a1a',
-              padding: { xs: '8px', sm: '12px' }, // Consistent padding on mobile
-              '& .MuiSvgIcon-root': {
-                fontSize: { xs: '20px', sm: '24px' }, // Slightly smaller on mobile
-              }
+
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<WalletIcon sx={{ fontSize: 18 }} />}
+            onClick={() => navigate('/dashboard')}
+            sx={{
+              height: 40,
+              borderRadius: 9999,
+              bgcolor: 'background.paper',
+              borderColor: 'grey.200',
+              color: 'grey.900',
+              textTransform: 'none',
+              fontSize: '0.875rem',
+              '&:hover': { borderColor: 'grey.300', bgcolor: 'grey.100' },
             }}
           >
-            <SettingsIcon />
-          </IconButton>
-          
+            Wallet
+          </Button>
+
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
               cursor: 'pointer',
-              padding: { xs: '2px 4px', sm: '4px 8px' }, // Reduced padding on mobile
-              borderRadius: 1,
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.05)',
-              },
+              borderRadius: '50%',
+              overflow: 'hidden',
+              '&:hover': { opacity: 0.9 },
+              transition: 'transform 0.2s',
+              '&:hover .avatar-circle': { transform: 'scale(1.1)' },
             }}
             onClick={handleProfileMenuOpen}
           >
-            <Box sx={{ 
-              display: { xs: 'none', sm: 'flex' }, // Hide user info text on mobile
-              flexDirection: 'column', 
-              alignItems: 'flex-end', 
-              mr: 1 
-            }}>
-              <Typography variant="body2" sx={{ color: '#1a1a1a', fontWeight: 500, fontSize: '0.875rem' }}>
-                {user?.name || 'User'}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#666666', fontSize: '0.75rem' }}>
-                Admin
-              </Typography>
-            </Box>
-            <Avatar sx={{ 
-              width: { xs: 28, sm: 32 }, 
-              height: { xs: 28, sm: 32 }, 
-              bgcolor: '#B3EE9A', 
-              color: '#1a1a1a', 
-              fontWeight: 600 
-            }}>
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+            <Avatar
+              className="avatar-circle"
+              sx={{
+                width: 40,
+                height: 40,
+                background: 'linear-gradient(135deg, #fb923c 0%, #ec4899 100%)',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                boxShadow: 2,
+              }}
+            >
+              {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
             </Avatar>
           </Box>
         </Box>
 
         <Menu
           anchorEl={anchorEl}
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
           keepMounted
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
@@ -543,6 +573,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
             </Box>
           </MenuItem>
           <MenuItem onClick={() => { navigate('/settings'); handleMenuClose(); }}>
+            <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
             Settings
           </MenuItem>
           <MenuItem onClick={handleLogout}>

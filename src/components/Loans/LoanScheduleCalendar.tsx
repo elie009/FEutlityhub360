@@ -207,44 +207,47 @@ const LoanScheduleCalendar: React.FC = () => {
   return (
     <Card sx={{ border: '1px solid #e5e5e5' }}>
       <CardContent sx={{ p: 2 }}>
+        {/* Header: title left, View All Loans right */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 1 }}>
             <CalendarMonth sx={{ fontSize: 20 }} />
             Loan Schedules
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton
-              size="small"
-              onClick={() => navigateMonth('prev')}
-              sx={{ p: 0.5 }}
-            >
-              <ChevronLeft />
-            </IconButton>
-            <Typography variant="body2" sx={{ minWidth: 140, textAlign: 'center', fontWeight: 500 }}>
-              {monthNames[currentMonth]} {currentYear}
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={() => navigateMonth('next')}
-              sx={{ p: 0.5 }}
-            >
-              <ChevronRight />
-            </IconButton>
-          </Box>
-        </Box>
-        
-        {!loading && loans.length > 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          {!loading && loans.length > 0 && (
             <Button
-              variant="outlined"
-              size="small"
+            variant="contained"
+            color="success"
+            size="small"
               startIcon={<CreditCard />}
               onClick={() => navigate('/loans')}
             >
               View All Loans
             </Button>
-          </Box>
-        )}
+          )}
+        </Box>
+
+        {/* Month selection: centered in the middle */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0.5, mb: 2 }}>
+          <IconButton
+            size="small"
+            onClick={() => navigateMonth('prev')}
+            sx={{ p: 0.5 }}
+            aria-label="Previous month"
+          >
+            <ChevronLeft />
+          </IconButton>
+          <Typography variant="body2" sx={{ minWidth: 140, textAlign: 'center', fontWeight: 500 }}>
+            {monthNames[currentMonth]} {currentYear}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={() => navigateMonth('next')}
+            sx={{ p: 0.5 }}
+            aria-label="Next month"
+          >
+            <ChevronRight />
+          </IconButton>
+        </Box>
 
         {loading ? (
           <Box>
@@ -400,30 +403,27 @@ const LoanScheduleCalendar: React.FC = () => {
               })}
             </Grid>
 
-            {/* Legend - Only show if there are loans */}
+            {/* Legend - Only show if there are loans: (green) Paid, (yellow) Pending, (red) Overdue */}
             {loans.length > 0 && (
-              <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Chip
-                  icon={<CheckCircle sx={{ fontSize: 12 }} />}
-                  label="Paid"
-                  size="small"
-                  color="success"
-                  sx={{ fontSize: '0.7rem', height: 20 }}
-                />
-                <Chip
-                  icon={<Warning sx={{ fontSize: 12 }} />}
-                  label="Pending"
-                  size="small"
-                  color="warning"
-                  sx={{ fontSize: '0.7rem', height: 20 }}
-                />
-                <Chip
-                  icon={<PriorityHigh sx={{ fontSize: 12 }} />}
-                  label="Overdue"
-                  size="small"
-                  color="error"
-                  sx={{ fontSize: '0.7rem', height: 20 }}
-                />
+              <Box sx={{ mt: 1.5, display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#2e7d32' }} />
+                  <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                    Paid
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f9a825' }} />
+                  <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                    Pending
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#d32f2f' }} />
+                  <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                    Overdue
+                  </Typography>
+                </Box>
               </Box>
             )}
 

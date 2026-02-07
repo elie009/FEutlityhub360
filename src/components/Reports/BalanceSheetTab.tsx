@@ -136,7 +136,7 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     }
   }, []); // Run once on mount
 
-  const fetchBalanceSheetWithDates = async (startDate: string, endDate: string): Promise<boolean> => {
+  const fetchBalanceSheetWithDates = async (startDate: string, endDate: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -149,24 +149,21 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
       );
       setBalanceSheet(data);
       setCurrentDate(end);
-      return true;
     } catch (err: any) {
       setError(err.message || 'Failed to load balance sheet');
-      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRefresh = () => {
+  const fetchBalanceSheet = () => {
     fetchBalanceSheetWithDates(localStartDate, localEndDate);
-    if (onRefresh) onRefresh();
+    // Also refresh the RDLC report
+    viewRdlcReportWithDates(localStartDate, localEndDate);
   };
 
-  const handleApplyAndViewReport = async () => {
-    const ok = await fetchBalanceSheetWithDates(localStartDate, localEndDate);
-    if (ok) await viewRdlcReportWithDates(localStartDate, localEndDate);
-    if (onRefresh) onRefresh();
+  const handleRefresh = () => {
+    fetchBalanceSheet();
   };
 
   // Get today's date in YYYY-MM-DD format for max date attribute
@@ -230,6 +227,10 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
     }
   };
 
+  const viewRdlcReport = async () => {
+    await viewRdlcReportWithDates(localStartDate, localEndDate);
+  };
+
   const renderBalanceSheetItem = (item: BalanceSheetItemDto, index: number) => (
     <TableRow key={index} hover>
       <TableCell>
@@ -247,6 +248,39 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
       </TableCell>
     </TableRow>
   );
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box p={3}>
+        <Alert 
+          severity="error" 
+          action={
+            <IconButton color="inherit" size="small" onClick={handleRefresh}>
+              <Refresh />
+            </IconButton>
+          }
+        >
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!balanceSheet) {
+    return (
+      <Box p={3}>
+        <Alert severity="info">No balance sheet data available</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -314,12 +348,21 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
               sx={{ minWidth: 150 }}
               disabled={period !== 'CUSTOM'}
             />
-            <Tooltip title="Apply date range and view PDF report">
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={fetchBalanceSheet}
+              size="small"
+              disabled={!localEndDate}
+            >
+              Apply
+            </Button>
+            <Tooltip title="View PDF Report">
               <Button
                 variant="contained"
-                color="primary"
+                color="secondary"
                 startIcon={<PictureAsPdf />}
-                onClick={handleApplyAndViewReport}
+                onClick={viewRdlcReport}
                 size="small"
                 disabled={!localEndDate}
               >
@@ -335,37 +378,8 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
         </Box>
       </Paper>
 
-      {/* Loading State */}
-      {loading && (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      )}
-
-      {/* Error State */}
-      {!loading && error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 3 }}
-          action={
-            <IconButton color="inherit" size="small" onClick={handleRefresh}>
-              <Refresh />
-            </IconButton>
-          }
-        >
-          {error}
-        </Alert>
-      )}
-
-      {/* No Data State */}
-      {!loading && !error && !balanceSheet && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          No balance sheet data available
-        </Alert>
-      )}
-
       {/* RDLC Report Viewer */}
-      {!loading && showReport && reportUrl && (
+      {showReport && reportUrl && (
         <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Balance Sheet Report (PDF)</Typography>
@@ -394,28 +408,24 @@ const BalanceSheetTab: React.FC<BalanceSheetTabProps> = ({ asOfDate, onRefresh }
       )}
 
       {/* Balance Validation Alert */}
-      {!loading && !error && balanceSheet && (
-        <>
-          {balanceSheet.isBalanced ? (
-            <Alert 
-              severity="success" 
-              icon={<CheckCircle />}
-              sx={{ mb: 3 }}
-            >
-              Balance sheet is balanced: Assets = Liabilities + Net Worth
-            </Alert>
-          ) : (
-            <Alert 
-              severity="warning" 
-              icon={<ErrorIcon />}
-              sx={{ mb: 3 }}
-            >
-              Balance sheet is not balanced. Difference: {formatCurrency(
-                Math.abs(balanceSheet.totalAssets - balanceSheet.totalLiabilitiesAndEquity)
-              )}
-            </Alert>
+      {balanceSheet.isBalanced ? (
+        <Alert 
+          severity="success" 
+          icon={<CheckCircle />}
+          sx={{ mb: 3 }}
+        >
+          Balance sheet is balanced: Assets = Liabilities + Net Worth
+        </Alert>
+      ) : (
+        <Alert 
+          severity="warning" 
+          icon={<ErrorIcon />}
+          sx={{ mb: 3 }}
+        >
+          Balance sheet is not balanced. Difference: {formatCurrency(
+            Math.abs(balanceSheet.totalAssets - balanceSheet.totalLiabilitiesAndEquity)
           )}
-        </>
+        </Alert>
       )}
 
       

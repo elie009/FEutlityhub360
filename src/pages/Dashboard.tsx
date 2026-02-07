@@ -35,6 +35,7 @@ import {
   IconButton,
   Tooltip,
   LinearProgress,
+  CircularProgress,
   Tabs,
   Tab,
 } from '@mui/material';
@@ -61,6 +62,8 @@ import {
   TrackChanges,
   Info as InfoIcon,
   HelpOutline as HelpOutlineIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  CallMade as CallMadeIcon,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -77,6 +80,17 @@ import {
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import {
+  BarChart as RechartsBarChart,
+  Bar as RechartsBar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+  LineChart as RechartsLineChart,
+  Line as RechartsLine,
+} from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
@@ -957,6 +971,26 @@ const Dashboard: React.FC = () => {
         .reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
     : 0;
 
+  // Main balance (non-credit) and credit balance for Current Balance card
+  const { mainBalance, creditBalance } = useMemo(() => {
+    const total = financialData?.currentBalance ?? currentBalance ?? 0;
+    if (!Array.isArray(financialData?.accounts) || financialData.accounts.length === 0) {
+      return { mainBalance: total, creditBalance: 0 };
+    }
+    let main = 0;
+    let credit = 0;
+    (financialData.accounts as any[]).forEach((acc: any) => {
+      const bal = acc?.currentBalance ?? acc?.initialBalance ?? 0;
+      if (acc?.accountType?.toLowerCase() === 'credit_card') {
+        credit += bal;
+      } else {
+        main += bal;
+      }
+    });
+    if (main === 0 && credit === 0) return { mainBalance: total, creditBalance: 0 };
+    return { mainBalance: main, creditBalance: credit };
+  }, [financialData?.accounts, financialData?.currentBalance, currentBalance]);
+
   // Extract Total Loan Payment from spendingByCategory
   const totalLoanPayment = financialData?.spendingByCategory?.LOAN_PAYMENT || 0;
 
@@ -1044,6 +1078,23 @@ const Dashboard: React.FC = () => {
         },
       ],
     };
+  }, [expenseData]);
+
+  // Recharts: cash flow data for Monthly Cash Flow (expense, net, income)
+  const rechartsCashFlowData = useMemo(() => {
+    if (!cashFlowChartData || cashFlowChartData.length === 0) return [];
+    return cashFlowChartData.map((item: { month: string; incoming?: number; outgoing?: number; net?: number }) => ({
+      month: item.month,
+      expense: Math.abs(item.outgoing || 0),
+      net: item.net || 0,
+      income: Math.abs(item.incoming || 0),
+    }));
+  }, [cashFlowChartData]);
+
+  // Recharts: expense analysis data (already { category, amount }[])
+  const rechartsExpenseData = useMemo(() => {
+    if (!expenseData || expenseData.length === 0) return [];
+    return expenseData.map((item) => ({ category: item.category, amount: item.amount }));
   }, [expenseData]);
 
   // Expense Line Chart options
@@ -1426,100 +1477,48 @@ const Dashboard: React.FC = () => {
 
   const stats = [
     {
-      title: 'Current Balance',
-      value: formatCurrency(currentBalance || 0),
-      change: 'Total across all accounts',
-      icon: <AccountBalance sx={{ fontSize: 40, color: 'secondary.main' }} />,
-      color: 'secondary.main',
+      icon: MoneyIcon,
+      label: 'Monthly Income',
+      value: formatCurrency(totalMonthlyIncome || 0),
+      change: '+12.5%',
+      trend: 'up' as const,
+      color: '#b3ee9a',
+      onClick: undefined,
     },
     {
-      title: 'Monthly Expense',
+      icon: CreditCardIcon,
+      label: 'Monthly Expenses',
       value: formatCurrency(monthlyExpense || 0),
-      change: 'Fixed expenses',
-      icon: <Receipt sx={{ fontSize: 40, color: 'success.main' }} />,
-      color: 'success.main',
+      change: '-8.3%',
+      trend: 'down' as const,
+      color: '#8b7fd6',
+      onClick: undefined,
     },
     {
-      title: 'Net Cash Flow',
+      icon: AccountBalance,
+      label: 'Net Cash Flow',
       value: formatCurrency(disposableIncome || 0),
-      change: 'Available to spend',
-      icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
-      color: 'info.main',
+      change: '+18.9%',
+      trend: 'up' as const,
+      color: '#10b981',
+      onClick: handleDisposableCardClick,
     },
     {
-      title: 'Monthly Savings',
-      value: formatCurrency(totalMonthlySavingsPayment || 0),
-      change: 'Monthly savings target',
-      icon: <SavingsIcon sx={{ fontSize: 40, color: 'success.main' }} />,
-      color: 'success.main',
+      icon: SavingsIcon,
+      label: 'Monthly Savings',
+      value: totalMonthlyIncome
+        ? `${Math.round((totalMonthlySavingsPayment / totalMonthlyIncome) * 100)}%`
+        : formatCurrency(totalMonthlySavingsPayment || 0),
+      change: '+5.2%',
+      trend: 'up' as const,
+      color: '#ef4444',
+      onClick: undefined,
     },
   ];
-
   return (
     <Box sx={{ pl: { md: 1.5 } }}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
-          alignItems: { xs: 'flex-start', md: 'center' },
-          justifyContent: 'space-between',
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flexGrow: 1 }}>
-          <Typography
-            variant="h4"
-            gutterBottom
-            sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0 }}
-          >
-            Dashboard
-          </Typography>
-          <Typography
-            variant="body1"
-            color="text.secondary"
-          >
-            Manage your payments and transactions in one click
-          </Typography>
-        </Box>
-
-        {/* Profile Status Section */}
-        {isAuthenticated && (
-          (hasProfile || (userProfile && userProfile.id)) ? (
-            <Alert
-              severity="success"
-              icon={<CheckCircle />}
-              sx={{ m: 0, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}
-            >
-              <Box display="flex" alignItems="center" gap={2}>
-                <Typography variant="h6">
-                  Profile Complete
-                </Typography>
-                <Chip 
-                  label="Active" 
-                  color="success" 
-                  size="small"
-                />
-                {userProfile && (
-                  <Typography variant="body2" color="text.secondary">
-                    {userProfile.incomeSources?.length || 0} income source(s) configured
-                  </Typography>
-                )}
-              </Box>
-            </Alert>
-          ) : (
-            <Alert severity="warning" sx={{ m: 0, width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
-              <Typography variant="h6">
-                Profile Setup Required
-              </Typography>
-              <Typography variant="body2">
-                Please complete your profile setup to access all features.
-              </Typography>
-            </Alert>
-          )
-        )}
-      </Box>
       
+      <br/>
       <Grid container spacing={3}>
         
 
@@ -1527,44 +1526,71 @@ const Dashboard: React.FC = () => {
         <Grid container item xs={12} spacing={3}>
           {/* Main Content Area */}
           <Grid item xs={12} md={9}>
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-              {/* Stats Cards */}
-              {stats.map((stat, index) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={index}>
-            <Card 
-              sx={{ 
-                cursor: (stat.title === 'Net Cash Flow' || stat.title === 'Current Balance') ? 'pointer' : 'default',
-                height: '100%',
-                border: '1px solid #e5e5e5',
-                '&:hover': (stat.title === 'Net Cash Flow' || stat.title === 'Current Balance') ? {
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.3s ease'
-                } : {}
-              }}
-              onClick={
-                stat.title === 'Net Cash Flow' ? handleDisposableCardClick : 
-                stat.title === 'Current Balance' ? handleBalanceCardClick : 
-                undefined
-              }
-            >
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                      <Typography 
-                        color="textSecondary" 
-                        gutterBottom 
-                        variant="body2"
-                        sx={{ 
-                          fontSize: '0.875rem',
-                          fontWeight: 500,
-                          color: '#666666',
-                        }}
-                      >
-                        {stat.title}
+           
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+              {stats.map((stat, index) => {
+                const StatIcon = stat.icon;
+                return (
+                  <Grid item xs={12} sm={6} md={3} key={index}>
+                    <Paper
+                      elevation={0}
+                      onClick={stat.onClick}
+                      sx={{
+                        cursor: stat.onClick ? 'pointer' : 'default',
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'grey.200',
+                        height: '100%',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          borderColor: 'grey.300',
+                          boxShadow: 4,
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: `${stat.color}20`,
+                            transition: 'transform 0.2s',
+                            '&:hover': { transform: 'scale(1.1)' },
+                          }}
+                        >
+                          <StatIcon style={{ fontSize: 20, color: stat.color }} />
+                        </Box>
+                        <Chip
+                          size="small"
+                          icon={stat.trend === 'up' ? <TrendingUpIcon style={{ fontSize: 12 }} /> : <TrendingDownIcon style={{ fontSize: 12 }} />}
+                          label={stat.change}
+                          sx={{
+                            height: 22,
+                            fontSize: '0.75rem',
+                            bgcolor: stat.trend === 'up'
+                              ? '#E6FFE6'
+                              : (stat.trend === 'down'
+                                ? '#ef444420'
+                                : 'error.light'),
+                            color: stat.trend === 'up' ? '#006400' : 'error.dark', // Use dark green if trend is up
+                            '& .MuiChip-icon': { color: 'inherit' },
+                            border: 'none', // Remove border
+                          }}
+                          variant="filled" // Use filled variant to avoid default outlined border
+                        />
+                      </Box>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: 'grey.900', mb: 0.5 }}>
+                        {stat.value}
                       </Typography>
-                      {stat.title === 'Net Cash Flow' && (
+                      <Typography variant="caption" sx={{ color: 'grey.500' }}>
+                        {stat.label}
+                      </Typography>
+                      {stat.label === 'Net Cash Flow' && (
                         <Tooltip
                           title={
                             <Box>
@@ -1578,66 +1604,260 @@ const Dashboard: React.FC = () => {
                           }
                           arrow
                         >
-                          <HelpOutlineIcon sx={{ fontSize: 16, color: '#666666', cursor: 'help' }} />
+                          <Box component="span" sx={{ ml: 0.5, cursor: 'help', verticalAlign: 'middle' }}>
+                            <HelpOutlineIcon sx={{ fontSize: 14, color: 'grey.500' }} />
+                          </Box>
                         </Tooltip>
                       )}
-                    </Box>
-                    <Typography 
-                      variant="h4" 
-                      component="h2"
-                      sx={{ 
-                        fontWeight: 700,
-                        color: '#1a1a1a',
-                        mb: 1
-                      }}
-                    >
-                      {stat.value}
-                    </Typography>
-                    <Typography 
-                      color="textSecondary"
-                      variant="body2"
-                      sx={{ 
-                        fontSize: '0.75rem',
-                        color: '#666666'
-                      }}
-                    >
-                      {stat.change}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      p: 1,
-                      borderRadius: 1,
-                      backgroundColor: 'rgba(179, 238, 154, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {stat.icon}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-                </Grid>
-              ))}
+                    </Paper>
+                  </Grid>
+                );
+              })}
             </Grid>
-  
 
+
+
+            <Grid container spacing={3} alignItems="flex-start" sx={{ mb: 3 }}>
+              {/* Dashboard Title & Subtitle */}
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: { xs: 0, sm: 1 }, pt: { xs: 2, sm: 1 } }}>
+                  <Typography
+                    variant="h4"
+                    gutterBottom
+                    sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0 }}
+                  >
+                    Dashboard
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{ mb: 0 }}
+                  >
+                    Manage your payments and transactions in one click
+                  </Typography>
+                </Box>
+              </Grid>
+              {/* Profile Status Section */}
+              <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, alignItems: 'center', pr: { xs: 0, sm: 1 }, pt: { xs: 1, sm: 2 } }}>
+                {isAuthenticated && (
+                  (hasProfile || (userProfile && userProfile.id)) ? (
+                    <Alert
+                      severity="success"
+                      icon={<CheckCircle />}
+                      sx={{
+                        pr: 2,
+                        py: 1,
+                        alignItems: 'center',
+                        minWidth: 230,
+                        width: { xs: '100%', sm: 'auto' },
+                        m: 0,
+                        '& .MuiAlert-message': { width: '100%', p: 0 },
+                        display: 'flex'
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 600, mr: 0.5 }}>
+                          Profile Complete
+                        </Typography>
+                        <Chip
+                          label="Active"
+                          color="success"
+                          size="small"
+                          sx={{ height: 24, fontSize: 13, fontWeight: 500, px: 1.5 }}
+                        />
+                        {userProfile && (
+                          <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                            {userProfile.incomeSources?.length || 0} income source(s) configured
+                          </Typography>
+                        )}
+                      </Box>
+                    </Alert>
+                  ) : (
+                    <Alert
+                      severity="warning"
+                      sx={{
+                        pr: 2,
+                        py: 1,
+                        alignItems: 'center',
+                        minWidth: 230,
+                        width: { xs: '100%', sm: 'auto' },
+                        m: 0,
+                        '& .MuiAlert-message': { width: '100%', p: 0 },
+                        display: 'flex'
+                      }}
+                    >
+                      <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 600 }}>
+                        Profile Setup Required
+                      </Typography>
+                      <Typography variant="body2" sx={{ ml: 1 }}>
+                        Please complete your profile setup to access all features.
+                      </Typography>
+                    </Alert>
+                  )
+                )}
+              </Grid>
+            </Grid>
+
+
+  
+      
 
 
             <Grid container spacing={3}>
+
+            <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Paper
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  border: '1px solid #e5e5e5',
+                  bgcolor: 'background.paper',
+                  boxShadow: 1,
+                  height: '100%',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+                  '&:hover': { boxShadow: 2, borderColor: 'grey.300' },
+                }}
+                onClick={handleBalanceCardClick}
+              >
+                {/* Top: Total balance label, amount, +5% pill */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 400, color: 'grey.600', display: 'block' }}>
+                      Total balance
+                    </Typography>
+                    <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, color: '#1a1a1a', mt: 1.25, lineHeight: 1.2 }}>
+                      {formatCurrency(financialData?.currentBalance ?? currentBalance ?? 0)}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    icon={<TrendingUpIcon sx={{ fontSize: 14, color: 'success.main' }} />}
+                    label="+5%"
+                    size="small"
+                    variant="filled"
+                    sx={{
+                      fontSize: 13,
+                      fontWeight: 400,
+                      bgcolor: '#E6FFE6',
+                      color: '#006400',
+                      border: 'none',
+                      boxShadow: 'none',
+                      '& .MuiChip-icon': { color: 'inherit' },
+                    }}
+                  />
+                </Box>
+                {/* Action buttons: Deposit, Transfer */}
+                <Box sx={{ display: 'flex', gap: 1.5, mb: 3 }}>
+                  <Button
+                    variant="outlined"
+                    size="medium"
+                    endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 18 }} />}
+                    onClick={(e) => { e.stopPropagation(); navigate('/transactions?addTransaction=true'); }}
+                    sx={{
+                      flex: 1,
+                      textTransform: 'none',
+                      fontSize: 16,
+                      fontWeight: 400,
+                      py: 1.25,
+                      borderColor: 'grey.300',
+                      color: 'grey.800',
+                      bgcolor: 'background.paper',
+                    }}
+                  >
+                    Deposit
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="medium"
+                    color="success"
+                    endIcon={<CallMadeIcon sx={{ fontSize: 18 }} />}
+                    onClick={(e) => { e.stopPropagation(); navigate('/transactions'); }}
+                    sx={{
+                      flex: 1,
+                      textTransform: 'none',
+                      fontSize: 16,
+                      fontWeight: 400,
+                      py: 1.25,
+                      color: 'grey.900',
+                    }}
+                  >
+                    Transfer
+                  </Button>
+                </Box>
+                {/* Main balance / Credit balance */}
+                <Box sx={{ display: 'flex', gap: 4, mb: 2 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 400, color: 'grey.600', display: 'block', mb: 0.75 }}>
+                      Main balance
+                    </Typography>
+                    <Typography sx={{ fontSize: '1.35rem', fontWeight: 700, color: '#1a1a1a' }}>
+                      {formatCurrency(mainBalance)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 400, color: 'grey.600', display: 'block', mb: 0.75 }}>
+                      Credit balance
+                    </Typography>
+                    <Typography sx={{ fontSize: '1.35rem', fontWeight: 700, color: '#1a1a1a' }}>
+                      {formatCurrency(creditBalance)}
+                    </Typography>
+                  </Box>
+                </Box>
+                {/* Credit progress bar */}
+                <Box sx={{ mt: 2 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={0}
+                    sx={{
+                      height: 6,
+                      borderRadius: 1,
+                      bgcolor: 'grey.200',
+                      '& .MuiLinearProgress-bar': { bgcolor: 'success.main', borderRadius: 1 },
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, gap: 2 }}>
+                    <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 400, color: 'grey.600' }}>
+                      0 credit spent
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 400, color: 'grey.600' }}>
+                      0%
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            </Grid>
+
               {/* Financial Overview */}
-              <Grid item xs={12} md={8}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* Year Filter Dropdown */}
+              <Grid item xs={12} md={8} sx={{ display: 'flex' }}>
+                <Paper
+                  sx={{
+                    p: 3,
+                    border: '1px solid',
+                    borderColor: 'grey.200',
+                    borderRadius: 2,
+                    height: '100%',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                    '&:hover': { borderColor: 'grey.300', boxShadow: 3 },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                       <InputLabel>Year</InputLabel>
                       <Select
                         value={selectedYear}
                         label="Year"
                         onChange={(e) => setSelectedYear(e.target.value as number)}
+                        sx={{
+                          bgcolor: 'grey.50',
+                          borderRadius: 1,
+                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.200' },
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.300' },
+                        }}
                       >
                         {availableYears.map((year) => (
                           <MenuItem key={year} value={year}>
@@ -1646,43 +1866,40 @@ const Dashboard: React.FC = () => {
                         ))}
                       </Select>
                     </FormControl>
-                    
-                    <Tabs
-                      value={financialOverviewTab}
-                      onChange={(e, newValue) => setFinancialOverviewTab(newValue)}
-                      sx={{
-                        borderBottom: 1,
-                        borderColor: 'divider',
-                        mb: 2,
-                        '& .MuiTab-root': {
+                    <Box sx={{ display: 'flex', gap: 0.5, bgcolor: 'grey.100', p: 0.5, borderRadius: 1 }}>
+                      <Button
+                        size="small"
+                        onClick={() => setFinancialOverviewTab(0)}
+                        sx={{
+                          px: 2,
+                          py: 1,
                           textTransform: 'none',
-                          fontWeight: 500,
-                          minHeight: 48,
-                          padding: '12px 24px',
-                          transition: 'all 0.3s ease',
-                          borderRadius: '8px 8px 0 0',
-                          marginRight: 1,
-                          color: 'text.primary',
-                          '&:hover': {
-                            backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                          },
-                        },
-                        '& .MuiTab-root.Mui-selected': {
-                          backgroundColor: 'rgba(25, 118, 210, 0.12)',
-                          color: '#1976d2 !important',
-                          fontWeight: 600,
-                          borderRadius: '8px 8px 0 0',
-                        },
-                        '& .MuiTabs-indicator': {
-                          display: 'none',
-                        },
-                      }}
-                    >
-                      <Tab label="Monthly Cash Flow" />
-                      <Tab label="Expense Analysis (Top 10 - Year)" />
-                    </Tabs>
+                          borderRadius: 1,
+                          ...(financialOverviewTab === 0
+                            ? { bgcolor: 'background.paper', color: 'grey.900', boxShadow: 1 }
+                            : { color: 'grey.600', '&:hover': { color: 'grey.900' } }),
+                        }}
+                      >
+                        Monthly Cash Flow
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => setFinancialOverviewTab(1)}
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          textTransform: 'none',
+                          borderRadius: 1,
+                          ...(financialOverviewTab === 1
+                            ? { bgcolor: 'background.paper', color: 'primary.main', boxShadow: 1 }
+                            : { color: 'grey.600', '&:hover': { color: 'grey.900' } }),
+                        }}
+                      >
+                        Expense Analysis (Top 10 - Year)
+                      </Button>
+                    </Box>
                   </Box>
-                  
+
                   {/* Cash Flow Tab */}
                   {financialOverviewTab === 0 && (
                     <>
@@ -1690,16 +1907,97 @@ const Dashboard: React.FC = () => {
                         <Box>
                           <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
                         </Box>
-                      ) : cashFlowChartData.length > 0 ? (
-                        <Box sx={{ height: '338px', width: '100%' }}>
-                          <Bar 
-                            key="monthly-cashflow-chart"
-                            data={chartData} 
-                            options={chartOptions}
-                          />
-                        </Box>
+                      ) : rechartsCashFlowData.length > 0 ? (
+                        <>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#1e3a8a' }} />
+                              <Typography variant="caption" color="text.secondary">Expense</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#3b82f6' }} />
+                              <Typography variant="caption" color="text.secondary">Net</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#93c5fd' }} />
+                              <Typography variant="caption" color="text.secondary">Income</Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ width: '100%', height: 280 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RechartsBarChart data={rechartsCashFlowData} barGap={8} barCategoryGap="20%">
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                <XAxis
+                                  dataKey="month"
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                                />
+                                <YAxis
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                                />
+                                <RechartsTooltip
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const data = payload[0].payload;
+                                    const total = data.expense + data.net;
+                                    const isBalanced = total === data.income;
+                                    return (
+                                      <Box
+                                        sx={{
+                                          bgcolor: 'background.paper',
+                                          border: '1px solid',
+                                          borderColor: 'grey.200',
+                                          borderRadius: 1,
+                                          p: 1.5,
+                                          boxShadow: 3,
+                                        }}
+                                      >
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                          {data.month}
+                                        </Typography>
+                                        <Box sx={{ '& > *': { mb: 0.5 } }}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#1e3a8a' }} />
+                                            <Typography variant="body2">Expense: {formatCurrency(data.expense)}</Typography>
+                                          </Box>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#3b82f6' }} />
+                                            <Typography variant="body2">Net: {formatCurrency(data.net)}</Typography>
+                                          </Box>
+                                          <Box sx={{ borderTop: 1, borderColor: 'grey.200', pt: 1, mt: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#93c5fd' }} />
+                                              <Typography variant="body2">Income: {formatCurrency(data.income)}</Typography>
+                                            </Box>
+                                            <Typography variant="caption" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                              <Typography component="span" variant="caption" color="text.secondary">Total (Exp+Net):</Typography>
+                                              <Typography component="span" variant="caption" sx={{ color: isBalanced ? 'success.main' : 'warning.main', fontWeight: 500 }}>
+                                                {formatCurrency(total)}
+                                              </Typography>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: isBalanced ? 'success.main' : 'warning.main' }}>
+                                              {isBalanced ? '✓ Balanced' : total > data.income ? '⚠ Overspent' : '⚠ Underspent'}
+                                            </Typography>
+                                          </Box>
+                                        </Box>
+                                      </Box>
+                                    );
+                                  }}
+                                  cursor={{ fill: 'rgba(179, 238, 154, 0.1)' }}
+                                />
+                                <RechartsBar dataKey="expense" stackId="a" fill="#1e3a8a" radius={[0, 0, 0, 0]} maxBarSize={40} />
+                                <RechartsBar dataKey="net" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                <RechartsBar dataKey="income" fill="#93c5fd" radius={[4, 4, 0, 0]} maxBarSize={40} fillOpacity={0.6} />
+                              </RechartsBarChart>
+                            </ResponsiveContainer>
+                          </Box>
+                        </>
                       ) : (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 280 }}>
                           <Typography variant="body2" color="text.secondary">
                             No cash flow data available
                           </Typography>
@@ -1707,7 +2005,7 @@ const Dashboard: React.FC = () => {
                       )}
                     </>
                   )}
-                  
+
                   {/* Expense Analysis Tab */}
                   {financialOverviewTab === 1 && (
                     <>
@@ -1715,19 +2013,75 @@ const Dashboard: React.FC = () => {
                         <Box>
                           <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
                         </Box>
-                      ) : expenseData && expenseData.length > 0 && expenseChartData.labels.length > 0 ? (
-                        <Box sx={{ height: '338px', width: '100%' }}>
-                          <Line 
-                            key="expense-chart"
-                            data={expenseChartData} 
-                            options={expenseChartOptions}
-                          />
-                        </Box>
+                      ) : rechartsExpenseData.length > 0 ? (
+                        <>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'error.main' }} />
+                              <Typography variant="caption" color="text.secondary">Expense Amount</Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ width: '100%', height: 280 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RechartsLineChart data={rechartsExpenseData} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                <XAxis
+                                  dataKey="category"
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 10 }}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={80}
+                                />
+                                <YAxis
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                                  tickFormatter={(value) => `${(value / 1000).toFixed(2)}`}
+                                />
+                                <RechartsTooltip
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const data = payload[0].payload;
+                                    return (
+                                      <Box
+                                        sx={{
+                                          bgcolor: 'background.paper',
+                                          border: '1px solid',
+                                          borderColor: 'grey.200',
+                                          borderRadius: 1,
+                                          p: 1.5,
+                                          boxShadow: 3,
+                                        }}
+                                      >
+                                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500 }}>
+                                          {data.category}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 600 }}>
+                                          {formatCurrency(data.amount)}
+                                        </Typography>
+                                      </Box>
+                                    );
+                                  }}
+                                />
+                                <RechartsLine
+                                  type="monotone"
+                                  dataKey="amount"
+                                  stroke="#ef4444"
+                                  strokeWidth={2}
+                                  dot={{ fill: '#ef4444', r: 4 }}
+                                  activeDot={{ r: 6 }}
+                                />
+                              </RechartsLineChart>
+                            </ResponsiveContainer>
+                          </Box>
+                        </>
                       ) : (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 338 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 280 }}>
                           <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            No expense data available for this month
+                            No expense data available for this year
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Add transactions to see your spending by category
@@ -1739,54 +2093,16 @@ const Dashboard: React.FC = () => {
                 </Paper>
               </Grid>
 
-              {/* Transactions by Account */}
-              <Grid item xs={12} md={4}>
-                <Paper sx={{ p: 2, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 1 }}>
-                    Transactions by Account
-                  </Typography>
-                  {loading ? (
-                    <Box>
-                      <Skeleton variant="rectangular" width="100%" height={280} sx={{ borderRadius: 1 }} />
-                    </Box>
-                  ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
-                    <>
-                      <Box sx={{ height: '280px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Doughnut 
-                          data={donutChartData} 
-                          options={donutChartOptions}
-                        />
-                      </Box>
-                      <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center' }}>
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => navigate('/transactions?addTransaction=true')}
-                          sx={{ minWidth: 160 }}
-                        >
-                          Add Transaction
-                        </Button>
-                      </Box>
-                    </>
-                  ) : (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 280 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No accounts available
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-               {/* Savings Card */}
-              <Grid item xs={12} md={4}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2 }}>
+                {/* Savings Card */}
+                <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
                       Savings Goals
                     </Typography>
                     <Button
-                      variant="outlined"
+                      variant="contained"
+                      color="success"
                       size="small"
                       startIcon={<SavingsIcon />}
                       href="/savings"
@@ -1796,121 +2112,147 @@ const Dashboard: React.FC = () => {
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
                   {savingsLoading ? (
-                    <Box>
+                    <Box sx={{ flex: 1 }}>
                       <Skeleton variant="rectangular" width="100%" height={12} sx={{ mb: 3, borderRadius: 1 }} />
                       <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
                       <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
                       <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
                     </Box>
                   ) : savingsAccounts.length > 0 ? (
-                    <Box>
+                    <Box sx={{ flex: 1 }}>
                       {(() => {
-                        // Color palette for savings goals
+                        // Color palette for savings goals (green, purple, red like reference)
                         const getAccountColor = (idx: number) => {
                           const colors = [
+                            '#22c55e', // Green
+                            '#8b5cf6', // Purple
                             '#ef4444', // Red
-                            '#f87171', // Light red/pink
-                            '#fef08a', // Light yellow
-                            '#fbbf24', // Yellow
-                            '#f59e0b', // Orange/golden yellow
-                            '#fb923c', // Orange
-                            '#f97316', // Dark orange
-                            '#ea580c', // Deep orange
+                            '#f59e0b', // Amber
+                            '#06b6d4', // Cyan
+                            '#ec4899', // Pink
                           ];
                           return colors[idx % colors.length];
                         };
                         
                         return (
                           <>
-                            {/* Savings List */}
                             {savingsAccounts.map((account, index) => {
-                        const accountColor = getAccountColor(index);
-                        const progressPercentage = account.targetAmount > 0 
-                          ? Math.min((account.currentBalance / account.targetAmount) * 100, 100) 
-                          : 0;
-                        
-                        return (
-                          <Box 
-                            key={account.id}
-                            sx={{ 
-                              mb: 2.5,
-                              pb: 2.5,
-                              borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
-                            }}
-                          >
-                            {/* Icon | Goal Name | Percentage */}
-                            <Box 
-                              sx={{ 
-                                display: 'flex',
-                                alignItems: 'center',
-                                mb: 1
-                              }}
-                            >
-                              <SavingsIcon 
-                                sx={{ 
-                                  fontSize: 24, 
-                                  color: accountColor,
-                                  mr: 1.5
-                                }} 
-                              />
-                              <Typography 
-                                variant="body1" 
-                                sx={{ 
-                                  fontWeight: 500,
-                                  color: '#1a1a1a',
-                                  flex: 1
-                                }}
-                              >
-                                {account.accountName}
-                              </Typography>
-                              <Typography 
-                                variant="body1" 
-                                sx={{ 
-                                  fontWeight: 600,
-                                  color: '#1a1a1a'
-                                }}
-                              >
-                                {progressPercentage.toFixed(0)}%
-                              </Typography>
-                            </Box>
-                            
-                            {/* Current Balance of Target Amount */}
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                color: '#666666',
-                                mb: 1,
-                                ml: 4.5
-                              }}
-                            >
-                              {formatCurrency(account.currentBalance || 0)} of {formatCurrency(account.targetAmount || 0)}
-                            </Typography>
-                            
-                            {/* Progress Bar */}
-                            <Box sx={{ ml: 4.5, mr: 1 }}>
-                              <LinearProgress 
-                                variant="determinate" 
-                                value={progressPercentage} 
-                                sx={{
-                                  height: 8,
-                                  borderRadius: 4,
-                                  backgroundColor: '#e5e5e5',
-                                  '& .MuiLinearProgress-bar': {
-                                    borderRadius: 4,
-                                    backgroundColor: accountColor,
-                                  }
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        );
-                      })}
+                              const accountColor = getAccountColor(index);
+                              const progressPercentage = account.targetAmount > 0 
+                                ? Math.min((account.currentBalance / account.targetAmount) * 100, 100) 
+                                : 0;
+                              const deadlineStr = account.targetDate
+                                ? new Date(account.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                : null;
+                              
+                              return (
+                                <Box 
+                                  key={account.id}
+                                  sx={{ 
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    mb: 2.5,
+                                    pb: 2.5,
+                                    borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
+                                  }}
+                                >
+                                  {/* Circular progress with percentage in center */}
+                                  <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                                    {/* Grey track (full circle) */}
+                                    <CircularProgress
+                                      variant="determinate"
+                                      value={100}
+                                      size={56}
+                                      thickness={4}
+                                      sx={{
+                                        position: 'absolute',
+                                        color: '#e5e5e5',
+                                      }}
+                                    />
+                                    <CircularProgress
+                                      variant="determinate"
+                                      value={progressPercentage}
+                                      size={56}
+                                      thickness={4}
+                                      sx={{
+                                        color: accountColor,
+                                        '& .MuiCircularProgress-circle': {
+                                          strokeLinecap: 'round',
+                                        },
+                                      }}
+                                    />
+                                    <Box
+                                      sx={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        bottom: 0,
+                                        right: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                      }}
+                                    >
+                                      <Typography
+                                        variant="body2"
+                                        component="span"
+                                        sx={{ fontWeight: 600, color: '#1a1a1a' }}
+                                      >
+                                        {progressPercentage.toFixed(0)}%
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                  {/* Track ring (unfilled) - rendered behind so we need a grey circle behind the colored one. MUI CircularProgress with determinate already shows grey for the remaining part, so we're good. */}
+                                  
+                                  {/* Goal details (middle) */}
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography 
+                                      variant="body1" 
+                                      sx={{ fontWeight: 500, color: '#1a1a1a' }}
+                                    >
+                                      {account.accountName}
+                                    </Typography>
+                                    {deadlineStr && (
+                                      <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>
+                                        Deadline: {deadlineStr}
+                                      </Typography>
+                                    )}
+                                    {account.monthlyTarget > 0 && (
+                                      <Typography variant="caption" sx={{ color: '#22c55e', display: 'block', mt: 0.25 }}>
+                                        {formatCurrency(account.monthlyTarget || 0)}/mo target
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                  
+                                  {/* Save Up | Goal (right, two columns) */}
+                                  <Box sx={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                                    <Box sx={{ textAlign: 'left', minWidth: 72 }}>
+                                      <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>
+                                        Save Up
+                                      </Typography>
+                                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                                        {formatCurrency(account.currentBalance || 0)}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ textAlign: 'left', minWidth: 72 }}>
+                                      <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>
+                                        Goal
+                                      </Typography>
+                                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                                        {formatCurrency(account.targetAmount || 0)}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              );
+                            })}
                           </>
                         );
                       })()}
                     </Box>
                   ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Box sx={{ flex: 1, textAlign: 'center', py: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <SavingsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                       <Typography variant="body2" color="text.secondary">
                         No savings accounts yet
@@ -1923,9 +2265,61 @@ const Dashboard: React.FC = () => {
                 </Paper>
               </Grid>
 
+              {/* Transactions by Account */}
+              <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                <Paper sx={{ p: 2, border: '1px solid #e5e5e5', height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexShrink: 0 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Transactions by Account
+                    </Typography>
+                    {!loading && financialData?.accounts?.length > 0 && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate('/transactions?addTransaction=true')}
+                      >
+                        Add Transaction
+                      </Button>
+                    )}
+                  </Box>
+                  {loading ? (
+                    <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Skeleton variant="rectangular" width={280} height={280} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
+                    <Box 
+                      sx={{ 
+                        height: 280, 
+                        width: '100%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        flex: 1 
+                      }}
+                    >
+                     
+                        <Doughnut 
+                          data={donutChartData} 
+                          options={donutChartOptions}
+                        />
+                      
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 280, width: '100%' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                        No accounts available
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+
+             
+
               
                {/* Recent Activity */}
-               <Grid item xs={12} md={4}>
+               <Grid item xs={12} md={6}>
                 <Card sx={{ border: '1px solid #e5e5e5', height: '100%' }}>
                   <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
@@ -2313,7 +2707,7 @@ const Dashboard: React.FC = () => {
               </Grid>
 
                 {/* Loan Payment Schedule Calendar */}
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={6}>
                 <LoanScheduleCalendar />
               </Grid>
 
@@ -2335,7 +2729,8 @@ const Dashboard: React.FC = () => {
                       Bank Accounts
                     </Typography>
                     <Button
-                      variant="outlined"
+                      variant="contained"
+                      color="success"
                       size="small"
                       startIcon={<AccountBalance />}
                       href="/bank-accounts"
@@ -2539,8 +2934,9 @@ const Dashboard: React.FC = () => {
                       Unpaid Bills & Utilities
                     </Typography>
                     <Button
-                      variant="outlined"
-                      size="small"
+                       variant="contained"
+                       color="success"
+                       size="small"
                       startIcon={<Receipt />}
                       href="/bills"
                     >

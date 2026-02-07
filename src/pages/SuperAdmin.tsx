@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -139,6 +139,10 @@ const SuperAdmin: React.FC = () => {
   const [ticketFilterPriority, setTicketFilterPriority] = useState<string>('');
   const [ticketFilterCategory, setTicketFilterCategory] = useState<string>('');
   const [userSubscriptionMap, setUserSubscriptionMap] = useState<Record<string, string>>({});
+  // Users with Subscription tab filters
+  const [usersWithSubFilterType, setUsersWithSubFilterType] = useState<string>('all'); // 'all' | 'with_subscription' | 'free_only'
+  const [usersWithSubFilterPlan, setUsersWithSubFilterPlan] = useState<string>(''); // '' = all plans, or plan name
+  const [usersWithSubFilterStatus, setUsersWithSubFilterStatus] = useState<string>(''); // '' = all, or ACTIVE, CANCELLED, etc.
   
   // Password View Dialog State
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -147,6 +151,12 @@ const SuperAdmin: React.FC = () => {
   const [plainPassword, setPlainPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
   const [showPasswordSetForm, setShowPasswordSetForm] = useState(false);
+
+  // Ticket detail modal state (Support Center)
+  const [ticketDetailOpen, setTicketDetailOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [ticketDetailStatus, setTicketDetailStatus] = useState<string>('');
+  const [ticketDetailResolutionNotes, setTicketDetailResolutionNotes] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -263,6 +273,93 @@ const SuperAdmin: React.FC = () => {
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
+
+  // Ticket detail modal: fetch full ticket when opened
+  useEffect(() => {
+    if (!ticketDetailOpen || !selectedTicket?.id) return;
+    apiService.getTicketById(selectedTicket.id)
+      .then((res: any) => {
+        const data = res?.data || res;
+        if (data) {
+          setSelectedTicket((prev) => (prev ? { ...prev, ...data } : null));
+          if (data.status) setTicketDetailStatus(data.status);
+          if (data.resolutionNotes !== undefined) setTicketDetailResolutionNotes(data.resolutionNotes || '');
+        }
+      })
+      .catch(() => {});
+  }, [ticketDetailOpen, selectedTicket?.id]);
+
+  const handleOpenTicketDetail = (row: Ticket) => {
+    setSelectedTicket(row);
+    setTicketDetailStatus(row.status || '');
+    setTicketDetailResolutionNotes(row.resolutionNotes || '');
+    setTicketDetailOpen(true);
+  };
+
+  const handleCloseTicketDetailModal = () => {
+    setTicketDetailOpen(false);
+    setSelectedTicket(null);
+    setTicketDetailStatus('');
+    setTicketDetailResolutionNotes('');
+  };
+
+  const handleUpdateTicketStatus = async () => {
+    if (!selectedTicket?.id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiService.updateTicketStatus(selectedTicket.id, ticketDetailStatus, ticketDetailResolutionNotes || undefined);
+      setSuccess('Ticket updated successfully');
+      handleCloseTicketDetailModal();
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update ticket');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    if (!selectedTicket?.id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiService.updateTicketStatus(selectedTicket.id, 'CLOSED', ticketDetailResolutionNotes || undefined);
+      setSuccess('Ticket closed successfully');
+      handleCloseTicketDetailModal();
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to close ticket');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filtered list for "Users with Subscription" tab
+  const filteredUsersWithSubscriptions = useMemo(() => {
+    let list = [...usersWithSubscriptions];
+    if (usersWithSubFilterType === 'with_subscription') {
+      list = list.filter((u) => (u.subscriptionPlanName || 'Free').toLowerCase() !== 'free');
+    } else if (usersWithSubFilterType === 'free_only') {
+      list = list.filter((u) => (u.subscriptionPlanName || 'Free').toLowerCase() === 'free');
+    }
+    if (usersWithSubFilterPlan) {
+      list = list.filter((u) => (u.subscriptionPlanName || '') === usersWithSubFilterPlan);
+    }
+    if (usersWithSubFilterStatus) {
+      list = list.filter((u) => (u.subscriptionStatus || '') === usersWithSubFilterStatus);
+    }
+    return list;
+  }, [usersWithSubscriptions, usersWithSubFilterType, usersWithSubFilterPlan, usersWithSubFilterStatus]);
+
+  const uniquePlanNames = useMemo(() => {
+    const names = new Set<string>();
+    usersWithSubscriptions.forEach((u) => {
+      const name = u.subscriptionPlanName || 'Free';
+      if (name) names.add(name);
+    });
+    return Array.from(names).sort();
+  }, [usersWithSubscriptions]);
 
   // Pricing Plans Handlers
   const handleOpenPlanDialog = (plan?: SubscriptionPlan) => {
@@ -804,6 +901,20 @@ const SuperAdmin: React.FC = () => {
       width: 100,
       renderCell: (params) => params.value || 0,
     },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      width: 120,
+      getActions: (params) => [
+        <GridActionsCellItem
+          key="view"
+          icon={<VisibilityIcon />}
+          label="View details"
+          onClick={() => handleOpenTicketDetail(params.row as Ticket)}
+        />,
+      ],
+    },
   ];
 
   return (
@@ -936,6 +1047,51 @@ const SuperAdmin: React.FC = () => {
             <Typography variant="h6">Users with Subscription Information</Typography>
           </Box>
 
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Subscription type</InputLabel>
+              <Select
+                value={usersWithSubFilterType}
+                label="Subscription type"
+                onChange={(e) => setUsersWithSubFilterType(e.target.value)}
+              >
+                <MenuItem value="all">All users</MenuItem>
+                <MenuItem value="with_subscription">With subscription (paid)</MenuItem>
+                <MenuItem value="free_only">Free only</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Plan</InputLabel>
+              <Select
+                value={usersWithSubFilterPlan}
+                label="Plan"
+                onChange={(e) => setUsersWithSubFilterPlan(e.target.value)}
+              >
+                <MenuItem value="">All plans</MenuItem>
+                {uniquePlanNames.map((name) => (
+                  <MenuItem key={name} value={name}>{name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={usersWithSubFilterStatus}
+                label="Status"
+                onChange={(e) => setUsersWithSubFilterStatus(e.target.value)}
+              >
+                <MenuItem value="">All statuses</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                <MenuItem value="EXPIRED">Expired</MenuItem>
+                <MenuItem value="PENDING">Pending</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography variant="body2" color="text.secondary">
+              Showing {filteredUsersWithSubscriptions.length} of {usersWithSubscriptions.length} users
+            </Typography>
+          </Box>
+
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <CircularProgress />
@@ -943,7 +1099,7 @@ const SuperAdmin: React.FC = () => {
           ) : (
             <Box sx={{ width: '100%', height: 600 }}>
               <DataGrid
-                rows={usersWithSubscriptions}
+                rows={filteredUsersWithSubscriptions}
                 columns={userColumns}
                 initialState={{
                   pagination: {
@@ -1029,6 +1185,103 @@ const SuperAdmin: React.FC = () => {
           )}
         </TabPanel>
       </Paper>
+
+      {/* Ticket detail modal - View details & close ticket */}
+      <Dialog open={ticketDetailOpen} onClose={handleCloseTicketDetailModal} maxWidth="sm" fullWidth>
+        <DialogTitle>Ticket details</DialogTitle>
+        <DialogContent>
+          {selectedTicket && (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">Title</Typography>
+                <Typography variant="body1" fontWeight={600}>{selectedTicket.title}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">Description</Typography>
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{selectedTicket.description || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">User</Typography>
+                <Typography variant="body2">{selectedTicket.userName || selectedTicket.userId || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Email</Typography>
+                <Typography variant="body2">{selectedTicket.userEmail || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Category</Typography>
+                <Typography variant="body2">{selectedTicket.category || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Priority</Typography>
+                <Typography variant="body2">{selectedTicket.priority || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Created</Typography>
+                <Typography variant="body2">{selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleString() : '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Updated</Typography>
+                <Typography variant="body2">{selectedTicket.updatedAt ? new Date(selectedTicket.updatedAt).toLocaleString() : '—'}</Typography>
+              </Grid>
+              {selectedTicket.resolutionNotes && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">Resolution notes</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{selectedTicket.resolutionNotes}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={12}>
+                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={ticketDetailStatus}
+                    label="Status"
+                    onChange={(e) => setTicketDetailStatus(e.target.value)}
+                  >
+                    <MenuItem value="OPEN">Open</MenuItem>
+                    <MenuItem value="IN_PROGRESS">In progress</MenuItem>
+                    <MenuItem value="RESOLVED">Resolved</MenuItem>
+                    <MenuItem value="CLOSED">Closed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Resolution notes (optional)"
+                  placeholder="Add notes when resolving or closing..."
+                  value={ticketDetailResolutionNotes}
+                  onChange={(e) => setTicketDetailResolutionNotes(e.target.value)}
+                  multiline
+                  rows={3}
+                />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseTicketDetailModal} startIcon={<CancelIcon />}>
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={handleUpdateTicketStatus}
+            startIcon={<SaveIcon />}
+            disabled={!selectedTicket?.id || loading}
+          >
+            Update status
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCloseTicket}
+            disabled={!selectedTicket?.id || selectedTicket?.status === 'CLOSED' || loading}
+          >
+            Close ticket
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Plan Dialog */}
       <Dialog open={planDialogOpen} onClose={handleClosePlanDialog} maxWidth="md" fullWidth>
