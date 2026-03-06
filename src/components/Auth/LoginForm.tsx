@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
@@ -14,6 +14,9 @@ import {
   Divider,
   InputAdornment,
   IconButton,
+  Fade,
+  Paper,
+  Slide,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -26,6 +29,12 @@ import {
   Dashboard,
   Analytics,
   Savings,
+  People,
+  AttachMoney,
+  Star,
+  Lightbulb,
+  KeyboardArrowRight,
+  KeyboardArrowLeft,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginCredentials } from '../../types/loan';
@@ -36,6 +45,40 @@ interface LoginFormProps {
   onSwitchToRegister: () => void;
 }
 
+const FINANCIAL_TIPS = [
+  {
+    title: 'The 50/30/20 Rule',
+    subtitle: 'Budgeting Strategy',
+    description: 'Allocate 50% of your income to needs, 30% to wants, and 20% to savings and debt repayment. This simple framework helps maintain financial balance while building wealth.',
+  },
+  {
+    title: 'Emergency Fund First',
+    subtitle: 'Savings Priority',
+    description: 'Build 3–6 months of expenses in a high-yield savings account before aggressive investing. It provides peace of mind and protects you from unexpected setbacks.',
+  },
+  {
+    title: 'Pay Yourself First',
+    subtitle: 'Automation Tip',
+    description: 'Set up automatic transfers to savings as soon as you get paid. Treat savings like a non-negotiable bill so you never miss a contribution.',
+  },
+  {
+    title: 'Track Small Purchases',
+    subtitle: 'Spending Awareness',
+    description: 'Small daily expenses add up quickly. Track everything for a month to spot patterns—you may find easy ways to cut costs without feeling deprived.',
+  },
+  {
+    title: 'Avoid Lifestyle Creep',
+    subtitle: 'Income Growth',
+    description: 'When your income rises, resist the urge to upgrade everything. Redirect raises and bonuses to savings and investments instead of increasing spending.',
+  },
+];
+
+const ANIMATED_STATS = [
+  { value: '15,000+', label: 'Active Users', icon: People },
+  { value: '$2.5M+', label: 'Money Saved', icon: AttachMoney },
+  { value: '4.9/5', label: 'User Rating', icon: Star },
+];
+
 const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: 'demo@utilityhub360.com',
@@ -44,8 +87,28 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [tipIndex, setTipIndex] = useState(0);
+  const [statIndex, setStatIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Financial tips carousel - rotate every 5 seconds (slide forward)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSlideDirection('right');
+      setTipIndex((prev) => (prev + 1) % FINANCIAL_TIPS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Animated stats - rotate every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStatIndex((prev) => (prev + 1) % ANIMATED_STATS.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,15 +188,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         p: { xs: 2, sm: 3, md: 4 },
       }}
     >
-      <Container sx={{ maxWidth: '1400px' }}>
-        <Grid container spacing={{ xs: 4, lg: 8 }} alignItems="center">
+      <Container sx={{ maxWidth: '1400px', width: '100%', px: { xs: 2, sm: 3 } }}>
+        <Grid container spacing={{ xs: 3, sm: 4, lg: 6 }} alignItems="center">
           {/* Left Side - Branding & Features */}
           <Grid item xs={12} lg={5}>
             <Box 
               sx={{ 
                 color: 'white', 
                 textAlign: { xs: 'center', lg: 'left' }, 
-                pr: { lg: 6 },
+                pr: { lg: 4 },
+                width: '100%',
+                maxWidth: '100%',
                 animation: 'fadeInLeft 0.8s ease-out',
                 '@keyframes fadeInLeft': {
                   '0%': {
@@ -153,7 +218,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 sx={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  mb: 5,
+                  mb: '10px',
                   justifyContent: { xs: 'center', lg: 'flex-start' },
                   textDecoration: 'none',
                   color: 'inherit',
@@ -208,12 +273,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               <Typography 
                 variant="body1" 
                 sx={{ 
-                  mb: 5, 
+                  mb: '10px', 
                   opacity: 0.95, 
                   lineHeight: 1.8, 
                   fontWeight: 400,
-                  fontSize: { xs: '0.95rem', md: '1.1rem' },
-                  maxWidth: { lg: '90%' },
+                  maxWidth: { lg: '100%' },
                   color: 'white',
                 }}
               >
@@ -222,7 +286,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               </Typography>
 
               {/* Feature Icons */}
-              <Grid container spacing={3} sx={{ mb: 5 }}>
+              <Grid container spacing={3} sx={{ mb: '10px' }}>
                 <Grid item xs={4}>
                   <Box 
                     sx={{ 
@@ -306,6 +370,156 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 </Grid>
               </Grid>
 
+              {/* Financial Tips Carousel */}
+              <Box sx={{ mb: 4, width: '100%', maxWidth: '100%' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 2,
+                    justifyContent: { xs: 'center', lg: 'flex-start' },
+                  }}
+                >
+                  <Lightbulb sx={{ fontSize: 22, color: '#34D399' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'white', fontSize: '1rem' }}>
+                    Financial Tips
+                  </Typography>
+                </Box>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.15)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    borderRadius: 2,
+                    p: { xs: 2, sm: 2.5 },
+                    minHeight: { xs: 140, sm: 160 },
+                    position: 'relative',
+                    overflow: 'hidden',
+                    width: '100%',
+                    maxWidth: '100%',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {/* Prev arrow */}
+                    <IconButton
+                      onClick={() => {
+                        setSlideDirection('left');
+                        setTipIndex((prev) => (prev - 1 + FINANCIAL_TIPS.length) % FINANCIAL_TIPS.length);
+                      }}
+                      sx={{
+                        color: 'white',
+                        opacity: 0.9,
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                        flexShrink: 0,
+                      }}
+                      aria-label="Previous tip"
+                    >
+                      <KeyboardArrowLeft sx={{ fontSize: 28 }} />
+                    </IconButton>
+                    {/* Content */}
+                    <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <Slide in={true} direction={slideDirection} key={tipIndex} timeout={350}>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#34D399', mb: 0.5, fontSize: '0.95rem' }}>
+                            {FINANCIAL_TIPS[tipIndex].title}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'block', mb: 1, fontSize: '0.75rem' }}>
+                            {FINANCIAL_TIPS[tipIndex].subtitle}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'white', lineHeight: 1.6, opacity: 0.95, fontSize: { xs: '0.85rem', sm: '0.9rem' }, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                            {FINANCIAL_TIPS[tipIndex].description}
+                          </Typography>
+                        </Box>
+                      </Slide>
+                    </Box>
+                    {/* Next arrow */}
+                    <IconButton
+                      onClick={() => {
+                        setSlideDirection('right');
+                        setTipIndex((prev) => (prev + 1) % FINANCIAL_TIPS.length);
+                      }}
+                      sx={{
+                        color: 'white',
+                        opacity: 0.9,
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                        flexShrink: 0,
+                      }}
+                      aria-label="Next tip"
+                    >
+                      <KeyboardArrowRight sx={{ fontSize: 28 }} />
+                    </IconButton>
+                  </Box>
+                  {/* Carousel dots - clickable */}
+                  <Box sx={{ display: 'flex', gap: 0.75, mt: 2, justifyContent: 'center' }}>
+                    {FINANCIAL_TIPS.map((_, i) => (
+                      <IconButton
+                        key={i}
+                        onClick={() => {
+                          setSlideDirection(i > tipIndex ? 'right' : 'left');
+                          setTipIndex(i);
+                        }}
+                        sx={{
+                          p: 0.5,
+                          minWidth: 0,
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                        }}
+                        aria-label={`Go to tip ${i + 1}`}
+                      >
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: tipIndex === i ? '#34D399' : 'rgba(255,255,255,0.4)',
+                            transition: 'all 0.3s',
+                            ...(tipIndex === i && { transform: 'scale(1.2)' }),
+                          }}
+                        />
+                      </IconButton>
+                    ))}
+                  </Box>
+                </Paper>
+              </Box>
+
+              {/* Animated Stats Card */}
+              <Paper
+                elevation={0}
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.15)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  borderRadius: 2,
+                  p: { xs: 2, sm: 2.5 },
+                  mb: 4,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  minHeight: 56,
+                  width: '100%',
+                  maxWidth: '100%',
+                }}
+              >
+                <Fade in key={statIndex} timeout={300}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {React.createElement(ANIMATED_STATS[statIndex].icon, {
+                      sx: { fontSize: 24, color: '#34D399' },
+                    })}
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'white', fontSize: { xs: '0.875rem', sm: '1rem' }, textAlign: 'center', maxWidth: '100%' }}>
+                      {ANIMATED_STATS[statIndex].value} {ANIMATED_STATS[statIndex].label}
+                    </Typography>
+                  </Box>
+                </Fade>
+              </Paper>
+
               <Box 
                 sx={{ 
                   display: 'flex', 
@@ -330,11 +544,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               sx={{
                 borderRadius: 4,
                 overflow: 'hidden',
-                background: 'rgba(255, 255, 255, 0.98)',
+                background: '#ffffff',
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.5)',
                 boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
-                maxWidth: 'none',
+                width: '100%',
+                maxWidth: '100%',
                 animation: 'fadeInRight 0.8s ease-out',
                 '@keyframes fadeInRight': {
                   '0%': {
@@ -348,7 +563,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 },
               }}
             >
-              <CardContent sx={{ p: { xs: 4, sm: 5, md: 6 } }}>
+              <CardContent sx={{ p: { xs: 3, sm: 4, md: 5 } }}>
                 <Box sx={{ textAlign: 'center', mb: 4 }}>
                   <Typography 
                     variant="h4" 

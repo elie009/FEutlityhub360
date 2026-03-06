@@ -889,6 +889,21 @@ const StagingTransactionsModal: React.FC<StagingTransactionsModalProps> = ({
       };
 
       await apiService.confirmUpload(upload.id, confirmData);
+
+      // Mark bills as paid for any transaction splits that have a billId
+      const billIdsMap: Record<string, boolean> = {};
+      transformedTransactions.forEach((t) => {
+        (t.splits || []).forEach((s) => {
+          if (s.billId) billIdsMap[s.billId] = true;
+        });
+      });
+      const billIdsFromSplits = Object.keys(billIdsMap);
+      if (billIdsFromSplits.length > 0) {
+        await Promise.allSettled(
+          billIdsFromSplits.map((billId) => apiService.markBillAsPaid(billId, {}))
+        );
+      }
+
       onSuccess();
       onClose();
     } catch (err) {

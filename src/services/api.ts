@@ -65,6 +65,7 @@ import {
   BillType,
   BillStatus
 } from '../types/bill';
+import { getBillsWithEarliestPerParent } from '../utils/billUtils';
 import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAccountFilters, BankAccountAnalytics, PaginatedBankAccountsResponse } from '../types/bankAccount';
@@ -1794,9 +1795,10 @@ class ApiService {
     const response = await this.request<any>(endpoint);
     console.log('API Response received:', !!response);
     
-    // Handle paginated response structure
+    // Handle paginated response structure: keep only earliest-due per parentBillId
     if (response && response.data && Array.isArray(response.data.data)) {
-      return response.data;
+      const filtered = getBillsWithEarliestPerParent(response.data.data);
+      return { ...response.data, data: filtered };
     } else if (Array.isArray(response)) {
       return {
         data: response,
@@ -1936,6 +1938,11 @@ class ApiService {
       return response.data;
     }
     return response;
+  }
+
+  // Mark bill as unpaid (revert paid status when linked payment transaction is deleted)
+  async markBillAsUnpaid(billId: string): Promise<Bill> {
+    return this.updateBill(billId, { status: BillStatus.PENDING });
   }
 
   // Update bill status
@@ -2877,6 +2884,7 @@ class ApiService {
     if (filters?.bankAccountId) queryParams.append('bankAccountId', filters.bankAccountId);
     if (filters?.transactionType) queryParams.append('transactionType', filters.transactionType);
     if (filters?.category) queryParams.append('category', filters.category);
+    if (filters?.billId) queryParams.append('billId', filters.billId);
     // Support both startDate/endDate and dateFrom/dateTo
     if (filters?.startDate) queryParams.append('startDate', filters.startDate);
     if (filters?.endDate) queryParams.append('endDate', filters.endDate);
@@ -3273,6 +3281,18 @@ class ApiService {
     const response = await this.request<any>('/BankAccounts/total-balance');
     if (response && response.success && response.data !== undefined) {
       return response.data;
+    }
+    return 0;
+  }
+
+  /** Total balance from all bank accounts with type "Credit card" (sum of their current balances). */
+  async getTotalCreditCardBalance(): Promise<number> {
+    if (isMockDataEnabled()) {
+      return 0;
+    }
+    const response = await this.request<any>('/BankAccounts/total-debt');
+    if (response && response.success && response.data !== undefined) {
+      return Number(response.data);
     }
     return 0;
   }

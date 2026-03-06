@@ -622,7 +622,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setError('');
 
     // Enhanced validation using category logic with double-entry accounting validation
-    // Skip category requirement if this is a split transaction (categories are on splits)
+    // Skip category/bill requirement on main form when split mode is on (bills/categories are on splits)
     const validationErrors = validateTransactionWithDoubleEntry({
       bankAccountId: formData.bankAccountId,
       amount: parseFloat(formData.amount),
@@ -634,7 +634,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       investmentId: formData.investmentId,
       toBankAccountId: formData.toBankAccountId,
       transactionType: formData.transactionType,
-      isSplit: isSplit && splits.length > 0,
+      isSplit: isSplit,
     });
 
     // Debug logging
@@ -757,6 +757,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       } else {
         // Create new transaction
         await apiService.createBankTransaction(transactionData);
+      }
+
+      // Mark bills as paid for any splits that have a billId
+      const splitsWithBills = (isSplit && splits.length > 0 ? splits : []).filter(
+        (s): s is typeof s & { billId: string } => !!s.billId
+      );
+      const uniqueBillIds = Array.from(new Set(splitsWithBills.map((s) => s.billId)));
+      if (uniqueBillIds.length > 0) {
+        const markPaidResults = await Promise.allSettled(
+          uniqueBillIds.map((billId) =>
+            apiService.markBillAsPaid(billId, {
+              bankAccountId: formData.bankAccountId || undefined,
+              notes: formData.description?.trim() || undefined,
+            })
+          )
+        );
+        const failed = markPaidResults.filter((r) => r.status === 'rejected');
+        if (failed.length > 0) {
+          console.warn('Some bills could not be marked as paid:', failed);
+        }
       }
 
       onSuccess(formData.bankAccountId, formData.category);
@@ -1600,7 +1620,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               }
             : null
         }
-        bills={getLatestBillsByName(bills)}
+        bills={bills}
         categories={categories}
         onSave={(transaction, newSplits) => {
           if (newSplits.length === 0) {

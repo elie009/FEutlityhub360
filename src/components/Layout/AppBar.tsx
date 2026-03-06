@@ -145,8 +145,10 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
     const billId = notification.templateVariables?.billId || notification.metadata?.billId;
     const loanId = notification.templateVariables?.loanId || notification.metadata?.loanId;
 
+    const notifType = notification.type as string;
+
     // Navigate based on notification type
-    switch (notification.type) {
+    switch (notifType) {
       case NotificationType.PAYMENT_OVERDUE:
       case NotificationType.PAYMENT_DUE:
       case NotificationType.UPCOMING_DUE:
@@ -155,7 +157,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
         } else if (loanId) {
           navigate('/loans', { state: { openLoanId: loanId } });
         } else {
-          if (notification.type === NotificationType.PAYMENT_OVERDUE || notification.type === NotificationType.PAYMENT_DUE) {
+          if (notifType === NotificationType.PAYMENT_OVERDUE || notifType === NotificationType.PAYMENT_DUE) {
             navigate('/bills');
           } else {
             navigate('/loans');
@@ -182,6 +184,20 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
           navigate('/transactions');
         }
         break;
+
+      // APP_UTILS notification types: redirect and open chatbot with assist
+      case NotificationType.DATA_IMBALANCE:
+        navigate('/bank-accounts', { state: { fromNotification: notification, openChatWithNotification: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
+      case NotificationType.MISLEADING_DATA:
+        navigate('/transactions', { state: { fromNotification: notification, openChatWithNotification: true, highlightUncategorized: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
+      case NotificationType.LOW_BALANCE:
+        navigate('/bank-accounts', { state: { fromNotification: notification, openChatWithNotification: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
       
       default:
         navigate('/notifications');
@@ -190,15 +206,18 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
     handleNotificationMenuClose();
   };
 
-  const getNotificationIcon = (type: NotificationType) => {
+  const getNotificationIcon = (type: NotificationType | string) => {
     switch (type) {
       case NotificationType.LOAN_APPROVED:
       case NotificationType.PAYMENT_CONFIRMED:
         return <CheckCircle sx={{ color: 'success.main' }} />;
       case NotificationType.PAYMENT_OVERDUE:
       case NotificationType.PAYMENT_DUE:
+      case NotificationType.DATA_IMBALANCE:
+      case NotificationType.LOW_BALANCE:
         return <Warning sx={{ color: 'warning.main' }} />;
       case NotificationType.UPCOMING_DUE:
+      case NotificationType.MISLEADING_DATA:
         return <Payment sx={{ color: 'info.main' }} />;
       default:
         return <Info sx={{ color: 'primary.main' }} />;

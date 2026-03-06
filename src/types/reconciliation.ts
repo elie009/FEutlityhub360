@@ -201,9 +201,7 @@ export interface BankStatementUpload {
   createdAt: string;
   processedAt?: string;
   updatedAt: string;
-}
-
-export interface TransactionSplit {
+}export interface TransactionSplit {
   id: string;
   amount: number;
   billId?: string;

@@ -39,7 +39,7 @@ import { Notification, NotificationType, NotificationStatus, NotificationPriorit
 import { getErrorMessage } from '../../utils/validation';
 import { useNavigate } from 'react-router-dom';
 
-const getNotificationIcon = (type: NotificationType) => {
+const getNotificationIcon = (type: NotificationType | string) => {
   switch (type) {
     case NotificationType.LOAN_APPROVED:
       return <CheckCircle color="success" />;
@@ -54,12 +54,17 @@ const getNotificationIcon = (type: NotificationType) => {
       return <CheckCircle color="info" />;
     case NotificationType.UPCOMING_DUE:
       return <Info color="info" />;
+    case NotificationType.DATA_IMBALANCE:
+    case NotificationType.LOW_BALANCE:
+      return <Warning color="warning" />;
+    case NotificationType.MISLEADING_DATA:
+      return <Info color="info" />;
     default:
       return <NotificationsIcon />;
   }
 };
 
-const getNotificationColor = (type: NotificationType): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+const getNotificationColor = (type: NotificationType | string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
   switch (type) {
     case NotificationType.LOAN_APPROVED:
     case NotificationType.PAYMENT_CONFIRMED:
@@ -67,10 +72,13 @@ const getNotificationColor = (type: NotificationType): 'default' | 'primary' | '
       return 'success';
     case NotificationType.LOAN_REJECTED:
     case NotificationType.PAYMENT_OVERDUE:
+    case NotificationType.LOW_BALANCE:
       return 'error';
     case NotificationType.PAYMENT_DUE:
+    case NotificationType.DATA_IMBALANCE:
       return 'warning';
     case NotificationType.UPCOMING_DUE:
+    case NotificationType.MISLEADING_DATA:
       return 'info';
     default:
       return 'default';
@@ -248,21 +256,19 @@ const NotificationCenter: React.FC = () => {
     // Extract billId or loanId from templateVariables/metadata
     const billId = notification.templateVariables?.billId || notification.metadata?.billId;
     const loanId = notification.templateVariables?.loanId || notification.metadata?.loanId;
+    const notifType = notification.type as string;
 
     // Navigate based on notification type
-    switch (notification.type) {
+    switch (notifType) {
       case NotificationType.PAYMENT_OVERDUE:
       case NotificationType.PAYMENT_DUE:
       case NotificationType.UPCOMING_DUE:
         if (billId) {
-          // Navigate to bills page with billId in state to open modal
           navigate('/bills', { state: { openBillId: billId } });
         } else if (loanId) {
-          // Navigate to loans page with loanId
           navigate('/loans', { state: { openLoanId: loanId } });
         } else {
-          // Fallback: just navigate to bills/loans page
-          if (notification.type === NotificationType.PAYMENT_OVERDUE || notification.type === NotificationType.PAYMENT_DUE) {
+          if (notifType === NotificationType.PAYMENT_OVERDUE || notifType === NotificationType.PAYMENT_DUE) {
             navigate('/bills');
           } else {
             navigate('/loans');
@@ -281,16 +287,28 @@ const NotificationCenter: React.FC = () => {
         break;
       
       case NotificationType.PAYMENT_CONFIRMED:
-        // Could be bill or loan payment
         if (billId) {
           navigate('/bills', { state: { openBillId: billId } });
         } else if (loanId) {
           navigate('/loans', { state: { openLoanId: loanId } });
         }
         break;
+
+      // APP_UTILS notification types: redirect to respective page and open chatbot with assist
+      case NotificationType.DATA_IMBALANCE:
+        navigate('/bank-accounts', { state: { fromNotification: notification, openChatWithNotification: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
+      case NotificationType.MISLEADING_DATA:
+        navigate('/transactions', { state: { fromNotification: notification, openChatWithNotification: true, highlightUncategorized: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
+      case NotificationType.LOW_BALANCE:
+        navigate('/bank-accounts', { state: { fromNotification: notification, openChatWithNotification: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
       
       default:
-        // For other notification types, don't navigate
         break;
     }
   };

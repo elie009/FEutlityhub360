@@ -52,6 +52,8 @@ export interface TransactionFilters {
   endDate?: string;
   limit?: number;
   page?: number;
+  /** When set, return only transactions linked to this bill (main billId or any split.billId). Excludes soft-deleted. */
+  billId?: string;
 }
 
 export interface PaginatedTransactionsResponse {

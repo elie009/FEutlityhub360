@@ -170,7 +170,11 @@ export enum NotificationType {
   LOAN_CLOSED = 'LOAN_CLOSED',
   UPCOMING_DUE = 'UPCOMING_DUE',
   SYSTEM_UPDATE = 'SYSTEM_UPDATE',
-  ACCOUNT_ALERT = 'ACCOUNT_ALERT'
+  ACCOUNT_ALERT = 'ACCOUNT_ALERT',
+  // APP_UTILS analysis notification types
+  DATA_IMBALANCE = 'DATA_IMBALANCE',
+  MISLEADING_DATA = 'MISLEADING_DATA',
+  LOW_BALANCE = 'LOW_BALANCE'
 }
 
 export enum NotificationPriority {

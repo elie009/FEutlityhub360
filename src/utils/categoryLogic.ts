@@ -173,7 +173,8 @@ export const validateTransactionForm = (formData: {
   }
   
   // Category-specific validation (only for DEBIT transactions with category)
-  if (formData.transactionType !== 'CREDIT' && formData.category) {
+  // Skip for split transactions - bill/loan/savings/investment are selected per split, not on the main form
+  if (formData.transactionType !== 'CREDIT' && formData.category && !formData.isSplit) {
     // Check transfer category first - transfers don't need any linked accounts
     if (isTransferCategory(formData.category)) {
       if (!formData.toBankAccountId) {

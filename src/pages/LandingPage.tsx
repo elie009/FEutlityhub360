@@ -424,53 +424,8 @@ const LandingPage: React.FC = () => {
         </Container>
       </Box>
 
-      {/* Mobile app coming soon - iOS & Android */}
-      <Box id="mobile-app" sx={{ py: { xs: 8, lg: 12 }, bgcolor: 'white' }}>
-        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
-          <Fade in={isVisible}>
-            <Box sx={{ textAlign: 'center', mb: 5 }}>
-              <Chip icon={<Smartphone sx={{ fontSize: 18 }} />} label="Coming soon" sx={{ bgcolor: `${accentGreen}4D`, color: 'grey.900', fontWeight: 600, mb: 2 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, mt: 2, mb: 1.5, fontSize: { xs: '1.5rem', lg: '2rem' } }}>
-                UtilityHub360 on the go
-              </Typography>
-              <Typography sx={{ color: 'grey.600', fontSize: '1rem', maxWidth: 560, mx: 'auto' }}>
-                Our mobile app is coming soon on both iOS and Android. Manage your finances from anywhere.
-              </Typography>
-              <Stack direction="row" justifyContent="center" alignItems="center" spacing={2} sx={{ mt: 2, flexWrap: 'wrap' }}>
-                <Chip label="Coming soon on iOS" size="medium" sx={{ bgcolor: 'grey.100', fontWeight: 600 }} />
-                <Chip label="Coming soon on Android" size="medium" sx={{ bgcolor: 'grey.100', fontWeight: 600 }} />
-              </Stack>
-            </Box>
-          </Fade>
-          <Fade in={isVisible} timeout={300}>
-            <Grid container spacing={4} justifyContent="center" alignItems="flex-end" sx={{ mt: 2 }}>
-              <Grid item xs={12} sm={6} md={5}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Box
-                    component="img"
-                    src="/mobile1.png"
-                    alt="UtilityHub360 mobile app preview 1"
-                    sx={{ maxHeight: 420, width: 'auto', mx: 'auto', display: 'block', objectFit: 'contain' }}
-                  />
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={6} md={5}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Box
-                    component="img"
-                    src="/mobile2.png"
-                    alt="UtilityHub360 mobile app preview 2"
-                    sx={{ maxHeight: 420, width: 'auto', mx: 'auto', display: 'block', objectFit: 'contain' }}
-                  />
-                </Box>
-              </Grid>
-            </Grid>
-          </Fade>
-        </Container>
-      </Box>
-
       {/* Services Section */}
-      <Box ref={servicesRef} sx={{ py: { xs: 10, lg: 14 }, bgcolor: 'grey.50' }}>
+      <Box id="services" ref={servicesRef} sx={{ py: { xs: 10, lg: 14 }, bgcolor: 'grey.50' }}>
         <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
           <Fade in={isVisible}>
             <Box sx={{ textAlign: 'center', mb: 8 }}>
@@ -701,7 +656,7 @@ const LandingPage: React.FC = () => {
                 Product
               </Typography>
               <Stack spacing={1} sx={{ alignItems: { xs: 'center', md: 'flex-start' } }}>
-                <Button
+                {/* <Button
                   size="small"
                   onClick={handleServicesClick}
                   sx={{
@@ -713,21 +668,21 @@ const LandingPage: React.FC = () => {
                   }}
                 >
                   Features
-                </Button>
+                </Button>  */}
                 <Typography
                   component="a"
-                  href="#"
+                  href="#services"
                   sx={{
                     color: 'grey.400',
                     textDecoration: 'none',
                     '&:hover': { color: accentGreen },
                   }}
                 >
-                  Pricing
+                  Features
                 </Typography>
                 <Typography
                   component="a"
-                  href="#"
+                  href="#about"
                   sx={{
                     color: 'grey.400',
                     textDecoration: 'none',
@@ -738,7 +693,7 @@ const LandingPage: React.FC = () => {
                 </Typography>
                 <Typography
                   component="a"
-                  href="#"
+                  href="#about"
                   sx={{
                     color: 'grey.400',
                     textDecoration: 'none',
@@ -763,54 +718,32 @@ const LandingPage: React.FC = () => {
                 Company
               </Typography>
               <Stack spacing={1} sx={{ alignItems: { xs: 'center', md: 'flex-start' } }}>
-                <Button
-                  size="small"
-                  onClick={handleAboutClick}
+              <Typography
+                  component="a"
+                  href="#about"
                   sx={{
-                    justifyContent: 'flex-start',
                     color: 'grey.400',
-                    textTransform: 'none',
+                    textDecoration: 'none',
                     '&:hover': { color: accentGreen },
-                    width: { xs: 'auto', md: '100%' },
                   }}
                 >
                   About
-                </Button>
+                </Typography>
+          
+
                 <Typography
                   component="a"
-                  href="#"
                   sx={{
                     color: 'grey.400',
                     textDecoration: 'none',
+                    cursor: 'pointer',
                     '&:hover': { color: accentGreen },
                   }}
-                >
-                  Blog
-                </Typography>
-                <Typography
-                  component="a"
-                  href="#"
-                  sx={{
-                    color: 'grey.400',
-                    textDecoration: 'none',
-                    '&:hover': { color: accentGreen },
-                  }}
-                >
-                  Careers
-                </Typography>
-                <Button
-                  size="small"
                   onClick={handleContactClick}
-                  sx={{
-                    justifyContent: 'flex-start',
-                    color: 'grey.400',
-                    textTransform: 'none',
-                    '&:hover': { color: accentGreen },
-                    width: { xs: 'auto', md: '100%' },
-                  }}
                 >
                   Contact
-                </Button>
+                </Typography>
+              
               </Stack>
             </Grid>
             <Grid
@@ -923,7 +856,9 @@ const LandingPage: React.FC = () => {
               </IconButton>
               <IconButton
                 component="a"
-                href="#"
+                href="https://www.facebook.com/profile.php?id=61586127790436"
+                target="_blank"
+                rel="noopener noreferrer"
                 sx={{
                   width: 40,
                   height: 40,
@@ -931,9 +866,9 @@ const LandingPage: React.FC = () => {
                   color: 'white',
                   '&:hover': { bgcolor: accentGreen, color: 'grey.900' },
                 }}
-                aria-label="Support"
+                aria-label="Facebook"
               >
-                <Support sx={{ fontSize: 20 }} />
+                <Facebook sx={{ fontSize: 20 }} />
               </IconButton>
             </Stack>
           </Stack>

@@ -53,6 +53,25 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
   // Filter bills to show only the latest due date for each bill name
   const filteredBills = useMemo(() => getLatestBillsByName(bills), [bills]);
 
+  // Total allocated so far (sum of split amounts)
+  const totalAllocated = useMemo(() => splits.reduce((sum, split) => sum + (split.amount || 0), 0), [splits]);
+
+  // Bills to show in dropdown: only those with amount <= Total Allocated (or <= transaction amount when nothing allocated yet)
+  const billsWithinAllocated = useMemo(() => {
+    if (!transaction) return [];
+    const cap = totalAllocated > 0 ? totalAllocated : transaction.amount;
+    return filteredBills.filter((bill) => bill.amount <= cap);
+  }, [filteredBills, transaction, totalAllocated]);
+
+  // Sort bills by dueDate ascending (earliest first: e.g. 03-20-2026, 04-20-2026, 05-20-2026)
+  const billsWithinAllocatedSorted = useMemo(() => {
+    return [...billsWithinAllocated].sort((a, b) => {
+      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      return dateA - dateB;
+    });
+  }, [billsWithinAllocated]);
+
   useEffect(() => {
     if (transaction) {
       // Initialize with existing splits or create one empty split
@@ -111,19 +130,17 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
     const newErrors: { [key: string]: string } = {};
     let isValid = true;
 
-    splits.forEach((split) => {
-      if (!split.billId && !split.category) {
-        newErrors[split.id] = 'Please select a bill or category';
-        isValid = false;
-      }
+    // Only validate rows that have a bill or category (ignore empty rows)
+    const validSplits = splits.filter((s) => s.billId || s.category);
+    validSplits.forEach((split) => {
       if (!split.amount || split.amount <= 0) {
         newErrors[split.id] = 'Amount must be greater than 0';
         isValid = false;
       }
     });
 
-    const total = calculateTotal();
-    if (transaction && Math.abs(total - transaction.amount) > 0.01) {
+    const total = validSplits.reduce((sum, s) => sum + (s.amount || 0), 0);
+    if (transaction && validSplits.length > 0 && Math.abs(total - transaction.amount) > 0.01) {
       newErrors['total'] = `Total must equal ${formatCurrency(transaction.amount)}`;
       isValid = false;
     }
@@ -163,24 +180,22 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
   };
 
   // Compute if form can be saved (includes balance check)
-  // Must be before early return to follow React Hooks rules
+  // Use same "valid split" rule as handleSave: only count splits with amount > 0 and (billId or category)
   const canSave = useMemo(() => {
-    // Can always save if no splits (converts to regular transaction)
-    if (splits.length === 0) return true;
-    
-    // If no transaction, cannot save
     if (!transaction) return false;
-    
-    // Check if all splits have required fields (either billId or category)
-    const allSplitsValid = splits.every(s => 
-      (s.billId || s.category) && s.amount && s.amount > 0
+
+    const validSplits = splits.filter(
+      (s) => s.amount != null && s.amount > 0 && (s.billId || s.category)
     );
-    
-    // Check if total is balanced
-    const total = splits.reduce((sum, split) => sum + (split.amount || 0), 0);
+
+    // Can save if no valid splits (converts back to regular transaction)
+    if (validSplits.length === 0) return true;
+
+    // Total of valid splits must equal transaction amount
+    const total = validSplits.reduce((sum, split) => sum + (split.amount || 0), 0);
     const isBalanced = Math.abs(total - transaction.amount) < 0.01;
-    
-    return allSplitsValid && isBalanced;
+
+    return isBalanced;
   }, [splits, transaction]);
 
   if (!transaction) return null;
@@ -253,7 +268,7 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                           const value = e.target.value;
                           if (value.startsWith('bill:')) {
                             const billId = value.replace('bill:', '');
-                            const selectedBill = filteredBills.find(b => b.id === billId);
+                            const selectedBill = filteredBills.find(b => b.id === billId) ?? bills.find(b => b.id === billId);
                             setSplits(
                               splits.map((s) => 
                                 s.id === split.id 
@@ -261,7 +276,8 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                                       ...s, 
                                       billId, 
                                       category: undefined,
-                                      amount: selectedBill ? selectedBill.amount : s.amount
+                                      amount: selectedBill ? selectedBill.amount : s.amount,
+                                      description: selectedBill ? selectedBill.billName : s.description
                                     }
                                   : s
                               )
@@ -271,7 +287,7 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                             setSplits(
                               splits.map((s) => 
                                 s.id === split.id 
-                                  ? { ...s, category, billId: undefined }
+                                  ? { ...s, category, billId: undefined, description: '', amount: 0 }
                                   : s
                               )
                             );
@@ -301,11 +317,11 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                           const selectedStr = String(selectedValue);
                           if (selectedStr.startsWith('bill:')) {
                             const billId = selectedStr.replace('bill:', '');
-                            const bill = filteredBills.find(b => b.id === billId);
+                            const bill = filteredBills.find(b => b.id === billId) ?? bills.find(b => b.id === billId);
                             if (bill) {
                               return <span>{bill.billName} - {formatCurrency(bill.amount)}</span>;
                             }
-                            return <span>Bill (${billId})</span>;
+                            return <span>Bill (unknown)</span>;
                           }
                           if (selectedStr.startsWith('cat:')) {
                             const categoryName = selectedStr.replace('cat:', '');
@@ -320,7 +336,7 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                         <MenuItem disabled>
                           <strong>Bills</strong>
                         </MenuItem>
-                        {filteredBills.map((bill) => (
+                        {billsWithinAllocatedSorted.map((bill) => (
                           <MenuItem key={`bill:${bill.id}`} value={`bill:${bill.id}`}>
                             {bill.billName} - {formatCurrency(bill.amount)}
                           </MenuItem>
@@ -344,7 +360,8 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                       onChange={(e) =>
                         handleSplitChange(split.id, 'description', e.target.value)
                       }
-                      placeholder="Optional description"
+                      placeholder={split.billId ? '' : 'Optional description'}
+                      disabled={!!split.billId}
                     />
                   </TableCell>
                   <TableCell align="right">
@@ -360,6 +377,7 @@ const SplitTransactionDialog: React.FC<SplitTransactionDialogProps> = ({
                       inputProps={{ step: 0.01, min: 0 }}
                       error={!!errors[split.id]}
                       helperText={errors[split.id]}
+                      disabled={!!split.billId}
                     />
                   </TableCell>
                   <TableCell align="center">

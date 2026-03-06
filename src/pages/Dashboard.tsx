@@ -295,13 +295,9 @@ const Dashboard: React.FC = () => {
     return Array.from({ length: 5 }, (_, i) => currentYear - i);
   }, []);
   
-  // Check if user needs to complete profile
+  // Don't auto-show onboarding; user can open it by clicking "Profile Setup Required"
   useEffect(() => {
-    if (user && !hasProfile) {
-      // Show onboarding wizard instead of the old profile form
-      setShowOnboarding(true);
-      setShowProfileForm(false);
-    } else if (user && hasProfile) {
+    if (user && hasProfile) {
       setShowProfileForm(false);
       setShowOnboarding(false);
     }
@@ -352,21 +348,29 @@ const Dashboard: React.FC = () => {
     loadDisposableAmount();
   }, [isAuthenticated]);
 
-  // Fetch total balance on page load
+  // Total credit card balance (sum of all Credit card bank accounts) for "Credit balance" section
+  const [totalCreditCardBalance, setTotalCreditCardBalance] = useState<number>(0);
+
+  // Fetch total balance and total credit card balance on page load
   useEffect(() => {
-    const loadTotalBalance = async () => {
+    const loadBalances = async () => {
       if (!isAuthenticated) return;
       
       try {
-        const balance = await apiService.getTotalBalance();
+        const [balance, creditBalance] = await Promise.all([
+          apiService.getTotalBalance(),
+          apiService.getTotalCreditCardBalance(),
+        ]);
         setCurrentBalance(balance);
+        setTotalCreditCardBalance(creditBalance);
       } catch (error) {
-        console.error('Failed to load total balance for dashboard:', error);
+        console.error('Failed to load balances for dashboard:', error);
         setCurrentBalance(0);
+        setTotalCreditCardBalance(0);
       }
     };
     
-    loadTotalBalance();
+    loadBalances();
   }, [isAuthenticated]);
 
   // Fetch recent transactions on page load
@@ -972,23 +976,20 @@ const Dashboard: React.FC = () => {
     : 0;
 
   // Main balance (non-credit) and credit balance for Current Balance card
-  const { mainBalance, creditBalance } = useMemo(() => {
+  const { mainBalance } = useMemo(() => {
     const total = financialData?.currentBalance ?? currentBalance ?? 0;
     if (!Array.isArray(financialData?.accounts) || financialData.accounts.length === 0) {
-      return { mainBalance: total, creditBalance: 0 };
+      return { mainBalance: total };
     }
     let main = 0;
-    let credit = 0;
     (financialData.accounts as any[]).forEach((acc: any) => {
       const bal = acc?.currentBalance ?? acc?.initialBalance ?? 0;
-      if (acc?.accountType?.toLowerCase() === 'credit_card') {
-        credit += bal;
-      } else {
+      if (acc?.accountType?.toLowerCase() !== 'credit_card') {
         main += bal;
       }
     });
-    if (main === 0 && credit === 0) return { mainBalance: total, creditBalance: 0 };
-    return { mainBalance: main, creditBalance: credit };
+    if (main === 0) return { mainBalance: total };
+    return { mainBalance: main };
   }, [financialData?.accounts, financialData?.currentBalance, currentBalance]);
 
   // Extract Total Loan Payment from spendingByCategory
@@ -1675,6 +1676,7 @@ const Dashboard: React.FC = () => {
                   ) : (
                     <Alert
                       severity="warning"
+                      onClick={() => setShowOnboarding(true)}
                       sx={{
                         pr: 2,
                         py: 1,
@@ -1682,15 +1684,17 @@ const Dashboard: React.FC = () => {
                         minWidth: 230,
                         width: { xs: '100%', sm: 'auto' },
                         m: 0,
+                        cursor: 'pointer',
                         '& .MuiAlert-message': { width: '100%', p: 0 },
-                        display: 'flex'
+                        display: 'flex',
+                        '&:hover': { opacity: 0.95 }
                       }}
                     >
                       <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 600 }}>
                         Profile Setup Required
                       </Typography>
                       <Typography variant="body2" sx={{ ml: 1 }}>
-                        Please complete your profile setup to access all features.
+                        Please complete your profile setup to access all features. Click to start.
                       </Typography>
                     </Alert>
                   )
@@ -1801,7 +1805,7 @@ const Dashboard: React.FC = () => {
                       Credit balance
                     </Typography>
                     <Typography sx={{ fontSize: '1.35rem', fontWeight: 700, color: '#1a1a1a' }}>
-                      {formatCurrency(creditBalance)}
+                      {formatCurrency(totalCreditCardBalance)}
                     </Typography>
                   </Box>
                 </Box>
@@ -2682,10 +2686,13 @@ const Dashboard: React.FC = () => {
                           <Alert 
                             severity="info" 
                             icon={<InfoIcon />}
+                            onClick={() => setShowOnboarding(true)}
                             sx={{ 
+                              cursor: 'pointer',
                               background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
                               border: '1px solid',
-                              borderColor: 'info.light'
+                              borderColor: 'info.light',
+                              '&:hover': { opacity: 0.95 }
                             }}
                           >
                             <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
@@ -2697,6 +2704,9 @@ const Dashboard: React.FC = () => {
                                 <li>Add income sources to get started</li>
                                 <li>Set up financial goals</li>
                               </Box>
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+                              Click here to open setup wizard
                             </Typography>
                           </Alert>
                         );

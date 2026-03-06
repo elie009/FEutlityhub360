@@ -320,16 +320,12 @@ const Bills: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this bill? This action cannot be undone.')) {
       try {
         console.log('Deleting bill with ID:', billId);
-        setError('');
-        setSuccessMessage('');
         const response = await apiService.deleteBill(billId);
         console.log('Delete response:', response);
-        
+
         if (response.success) {
           setSuccessMessage(response.message);
-          // Auto-hide success message after 5 seconds
           setTimeout(() => setSuccessMessage(''), 5000);
-          console.log('Reloading data after successful delete...');
           await loadAllData();
         } else {
           setError('Failed to delete bill');
@@ -338,8 +334,6 @@ const Bills: React.FC = () => {
         console.error('Delete error:', err);
         const errorMessage = getErrorMessage(err, 'Failed to delete bill');
         setError(errorMessage);
-        
-        // Don't reload if bill not found (404)
         if (!errorMessage.includes('not found')) {
           await loadBills();
         }

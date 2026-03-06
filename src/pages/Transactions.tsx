@@ -59,6 +59,14 @@ const getMonthFromDate = (date: Date | null): number => {
   return date ? date.getMonth() + 1 : new Date().getMonth() + 1;
 };
 
+// Collect unique bill IDs from a transaction (main billId or splits)
+const getBillIdsFromTransaction = (t: BankAccountTransaction): string[] => {
+  const ids: string[] = [];
+  if (t.billId) ids.push(t.billId);
+  (t.splits || []).forEach(s => { if (s.billId) ids.push(s.billId); });
+  return ids;
+};
+
 const TransactionsPage: React.FC = () => {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
@@ -989,16 +997,28 @@ const TransactionsPage: React.FC = () => {
     
     setIsDeleting(true);
     try {
+      const transactionsToDelete = transactions.filter(t => deletableTransactions.indexOf(t.id) !== -1);
+      const billIdsMap: Record<string, boolean> = {};
+      transactionsToDelete.forEach(t => {
+        getBillIdsFromTransaction(t).forEach(id => { billIdsMap[id] = true; });
+      });
+      const uniqueBillIds = Object.keys(billIdsMap);
+
       const result = await apiService.bulkDeleteTransactions(deletableTransactions);
-      
+
       if (result.failed > 0) {
         setError(`Successfully deleted ${result.success} transaction(s), but ${result.failed} failed. Please check the transactions page.`);
       } else {
-        // Success - clear selection and reload
         setSelectedTransactions(new Set());
         setIsBatchMode(false);
       }
-      
+
+      if (uniqueBillIds.length > 0) {
+        await Promise.allSettled(
+          uniqueBillIds.map(bid => apiService.markBillAsUnpaid(bid))
+        );
+      }
+
       await loadTransactionsAndAnalytics();
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to delete some transactions'));
@@ -1297,14 +1317,21 @@ const TransactionsPage: React.FC = () => {
 
     if (window.confirm('Are you sure you want to delete this transaction? Transactions older than 24 hours will be hidden (soft deleted) and can be restored.')) {
       try {
+        const billIds = transaction ? getBillIdsFromTransaction(transaction) : [];
         await apiService.deleteTransaction(transactionId);
-        // Close the details dialog
+        // Mark linked bills as unpaid when payment transaction is deleted
+        if (billIds.length > 0) {
+          const billIdsMap: Record<string, boolean> = {};
+          billIds.forEach(id => { billIdsMap[id] = true; });
+          const uniqueBillIds = Object.keys(billIdsMap);
+          await Promise.allSettled(
+            uniqueBillIds.map(bid => apiService.markBillAsUnpaid(bid))
+          );
+        }
         handleCloseDetails();
-        // Reload transactions and analytics
         loadTransactionsAndAnalytics();
       } catch (err: unknown) {
         const errorMessage = getErrorMessage(err, 'Failed to delete transaction');
-        // Check if error is about closed month (backend validation)
         setError(errorMessage);
       }
     }

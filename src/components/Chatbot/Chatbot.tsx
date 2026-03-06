@@ -55,7 +55,6 @@ import {
   Delete as DeleteIcon,
   Psychology as PsychologyIcon,
   AutoAwesome as AutoAwesomeIcon,
-  AttachFile as AttachFileIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,6 +62,7 @@ import { chatbotService, Conversation } from './ChatbotService';
 import { apiService } from '../../services/api';
 import { BillType, BillFrequency } from '../../types/bill';
 import { SavingsType } from '../../types/savings';
+import { Notification, NotificationType } from '../../types/loan';
 
 interface Message {
   id: string;
@@ -555,11 +555,59 @@ const Chatbot: React.FC = () => {
   const [useAI, setUseAI] = useState(false);
   const [aiEnabled] = useState(true);
   const [tokensUsed, setTokensUsed] = useState<number>(0);
+  const [pendingNotificationContext, setPendingNotificationContext] = useState<Notification | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, hasProfile } = useAuth();
-  
+
+  // Listen for notification click: open chat and show assist message with "Guide me" / "Do it for me"
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ notification: Notification }>;
+      const notification = customEvent.detail?.notification;
+      if (!notification) return;
+      setPendingNotificationContext(notification);
+      setIsOpen(true);
+      const notifType = (notification.type as string) || '';
+      let assistContent = notification.message || notification.title || 'You have a notification that may need your attention.';
+      let guidePrompt = '';
+      if (notifType === NotificationType.DATA_IMBALANCE) {
+        assistContent = `${notification.message}\n\nI can guide you step-by-step to reconcile this on the Bank Accounts page, or I can try to help fix it for you.`;
+        guidePrompt = 'How do I reconcile my account balance with my transactions?';
+      } else if (notifType === NotificationType.MISLEADING_DATA) {
+        assistContent = `${notification.message}\n\nI can explain how to categorize your transactions, or I can suggest categories and help you apply them.`;
+        guidePrompt = 'How do I categorize my uncategorized transactions?';
+      } else if (notifType === NotificationType.LOW_BALANCE) {
+        assistContent = `${notification.message}\n\nI can guide you to review the account and suggest next steps, or help you understand your options.`;
+        guidePrompt = 'What should I do about a negative account balance?';
+      }
+      const assistMessage: Message = {
+        id: `notif-assist-${notification.id}-${Date.now()}`,
+        type: 'bot',
+        content: assistContent,
+        timestamp: new Date(),
+        quickActions: [
+          {
+            id: 'notification_guide',
+            label: 'Guide me',
+            action: 'notification_guide',
+            icon: <Help />,
+            description: 'Step-by-step instructions'
+          },
+          {
+            id: 'notification_ai_fix',
+            label: 'Do it for me',
+            action: 'notification_ai_fix',
+            icon: <AutoAwesomeIcon />,
+            description: 'Let AI assist or perform the action'
+          }
+        ]
+      };
+      setMessages(prev => [...prev, assistMessage]);
+    };
+    window.addEventListener('openChatWithNotification', handler);
+    return () => window.removeEventListener('openChatWithNotification', handler);
+  }, []);
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -749,100 +797,6 @@ const Chatbot: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'bot',
-        content: '❌ Invalid file type. Please upload a JPG or PNG image.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      return;
-    }
-
-    // Validate file size (10MB max)
-    if (file.size > 10 * 1024 * 1024) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        type: 'bot',
-        content: '❌ File size exceeds 10MB limit. Please upload a smaller file.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      return;
-    }
-
-    // Show user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: `📎 Uploaded receipt: ${file.name}`,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setIsTyping(true);
-
-    try {
-      // Upload receipt
-      const formData = new FormData();
-      formData.append('file', file);
-      if (chatbotService.getCurrentConversationId()) {
-        formData.append('conversationId', chatbotService.getCurrentConversationId()!);
-      }
-
-      const response = await apiService.uploadReceipt(formData);
-      
-      if (response.success && response.data) {
-        const botResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'bot',
-          content: response.data.message,
-          timestamp: new Date(),
-          quickActions: response.data.suggestedActions?.map((action: string, index: number) => ({
-            id: `receipt_action_${index}`,
-            label: action,
-            action: 'receipt_action',
-            icon: <Receipt />,
-            description: action
-          }))
-        };
-        setMessages(prev => [...prev, botResponse]);
-      } else {
-        throw new Error(response.message || 'Failed to upload receipt');
-      }
-    } catch (error: any) {
-      console.error('Error uploading receipt:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'bot',
-        content: `❌ Failed to upload receipt: ${error.message || 'Unknown error'}`,
-        timestamp: new Date(),
-        quickActions: [
-          {
-            id: 'retry',
-            label: 'Try Again',
-            action: 'retry',
-            icon: <Help />,
-            description: 'Retry uploading the receipt'
-          }
-        ]
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsTyping(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
   const generateBotResponse = async (userInput: string): Promise<Message> => {
     const messageId = (Date.now() + 1).toString();
     
@@ -1011,6 +965,48 @@ const Chatbot: React.FC = () => {
         break;
       case 'show_savings_list':
         await showSavingsList();
+        break;
+
+      // Notification assist: Guide me / Do it for me (from APP_UTILS notification click)
+      case 'notification_guide':
+        if (pendingNotificationContext) {
+          const notifType = pendingNotificationContext.type as string;
+          let guideContent = '';
+          if (notifType === NotificationType.DATA_IMBALANCE) {
+            guideContent = '**Reconciling your account balance:**\n\n1. Go to Bank Accounts and open the account with the mismatch.\n2. Compare "Current balance" with the sum of your transactions (Credits − Debits).\n3. Use Reconciliation (if available) to match statements, or add an adjustment transaction if you’ve confirmed the correct balance.\n4. Save and re-run the analysis to clear the alert.';
+          } else if (notifType === NotificationType.MISLEADING_DATA) {
+            guideContent = '**Categorizing transactions:**\n\n1. Open the Transactions page (you’re already there).\n2. Filter or look for uncategorized items (no category set).\n3. Click a transaction and choose a category, or use bulk actions to assign categories to multiple transactions.\n4. Categorizing improves your reports and AI suggestions.';
+          } else if (notifType === NotificationType.LOW_BALANCE) {
+            guideContent = '**Handling a negative balance:**\n\n1. Open Bank Accounts and check the account with the negative balance.\n2. Review recent transactions for errors or missing credits.\n3. Add a correction transaction if needed, or transfer funds from another account.\n4. Once the balance is updated, the alert will clear on the next analysis.';
+          } else {
+            guideContent = pendingNotificationContext.message || 'Check the notification details and the related page for steps.';
+          }
+          const guideMsg: Message = {
+            id: `guide-${Date.now()}`,
+            type: 'bot',
+            content: guideContent,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, guideMsg]);
+          setPendingNotificationContext(null);
+        }
+        break;
+      case 'notification_ai_fix':
+        if (pendingNotificationContext) {
+          const notifType = pendingNotificationContext.type as string;
+          let aiPrompt = '';
+          if (notifType === NotificationType.MISLEADING_DATA) {
+            aiPrompt = 'I have uncategorized transactions. Please help me categorize them: suggest categories for my uncategorized transactions or guide me to use bulk categorize.';
+          } else if (notifType === NotificationType.DATA_IMBALANCE) {
+            aiPrompt = 'I have a balance mismatch between my stored account balance and the sum of transactions. Please guide me to reconcile this or suggest how to fix it.';
+          } else if (notifType === NotificationType.LOW_BALANCE) {
+            aiPrompt = 'One of my accounts has a negative balance. Please help me understand what to do and suggest next steps or corrections.';
+          } else {
+            aiPrompt = pendingNotificationContext.message || 'Help me address this notification.';
+          }
+          setPendingNotificationContext(null);
+          handleSendMessage(aiPrompt);
+        }
         break;
       
       default:
@@ -1969,35 +1965,14 @@ const Chatbot: React.FC = () => {
           <div ref={messagesEndRef} />
         </Box>
 
-        {/* Input - WhatsApp style */}
+        {/* Input: text only (file attachment removed) */}
         <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', backgroundColor: '#F0F0F0' }}>
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/jpeg,image/jpg,image/png"
-            style={{ display: 'none' }}
-            onChange={handleFileUpload}
-          />
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <IconButton
-              onClick={() => fileInputRef.current?.click()}
-              sx={{
-                color: '#666',
-                width: 40,
-                height: 40,
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                },
-              }}
-              title="Upload receipt (JPG/PNG)"
-            >
-              <AttachFileIcon sx={{ fontSize: 20 }} />
-            </IconButton>
             <TextField
               fullWidth
               multiline
               maxRows={4}
-              placeholder={useAI ? "Type a message or upload a receipt..." : "Type a message..."}
+              placeholder="Type a message..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
