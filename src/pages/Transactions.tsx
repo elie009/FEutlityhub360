@@ -17,6 +17,7 @@ import {
   FilterList, FilterListOff, CloudUpload, Delete,
   ContentPaste, AutoAwesome, Search, Close,
   Save, Bookmark, Edit, CheckBox, CheckBoxOutlineBlank,
+  ExpandMore, ExpandLess, Download,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -30,6 +31,7 @@ import { getErrorMessage } from '../utils/validation';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
 import QuickAddTransactionForm from '../components/Transactions/QuickAddTransactionForm';
+import { useSearchParams } from 'react-router-dom';
 
 // Helper function to get current date (first day of current month)
 const getCurrentDate = (): Date => {
@@ -57,12 +59,21 @@ const getMonthFromDate = (date: Date | null): number => {
   return date ? date.getMonth() + 1 : new Date().getMonth() + 1;
 };
 
+// Collect unique bill IDs from a transaction (main billId or splits)
+const getBillIdsFromTransaction = (t: BankAccountTransaction): string[] => {
+  const ids: string[] = [];
+  if (t.billId) ids.push(t.billId);
+  (t.splits || []).forEach(s => { if (s.billId) ids.push(s.billId); });
+  return ids;
+};
+
 const TransactionsPage: React.FC = () => {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState<BankAccountTransaction[]>([]);
   const [analytics, setAnalytics] = useState<TransactionAnalytics | null>(null);
   const [bankAccountAnalytics, setBankAccountAnalytics] = useState<BankAccountAnalytics | null>(null);
@@ -125,14 +136,24 @@ const TransactionsPage: React.FC = () => {
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
   const [selectedBillId, setSelectedBillId] = useState<string>('');
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
+  const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
   const [selectedSavingsAccountId, setSelectedSavingsAccountId] = useState<string>('');
   const [isLoadingLinkedData, setIsLoadingLinkedData] = useState(false);
   const [closedMonthsMap, setClosedMonthsMap] = useState<Map<string, Set<string>>>(new Map()); // Map<bankAccountId, Set<"YYYY-MM">>
   const [transactionLinkType, setTransactionLinkType] = useState<'none' | 'bill' | 'loan' | 'savings'>('none');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showQuickAddForm, setShowQuickAddForm] = useState(false);
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<BankAccountTransaction | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Import/Export state
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<string>('');
   
   // Saved Filter Presets
   interface FilterPreset {
@@ -222,6 +243,36 @@ const TransactionsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // Only load on initial mount and when user changes
 
+  // Check for URL parameter to open Add Transaction modal
+  useEffect(() => {
+    const addTransaction = searchParams.get('addTransaction');
+    if (addTransaction === 'true') {
+      setShowAddTransactionModal(true);
+      // Remove the parameter from URL
+      searchParams.delete('addTransaction');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Keyboard shortcut: Ctrl + Alt + T to open Add Transaction modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check if Ctrl + Alt + T is pressed
+      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        setShowAddTransactionModal(true);
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array - setShowAddTransactionModal is stable from useState
+
   // Handle search button click
   const handleSearch = () => {
     if (user?.id) {
@@ -265,7 +316,15 @@ const TransactionsPage: React.FC = () => {
         apiService.getBankAccountSummary(),
       ]);
 
-      setTransactions(transactionsResponse.data);
+      // Ensure transactions have proper structure and splits are arrays
+      const processedTransactions = (transactionsResponse.data || []).map((t: BankAccountTransaction) => ({
+        ...t,
+        splits: Array.isArray(t.splits) ? t.splits : (t.splits ? [t.splits] : []),
+        isSplit: t.isSplit || false,
+        splitCount: t.splitCount || (Array.isArray(t.splits) ? t.splits.length : 0)
+      }));
+      
+      setTransactions(processedTransactions);
       setAnalytics(analyticsData);
       setBankAccountAnalytics(bankAccountAnalyticsData);
       setBankAccountSummary(bankAccountSummaryData);
@@ -401,12 +460,395 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
+  // Helper function to filter transactions (matches the filtering logic in render)
+  const getFilteredTransactions = (): BankAccountTransaction[] => {
+    let filtered = transactions;
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.description?.toLowerCase().includes(query) ||
+        t.merchant?.toLowerCase().includes(query) ||
+        t.referenceNumber?.toLowerCase().includes(query) ||
+        t.category?.toLowerCase().includes(query)
+      );
+    }
+    
+    if (columnFilters.dateFrom) {
+      filtered = filtered.filter(t => {
+        const tDate = new Date(t.transactionDate);
+        const filterDate = new Date(columnFilters.dateFrom);
+        filterDate.setHours(0, 0, 0, 0);
+        return tDate >= filterDate;
+      });
+    }
+    
+    if (columnFilters.dateTo) {
+      filtered = filtered.filter(t => {
+        const tDate = new Date(t.transactionDate);
+        const filterDate = new Date(columnFilters.dateTo);
+        filterDate.setHours(23, 59, 59, 999);
+        return tDate <= filterDate;
+      });
+    }
+    
+    if (columnFilters.category) {
+      filtered = filtered.filter(t => 
+        t.category?.toLowerCase().includes(columnFilters.category.toLowerCase())
+      );
+    }
+    
+    if (columnFilters.transactionType) {
+      filtered = filtered.filter(t => 
+        t.transactionType?.toLowerCase() === columnFilters.transactionType.toLowerCase()
+      );
+    }
+    
+    if (columnFilters.amountMin) {
+      filtered = filtered.filter(t => 
+        t.amount >= parseFloat(columnFilters.amountMin)
+      );
+    }
+    
+    if (columnFilters.amountMax) {
+      filtered = filtered.filter(t => 
+        t.amount <= parseFloat(columnFilters.amountMax)
+      );
+    }
+    
+    if (filters.bankAccountId) {
+      filtered = filtered.filter(t => t.bankAccountId === filters.bankAccountId);
+    }
+    
+    if (filters.category) {
+      filtered = filtered.filter(t => t.category === filters.category);
+    }
+    
+    if (filters.transactionType) {
+      filtered = filtered.filter(t => 
+        t.transactionType?.toLowerCase() === filters.transactionType?.toLowerCase()
+      );
+    }
+    
+    return filtered;
+  };
+
+  // Export transactions to CSV
+  const handleExportTransactions = () => {
+    try {
+      const transactionsToExport = getFilteredTransactions();
+
+      if (transactionsToExport.length === 0) {
+        setError('No transactions to export');
+        return;
+      }
+
+      // Define CSV headers
+      const headers = [
+        'Date',
+        'Description',
+        'Amount',
+        'Type',
+        'Category',
+        'Account',
+        'Merchant',
+        'Location',
+        'Reference Number',
+        'Notes',
+        'Balance After'
+      ];
+
+      // Convert transactions to CSV rows
+      const csvRows = transactionsToExport.map(transaction => {
+        const account = bankAccounts.find(acc => acc.id === transaction.bankAccountId);
+        const accountName = account ? `${account.accountName}${account.accountNumber ? ` (${account.accountNumber})` : ''}` : '';
+        
+        // Format date as ISO string for better CSV compatibility
+        const transactionDate = new Date(transaction.transactionDate);
+        const formattedDate = transactionDate.toISOString().replace('T', ' ').substring(0, 19);
+        
+        return [
+          formattedDate,
+          `"${(transaction.description || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
+          transaction.amount.toString(),
+          transaction.transactionType,
+          transaction.category || '',
+          accountName,
+          transaction.merchant || '',
+          transaction.location || '',
+          transaction.referenceNumber || '',
+          `"${(transaction.notes || '').replace(/"/g, '""')}"`, // Escape quotes in CSV
+          transaction.balanceAfterTransaction.toString()
+        ].join(',');
+      });
+
+      // Combine headers and rows
+      const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export transactions');
+    }
+  };
+
+  // Parse CSV line (handles quoted fields)
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result;
+  };
+
+  // Handle file selection for import
+  const handleImportFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+        setImportError('Please select a CSV file');
+        return;
+      }
+      setImportFile(file);
+      setImportError(null);
+    }
+  };
+
+  // Import transactions from CSV
+  const handleImportTransactions = async () => {
+    if (!importFile) {
+      setImportError('Please select a CSV file');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+    setImportProgress('Reading file...');
+
+    try {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split(/\r?\n/).filter(line => line.trim());
+          
+          if (lines.length < 2) {
+            throw new Error('CSV file must have at least a header row and one data row');
+          }
+
+          // Parse header row
+          const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+          
+          // Find column indices (flexible matching)
+          const dateIndex = headers.findIndex(h => 
+            h.includes('date') || h.includes('transaction date')
+          );
+          const amountIndex = headers.findIndex(h => 
+            h.includes('amount') || h.includes('transaction amount')
+          );
+          const typeIndex = headers.findIndex(h => 
+            h.includes('type') || h.includes('transaction type')
+          );
+          const descriptionIndex = headers.findIndex(h => 
+            h.includes('description') || h.includes('details') || h.includes('memo')
+          );
+          const categoryIndex = headers.findIndex(h => h.includes('category'));
+          const accountIndex = headers.findIndex(h => 
+            h.includes('account') || h.includes('bank account')
+          );
+          const merchantIndex = headers.findIndex(h => h.includes('merchant'));
+          const locationIndex = headers.findIndex(h => h.includes('location'));
+          const referenceIndex = headers.findIndex(h => 
+            h.includes('reference') || h.includes('ref')
+          );
+          const notesIndex = headers.findIndex(h => h.includes('notes'));
+
+          if (dateIndex === -1 || amountIndex === -1 || descriptionIndex === -1) {
+            throw new Error('CSV must contain columns: Date, Amount, and Description');
+          }
+
+          // Parse data rows
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            
+            if (values.length < headers.length) {
+              errorCount++;
+              continue;
+            }
+
+            const dateStr = values[dateIndex]?.trim();
+            const amountStr = values[amountIndex]?.trim();
+            const description = values[descriptionIndex]?.trim().replace(/^"|"$/g, '');
+            const type = values[typeIndex]?.trim().toLowerCase() || 'debit';
+            const category = values[categoryIndex]?.trim() || '';
+            const accountName = values[accountIndex]?.trim() || '';
+            const merchant = values[merchantIndex]?.trim() || '';
+            const location = values[locationIndex]?.trim() || '';
+            const reference = values[referenceIndex]?.trim() || '';
+            const notes = values[notesIndex]?.trim().replace(/^"|"$/g, '') || '';
+
+            // Find bank account by name or use first available
+            let bankAccountId = bankAccounts[0]?.id || '';
+            if (accountName) {
+              const account = bankAccounts.find(acc => 
+                acc.accountName.toLowerCase().includes(accountName.toLowerCase()) ||
+                acc.accountNumber?.includes(accountName)
+              );
+              if (account) {
+                bankAccountId = account.id;
+              }
+            }
+
+            if (!bankAccountId) {
+              errorCount++;
+              continue;
+            }
+
+            // Parse date
+            let transactionDate = new Date();
+            if (dateStr) {
+              const parsedDate = new Date(dateStr);
+              if (!isNaN(parsedDate.getTime())) {
+                transactionDate = parsedDate;
+              }
+            }
+
+            // Parse amount
+            const amount = parseFloat(amountStr?.replace(/[^0-9.-]/g, '') || '0');
+            if (isNaN(amount) || amount === 0) {
+              errorCount++;
+              continue;
+            }
+
+            // Determine transaction type
+            let transactionType: 'CREDIT' | 'DEBIT' = 'DEBIT';
+            if (type.includes('credit') || type.includes('income') || amount < 0) {
+              transactionType = 'CREDIT';
+            }
+
+            const transactionData = {
+              bankAccountId,
+              amount: Math.abs(amount),
+              transactionType,
+              description: description || 'Imported transaction',
+              category: category || undefined,
+              merchant: merchant || undefined,
+              location: location || undefined,
+              referenceNumber: reference || undefined,
+              notes: notes || undefined,
+              transactionDate: transactionDate.toISOString(),
+            };
+
+            setImportProgress(`Processing row ${i}/${lines.length - 1}...`);
+
+            // Create transaction via API
+            try {
+              await apiService.createBankTransaction(transactionData);
+              successCount++;
+            } catch (err: any) {
+              console.error(`Error importing transaction ${i}:`, err);
+              errorCount++;
+            }
+          }
+
+          setImportProgress(`Import complete! ${successCount} imported, ${errorCount} errors`);
+          
+          // Reload transactions
+          setTimeout(() => {
+            loadTransactionsAndAnalytics();
+            setShowImportDialog(false);
+            setImportFile(null);
+            setImportProgress('');
+            if (successCount > 0) {
+              setAnalyzerSuccess(`Successfully imported ${successCount} transaction(s)`);
+            }
+            if (errorCount > 0) {
+              setAnalyzerError(`Failed to import ${errorCount} transaction(s). Please check the data format.`);
+            }
+          }, 1500);
+
+        } catch (err: any) {
+          setImportError(err.message || 'Failed to parse CSV file');
+          setImportProgress('');
+        } finally {
+          setIsImporting(false);
+        }
+      };
+
+      reader.onerror = () => {
+        setImportError('Failed to read file');
+        setIsImporting(false);
+        setImportProgress('');
+      };
+
+      reader.readAsText(importFile);
+    } catch (err: any) {
+      setImportError(err.message || 'Failed to import transactions');
+      setIsImporting(false);
+      setImportProgress('');
+    }
+  };
+
   const handleCreateTransaction = () => {
+    setShowAddTransactionModal(true);
+  };
+
+  const handleFullForm = () => {
+    setShowAddTransactionModal(false);
     setShowTransactionForm(true);
   };
 
   const handleQuickAdd = () => {
+    setShowAddTransactionModal(false);
     setShowQuickAddForm(true);
+  };
+
+  const handleOpenAnalyzer = () => {
+    setShowAddTransactionModal(false);
+    setShowAnalyzerDialog(true);
+  };
+
+  const handleUploadReceipt = () => {
+    setShowAddTransactionModal(false);
+    // Trigger file input click
+    const fileInput = document.getElementById('image-upload-input-top');
+    if (fileInput) {
+      fileInput.click();
+    }
   };
 
   const handleTransactionFormSuccess = (accountId?: string, category?: string) => {
@@ -524,18 +966,64 @@ const TransactionsPage: React.FC = () => {
   // Batch Actions
   const handleBatchDelete = async () => {
     if (selectedTransactions.size === 0) return;
-    if (!window.confirm(`Delete ${selectedTransactions.size} transaction(s)?`)) return;
     
+    // Filter out transactions that cannot be deleted (closed months)
+    const deletableTransactions = Array.from(selectedTransactions).filter(id => {
+      const transaction = transactions.find(t => t.id === id);
+      return transaction && !isTransactionMonthClosed(transaction);
+    });
+    
+    const closedTransactions = Array.from(selectedTransactions).filter(id => {
+      const transaction = transactions.find(t => t.id === id);
+      return transaction && isTransactionMonthClosed(transaction);
+    });
+    
+    if (closedTransactions.length > 0) {
+      const closedCount = closedTransactions.length;
+      const totalCount = selectedTransactions.size;
+      if (deletableTransactions.length === 0) {
+        setError(`Cannot delete ${closedCount} transaction(s): Month is closed for these transactions.`);
+        return;
+      }
+      if (!window.confirm(
+        `${closedCount} of ${totalCount} selected transaction(s) cannot be deleted (month is closed). ` +
+        `Do you want to delete the remaining ${deletableTransactions.length} transaction(s)?`
+      )) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Delete ${selectedTransactions.size} transaction(s)?`)) return;
+    }
+    
+    setIsDeleting(true);
     try {
-      const deletePromises = Array.from(selectedTransactions).map(id => 
-        apiService.deleteTransaction(id)
-      );
-      await Promise.all(deletePromises);
-      setSelectedTransactions(new Set());
-      setIsBatchMode(false);
-      loadTransactionsAndAnalytics();
+      const transactionsToDelete = transactions.filter(t => deletableTransactions.indexOf(t.id) !== -1);
+      const billIdsMap: Record<string, boolean> = {};
+      transactionsToDelete.forEach(t => {
+        getBillIdsFromTransaction(t).forEach(id => { billIdsMap[id] = true; });
+      });
+      const uniqueBillIds = Object.keys(billIdsMap);
+
+      const result = await apiService.bulkDeleteTransactions(deletableTransactions);
+
+      if (result.failed > 0) {
+        setError(`Successfully deleted ${result.success} transaction(s), but ${result.failed} failed. Please check the transactions page.`);
+      } else {
+        setSelectedTransactions(new Set());
+        setIsBatchMode(false);
+      }
+
+      if (uniqueBillIds.length > 0) {
+        await Promise.allSettled(
+          uniqueBillIds.map(bid => apiService.markBillAsUnpaid(bid))
+        );
+      }
+
+      await loadTransactionsAndAnalytics();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, 'Failed to delete some transactions'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -829,14 +1317,21 @@ const TransactionsPage: React.FC = () => {
 
     if (window.confirm('Are you sure you want to delete this transaction? Transactions older than 24 hours will be hidden (soft deleted) and can be restored.')) {
       try {
+        const billIds = transaction ? getBillIdsFromTransaction(transaction) : [];
         await apiService.deleteTransaction(transactionId);
-        // Close the details dialog
+        // Mark linked bills as unpaid when payment transaction is deleted
+        if (billIds.length > 0) {
+          const billIdsMap: Record<string, boolean> = {};
+          billIds.forEach(id => { billIdsMap[id] = true; });
+          const uniqueBillIds = Object.keys(billIdsMap);
+          await Promise.allSettled(
+            uniqueBillIds.map(bid => apiService.markBillAsUnpaid(bid))
+          );
+        }
         handleCloseDetails();
-        // Reload transactions and analytics
         loadTransactionsAndAnalytics();
       } catch (err: unknown) {
         const errorMessage = getErrorMessage(err, 'Failed to delete transaction');
-        // Check if error is about closed month (backend validation)
         setError(errorMessage);
       }
     }
@@ -977,6 +1472,9 @@ const TransactionsPage: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell align="center" sx={{ width: '50px' }}>
+                      <Skeleton variant="text" width={20} height={20} />
+                    </TableCell>
                     <TableCell sx={{ width: isBatchMode ? '350px' : '380px' }}>
                       <Skeleton variant="text" width={120} height={20} />
                     </TableCell>
@@ -1000,6 +1498,9 @@ const TransactionsPage: React.FC = () => {
                 <TableBody>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
                     <TableRow key={i}>
+                      <TableCell align="center">
+                        <Skeleton variant="text" width={20} height={20} />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                           <Skeleton variant="text" width={100} height={20} />
@@ -1077,56 +1578,27 @@ const TransactionsPage: React.FC = () => {
           >
             {showFiltersSection ? (isMobile ? 'Hide Filters' : 'Hide Filters') : (isMobile ? 'Show Filters' : 'Show Filters')}
           </Button>
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<Receipt />}
-            onClick={handleCreateTransaction}
-            disabled={bankAccounts.length === 0}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0.5, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Full Form' : 'Full Form'}
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Receipt />}
-            onClick={handleQuickAdd}
-            disabled={bankAccounts.length === 0}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0.5, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Quick Add' : 'Quick Add'}
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AutoAwesome />}
-            onClick={() => setShowAnalyzerDialog(true)}
-            size={isMobile ? 'small' : 'medium'}
-            sx={{ 
-              mr: { xs: 0, sm: 1 },
-              flex: { xs: '1 1 auto', sm: '0 0 auto' },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
-              py: { xs: 0.75, sm: 1 },
-              px: { xs: 1.5, sm: 2 }
-            }}
-          >
-            {isMobile ? 'Analyzer' : 'Transaction Analyzer'}
-          </Button>
+          <Tooltip title="Add Transaction (Ctrl + Alt + T)" arrow>
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Receipt />}
+                onClick={handleCreateTransaction}
+                disabled={bankAccounts.length === 0}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ 
+                  mr: { xs: 0.5, sm: 1 },
+                  flex: { xs: '1 1 auto', sm: '0 0 auto' },
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  py: { xs: 0.75, sm: 1 },
+                  px: { xs: 1.5, sm: 2 }
+                }}
+              >
+                {isMobile ? 'Add Transaction' : 'Add Transaction'}
+              </Button>
+            </span>
+          </Tooltip>
           <input
             accept="image/jpeg,image/jpg,image/png"
             style={{ display: 'none' }}
@@ -1135,52 +1607,6 @@ const TransactionsPage: React.FC = () => {
             type="file"
             onChange={handleFileUpload}
           />
-          <Tooltip
-            title={
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Upload receipts and let AI do the work! 📸✨
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1.5 }}>
-                  Simply snap a photo or upload your receipt, and our advanced AI will automatically read, extract, and add all transaction details to your records. No more manual entry!
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  ✓ How it works:
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  • Upload or capture receipt photo
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  • AI extracts amount, date, merchant & category
-                </Typography>
-                <Typography variant="body2">
-                  • Auto-adds to your transaction records
-                </Typography>
-              </Box>
-            }
-            arrow
-            placement="bottom"
-          >
-            <label htmlFor="image-upload-input-top">
-              <Button
-                component="span"
-                variant="contained"
-                color="primary"
-                startIcon={<CloudUpload />}
-                size={isMobile ? 'small' : 'medium'}
-                sx={{ 
-                  mr: { xs: 0.5, sm: 1 },
-                  flex: { xs: '1 1 auto', sm: '0 0 auto' },
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  py: { xs: 0.75, sm: 1 },
-                  px: { xs: 1.5, sm: 2 },
-                  cursor: 'pointer'
-                }}
-              >
-                {isMobile ? 'Upload Receipt' : 'Upload Receipt'}
-              </Button>
-            </label>
-          </Tooltip>
           {!isMobile && (
             <>
               <ToggleButtonGroup
@@ -1225,6 +1651,21 @@ const TransactionsPage: React.FC = () => {
             }}
           >
             {isMobile ? '' : 'Refresh'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Download />}
+            onClick={handleExportTransactions}
+            disabled={isLoading || transactions.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ 
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              minWidth: { xs: 'auto', sm: 100 },
+              px: { xs: 1, sm: 2 }
+            }}
+            title="Export transactions to CSV"
+          >
+            {isMobile ? '' : 'Export'}
           </Button>
         </Box>
       </Box>
@@ -1371,8 +1812,8 @@ const TransactionsPage: React.FC = () => {
                 displayEmpty
               >
                 <MenuItem value="" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>All Types</MenuItem>
-                <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Credit</MenuItem>
-                <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Debit</MenuItem>
+                <MenuItem value="credit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Money In (Income)</MenuItem>
+                <MenuItem value="debit" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Money Out (Expense)</MenuItem>
                 <MenuItem value="transfer" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>Transfer</MenuItem>
               </Select>
             </FormControl>
@@ -1640,7 +2081,7 @@ const TransactionsPage: React.FC = () => {
                     • Total count of all bank transactions across all your accounts
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    • Includes both credit and debit transactions
+                    • Includes both money in (income) and money out (expense) transactions
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>
                     • Shows the complete transaction history, not filtered by date
@@ -1867,11 +2308,12 @@ const TransactionsPage: React.FC = () => {
             size="small"
             variant="contained"
             color="error"
-            startIcon={<Delete />}
+            startIcon={isDeleting ? <CircularProgress size={16} /> : <Delete />}
             onClick={handleBatchDelete}
+            disabled={isDeleting}
             aria-label="Delete selected transactions"
           >
-            Delete
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
           <Button
             size="small"
@@ -2127,6 +2569,11 @@ const TransactionsPage: React.FC = () => {
                     />
                   </TableCell>
                 )}
+                <TableCell align="center" sx={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                    #
+                  </Typography>
+                </TableCell>
                 <TableCell sx={{ 
                   width: isBatchMode ? '350px' : '380px', 
                   minWidth: isBatchMode ? '350px' : '380px',
@@ -2271,13 +2718,18 @@ const TransactionsPage: React.FC = () => {
                           label="Type"
                         >
                           <MenuItem value="">All Types</MenuItem>
-                          <MenuItem value="credit">Credit</MenuItem>
-                          <MenuItem value="debit">Debit</MenuItem>
+                          <MenuItem value="credit">Money In (Income)</MenuItem>
+                          <MenuItem value="debit">Money Out (Expense)</MenuItem>
                           <MenuItem value="transfer">Transfer</MenuItem>
                         </Select>
                       </FormControl>
                     </Box>
                   )}
+                </TableCell>
+                <TableCell align="center" sx={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
+                    SPLIT
+                  </Typography>
                 </TableCell>
                 <TableCell align="center" sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
@@ -2307,7 +2759,7 @@ const TransactionsPage: React.FC = () => {
                     {groupBy !== 'none' && (
                       <TableRow>
                         <TableCell 
-                          colSpan={isBatchMode ? 8 : 7}
+                          colSpan={isBatchMode ? 10 : 9}
                           sx={{ 
                             bgcolor: 'action.hover', 
                             fontWeight: 'bold',
@@ -2323,9 +2775,12 @@ const TransactionsPage: React.FC = () => {
                     )}
                     {groupTransactions.map((transaction) => {
                 const isCredit = transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT';
+                const isExpanded = expandedSplits.has(transaction.id);
+                // Calculate global row number
+                const globalIndex = filteredTransactions.findIndex(t => t.id === transaction.id) + 1;
                 return (
+                  <React.Fragment key={transaction.id}>
                 <TableRow 
-                  key={transaction.id} 
                   hover
                   sx={{
                     backgroundColor: isCredit ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
@@ -2352,6 +2807,11 @@ const TransactionsPage: React.FC = () => {
                       />
                     </TableCell>
                   )}
+                  <TableCell align="center" sx={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                      {globalIndex}
+                    </Typography>
+                  </TableCell>
                   <TableCell
                     onDoubleClick={() => {
                       if (!isTransactionMonthClosed(transaction)) {
@@ -2532,6 +2992,35 @@ const TransactionsPage: React.FC = () => {
                       sx={{ fontSize: '0.75rem' }}
                     />
                   </TableCell>
+                  <TableCell align="center" sx={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                    {transaction.isSplit && transaction.splitCount && transaction.splitCount > 1 && Array.isArray(transaction.splits) && transaction.splits.length > 0 ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            const newExpanded = new Set(expandedSplits);
+                            if (newExpanded.has(transaction.id)) {
+                              newExpanded.delete(transaction.id);
+                            } else {
+                              newExpanded.add(transaction.id);
+                            }
+                            setExpandedSplits(newExpanded);
+                          }}
+                          sx={{ padding: '4px' }}
+                          aria-label={expandedSplits.has(transaction.id) ? 'Collapse splits' : 'Expand splits'}
+                        >
+                          {expandedSplits.has(transaction.id) ? <ExpandLess /> : <ExpandMore />}
+                        </IconButton>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'medium' }}>
+                          {transaction.splitCount}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                        -
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="center" sx={{ width: '90px', minWidth: '90px', maxWidth: '90px' }}>
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                       <IconButton
@@ -2560,6 +3049,78 @@ const TransactionsPage: React.FC = () => {
                     </Box>
                   </TableCell>
                 </TableRow>
+                {/* Split rows - shown when expanded */}
+                {transaction.isSplit && transaction.splits && Array.isArray(transaction.splits) && isExpanded && transaction.splits
+                  .filter((split) => split != null)
+                  .map((split, index) => (
+                    <TableRow 
+                      key={`${transaction.id}-split-${index}`}
+                      sx={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        '& td': {
+                          paddingLeft: '48px',
+                          borderLeft: '2px solid',
+                          borderColor: 'divider'
+                        }
+                      }}
+                    >
+                      {isBatchMode && <TableCell />}
+                      <TableCell align="center" sx={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          -
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            →
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                            {formatDateWithTime(transaction.transactionDate)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem', flex: 1 }}>
+                            {split.description || transaction.description || ''}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', color: isCredit ? 'success.main' : 'error.main' }}>
+                          {isCredit ? '+' : '-'}
+                          {formatCurrency(Math.abs(split.amount || 0))}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={split.category || transaction.category || 'Uncategorized'} 
+                          color="primary"
+                          size="small"
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                          {transaction.accountName || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={transaction.transactionType} 
+                          color={isCredit ? 'success' : 'error'}
+                          size="small"
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                          -
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {/* Split rows are not editable */}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  </React.Fragment>
                 );
                     })}
                   </React.Fragment>
@@ -3088,8 +3649,8 @@ const TransactionsPage: React.FC = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">Type:</Typography>
                   <Chip 
-                    label={selectedTransaction.transactionType} 
-                    color={selectedTransaction.transactionType === 'credit' ? 'success' : 'error'}
+                    label={selectedTransaction.transactionType === 'credit' || selectedTransaction.transactionType === 'CREDIT' ? 'Money In (Income)' : 'Money Out (Expense)'} 
+                    color={selectedTransaction.transactionType === 'credit' || selectedTransaction.transactionType === 'CREDIT' ? 'success' : 'error'}
                     size="small"
                   />
                 </Grid>
@@ -3255,6 +3816,129 @@ const TransactionsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Add Transaction Modal */}
+      <Dialog
+        open={showAddTransactionModal}
+        onClose={() => setShowAddTransactionModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Receipt color="primary" />
+            <Typography variant="h6">Add Transaction</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Choose how you'd like to add a transaction:
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleFullForm}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <Receipt sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Full Form
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Complete transaction form with all fields and options
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleQuickAdd}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <AttachMoney sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Quick Add
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Fast entry with essential fields only
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleOpenAnalyzer}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <AutoAwesome sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Transaction Analyzer
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    AI-powered text analysis to extract transaction details
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                  height: '100%',
+                }}
+                onClick={handleUploadReceipt}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <CloudUpload sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Upload Receipt
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Upload receipt image for AI-powered extraction
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddTransactionModal(false)}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Quick Add Form Dialog */}
       <QuickAddTransactionForm
         open={showQuickAddForm}
@@ -3328,6 +4012,7 @@ const TransactionsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
     </Container>
   );
 };

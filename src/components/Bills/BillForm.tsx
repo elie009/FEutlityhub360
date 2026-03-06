@@ -42,6 +42,7 @@ const BillForm: React.FC<BillFormProps> = ({
     billType: BillType.UTILITY,
     amount: 0,
     dueDate: new Date(),
+    statementDate: null as Date | null,
     frequency: BillFrequency.MONTHLY,
     status: BillStatus.PENDING,
     notes: '',
@@ -64,6 +65,7 @@ const BillForm: React.FC<BillFormProps> = ({
         billType: bill.billType || BillType.UTILITY,
         amount: bill.amount || 0,
         dueDate: new Date(bill.dueDate) || new Date(),
+        statementDate: bill.statementDate ? new Date(bill.statementDate) : null,
         frequency: bill.frequency || BillFrequency.MONTHLY,
         status: bill.status || BillStatus.PENDING,
         notes: bill.notes || '',
@@ -78,6 +80,7 @@ const BillForm: React.FC<BillFormProps> = ({
         billType: BillType.UTILITY,
         amount: 0,
         dueDate: new Date(),
+        statementDate: null,
         frequency: BillFrequency.MONTHLY,
         status: BillStatus.PENDING,
         notes: '',
@@ -165,6 +168,7 @@ const BillForm: React.FC<BillFormProps> = ({
       const billData = {
         ...formData,
         dueDate: formData.dueDate.toISOString(),
+        statementDate: formData.statementDate ? formData.statementDate.toISOString() : undefined,
       };
 
       if (bill) {
@@ -181,7 +185,47 @@ const BillForm: React.FC<BillFormProps> = ({
       
       onClose();
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to save bill'));
+      // Extract detailed error messages from API response
+      let errorMessage = 'Failed to save bill';
+      
+      if (err instanceof Error) {
+        const error = err as any;
+        
+        // Check if there are field-specific errors in the errorData
+        if (error.errorData?.errors && typeof error.errorData.errors === 'object') {
+          const fieldErrors: string[] = [];
+          Object.keys(error.errorData.errors).forEach(field => {
+            const fieldErrorMessages = error.errorData.errors[field];
+            if (Array.isArray(fieldErrorMessages)) {
+              fieldErrorMessages.forEach((message: string) => {
+                fieldErrors.push(message); // Just show the message, field name is clear from context
+              });
+            } else if (typeof fieldErrorMessages === 'string') {
+              fieldErrors.push(fieldErrorMessages);
+            }
+          });
+          
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors.join('. ');
+          } else {
+            errorMessage = error.errorData.title || error.message || errorMessage;
+          }
+        } 
+        // Check if there's a message in errorData
+        else if (error.errorData?.message) {
+          errorMessage = error.errorData.message;
+        }
+        // Check if there's an errors array
+        else if (error.errors && Array.isArray(error.errors)) {
+          errorMessage = error.errors.join('. ');
+        }
+        // Fall back to error message
+        else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -221,7 +265,7 @@ const BillForm: React.FC<BillFormProps> = ({
                   fullWidth
                   required
                   disabled={lockedFields}
-                  helperText={lockedFields ? "Cannot change bill name when editing a specific month" : "Enter a descriptive name for the bill"}
+                  helperText={lockedFields ? "Cannot change bill name when editing a specific month" : "Enter a name for this bill, like 'Electric Bill' or 'Internet Service'"}
                 />
               </Grid>
 
@@ -258,7 +302,7 @@ const BillForm: React.FC<BillFormProps> = ({
                   fullWidth
                   required
                   inputProps={{ min: 0, step: 0.01 }}
-                  helperText="Enter the bill amount"
+                  helperText="Enter the amount you usually pay for this bill. If it changes, you can update it later."
                 />
               </Grid>
 
@@ -290,6 +334,27 @@ const BillForm: React.FC<BillFormProps> = ({
                   onChange={handleDateChange}
                   fullWidth
                   required
+                  helperText="Select the day of the month when this bill is usually due"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Statement Date (Optional)"
+                  type="date"
+                  value={formData.statementDate ? formData.statementDate.toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const dateValue = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      statementDate: dateValue ? new Date(dateValue) : null,
+                    }));
+                  }}
+                  fullWidth
+                  helperText="Date when the bill/invoice was issued (optional)"
                   InputLabelProps={{
                     shrink: true,
                   }}

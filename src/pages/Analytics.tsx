@@ -59,6 +59,7 @@ import {
   TrendingDown,
   Warning,
   Info,
+  Info as InfoIcon,
   Lightbulb,
   AccountBalance,
   CreditCard,
@@ -106,7 +107,7 @@ const Analytics: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
+  const [period, setPeriod] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM'>('CUSTOM');
   const [activeTab, setActiveTab] = useState(0);
   const [reportData, setReportData] = useState<FinancialReportDto | null>(null);
   const [summary, setSummary] = useState<FinancialSummaryDto | null>(null);
@@ -147,6 +148,8 @@ const Analytics: React.FC = () => {
       // Fetch full financial report
       const report = await apiService.getFullFinancialReport({
         period,
+        startDate: startDate && startDate.trim() !== '' ? startDate : undefined,
+        endDate: endDate && endDate.trim() !== '' ? endDate : undefined,
         includeComparison: true,
         includeInsights: true,
         includePredictions: true,
@@ -282,6 +285,12 @@ const Analytics: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = () => {
+    // Trigger a refresh of the financial data
+    console.log('[Analytics] Submit clicked with dates:', { startDate, endDate, period });
+    fetchFinancialData();
   };
 
   const formatCurrency = (value: number | undefined | null) => {
@@ -437,13 +446,13 @@ const Analytics: React.FC = () => {
         addText(`Total Liabilities: ${formatCurrency(balanceSheet.liabilities.totalLiabilities)}`, 10, true);
         yPosition += 10;
 
-        // Equity
-        addText('EQUITY', 12, true);
+        // Net Worth
+        addText('NET WORTH (What You Own)', 12, true);
         addText(`Owner's Capital: ${formatCurrency(balanceSheet.equity.ownersCapital)}`, 10);
         addText(`Retained Earnings: ${formatCurrency(balanceSheet.equity.retainedEarnings)}`, 10);
-        addText(`Total Equity: ${formatCurrency(balanceSheet.equity.totalEquity)}`, 10, true);
+        addText(`Total Net Worth: ${formatCurrency(balanceSheet.equity.totalEquity)}`, 10, true);
         yPosition += 5;
-        addText(`Total Liabilities & Equity: ${formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}`, 10, true);
+        addText(`Total Liabilities & Net Worth: ${formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}`, 10, true);
         addText(`Balanced: ${balanceSheet.isBalanced ? 'Yes' : 'No'}`, 10);
         yPosition += 10;
       }
@@ -532,7 +541,7 @@ const Analytics: React.FC = () => {
 
         // Debt Ratios
         addText('DEBT RATIOS', 12, true);
-        addText(`Debt-to-Equity: ${financialRatios.debt.debtToEquityRatio.toFixed(2)} (${financialRatios.debt.debtToEquityInterpretation})`, 10);
+        addText(`Debt-to-Net Worth: ${financialRatios.debt.debtToEquityRatio.toFixed(2)} (${financialRatios.debt.debtToEquityInterpretation})`, 10);
         addText(`Debt-to-Assets: ${financialRatios.debt.debtToAssetsRatio.toFixed(2)} (${financialRatios.debt.debtToAssetsInterpretation})`, 10);
         addText(`Debt Service Coverage: ${financialRatios.debt.debtServiceCoverageRatio.toFixed(2)} (${financialRatios.debt.debtServiceCoverageInterpretation})`, 10);
         yPosition += 10;
@@ -541,7 +550,7 @@ const Analytics: React.FC = () => {
         addText('PROFITABILITY RATIOS', 12, true);
         addText(`Net Profit Margin: ${financialRatios.profitability.netProfitMargin.toFixed(2)}% (${financialRatios.profitability.netProfitMarginInterpretation})`, 10);
         addText(`Return on Assets (ROA): ${financialRatios.profitability.returnOnAssets.toFixed(2)}% (${financialRatios.profitability.returnOnAssetsInterpretation})`, 10);
-        addText(`Return on Equity (ROE): ${financialRatios.profitability.returnOnEquity.toFixed(2)}% (${financialRatios.profitability.returnOnEquityInterpretation})`, 10);
+        addText(`Return on Net Worth: ${financialRatios.profitability.returnOnEquity.toFixed(2)}% (${financialRatios.profitability.returnOnEquityInterpretation})`, 10);
         yPosition += 10;
 
         // Efficiency Ratios
@@ -796,6 +805,7 @@ const Analytics: React.FC = () => {
   return (
     <Box>
       {/* Header */}
+      <br></br>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" gutterBottom>
@@ -806,46 +816,6 @@ const Analytics: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Date Range Picker */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              size="small"
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{ minWidth: 150 }}
-            />
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              to
-            </Typography>
-            <TextField
-              label="End Date"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              size="small"
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{ minWidth: 150 }}
-            />
-          </Box>
-          <FormControl sx={{ minWidth: 150 }} size="small">
-            <InputLabel>Data Period</InputLabel>
-            <Select
-              value={period}
-              label="Data Period"
-              onChange={(e) => setPeriod(e.target.value as any)}
-            >
-              <MenuItem value="MONTHLY">Monthly</MenuItem>
-              <MenuItem value="QUARTERLY">Quarterly</MenuItem>
-              <MenuItem value="YEARLY">Yearly</MenuItem>
-            </Select>
-          </FormControl>
           {/* Variance Dashboard Button */}
           <Button
             variant="outlined"
@@ -865,280 +835,7 @@ const Analytics: React.FC = () => {
           >
             Export
           </Button>
-          <Tooltip title="Refresh Data">
-            <IconButton onClick={fetchFinancialData} color="primary" size="small">
-              <Refresh />
-            </IconButton>
-          </Tooltip>
         </Box>
-      </Box>
-
-      {/* Financial Summary Cards */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
-          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <MonetizationOn sx={{ color: 'text.primary', mr: 1 }} />
-                <Typography color="text.primary" variant="h6">
-                  Total Income
-                </Typography>
-              </Box>
-              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
-                {formatCurrency(summary.totalIncome)}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {summary.incomeChange >= 0 ? (
-                  <TrendingUp sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
-                ) : (
-                  <TrendingDown sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
-                )}
-                <Typography color="text.secondary" variant="body2">
-                  {formatPercentage(summary.incomeChange)} from last period
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
-          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Receipt sx={{ color: 'text.primary', mr: 1 }} />
-                <Typography color="text.primary" variant="h6">
-                  Total Expenses
-                </Typography>
-              </Box>
-              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
-                {formatCurrency(summary.totalExpenses)}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {summary.expenseChange <= 0 ? (
-                  <TrendingDown sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
-                ) : (
-                  <TrendingUp sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
-                )}
-                <Typography color="text.secondary" variant="body2">
-                  {formatPercentage(summary.expenseChange)} from last period
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
-          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-              <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <AccountBalance sx={{ color: 'text.primary', mr: 1 }} />
-                <Typography color="text.primary" variant="h6">
-                  Disposable Amount
-                </Typography>
-              </Box>
-              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
-                {formatCurrency(summary.disposableIncome)}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {summary.disposableChange >= 0 ? (
-                  <TrendingUp sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
-                ) : (
-                  <TrendingDown sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
-                )}
-                <Typography color="text.secondary" variant="body2">
-                  {formatPercentage(summary.disposableChange)} from last period
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
-          <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Savings sx={{ color: 'text.primary', mr: 1 }} />
-                <Typography color="text.primary" variant="h6" sx={{ flexGrow: 1 }}>
-                  Net Worth
-                </Typography>
-                <Tooltip
-                  title={
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Description
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        Net Worth is your financial position: what you own minus what you owe.
-                      </Typography>
-                      <Divider sx={{ my: 1.5 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Total Assets
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Bank Accounts: {formatCurrencyWithSymbol(calculateNetWorthBreakdown().bankAccountsBalance)}
-                        <br />
-                        <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                          (Sum of CurrentBalance from all active bank accounts)
-                        </span>
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5, mt: 1 }}>
-                        Savings Accounts: {formatCurrencyWithSymbol(calculateNetWorthBreakdown().savingsBalance)}
-                        <br />
-                        <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                          (Sum of savings transactions - DEPOSITs added, WITHDRAWALs subtracted)
-                        </span>
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 2, mt: 1, fontWeight: 'bold' }}>
-                        Total Assets = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalAssets)}
-                      </Typography>
-                      <Divider sx={{ my: 1.5 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Total Liabilities
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Active Loans: {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
-                        <br />
-                        <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                          (Sum of RemainingBalance from {calculateNetWorthBreakdown().activeLoansCount} active loans, excluding REJECTED and COMPLETED)
-                        </span>
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 2, mt: 1, fontWeight: 'bold' }}>
-                        Total Liabilities = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
-                      </Typography>
-                      <Divider sx={{ my: 1.5 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Computation
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        Net Worth = Total Assets - Total Liabilities
-                        <br />
-                        <span style={{ fontSize: '1rem', marginTop: '4px', display: 'block' }}>
-                          = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalAssets)} - {formatCurrencyWithSymbol(calculateNetWorthBreakdown().totalLiabilities)}
-                          <br />
-                          = {formatCurrencyWithSymbol(calculateNetWorthBreakdown().netWorth)}
-                        </span>
-                      </Typography>
-                    </Box>
-                  }
-                  arrow
-                  placement="top"
-                  componentsProps={{
-                    tooltip: {
-                      sx: {
-                        bgcolor: 'rgba(0, 0, 0, 0.95)',
-                        maxWidth: 400,
-                        fontSize: '0.875rem',
-                        '& .MuiTooltip-arrow': {
-                          color: 'rgba(0, 0, 0, 0.95)',
-                        },
-                      },
-                    },
-                  }}
-                >
-                  <IconButton
-                    size="small"
-                    sx={{
-                      color: 'text.primary',
-                      p: 0.5,
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <Info sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <Typography variant="h4" component="h2" color="text.primary" gutterBottom>
-                {formatCurrency(summary.netWorth)}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {summary.netWorthChange >= 0 ? (
-                  <TrendingUp sx={{ color: 'success.main', fontSize: 20, mr: 0.5 }} />
-                ) : (
-                  <TrendingDown sx={{ color: 'error.main', fontSize: 20, mr: 0.5 }} />
-                )}
-                <Typography color="text.secondary" variant="body2">
-                  {formatPercentage(summary.netWorthChange)} from last period
-                </Typography>
-              </Box>
-              </CardContent>
-            </Card>
-          </Box>
-
-        {/* Savings Projection */}
-        {reportData.savingsReport?.projectedGoalDate && (
-          <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
-            <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                  <Savings sx={{ color: 'text.primary', mr: 1, fontSize: 24 }} />
-                  <Typography color="text.primary" variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
-                    Savings Goal
-                  </Typography>
-                </Box>
-                {reportData.savingsReport.monthsUntilGoal !== null && (
-                  <Typography variant="h5" component="h2" color="text.primary" gutterBottom sx={{ fontSize: '1.5rem' }}>
-                    {reportData.savingsReport.monthsUntilGoal} mo
-                  </Typography>
-                )}
-                <Typography color="text.secondary" variant="caption" sx={{ mb: 0.5, display: 'block' }}>
-                  Until completion
-                </Typography>
-                {reportData.savingsReport.projectedGoalDate && (
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
-                    {new Date(reportData.savingsReport.projectedGoalDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                  </Typography>
-                )}
-                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #e0e0e0' }}>
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
-                    Progress: {reportData.savingsReport.goalProgress?.toFixed(1) || 0}%
-                  </Typography>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={reportData.savingsReport.goalProgress || 0} 
-                    sx={{ mt: 0.5, bgcolor: '#e0e0e0', height: 4, '& .MuiLinearProgress-bar': { bgcolor: 'primary.main' } }}
-                  />
-                </Box>
-              </CardContent>
-            </Card>
-          </Box>
-        )}
-
-        {/* Loan Payoff Projection */}
-        {reportData.loanReport?.projectedDebtFreeDate && (
-          <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(20% - 13px)' }, minWidth: { xs: '100%', sm: 'calc(50% - 8px)', md: '200px' } }}>
-            <Card sx={{ height: '100%', backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                  <AccountBalance sx={{ color: 'text.primary', mr: 1, fontSize: 24 }} />
-                  <Typography color="text.primary" variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
-                    Loan Payoff
-                  </Typography>
-                </Box>
-                {reportData.loanReport.monthsUntilDebtFree !== undefined && (
-                  <Typography variant="h5" component="h2" color="text.primary" gutterBottom sx={{ fontSize: '1.5rem' }}>
-                    {reportData.loanReport.monthsUntilDebtFree} mo
-                  </Typography>
-                )}
-                <Typography color="text.secondary" variant="caption" sx={{ mb: 0.5, display: 'block' }}>
-                  Until debt-free
-                </Typography>
-                {reportData.loanReport.projectedDebtFreeDate && (
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
-                    {new Date(reportData.loanReport.projectedDebtFreeDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                  </Typography>
-                )}
-                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #e0e0e0' }}>
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem' }}>
-                    Remaining: {formatCurrency(reportData.loanReport.totalRemainingBalance || 0)}
-                  </Typography>
-                  <Typography color="text.secondary" variant="caption" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
-                    Monthly: {formatCurrency(reportData.loanReport.totalMonthlyPayment || 0)}
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Box>
-        )}
       </Box>
 
       {/* Insights & Alerts */}
@@ -1285,17 +982,30 @@ const Analytics: React.FC = () => {
 
         {/* Tab 1: Income Statement */}
         {activeTab === 1 && (
-          <IncomeStatementTab period={period} />
+          <IncomeStatementTab
+            period={period}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 2: Balance Sheet */}
         {activeTab === 2 && (
-          <BalanceSheetTab />
+          <BalanceSheetTab 
+            asOfDate={endDate ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 3: Cash Flow Statement */}
         {activeTab === 3 && (
-          <CashFlowStatementTab period={period} />
+          <CashFlowStatementTab 
+            period={period === 'CUSTOM' ? 'MONTHLY' : period}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 4: Financial Ratios */}
@@ -1310,7 +1020,12 @@ const Analytics: React.FC = () => {
 
         {/* Tab 6: Budget vs Actual */}
         {activeTab === 6 && (
-          <BudgetVsActualTab period={period} />
+          <BudgetVsActualTab 
+            period={period === 'CUSTOM' ? 'MONTHLY' : period}
+            startDate={startDate && startDate.trim() !== '' ? new Date(startDate) : undefined}
+            endDate={endDate && endDate.trim() !== '' ? new Date(endDate) : undefined}
+            onRefresh={handleSubmit}
+          />
         )}
 
         {/* Tab 7: Custom */}

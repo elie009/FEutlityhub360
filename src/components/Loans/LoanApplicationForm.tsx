@@ -18,17 +18,21 @@ import {
   StepLabel,
   Paper,
   SelectChangeEvent,
+  Tooltip,
+  IconButton,
+  Divider,
 } from '@mui/material';
 import { LoanApplication, LoanType } from '../../types/loan';
 import { apiService } from '../../services/api';
 import { validateLoanAmount, validateRequired, validateEmploymentStatus, validateInterestRate, getErrorMessage, getApiErrorMessage } from '../../utils/validation';
+import { HelpOutline, Lightbulb, Edit } from '@mui/icons-material';
 
 interface LoanApplicationFormProps {
   onSuccess: (loanId: string) => void;
   onCancel: () => void;
 }
 
-const steps = ['Basic Information', 'Financial Details', 'Review & Submit'];
+const steps = ['Basic Information', 'Payment Details', 'Interest Rate', 'Review & Confirm'];
 
 const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, onCancel }) => {
   const [activeStep, setActiveStep] = useState(0);
@@ -43,6 +47,8 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     loanType: LoanType.PERSONAL,
     refinancedFromLoanId: null,
   });
+  const [paymentDueDay, setPaymentDueDay] = useState<number>(1);
+  const [loanStartDate, setLoanStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [error, setError] = useState<string>('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -55,35 +61,25 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
   React.useEffect(() => {
     const errors: Record<string, string> = {};
     
-    // Validate Step 0 fields
+    // Validate Step 0 fields (Basic Information)
     const principalValidation = validateLoanAmount(formData.principal);
     if (!principalValidation.isValid && formData.principal !== 0) {
       errors.principal = principalValidation.error || '';
     }
     
+    const purposeValidation = validateRequired(formData.purpose === 'other' ? otherPurpose : formData.purpose, 'Purpose');
+    if (!purposeValidation.isValid && formData.purpose !== '') {
+      errors.purpose = purposeValidation.error || '';
+    }
+    
+    // Validate Step 2 fields (Interest Rate)
     const interestRateValidation = validateInterestRate(formData.interestRate);
     if (!interestRateValidation.isValid && formData.interestRate !== 0) {
       errors.interestRate = interestRateValidation.error || '';
     }
     
-    const purposeValidation = validateRequired(formData.purpose, 'Purpose');
-    if (!purposeValidation.isValid && formData.purpose !== '') {
-      errors.purpose = purposeValidation.error || '';
-    }
-    
-    // Validate Step 1 fields
-    const incomeValidation = validateRequired(formData.monthlyIncome, 'Monthly Income');
-    if (!incomeValidation.isValid && formData.monthlyIncome !== 0) {
-      errors.monthlyIncome = incomeValidation.error || '';
-    }
-    
-    const employmentValidation = validateEmploymentStatus(formData.employmentStatus);
-    if (!employmentValidation.isValid && formData.employmentStatus !== '') {
-      errors.employmentStatus = employmentValidation.error || '';
-    }
-    
     setValidationErrors(errors);
-  }, [formData]);
+  }, [formData, otherPurpose]);
 
   const handleNext = () => {
     setActiveStep(prev => prev + 1);
@@ -122,10 +118,13 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
       // If "other" is selected, use the custom purpose
       const finalFormData = {
         ...formData,
-        purpose: formData.purpose === 'other' ? otherPurpose : formData.purpose
+        purpose: formData.purpose === 'other' ? otherPurpose : formData.purpose,
+        // Use monthlyIncome as monthlyPayment estimate if not set
+        monthlyPayment: formData.monthlyIncome > 0 ? formData.monthlyIncome : undefined,
       };
       
       const loan = await apiService.applyForLoan(finalFormData);
+      // Show success confirmation
       onSuccess(loan.id);
     } catch (err: unknown) {
       const { message, fieldErrors: apiFieldErrors } = getApiErrorMessage(err, 'Failed to submit loan application');
@@ -138,48 +137,18 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
 
   const isStepValid = (step: number): boolean => {
     switch (step) {
-      case 0:
+      case 0: // Basic Information
         const principalValidation = validateLoanAmount(formData.principal);
-        const interestRateValidation = validateInterestRate(formData.interestRate);
         const purposeValidation = validateRequired(formData.purpose, 'Purpose');
-        
-        // If "other" is selected, also check if custom purpose is provided
         const otherPurposeValid = formData.purpose === 'other' ? otherPurpose.trim() !== '' : true;
-        
-        // Debug logging
-        console.log('🔍 Step 0 validation:', {
-          principal: formData.principal,
-          principalValid: principalValidation.isValid,
-          principalError: principalValidation.error,
-          interestRate: formData.interestRate,
-          interestRateValid: interestRateValidation.isValid,
-          interestRateError: interestRateValidation.error,
-          purpose: formData.purpose,
-          purposeValid: purposeValidation.isValid,
-          purposeError: purposeValidation.error,
-          otherPurpose: otherPurpose,
-          otherPurposeValid: otherPurposeValid,
-          overallValid: principalValidation.isValid && interestRateValidation.isValid && purposeValidation.isValid && otherPurposeValid
-        });
-        
-        return principalValidation.isValid && interestRateValidation.isValid && purposeValidation.isValid && otherPurposeValid;
-      case 1:
-        const incomeValidation = validateRequired(formData.monthlyIncome, 'Monthly Income');
-        const employmentValidation = validateEmploymentStatus(formData.employmentStatus);
-        
-        // Debug logging
-        console.log('🔍 Step 1 validation:', {
-          monthlyIncome: formData.monthlyIncome,
-          incomeValid: incomeValidation.isValid,
-          incomeError: incomeValidation.error,
-          employmentStatus: formData.employmentStatus,
-          employmentValid: employmentValidation.isValid,
-          employmentError: employmentValidation.error,
-          overallValid: incomeValidation.isValid && employmentValidation.isValid
-        });
-        
-        return incomeValidation.isValid && employmentValidation.isValid;
-      case 2:
+        return principalValidation.isValid && purposeValidation.isValid && otherPurposeValid && loanStartDate !== '';
+      case 1: // Payment Details
+        const termValidation = formData.term > 0 && formData.term <= 360;
+        return termValidation && paymentDueDay >= 1 && paymentDueDay <= 31;
+      case 2: // Interest Rate
+        const interestRateValidation = validateInterestRate(formData.interestRate);
+        return interestRateValidation.isValid;
+      case 3: // Review & Confirm
         return true;
       default:
         return false;
@@ -188,207 +157,272 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
 
   const renderStepContent = (step: number) => {
     switch (step) {
-      case 0:
+      case 0: // Step 1: Basic Information
         return (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Loan Amount"
-                type="number"
-                value={formData.principal === 0 ? '' : formData.principal}
-                onChange={handleInputChange('principal')}
-                helperText={validationErrors.principal || fieldErrors.principal || "Enter the amount you wish to borrow"}
-                error={!!validationErrors.principal || !!fieldErrors.principal}
-                required
-                inputProps={{ min: 0.01, step: 0.01 }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Interest Rate (%)"
-                type="number"
-                value={formData.interestRate ?? ''}
-                onChange={handleInputChange('interestRate')}
-                helperText={validationErrors.interestRate || fieldErrors.interestRate || "Enter interest rate (0% - 50%)"}
-                error={!!validationErrors.interestRate || !!fieldErrors.interestRate}
-                required
-                inputProps={{ min: 0, max: 50, step: 0.1 }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required error={!!validationErrors.purpose || !!fieldErrors.purpose}>
-                <InputLabel>Purpose of Loan</InputLabel>
-                <Select
-                  value={formData.purpose}
-                  onChange={handleSelectChange('purpose')}
-                  label="Purpose of Loan"
-                >
-                  <MenuItem value="car loan">Car Loan</MenuItem>
-                  <MenuItem value="housing loan">Housing Loan</MenuItem>
-                  <MenuItem value="medical">Medical</MenuItem>
-                  <MenuItem value="education">Education</MenuItem>
-                  <MenuItem value="vacation">Vacation</MenuItem>
-                  <MenuItem value="personal">Personal</MenuItem>
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Step 1 of 4: Basic Information
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="What is this loan for?"
+                    placeholder="Select or type: Car, House, Education, etc."
+                    value={formData.purpose === 'other' ? otherPurpose : formData.purpose}
+                    onChange={(e) => {
+                      if (formData.purpose !== 'other') {
+                        setFormData(prev => ({ ...prev, purpose: e.target.value }));
+                      } else {
+                        setOtherPurpose(e.target.value);
+                      }
+                    }}
+                    helperText="Select from the dropdown or type your own purpose"
+                    error={!!validationErrors.purpose || !!fieldErrors.purpose}
+                    required
+                  />
+                  <FormControl sx={{ minWidth: 200 }}>
+                    <InputLabel>Or Select</InputLabel>
+                    <Select
+                      value={formData.purpose}
+                      onChange={handleSelectChange('purpose')}
+                      label="Or Select"
+                    >
+                      <MenuItem value="car loan">Car Loan</MenuItem>
+                      <MenuItem value="housing loan">House Loan</MenuItem>
+                      <MenuItem value="education">Education</MenuItem>
+                      <MenuItem value="medical">Medical</MenuItem>
+                      <MenuItem value="vacation">Vacation</MenuItem>
+                      <MenuItem value="personal">Personal</MenuItem>
+                      <MenuItem value="other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
                 {(validationErrors.purpose || fieldErrors.purpose) && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1, ml: 2 }}>
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
                     {validationErrors.purpose || fieldErrors.purpose}
                   </Typography>
                 )}
-              </FormControl>
-            </Grid>
-            {formData.purpose === 'other' && (
+              </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Please Specify Purpose"
-                  value={otherPurpose}
-                  onChange={(e) => setOtherPurpose(e.target.value)}
-                  helperText="Enter your specific loan purpose"
+                  label="How much did you borrow?"
+                  type="number"
+                  value={formData.principal === 0 ? '' : formData.principal}
+                  onChange={handleInputChange('principal')}
+                  helperText={validationErrors.principal || fieldErrors.principal || "Enter the total amount you borrowed (the loan amount)"}
+                  error={!!validationErrors.principal || !!fieldErrors.principal}
                   required
-                  error={formData.purpose === 'other' && otherPurpose.trim() === ''}
+                  inputProps={{ min: 0.01, step: 0.01 }}
+                  InputProps={{
+                    startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
+                  }}
                 />
               </Grid>
-            )}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Loan Term (months)"
-                type="number"
-                value={formData.term}
-                onChange={handleInputChange('term')}
-                helperText="Enter loan duration in months (e.g., 12, 24, 36, 60)"
-                required
-                inputProps={{ min: 1, max: 360, step: 1 }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Loan Type</InputLabel>
-                <Select
-                  value={formData.loanType || LoanType.PERSONAL}
-                  onChange={(e) => setFormData(prev => ({ ...prev, loanType: e.target.value as LoanType }))}
-                  label="Loan Type"
-                >
-                  <MenuItem value={LoanType.PERSONAL}>Personal Loan</MenuItem>
-                  <MenuItem value={LoanType.MORTGAGE}>Mortgage</MenuItem>
-                  <MenuItem value={LoanType.AUTO}>Auto Loan</MenuItem>
-                  <MenuItem value={LoanType.STUDENT}>Student Loan</MenuItem>
-                  <MenuItem value={LoanType.BUSINESS}>Business Loan</MenuItem>
-                  <MenuItem value={LoanType.CREDIT_CARD}>Credit Card</MenuItem>
-                  <MenuItem value={LoanType.LINE_OF_CREDIT}>Line of Credit</MenuItem>
-                  <MenuItem value={LoanType.OTHER}>Other</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        );
-
-      case 1:
-        return (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Monthly Income"
-                type="number"
-                value={formData.monthlyIncome}
-                onChange={handleInputChange('monthlyIncome')}
-                helperText="Your gross monthly income"
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Employment Status</InputLabel>
-                <Select
-                  value={formData.employmentStatus}
-                  onChange={handleSelectChange('employmentStatus')}
-                  label="Employment Status"
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="When did you get this loan?"
+                  type="date"
+                  value={loanStartDate}
+                  onChange={(e) => setLoanStartDate(e.target.value)}
+                  helperText="Select the date when you received the loan money"
                   required
-                >
-                  <MenuItem value="employed">Employed</MenuItem>
-                  <MenuItem value="self-employed">Self-Employed</MenuItem>
-                  <MenuItem value="unemployed">Unemployed</MenuItem>
-                  <MenuItem value="retired">Retired</MenuItem>
-                  <MenuItem value="student">Student</MenuItem>
-                </Select>
-              </FormControl>
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Additional Information"
-                multiline
-                rows={4}
-                value={formData.additionalInfo}
-                onChange={handleInputChange('additionalInfo')}
-                helperText="Any additional information that might help with your application"
-              />
-            </Grid>
-          </Grid>
+          </Box>
         );
 
-      case 2:
+      case 1: // Step 2: Payment Details
+        // Calculate estimated monthly payment if we have principal, interest rate, and term
+        const calculateMonthlyPayment = () => {
+          if (formData.principal > 0 && formData.interestRate > 0 && formData.term > 0) {
+            const monthlyRate = formData.interestRate / 100 / 12;
+            const numerator = monthlyRate * Math.pow(1 + monthlyRate, formData.term);
+            const denominator = Math.pow(1 + monthlyRate, formData.term) - 1;
+            return formData.principal * (numerator / denominator);
+          }
+          return 0;
+        };
+        const estimatedMonthlyPayment = calculateMonthlyPayment();
+
         return (
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Review Your Application
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Step 2 of 4: Payment Details
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Loan Amount:
-                </Typography>
-                <Typography variant="h6">
-                  ${formData.principal.toLocaleString()}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Interest Rate:
-                </Typography>
-                <Typography variant="h6">
-                  {formData.interestRate}%
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Term:
-                </Typography>
-                <Typography variant="h6">
-                  {formData.term} months
-                </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="How much do you pay each month?"
+                  type="number"
+                  value={formData.monthlyIncome > 0 ? formData.monthlyIncome : (estimatedMonthlyPayment > 0 ? estimatedMonthlyPayment.toFixed(2) : '')}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    setFormData(prev => ({ ...prev, monthlyIncome: value }));
+                  }}
+                  helperText={estimatedMonthlyPayment > 0 
+                    ? `💡 Estimated: $${estimatedMonthlyPayment.toFixed(2)} based on your loan details. You can adjust this if your actual payment is different.`
+                    : "Enter your monthly payment amount. This will be calculated automatically after you enter the interest rate."}
+                  required
+                  inputProps={{ min: 0.01, step: 0.01 }}
+                  InputProps={{
+                    startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
+                  }}
+                />
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">
-                  Purpose:
-                </Typography>
-                <Typography variant="body1">
-                  {formData.purpose}
-                </Typography>
+                <TextField
+                  fullWidth
+                  label="What day of the month is payment due?"
+                  type="number"
+                  value={paymentDueDay}
+                  onChange={(e) => setPaymentDueDay(parseInt(e.target.value) || 1)}
+                  helperText="Enter a number between 1 and 31 (e.g., 15 means payment is due on the 15th of each month)"
+                  required
+                  inputProps={{ min: 1, max: 31, step: 1 }}
+                />
               </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Monthly Income:
-                </Typography>
-                <Typography variant="body1">
-                  ${formData.monthlyIncome.toLocaleString()}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Employment:
-                </Typography>
-                <Typography variant="body1">
-                  {formData.employmentStatus}
-                </Typography>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="How long will you pay this loan? (in months)"
+                  type="number"
+                  value={formData.term}
+                  onChange={handleInputChange('term')}
+                  helperText="Enter the total number of months (e.g., 12 months = 1 year, 60 months = 5 years)"
+                  required
+                  inputProps={{ min: 1, max: 360, step: 1 }}
+                />
               </Grid>
             </Grid>
-          </Paper>
+          </Box>
+        );
+
+      case 2: // Step 3: Interest Rate
+        return (
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Step 3 of 4: Interest Rate
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="What is your interest rate?"
+                  type="number"
+                  value={formData.interestRate ?? ''}
+                  onChange={handleInputChange('interestRate')}
+                  helperText={
+                    <Box>
+                      <Typography variant="body2" component="span">
+                        {validationErrors.interestRate || fieldErrors.interestRate || "Enter your annual interest rate as a percentage (e.g., 6 for 6%)"}
+                      </Typography>
+                      <Box sx={{ mt: 1, p: 1.5, bgcolor: 'info.light', borderRadius: 1, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                        <Lightbulb sx={{ color: 'info.main', mt: 0.5 }} />
+                        <Typography variant="body2" color="info.dark">
+                          <strong>💡 Tip:</strong> You can find this on your loan statement or contract. It's usually shown as an annual percentage (e.g., 6% per year).
+                        </Typography>
+                      </Box>
+                    </Box>
+                  }
+                  error={!!validationErrors.interestRate || !!fieldErrors.interestRate}
+                  required
+                  inputProps={{ min: 0, max: 50, step: 0.1 }}
+                  InputProps={{
+                    endAdornment: <Typography sx={{ ml: 1 }}>% per year</Typography>
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        );
+
+      case 3: // Step 4: Review & Confirm
+        return (
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Step 4 of 4: Review & Confirm
+            </Typography>
+            <Paper sx={{ p: 3, bgcolor: 'background.default' }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                Review Your Loan Information:
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Loan Purpose:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {formData.purpose === 'other' ? otherPurpose : formData.purpose}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Loan Amount:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    ${formData.principal.toLocaleString()}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Monthly Payment:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    ${formData.monthlyIncome > 0 ? formData.monthlyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Not set'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Payment Due Date:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {paymentDueDay}th of each month
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Loan Term:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {formData.term} months ({Math.round(formData.term / 12 * 10) / 10} years)
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Interest Rate:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {formData.interestRate}% per year
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Loan Start Date:
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {new Date(loanStartDate).toLocaleDateString()}
+                  </Typography>
+                </Grid>
+              </Grid>
+              <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => setActiveStep(0)}
+                  startIcon={<Edit />}
+                >
+                  Edit Information
+                </Button>
+              </Box>
+            </Paper>
+          </Box>
         );
 
       default:
@@ -398,10 +432,6 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Apply for a Loan
-      </Typography>
-      
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {steps.map((label) => (
           <Step key={label}>
@@ -436,8 +466,9 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                   variant="contained"
                   onClick={handleSubmit}
                   disabled={isLoading}
+                  size="large"
                 >
-                  {isLoading ? <CircularProgress size={24} /> : 'Submit Application'}
+                  {isLoading ? <CircularProgress size={24} /> : 'Save Loan'}
                 </Button>
               ) : (
                 <Button
@@ -445,7 +476,7 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                   onClick={handleNext}
                   disabled={!isStepValid(activeStep)}
                 >
-                  Next
+                  Next: {steps[activeStep + 1]} →
                 </Button>
               )}
             </Box>

@@ -65,6 +65,7 @@ import {
   BillType,
   BillStatus
 } from '../types/bill';
+import { getBillsWithEarliestPerParent } from '../utils/billUtils';
 import { mockDataService } from './mockData';
 import { mockBillDataService } from './mockBillData';
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest, BankAccountFilters, BankAccountAnalytics, PaginatedBankAccountsResponse } from '../types/bankAccount';
@@ -73,6 +74,9 @@ import { BankAccountTransaction, TransactionFilters, PaginatedTransactionsRespon
 import { mockTransactionDataService } from './mockTransactionData';
 import { Receivable, CreateReceivableRequest, UpdateReceivableRequest, ReceivableFilters, ReceivableAnalytics, PaginatedReceivablesResponse, ReceivablePayment, CreateReceivablePaymentRequest } from '../types/receivable';
 import { Utility, CreateUtilityRequest, UpdateUtilityRequest, UtilityAnalytics, UtilityConsumptionHistory, UtilityComparison, ProviderComparison } from '../types/utility';
+import { WhiteLabelSettings, UpdateWhiteLabelSettingsRequest } from '../types/whiteLabel';
+import { TeamMember, InviteTeamMemberRequest, TeamSettings, UpdateTeamMemberRoleRequest } from '../types/teamManagement';
+import { Investment, CreateInvestmentRequest, UpdateInvestmentRequest } from '../types/investment';
 import { config, isMockDataEnabled } from '../config/environment';
 
 const API_BASE_URL = config.apiBaseUrl;
@@ -94,10 +98,20 @@ class ApiService {
 
   private async request<T>(endpoint: string, options: RequestInit = {}, customTimeout?: number): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    // If body is FormData, don't set Content-Type (browser will set it with boundary)
+    const isFormData = options.body instanceof FormData;
+    const authHeaders = this.getAuthHeaders();
+    
+    // Remove Content-Type from headers if sending FormData
+    if (isFormData && authHeaders['Content-Type']) {
+      delete authHeaders['Content-Type'];
+    }
+    
     const requestConfig: RequestInit = {
       ...options,
       headers: {
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options.headers,
       },
     };
@@ -126,15 +140,46 @@ class ApiService {
         console.error('API Service: Error response:', errorData);
         console.error('API Service: Error status:', response.status);
         
-        // Redirect to login on unauthorized/session timeout
+        // Handle unauthorized/session timeout
+        // NEVER redirect or refresh if already on auth page to prevent page reloads
         if (response.status === 401 || response.status === 440) {
           try {
             localStorage.removeItem('authToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
           } catch {}
-          // Use hard redirect to ensure full app reset
-          if (typeof window !== 'undefined') {
+          
+          // Check if we're on the auth page - if so, NEVER redirect
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isOnAuthPage = currentPath.startsWith('/auth') || 
+                              currentPath.startsWith('/login') ||
+                              currentPath === '/' ||
+                              currentPath.startsWith('/register') ||
+                              currentPath.startsWith('/forgot-password') ||
+                              currentPath.startsWith('/reset-password');
+          
+          // Check if this is a login endpoint request (user is trying to login)
+          const isLoginEndpoint = endpoint.includes('/Auth/login') || endpoint.includes('/auth/login');
+          
+          // Check if auth is initializing
+          const isAuthInitializing = typeof window !== 'undefined' && (window as any).__authInitializing === true;
+          
+          // NEVER redirect if:
+          // 1. On auth page
+          // 2. During auth initialization
+          // 3. This is a login endpoint request (user is actively trying to login)
+          if (isOnAuthPage || isAuthInitializing || isLoginEndpoint) {
+            console.log('API Service: 401 detected - skipping redirect to prevent page refresh', {
+              isOnAuthPage,
+              isAuthInitializing,
+              isLoginEndpoint,
+              currentPath,
+              endpoint
+            });
+            // Silently handle 401 - don't redirect, don't refresh, just clear tokens
+            // The error will be thrown and handled by the calling code (LoginForm)
+          } else {
+            console.log('API Service: Redirecting to /auth due to 401');
             window.location.href = '/auth';
           }
         }
@@ -189,9 +234,26 @@ class ApiService {
       const jsonResponse = await response.json();
       console.log('API Service: JSON response:', jsonResponse);
       return jsonResponse;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeoutId);
       console.error('API Service: Request failed:', error);
+      
+      // Handle AbortError (timeout)
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        const timeoutError = new Error('Request timed out. The server is taking too long to respond. Please try again.');
+        (timeoutError as any).status = 408;
+        (timeoutError as any).isTimeout = true;
+        throw timeoutError;
+      }
+      
+      // Handle network errors
+      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+        const networkError = new Error('Network error. Please check your internet connection and try again.');
+        (networkError as any).status = 0;
+        (networkError as any).isNetworkError = true;
+        throw networkError;
+      }
+      
       throw error;
     }
   }
@@ -242,7 +304,7 @@ class ApiService {
 
     const response = await this.request<T>(endpoint, {
       ...options,
-      method: 'PUT',
+      method: 'POST',
       headers: {
         ...headers,
         ...options?.headers,
@@ -323,22 +385,26 @@ class ApiService {
     return response as AuthUser;
   }
 
-  async register(registerData: {
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
-    confirmPassword: string;
-  }): Promise<{
+  async register(registerData: RegisterData): Promise<{
     success: boolean;
     message: string;
     data: {
-      userId: string;
-      name: string;
-      email: string;
-      phone: string;
-      isEmailConfirmed: boolean;
-      createdAt: string;
+      token?: string | null;
+      refreshToken?: string | null;
+      expiresAt?: string | null;
+      requiresEmailVerification?: boolean;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        phone: string;
+        country: string;
+        role: string;
+        isActive: boolean;
+        emailVerified?: boolean;
+        createdAt: string;
+        updatedAt: string;
+      };
     } | null;
     errors: Array<{
       field: string;
@@ -352,12 +418,22 @@ class ApiService {
       success: boolean;
       message: string;
       data: {
-        userId: string;
-        name: string;
-        email: string;
-        phone: string;
-        isEmailConfirmed: boolean;
-        createdAt: string;
+        token?: string | null;
+        refreshToken?: string | null;
+        expiresAt?: string | null;
+        requiresEmailVerification?: boolean;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone: string;
+          country: string;
+          role: string;
+          isActive: boolean;
+          emailVerified?: boolean;
+          createdAt: string;
+          updatedAt: string;
+        };
       } | null;
       errors: Array<{
         field: string;
@@ -380,6 +456,38 @@ class ApiService {
       message: string;
       data: {};
     }>('/Auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    return response;
+  }
+
+  async verifyEmail(email: string, token: string): Promise<{
+    success: boolean;
+    message: string;
+    data: boolean;
+  }> {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: boolean;
+    }>('/Auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, token }),
+    });
+    return response;
+  }
+
+  async resendVerificationEmail(email: string): Promise<{
+    success: boolean;
+    message: string;
+    data: boolean;
+  }> {
+    const response = await this.request<{
+      success: boolean;
+      message: string;
+      data: boolean;
+    }>('/Auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -578,6 +686,54 @@ class ApiService {
     return this.request<User>(`/users/${userId}`);
   }
 
+  async getUserPassword(userId: string): Promise<{ passwordHash: string }> {
+    const response = await this.request<{ success: boolean; data: { passwordHash: string } }>(`/users/${userId}/password`);
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get user password');
+  }
+
+  async setUserPassword(userId: string, newPassword: string): Promise<{ password: string; message: string }> {
+    const response = await this.request<{ success: boolean; data: { password: string; message: string } }>(
+      `/users/${userId}/set-password`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ newPassword }),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to set user password');
+  }
+
+  async getAllUsers(page: number = 1, limit: number = 1000, role?: string, isActive?: boolean): Promise<{ data: User[]; page: number; limit: number; totalCount: number }> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    if (role) queryParams.append('role', role);
+    if (isActive !== undefined) queryParams.append('isActive', isActive.toString());
+
+    const response = await this.request<{ success: boolean; data: { data?: User[]; Data?: User[]; page?: number; Page?: number; limit?: number; Limit?: number; totalCount?: number; TotalCount?: number } }>(
+      `/users?${queryParams.toString()}`
+    );
+    if (response && response.success && response.data) {
+      // Handle both camelCase and PascalCase response structures
+      const users = response.data.data || response.data.Data || [];
+      const pageNum = response.data.page || response.data.Page || page;
+      const limitNum = response.data.limit || response.data.Limit || limit;
+      const totalCount = response.data.totalCount || response.data.TotalCount || users.length;
+      return {
+        data: users,
+        page: pageNum,
+        limit: limitNum,
+        totalCount: totalCount
+      };
+    }
+    throw new Error('Failed to get users');
+  }
+
   async updateUser(userId: string, userData: { name: string; phone: string }): Promise<{
     success: boolean;
     message: string;
@@ -608,8 +764,8 @@ class ApiService {
       message: string;
       data: User | null;
       errors: string[];
-    }>(`/Users/${userId}`, {
-      method: 'PUT',
+    }>(`/Users/${userId}/update`, {
+      method: 'POST',
       body: JSON.stringify(userData),
     });
     return response;
@@ -634,7 +790,6 @@ class ApiService {
       amount: number;
       frequency: string;
       category: string;
-      currency: string;
       description: string;
       company: string;
     }>;
@@ -668,7 +823,6 @@ class ApiService {
       amount: number;
       frequency: string;
       category: string;
-      currency: string;
       isActive: boolean;
       description: string;
       company: string;
@@ -792,7 +946,7 @@ class ApiService {
       data: any | null;
       errors: string[];
     }>('/UserProfile/currency', {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ currency }),
     });
     return response;
@@ -854,8 +1008,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateUserProfile(profileData);
     }
-    const response = await this.request<any>('/UserProfile', {
-      method: 'PUT',
+    const response = await this.request<any>('/UserProfile/update', {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(profileData),
     });
     if (response && response.success && response.data) {
@@ -910,8 +1064,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateLoan(loanId, updateData);
     }
-    const response = await this.request<any>(`/Loans/${loanId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Loans/${loanId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     
@@ -926,8 +1080,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.deleteLoan(loanId);
     }
-    const response = await this.request<any>(`/Loans/${loanId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/Loans/${loanId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     // Handle the response structure
@@ -993,8 +1147,8 @@ class ApiService {
       return mockDataService.deletePayment(paymentId);
     }
     
-    const response = await this.request<any>(`/Payments/${paymentId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/Payments/${paymentId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     return response?.data || response || true;
@@ -1152,8 +1306,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateScheduleDueDate(loanId, installmentNumber, newDueDate);
     }
-    const response = await this.request<any>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Loans/${loanId}/schedule/${installmentNumber}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ newDueDate }),
     });
     
@@ -1323,8 +1477,8 @@ class ApiService {
       };
     }
 
-    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
-      method: 'PUT',
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(request),
     });
     
@@ -1343,8 +1497,8 @@ class ApiService {
       };
     }
 
-    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}`, {
-      method: 'DELETE',
+    const response = await this.request<ScheduleOperationResponse>(`/Loans/${loanId}/schedule/${installmentNumber}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     return response;
@@ -1365,7 +1519,7 @@ class ApiService {
 
   async rejectLoan(loanId: string, reason: string): Promise<Loan> {
     return this.request<Loan>(`/Loans/user/${loanId}/reject`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({ reason }),
     });
   }
@@ -1425,7 +1579,7 @@ class ApiService {
 
   async closeLoan(loanId: string): Promise<Loan> {
     return this.request<Loan>(`/Loans/user/${loanId}/close`, {
-      method: 'PUT',
+      method: 'POST',
     });
   }
 
@@ -1552,7 +1706,7 @@ class ApiService {
 
   async markNotificationAsRead(notificationId: string): Promise<void> {
     return this.request<void>(`/Notifications/${notificationId}/read`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
     });
   }
 
@@ -1564,8 +1718,8 @@ class ApiService {
     
     try {
       const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
-        `/Notifications/${notificationId}`,
-        { method: 'DELETE' }
+        `/Notifications/${notificationId}/delete`,
+        { method: 'POST' }  // Using POST as alternative for environments where DELETE is blocked
       );
       return response.data || false;
     } catch (error) {
@@ -1582,8 +1736,8 @@ class ApiService {
     
     try {
       const response = await this.request<{ success: boolean; data: number; message?: string }>(
-        `/Notifications/user/${userId}/all`,
-        { method: 'DELETE' }
+        `/Notifications/user/${userId}/all/delete`,
+        { method: 'POST' }  // Using POST as alternative for environments where DELETE is blocked
       );
       return response.data || 0;
     } catch (error) {
@@ -1641,9 +1795,10 @@ class ApiService {
     const response = await this.request<any>(endpoint);
     console.log('API Response received:', !!response);
     
-    // Handle paginated response structure
+    // Handle paginated response structure: keep only earliest-due per parentBillId
     if (response && response.data && Array.isArray(response.data.data)) {
-      return response.data;
+      const filtered = getBillsWithEarliestPerParent(response.data.data);
+      return { ...response.data, data: filtered };
     } else if (Array.isArray(response)) {
       return {
         data: response,
@@ -1702,8 +1857,8 @@ class ApiService {
       return mockBillDataService.updateBill(billId, updateData);
     }
     
-    const response = await this.request<any>(`/Bills/${billId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Bills/${billId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     
@@ -1734,8 +1889,8 @@ class ApiService {
         message: string;
         data: boolean;
         errors: any[];
-      }>(`/Bills/${billId}`, {
-        method: 'DELETE',
+      }>(`/Bills/${billId}/delete`, {
+        method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
       });
       
       console.log('✅ Delete API response:', response);
@@ -1774,7 +1929,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/bills/${billId}/mark-paid`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(requestBody),
     });
     
@@ -1785,6 +1940,11 @@ class ApiService {
     return response;
   }
 
+  // Mark bill as unpaid (revert paid status when linked payment transaction is deleted)
+  async markBillAsUnpaid(billId: string): Promise<Bill> {
+    return this.updateBill(billId, { status: BillStatus.PENDING });
+  }
+
   // Update bill status
   async updateBillStatus(billId: string, status: string): Promise<boolean> {
     if (isMockDataEnabled()) {
@@ -1793,7 +1953,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/bills/${billId}/status`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(status),
     });
     
@@ -2024,8 +2184,8 @@ class ApiService {
 
   // Update a utility
   async updateUtility(utilityId: string, updateData: UpdateUtilityRequest): Promise<Utility> {
-    const response = await this.request<any>(`/utilities/${utilityId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/utilities/${utilityId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     return response?.data || response;
@@ -2033,8 +2193,8 @@ class ApiService {
 
   // Delete a utility
   async deleteUtility(utilityId: string): Promise<boolean> {
-    const response = await this.request<any>(`/utilities/${utilityId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/utilities/${utilityId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response?.data || response || true;
   }
@@ -2046,7 +2206,7 @@ class ApiService {
     if (request.bankAccountId) requestBody.bankAccountId = request.bankAccountId;
     
     const response = await this.request<any>(`/utilities/${utilityId}/mark-paid`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(requestBody),
     });
     return response?.data || response;
@@ -2190,8 +2350,8 @@ class ApiService {
 
   // Update existing budget
   async updateBillBudget(budgetId: string, budgetData: Partial<CreateBudgetRequest>): Promise<BillBudget> {
-    const response = await this.request<any>(`/bills/budgets/${budgetId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/bills/budgets/${budgetId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(budgetData),
     });
     
@@ -2203,8 +2363,8 @@ class ApiService {
 
   // Delete budget
   async deleteBillBudget(budgetId: string): Promise<boolean> {
-    const response = await this.request<any>(`/bills/budgets/${budgetId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/bills/budgets/${budgetId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response && response.success;
   }
@@ -2259,7 +2419,7 @@ class ApiService {
   // Mark alert as read
   async markAlertAsRead(alertId: string): Promise<void> {
     await this.request<any>(`/bills/alerts/${alertId}/read`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
     });
   }
 
@@ -2329,7 +2489,7 @@ class ApiService {
   // Confirm or update amount for auto-generated bill
   async confirmBillAmount(billId: string, amount: number, notes?: string): Promise<Bill> {
     const response = await this.request<any>(`/bills/${billId}/confirm-amount`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ amount, notes }),
     });
     
@@ -2408,7 +2568,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.updateBankAccount(accountId, updateData);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'PUT', body: JSON.stringify(updateData) });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/update`, { method: 'POST', body: JSON.stringify(updateData) });  // Using POST as alternative for environments where PUT is blocked
     if (response && response.data) {
       return response.data;
     }
@@ -2419,7 +2579,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.deleteBankAccount(accountId);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}`, { method: 'DELETE' });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/delete`, { method: 'POST' });  // Using POST as alternative for environments where DELETE is blocked
     return response?.data || response || true;
   }
 
@@ -2453,7 +2613,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.connectAccount(accountId);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}/connect`, { method: 'PUT' });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/connect`, { method: 'POST' });  // Using POST as alternative for environments where PUT is blocked
     if (response && response.data) {
       return response.data;
     }
@@ -2464,7 +2624,7 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockBankAccountDataService.disconnectAccount(accountId);
     }
-    const response = await this.request<any>(`/bankaccounts/${accountId}/disconnect`, { method: 'PUT' });
+    const response = await this.request<any>(`/bankaccounts/${accountId}/disconnect`, { method: 'POST' });  // Using POST as alternative for environments where PUT is blocked
     if (response && response.data) {
       return response.data;
     }
@@ -2480,6 +2640,31 @@ class ApiService {
       return response.data;
     }
     return response;
+  }
+
+  // Plaid Integration Methods
+  async createPlaidLinkToken(webhookUrl?: string): Promise<{ linkToken: string; expiration: string | Date }> {
+    const body = webhookUrl ? { webhookUrl } : {};
+    const response = await this.post<{ success: boolean; data: { linkToken: string; expiration: string | Date }; message?: string }>('/plaid/link-token', body);
+    // Backend returns ApiResponse<T> which has { success, data, message }
+    // post() wraps it in { data: ApiResponse<T> }
+    if (response && response.data && response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data?.message || 'Failed to create Plaid Link token');
+  }
+
+  async exchangePlaidPublicToken(publicToken: string, bankAccountId: string): Promise<string> {
+    const response = await this.post<{ success: boolean; data: string; message?: string }>('/plaid/exchange-token', {
+      publicToken,
+      bankAccountId
+    });
+    // Backend returns ApiResponse<string> which has { success, data: string, message }
+    // post() wraps it in { data: ApiResponse<string> }
+    if (response && response.data && response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data?.message || 'Failed to exchange Plaid public token');
   }
 
   // Month Closing APIs
@@ -2508,6 +2693,21 @@ class ApiService {
       return response.data;
     }
     return false;
+  }
+
+  // Recalculate balance from transactions
+  async recalculateBalance(bankAccountId: string): Promise<number> {
+    if (isMockDataEnabled()) {
+      // Return mock balance
+      return 1000.00;
+    }
+    const response = await this.request<any>(`/BankAccounts/${bankAccountId}/recalculate-balance`, {
+      method: 'POST',
+    });
+    if (response && response.success && typeof response.data === 'number') {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to recalculate balance');
   }
 
   // Utility method for formatting currency
@@ -2575,8 +2775,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/Receivables/${receivableId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/Receivables/${receivableId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     if (response && response.data) {
@@ -2589,8 +2789,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for receivables');
     }
-    const response = await this.request<any>(`/Receivables/${receivableId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/Receivables/${receivableId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response?.data || response || true;
   }
@@ -2684,6 +2884,7 @@ class ApiService {
     if (filters?.bankAccountId) queryParams.append('bankAccountId', filters.bankAccountId);
     if (filters?.transactionType) queryParams.append('transactionType', filters.transactionType);
     if (filters?.category) queryParams.append('category', filters.category);
+    if (filters?.billId) queryParams.append('billId', filters.billId);
     // Support both startDate/endDate and dateFrom/dateTo
     if (filters?.startDate) queryParams.append('startDate', filters.startDate);
     if (filters?.endDate) queryParams.append('endDate', filters.endDate);
@@ -2774,8 +2975,8 @@ class ApiService {
       return mockTransactionDataService.deleteTransaction(transactionId);
     }
     
-    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     // Handle the new response format: { success: true, message: "string", data: true, errors: [] }
@@ -2783,7 +2984,40 @@ class ApiService {
       return response.data || true;
     }
     
-    return response?.data || response || true;
+    throw new Error(response?.message || 'Failed to delete transaction');
+  }
+
+  async bulkDeleteTransactions(transactionIds: string[]): Promise<{ success: number; failed: number; failedIds: string[]; failureReasons: string[] }> {
+    if (isMockDataEnabled()) {
+      // Mock implementation - delete individually
+      const results = await Promise.allSettled(
+        transactionIds.map(id => mockTransactionDataService.deleteTransaction(id))
+      );
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      return {
+        success: successful,
+        failed: failed,
+        failedIds: [],
+        failureReasons: []
+      };
+    }
+    
+    const response = await this.request<any>('/BankAccounts/transactions/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ transactionIds }),
+    });
+    
+    if (response && response.success && response.data) {
+      return {
+        success: response.data.successful || 0,
+        failed: response.data.failed || 0,
+        failedIds: response.data.failedTransactionIds || [],
+        failureReasons: response.data.failureReasons || []
+      };
+    }
+    
+    throw new Error(response?.message || 'Failed to delete transactions');
   }
 
   async hideTransaction(transactionId: string, reason?: string): Promise<boolean> {
@@ -2793,7 +3027,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/hide`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify({ reason }),
     });
     
@@ -2811,7 +3045,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/BankAccounts/transactions/${transactionId}/restore`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
     });
     
     if (response && response.data) {
@@ -2953,8 +3187,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       throw new Error('Mock data not implemented for updating transactions');
     }
-    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/bankaccounts/transactions/${transactionId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(transactionData),
     });
     if (response && response.data) {
@@ -3047,6 +3281,18 @@ class ApiService {
     const response = await this.request<any>('/BankAccounts/total-balance');
     if (response && response.success && response.data !== undefined) {
       return response.data;
+    }
+    return 0;
+  }
+
+  /** Total balance from all bank accounts with type "Credit card" (sum of their current balances). */
+  async getTotalCreditCardBalance(): Promise<number> {
+    if (isMockDataEnabled()) {
+      return 0;
+    }
+    const response = await this.request<any>('/BankAccounts/total-debt');
+    if (response && response.success && response.data !== undefined) {
+      return Number(response.data);
     }
     return 0;
   }
@@ -3144,8 +3390,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.updateSavingsAccount(accountId, accountData);
     }
-    const response = await this.request<any>(`/savings/accounts/${accountId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/savings/accounts/${accountId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(accountData),
     });
     return response.data;
@@ -3156,8 +3402,8 @@ class ApiService {
     if (isMockDataEnabled()) {
       return mockDataService.deleteSavingsAccount(accountId);
     }
-    await this.request<void>(`/savings/accounts/${accountId}`, {
-      method: 'DELETE',
+    await this.request<void>(`/savings/accounts/${accountId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
   }
 
@@ -3276,7 +3522,7 @@ class ApiService {
       return mockDataService.updateSavingsGoal(accountId, goalData);
     }
     const response = await this.request<any>(`/savings/accounts/${accountId}/goal`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(goalData),
     });
     return response.data;
@@ -3291,7 +3537,7 @@ class ApiService {
     }
     
     const response = await this.request<any>(`/savings/accounts/${savingsAccountId}/mark-paid`, {
-      method: 'PUT',
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(requestBody),
     });
     
@@ -3498,8 +3744,8 @@ class ApiService {
         errors: []
       };
     }
-    const response = await this.request<{ success: boolean; message: string; data: boolean; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
-      method: 'DELETE',
+    const response = await this.request<{ success: boolean; message: string; data: boolean; errors: string[] }>(`/IncomeSource/${incomeSourceId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     return response.data;
   }
@@ -3535,8 +3781,9 @@ class ApiService {
         errors: []
       };
     }
-    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}`, {
-      method: 'PUT',
+    // Using POST with /update path as workaround for environments where PUT is blocked by WAF
+    const response = await this.request<{ success: boolean; message: string; data: any; errors: string[] }>(`/IncomeSource/${incomeSourceId}/update`, {
+      method: 'POST',
       body: JSON.stringify(incomeSourceData),
     });
     return response.data;
@@ -3609,15 +3856,53 @@ class ApiService {
       timestamp: string;
     };
   }> {
-    const response = await this.request<any>('/chat/message', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-    
-    if (response && response.success && response.data) {
-      return response;
+    try {
+      // Use extended timeout for AI chat (60 seconds) as AI requests can take longer
+      const response = await this.request<any>('/chat/message', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, 60000); // 60 seconds timeout for AI chat
+      
+      if (response && response.success && response.data) {
+        return response;
+      }
+      
+      // If response exists but success is false, extract the error message
+      if (response && !response.success) {
+        const errorMessage = response.message || response.error || 'Failed to send chat message';
+        const error = new Error(errorMessage);
+        (error as any).response = { data: response };
+        (error as any).status = 400;
+        throw error;
+      }
+      
+      throw new Error(response?.message || 'Failed to send chat message');
+    } catch (error: any) {
+      // Handle timeout errors specifically
+      if (error?.isTimeout || error?.status === 408) {
+        const timeoutError = new Error('The AI service is taking longer than expected to respond. This might be due to high demand. Please try again in a moment.');
+        (timeoutError as any).response = { data: { message: timeoutError.message } };
+        (timeoutError as any).status = 408;
+        throw timeoutError;
+      }
+      
+      // Handle network errors
+      if (error?.isNetworkError) {
+        throw error;
+      }
+      
+      // If it's already an error with response data, re-throw it
+      if (error?.response?.data) {
+        throw error;
+      }
+      
+      // Otherwise, wrap it with proper structure
+      const errorMessage = error?.message || error?.response?.data?.message || 'Failed to send chat message';
+      const enhancedError = new Error(errorMessage);
+      (enhancedError as any).response = error?.response || { data: { message: errorMessage } };
+      (enhancedError as any).status = error?.status || 500;
+      throw enhancedError;
     }
-    throw new Error(response?.message || 'Failed to send chat message');
   }
 
   // Get conversation history
@@ -3697,8 +3982,8 @@ class ApiService {
     message: string;
     data: boolean;
   }> {
-    const response = await this.request<any>(`/chat/conversations/${conversationId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/chat/conversations/${conversationId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     
     if (response && response.success) {
@@ -3848,7 +4133,8 @@ class ApiService {
     const queryString = queryParams.toString();
     const endpoint = `/Reports/full${queryString ? `?${queryString}` : ''}`;
     
-    const response = await this.request<any>(endpoint);
+    // Use extended timeout (30 seconds) for full reports as they process multiple sections
+    const response = await this.request<any>(endpoint, {}, 30000);
     
     if (response && response.success && response.data) {
       return response.data;
@@ -3921,9 +4207,11 @@ class ApiService {
   }
 
   // Get balance sheet
-  async getBalanceSheet(asOfDate?: string): Promise<import('../types/financialReport').BalanceSheetDto> {
+  async getBalanceSheet(asOfDate?: string, startDate?: string, endDate?: string): Promise<import('../types/financialReport').BalanceSheetDto> {
     const queryParams = new URLSearchParams();
     if (asOfDate) queryParams.append('asOfDate', asOfDate);
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
     
     const queryString = queryParams.toString();
     const endpoint = `/Reports/balance-sheet${queryString ? `?${queryString}` : ''}`;
@@ -4216,58 +4504,6 @@ class ApiService {
 
   // ==================== RECONCILIATION APIs ====================
 
-  async extractBankStatement(file: File, bankAccountId: string): Promise<import('../types/reconciliation').ExtractBankStatementResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bankAccountId', bankAccountId);
-
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/reconciliation/statements/extract`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to extract bank statement');
-    }
-
-    const result = await response.json();
-    if (result && result.success && result.data) {
-      return result.data;
-    }
-    throw new Error(result.message || 'Failed to extract bank statement');
-  }
-
-  async analyzePDFWithAI(file: File, bankAccountId: string): Promise<import('../types/reconciliation').ExtractBankStatementResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bankAccountId', bankAccountId);
-
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/reconciliation/statements/analyze-pdf`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to analyze PDF with AI');
-    }
-
-    const result = await response.json();
-    if (result && result.success && result.data) {
-      return result.data;
-    }
-    throw new Error(result.message || 'Failed to analyze PDF with AI');
-  }
-
   async importBankStatement(importData: import('../types/reconciliation').ImportBankStatementRequest): Promise<import('../types/reconciliation').BankStatement> {
     // Use extended timeout (120 seconds) for bank statement import as it processes many items
     const response = await this.request<any>('/reconciliation/statements/import', {
@@ -4301,6 +4537,16 @@ class ApiService {
       method: 'DELETE',
     });
     return response?.success ?? false;
+  }
+
+  async getBankStatementUploadLimit(): Promise<import('../types/reconciliation').BankStatementUploadLimit> {
+    const endpoint = '/Reconciliation/statements/upload-limit';
+    const response = await this.request<any>(endpoint);
+    
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get upload limit');
   }
 
   async createReconciliation(createData: import('../types/reconciliation').CreateReconciliationRequest): Promise<import('../types/reconciliation').Reconciliation> {
@@ -4387,6 +4633,78 @@ class ApiService {
     return response;
   }
 
+  // ASYNC BANK STATEMENT UPLOAD
+  async uploadBankStatementAsync(file: File, bankAccountId: string): Promise<import('../types/reconciliation').BankStatementUpload> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bankAccountId', bankAccountId);
+    
+    // The request method will automatically handle FormData and not set Content-Type
+    const response = await this.request<any>('/reconciliation/statements/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async getUserUploads(bankAccountId: string): Promise<import('../types/reconciliation').BankStatementUpload[]> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/account/${bankAccountId}`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async getUploadStatus(uploadId: string): Promise<import('../types/reconciliation').BankStatementUpload> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/status`);
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async cancelUpload(uploadId: string): Promise<boolean> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/cancel`, {
+      method: 'POST',
+    });
+    return response?.success ?? false;
+  }
+
+  async getStagingTransactions(uploadId: string): Promise<import('../types/reconciliation').StagingTransaction[]> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/staging`);
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  async saveStagingTransactions(uploadId: string, saveData: any): Promise<any> {
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/save-staging`, {
+      method: 'POST',
+      body: JSON.stringify(saveData),
+    });
+    if (response && response.success) {
+      return response.data;
+    }
+    return response;
+  }
+
+  async confirmUpload(uploadId: string, confirmData: import('../types/reconciliation').ConfirmBankStatementUploadRequest): Promise<import('../types/reconciliation').BankStatement> {
+    // Use extended timeout (120 seconds) for confirm upload as it processes many transactions,
+    // auto-matches with existing transactions, and creates new transactions
+    const response = await this.request<any>(`/reconciliation/statements/uploads/${uploadId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(confirmData),
+    }, 120000); // 120 seconds timeout
+    if (response && response.data) {
+      return response.data;
+    }
+    return response;
+  }
+
   // ==================== Transaction Categories API ====================
   async getAllCategories(type?: string): Promise<any[]> {
     const queryParams = type ? `?type=${type}` : '';
@@ -4441,8 +4759,8 @@ class ApiService {
     isActive?: boolean;
     displayOrder?: number;
   }): Promise<any> {
-    const response = await this.request<any>(`/categories/${categoryId}`, {
-      method: 'PUT',
+    const response = await this.request<any>(`/categories/${categoryId}/update`, {
+      method: 'POST',  // Using POST as alternative for environments where PUT is blocked
       body: JSON.stringify(updateData),
     });
     if (response && response.success && response.data) {
@@ -4452,8 +4770,8 @@ class ApiService {
   }
 
   async deleteCategory(categoryId: string): Promise<boolean> {
-    const response = await this.request<any>(`/categories/${categoryId}`, {
-      method: 'DELETE',
+    const response = await this.request<any>(`/categories/${categoryId}/delete`, {
+      method: 'POST',  // Using POST as alternative for environments where DELETE is blocked
     });
     if (response && response.success) {
       return true;
@@ -4469,6 +4787,16 @@ class ApiService {
       return true;
     }
     throw new Error(response?.message || 'Failed to seed system categories');
+  }
+
+  async createDefaultCategories(): Promise<boolean> {
+    const response = await this.request<any>('/categories/create-default', {
+      method: 'POST',
+    });
+    if (response && response.success) {
+      return true;
+    }
+    throw new Error(response?.message || 'Failed to create default categories');
   }
 
   // ============================================
@@ -4497,7 +4825,7 @@ class ApiService {
 
   async updateExpense(expenseId: string, expenseData: any): Promise<any> {
     const response = await this.request<any>(`/Expenses/${expenseId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(expenseData),
     });
     if (response && response.success && response.data) {
@@ -4556,7 +4884,7 @@ class ApiService {
 
   async updateExpenseCategory(categoryId: string, categoryData: any): Promise<any> {
     const response = await this.request<any>(`/Expenses/categories/${categoryId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(categoryData),
     });
     if (response && response.success && response.data) {
@@ -4605,7 +4933,7 @@ class ApiService {
 
   async updateExpenseBudget(budgetId: string, budgetData: any): Promise<any> {
     const response = await this.request<any>(`/Expenses/budgets/${budgetId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(budgetData),
     });
     if (response && response.success && response.data) {
@@ -4909,7 +5237,7 @@ class ApiService {
 
   async updateAllocationPlan(planId: string, planData: any): Promise<any> {
     const response = await this.request<any>(`/Allocation/plans/${planId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(planData),
     });
     if (response && response.success && response.data) {
@@ -4950,7 +5278,7 @@ class ApiService {
 
   async updateAllocationCategory(categoryId: string, categoryData: any): Promise<any> {
     const response = await this.request<any>(`/Allocation/categories/${categoryId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(categoryData),
     });
     if (response && response.success && response.data) {
@@ -5327,7 +5655,7 @@ class ApiService {
   // Update ticket
   async updateTicket(ticketId: string, ticketData: any): Promise<any> {
     const response = await this.request<any>(`/Tickets/${ticketId}`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(ticketData),
     });
 
@@ -5433,7 +5761,7 @@ class ApiService {
   // Assign ticket
   async assignTicket(ticketId: string, assignedTo?: string): Promise<any> {
     const response = await this.request<any>(`/Tickets/${ticketId}/assign`, {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({ assignedTo }),
     });
 
@@ -5545,7 +5873,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: SubscriptionPlan; message?: string }>(
       `/admin/subscriptions/plans/${planId}`,
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(plan),
       }
     );
@@ -5617,7 +5945,7 @@ class ApiService {
     const response = await this.request<{ success: boolean; data: UserSubscription; message?: string }>(
       `/admin/subscriptions/users/${subscriptionId}`,
       {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(subscription),
       }
     );
@@ -5745,6 +6073,258 @@ class ApiService {
       return response.data;
     }
     throw new Error(response?.message || 'Failed to verify checkout session');
+  }
+
+  // ==========================================
+  // WHITE-LABEL SETTINGS API METHODS
+  // ==========================================
+
+  // Get white-label settings
+  async getWhiteLabelSettings(): Promise<WhiteLabelSettings> {
+    try {
+      const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
+        '/whitelabel/settings',
+        {
+          method: 'GET',
+        }
+      );
+      if (response && response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response?.message || 'Failed to get white-label settings');
+    } catch (error: any) {
+      // Re-throw with status code if available
+      if (error?.status) {
+        const enhancedError = new Error(error.message || 'Failed to get white-label settings');
+        (enhancedError as any).status = error.status;
+        throw enhancedError;
+      }
+      throw error;
+    }
+  }
+
+  // Update white-label settings
+  async updateWhiteLabelSettings(request: UpdateWhiteLabelSettingsRequest): Promise<WhiteLabelSettings> {
+    const response = await this.request<{ success: boolean; data: WhiteLabelSettings; message?: string }>(
+      '/whitelabel/settings',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update white-label settings');
+  }
+
+  // Upload logo
+  async uploadLogo(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('logoFile', file);
+
+    const token = localStorage.getItem('authToken');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/whitelabel/logo`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Failed to upload logo' }));
+      throw new Error(error.message || 'Failed to upload logo');
+    }
+
+    const result = await response.json();
+    if (result && result.success && result.data) {
+      return result.data;
+    }
+    throw new Error(result?.message || 'Failed to upload logo');
+  }
+
+  // ==========================================
+  // TEAM MANAGEMENT API METHODS
+  // ==========================================
+
+  // Get team members
+  async getTeamMembers(): Promise<TeamMember[]> {
+    const response = await this.request<{ success: boolean; data: TeamMember[]; message?: string }>(
+      '/multiuser/team-members',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get team members');
+  }
+
+  // Invite team member
+  async inviteTeamMember(request: InviteTeamMemberRequest): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      '/multiuser/invite',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to invite team member');
+  }
+
+  // Get team settings
+  async getTeamSettings(): Promise<TeamSettings> {
+    const response = await this.request<{ success: boolean; data: TeamSettings; message?: string }>(
+      '/multiuser/settings',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get team settings');
+  }
+
+  // Accept invitation
+  async acceptInvitation(token: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/accept-invitation?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to accept invitation');
+  }
+
+  // Remove team member
+  async removeTeamMember(memberId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/team-members/${memberId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to remove team member');
+  }
+
+  // Update team member role
+  async updateTeamMemberRole(memberId: string, request: UpdateTeamMemberRoleRequest): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/team-members/${memberId}/role`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update team member role');
+  }
+
+  // Cancel invitation
+  async cancelInvitation(invitationId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/multiuser/invitations/${invitationId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to cancel invitation');
+  }
+
+  // ==========================================
+  // INVESTMENT TRACKING API METHODS
+  // ==========================================
+
+  // Get all investments
+  async getInvestments(): Promise<Investment[]> {
+    const response = await this.request<{ success: boolean; data: Investment[]; message?: string }>(
+      '/investments',
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get investments');
+  }
+
+  // Get specific investment
+  async getInvestment(investmentId: string): Promise<Investment> {
+    const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
+      `/investments/${investmentId}`,
+      {
+        method: 'GET',
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to get investment');
+  }
+
+  // Create investment
+  async createInvestment(request: CreateInvestmentRequest): Promise<Investment> {
+    const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
+      '/investments',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to create investment');
+  }
+
+  // Update investment
+  async updateInvestment(investmentId: string, request: UpdateInvestmentRequest): Promise<Investment> {
+    const response = await this.request<{ success: boolean; data: Investment; message?: string }>(
+      `/investments/${investmentId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to update investment');
+  }
+
+  // Delete investment
+  async deleteInvestment(investmentId: string): Promise<boolean> {
+    const response = await this.request<{ success: boolean; data: boolean; message?: string }>(
+      `/investments/${investmentId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (response && response.success) {
+      return response.data;
+    }
+    throw new Error(response?.message || 'Failed to delete investment');
   }
 }
 

@@ -273,7 +273,7 @@ const TransactionMatchingDialog: React.FC<TransactionMatchingDialogProps> = ({
               onClick={handleComplete}
               disabled={isLoading}
             >
-              Complete Reconciliation
+              Complete Matching
             </Button>
           )}
         </Box>

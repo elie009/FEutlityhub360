@@ -149,7 +149,7 @@ const CompletionStep: React.FC<CompletionStepProps> = ({
               <Card sx={{ textAlign: 'center', p: 2 }}>
                 <MoneyIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
                 <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                  ${totalMonthlyIncome.toLocaleString()}
+                  {totalMonthlyIncome.toLocaleString()}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Monthly Income
@@ -226,19 +226,19 @@ const CompletionStep: React.FC<CompletionStepProps> = ({
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary="Monthly Savings" 
-                        secondary={`$${data.monthlySavingsGoal.toLocaleString()}`}
+                        secondary={`${data.monthlySavingsGoal.toLocaleString()}`}
                       />
                     </ListItem>
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary="Monthly Investment" 
-                        secondary={`$${data.monthlyInvestmentGoal.toLocaleString()}`}
+                        secondary={`${data.monthlyInvestmentGoal.toLocaleString()}`}
                       />
                     </ListItem>
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary="Emergency Fund" 
-                        secondary={`$${data.monthlyEmergencyFundGoal.toLocaleString()}`}
+                        secondary={`${data.monthlyEmergencyFundGoal.toLocaleString()}`}
                       />
                     </ListItem>
                   </List>

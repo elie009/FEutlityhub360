@@ -38,6 +38,25 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
   data,
   onComplete,
 }) => {
+  // Format number with commas (e.g., 30000 -> "30,000")
+  const formatNumberWithCommas = (value: number): string => {
+    if (value === 0) return '';
+    return value.toLocaleString('en-US');
+  };
+
+  // Handle amount input change with comma formatting
+  const handleAmountInputChange = (field: keyof OnboardingData, inputValue: string) => {
+    // Remove all non-digit characters except decimal point
+    const cleanedValue = inputValue.replace(/[^0-9.]/g, '');
+    // Ensure only one decimal point
+    const parts = cleanedValue.split('.');
+    const sanitizedValue = parts.length > 2 
+      ? parts[0] + '.' + parts.slice(1).join('') 
+      : cleanedValue;
+    const numericValue = parseFloat(sanitizedValue) || 0;
+    handleFieldChange(field, numericValue);
+  };
+
   const [sliderValues, setSliderValues] = React.useState({
     savings: data.monthlySavingsGoal,
     investment: data.monthlyInvestmentGoal,
@@ -141,12 +160,13 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
               
               <TextField
                 fullWidth
-                type="number"
-                value={data.monthlySavingsGoal}
-                onChange={(e) => handleFieldChange('monthlySavingsGoal', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumberWithCommas(data.monthlySavingsGoal)}
+                onChange={(e) => handleAmountInputChange('monthlySavingsGoal', e.target.value)}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
+                placeholder="e.g., 1,000"
                 sx={{ mb: 2 }}
               />
               
@@ -186,12 +206,13 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
               
               <TextField
                 fullWidth
-                type="number"
-                value={data.monthlyInvestmentGoal}
-                onChange={(e) => handleFieldChange('monthlyInvestmentGoal', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumberWithCommas(data.monthlyInvestmentGoal)}
+                onChange={(e) => handleAmountInputChange('monthlyInvestmentGoal', e.target.value)}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
+                placeholder="e.g., 500"
                 sx={{ mb: 2 }}
               />
               
@@ -231,12 +252,13 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
               
               <TextField
                 fullWidth
-                type="number"
-                value={data.monthlyEmergencyFundGoal}
-                onChange={(e) => handleFieldChange('monthlyEmergencyFundGoal', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumberWithCommas(data.monthlyEmergencyFundGoal)}
+                onChange={(e) => handleAmountInputChange('monthlyEmergencyFundGoal', e.target.value)}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
+                placeholder="e.g., 500"
                 sx={{ mb: 2 }}
               />
               
@@ -277,7 +299,7 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
             <Grid item xs={12} sm={4}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="h4" color="primary.main" sx={{ fontWeight: 'bold' }}>
-                  ${totalGoals.toLocaleString()}
+                  {totalGoals.toLocaleString()}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Total Monthly Goals
@@ -287,7 +309,7 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
             <Grid item xs={12} sm={4}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
-                  ${recommendedSavings.toLocaleString()}
+                  {recommendedSavings.toLocaleString()}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Recommended Amount
@@ -332,12 +354,13 @@ const GoalsStep: React.FC<GoalsStepProps> = ({
               <TextField
                 fullWidth
                 label="Monthly Tax Deductions"
-                type="number"
-                value={data.monthlyTaxDeductions}
-                onChange={(e) => handleFieldChange('monthlyTaxDeductions', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumberWithCommas(data.monthlyTaxDeductions)}
+                onChange={(e) => handleAmountInputChange('monthlyTaxDeductions', e.target.value)}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment: <InputAdornment position="start"></InputAdornment>,
                 }}
+                placeholder="e.g., 200"
                 helperText="Pre-tax deductions from your paycheck"
               />
             </Grid>

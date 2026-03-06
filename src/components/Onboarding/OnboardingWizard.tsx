@@ -54,7 +54,6 @@ export interface OnboardingData {
     amount: number;
     frequency: string;
     category: string;
-    currency: string;
     description: string;
     company: string;
   }>;
@@ -107,7 +106,6 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       amount: 0,
       frequency: 'monthly',
       category: 'Primary',
-      currency: 'USD',
       description: '',
       company: '',
     }],
@@ -242,6 +240,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             onDataUpdate={handleDataUpdate}
             data={onboardingData}
             onComplete={() => handleStepComplete(activeStep)}
+            userEmail={user?.email}
           />
         );
       case 'employment':

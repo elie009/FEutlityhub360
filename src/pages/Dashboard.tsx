@@ -33,6 +33,11 @@ import {
   ListItemText,
   Skeleton,
   IconButton,
+  Tooltip,
+  LinearProgress,
+  CircularProgress,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -56,6 +61,9 @@ import {
   AccountCircle,
   TrackChanges,
   Info as InfoIcon,
+  HelpOutline as HelpOutlineIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  CallMade as CallMadeIcon,
 } from '@mui/icons-material';
 import {
   Chart as ChartJS,
@@ -63,22 +71,38 @@ import {
   LinearScale,
   BarElement,
   ArcElement,
+  LineElement,
+  PointElement,
   Title,
   Tooltip as ChartTooltip,
   Legend,
   ChartOptions,
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import {
+  BarChart as RechartsBarChart,
+  Bar as RechartsBar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+  LineChart as RechartsLineChart,
+  Line as RechartsLine,
+} from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import OnboardingWizard from '../components/Onboarding/OnboardingWizard';
 import TransactionCard from '../components/Transactions/TransactionCard';
 import UnpaidBillsCard from '../components/Bills/UnpaidBillsCard';
+import LoanScheduleCalendar from '../components/Loans/LoanScheduleCalendar';
+import BankAccountCardSlider from '../components/BankAccounts/BankAccountCardSlider';
 import { BankAccountTransaction } from '../types/transaction';
 import { Bill, BillStatus } from '../types/bill';
 import { SavingsAccount } from '../types/savings';
+import { BankAccount } from '../types/bankAccount';
 import { useNavigate } from 'react-router-dom';
 
 // Register Chart.js components
@@ -87,21 +111,58 @@ ChartJS.register(
   LinearScale,
   BarElement,
   ArcElement,
+  LineElement,
+  PointElement,
   Title,
   ChartTooltip,
   Legend,
   ChartDataLabels
 );
 
+// Helper function to truncate transaction descriptions
+const truncateTransactionDescription = (description: string, maxLength: number = 30): string => {
+  if (!description) {
+    return 'Transaction';
+  }
+  
+  // Check if description starts with a category prefix like [CATEGORY]
+  const categoryMatch = description.match(/^(\[[^\]]+\]\s*)/);
+  
+  if (categoryMatch) {
+    const prefix = categoryMatch[1];
+    const restOfDescription = description.substring(prefix.length);
+    
+    // Truncate the rest, leaving room for " . . ."
+    const availableLength = maxLength - prefix.length - 5;
+    if (restOfDescription.length > availableLength && availableLength > 0) {
+      return prefix + restOfDescription.substring(0, availableLength) + ' . . .';
+    }
+    
+    // If prefix is too long, just truncate everything
+    if (prefix.length >= maxLength - 5) {
+      return description.substring(0, maxLength - 5) + ' . . .';
+    }
+    
+    return prefix + restOfDescription;
+  }
+  
+  // No category prefix, just truncate
+  if (description.length > maxLength) {
+    return description.substring(0, maxLength - 5) + ' . . .';
+  }
+  
+  return description;
+};
+
 const Dashboard: React.FC = () => {
-  const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile } = useAuth();
+  const { hasProfile, userProfile, isAuthenticated, user, logout, updateUserProfile, profileLoading } = useAuth();
   const { formatCurrency, currency } = useCurrency();
   const navigate = useNavigate();
   const [financialData, setFinancialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   // Financial Overview period states
-  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined);
   
   // Monthly cash flow data
@@ -151,9 +212,22 @@ const Dashboard: React.FC = () => {
       company: ''
     }]
   });
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileFormLoading, setProfileFormLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
+  
+  // Profile in localStorage check (shared across tabs)
+  const profileInSessionStorage = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('userProfile');
+      return stored !== null && stored !== 'null' && stored !== '';
+    } catch {
+      return false;
+    }
+  }, []);
+  
+  // Checking profile state
+  const [checkingProfile, setCheckingProfile] = useState(false);
   
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -203,13 +277,27 @@ const Dashboard: React.FC = () => {
   } | null>(null);
   const [recentActivityLoading, setRecentActivityLoading] = useState(false);
   
-  // Check if user needs to complete profile
+  // Bank Account Card state
+  const [dashboardBankAccounts, setDashboardBankAccounts] = useState<BankAccount[]>([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
+  const [bankAccountTransactions, setBankAccountTransactions] = useState<BankAccountTransaction[]>([]);
+  const [bankAccountCardLoading, setBankAccountCardLoading] = useState(false);
+  const [bankAccountTransactionsLoading, setBankAccountTransactionsLoading] = useState(false);
+  
+  // Financial Overview tabs state
+  const [financialOverviewTab, setFinancialOverviewTab] = useState<number>(0);
+  const [expenseData, setExpenseData] = useState<{ category: string; amount: number }[]>([]);
+  const [expenseLoading, setExpenseLoading] = useState(false);
+  
+  // Generate array of 5 years (current year + 4 previous years)
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  }, []);
+  
+  // Don't auto-show onboarding; user can open it by clicking "Profile Setup Required"
   useEffect(() => {
-    if (user && !hasProfile) {
-      // Show onboarding wizard instead of the old profile form
-      setShowOnboarding(true);
-      setShowProfileForm(false);
-    } else if (user && hasProfile) {
+    if (user && hasProfile) {
       setShowProfileForm(false);
       setShowOnboarding(false);
     }
@@ -260,21 +348,29 @@ const Dashboard: React.FC = () => {
     loadDisposableAmount();
   }, [isAuthenticated]);
 
-  // Fetch total balance on page load
+  // Total credit card balance (sum of all Credit card bank accounts) for "Credit balance" section
+  const [totalCreditCardBalance, setTotalCreditCardBalance] = useState<number>(0);
+
+  // Fetch total balance and total credit card balance on page load
   useEffect(() => {
-    const loadTotalBalance = async () => {
+    const loadBalances = async () => {
       if (!isAuthenticated) return;
       
       try {
-        const balance = await apiService.getTotalBalance();
+        const [balance, creditBalance] = await Promise.all([
+          apiService.getTotalBalance(),
+          apiService.getTotalCreditCardBalance(),
+        ]);
         setCurrentBalance(balance);
+        setTotalCreditCardBalance(creditBalance);
       } catch (error) {
-        console.error('Failed to load total balance for dashboard:', error);
+        console.error('Failed to load balances for dashboard:', error);
         setCurrentBalance(0);
+        setTotalCreditCardBalance(0);
       }
     };
     
-    loadTotalBalance();
+    loadBalances();
   }, [isAuthenticated]);
 
   // Fetch recent transactions on page load
@@ -304,8 +400,7 @@ const Dashboard: React.FC = () => {
       
       try {
         setCashFlowLoading(true);
-        const currentYear = new Date().getFullYear();
-        const response = await apiService.getMonthlyCashFlow(currentYear);
+        const response = await apiService.getMonthlyCashFlow(selectedYear);
         console.log('Monthly Cash Flow API Response:', response);
         console.log('Monthly Data:', response?.monthlyData);
         if (response?.monthlyData) {
@@ -323,7 +418,7 @@ const Dashboard: React.FC = () => {
     };
     
     loadMonthlyCashFlow();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedYear]);
 
   // Fetch income sources with summary on page load
   useEffect(() => {
@@ -392,6 +487,187 @@ const Dashboard: React.FC = () => {
     
     loadUnpaidBills();
   }, [isAuthenticated]);
+
+  // Fetch bank accounts for the bank account card
+  useEffect(() => {
+    const loadDashboardBankAccounts = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setBankAccountCardLoading(true);
+        const accounts = await apiService.getUserBankAccounts({ isActive: true });
+        const accountList = Array.isArray(accounts) ? accounts : [];
+        setDashboardBankAccounts(accountList);
+        
+        // Auto-select first account if no account is selected
+        if (accountList.length > 0 && !selectedBankAccountId) {
+          setSelectedBankAccountId(accountList[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load bank accounts for dashboard:', error);
+        setDashboardBankAccounts([]);
+      } finally {
+        setBankAccountCardLoading(false);
+      }
+    };
+    
+    loadDashboardBankAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  // Fetch transactions when a bank account is selected (current month only)
+  useEffect(() => {
+    const loadBankAccountTransactions = async () => {
+      if (!selectedBankAccountId || !isAuthenticated) {
+        setBankAccountTransactions([]);
+        return;
+      }
+      
+      try {
+        setBankAccountTransactionsLoading(true);
+        
+        // Get current month date range (first day to last day of current month)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth(); // 0-indexed (0 = January, 11 = December)
+        
+        // First day of current month at 00:00:00
+        const firstDay = new Date(year, month, 1);
+        firstDay.setHours(0, 0, 0, 0);
+        
+        // Last day of current month at 23:59:59
+        const lastDay = new Date(year, month + 1, 0);
+        lastDay.setHours(23, 59, 59, 999);
+        
+        // Format as YYYY-MM-DD for API
+        const dateFrom = firstDay.toISOString().split('T')[0];
+        const dateTo = lastDay.toISOString().split('T')[0];
+        
+        console.log('Fetching transactions for current month:', { dateFrom, dateTo, month: month + 1, year });
+        
+        const response = await apiService.getBankAccountTransactions({
+          bankAccountId: selectedBankAccountId,
+          dateFrom,
+          dateTo,
+          limit: 1000, // Increased limit to ensure we get all current month transactions
+        });
+        
+        if (response && response.success && Array.isArray(response.data)) {
+          // Filter to ensure we only show transactions from current month (double-check)
+          const currentMonthTransactions = response.data.filter((txn: BankAccountTransaction) => {
+            const txnDate = new Date(txn.transactionDate);
+            return txnDate.getFullYear() === year && txnDate.getMonth() === month;
+          });
+          
+          // Sort by date descending (most recent first)
+          currentMonthTransactions.sort((a: BankAccountTransaction, b: BankAccountTransaction) => {
+            return new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime();
+          });
+          
+          setBankAccountTransactions(currentMonthTransactions);
+        } else {
+          setBankAccountTransactions([]);
+        }
+      } catch (error) {
+        console.error('Failed to load bank account transactions:', error);
+        setBankAccountTransactions([]);
+      } finally {
+        setBankAccountTransactionsLoading(false);
+      }
+    };
+    
+    loadBankAccountTransactions();
+  }, [selectedBankAccountId, isAuthenticated]);
+
+  // Fetch expense data for expense chart (whole year)
+  useEffect(() => {
+    const loadExpenseData = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setExpenseLoading(true);
+        
+        // Get selected year date range (January 1 to December 31)
+        const year = selectedYear;
+        const firstDay = new Date(year, 0, 1); // January 1
+        const lastDay = new Date(year, 11, 31); // December 31
+        
+        const dateFrom = firstDay.toISOString().split('T')[0];
+        const dateTo = lastDay.toISOString().split('T')[0];
+        
+        console.log('Fetching expense data for year:', { dateFrom, dateTo, year });
+        
+        // Fetch all transactions for the entire year
+        // We may need to fetch multiple pages if there are many transactions
+        let allExpenses: BankAccountTransaction[] = [];
+        let page = 1;
+        let hasMore = true;
+        const limit = 1000;
+        
+        while (hasMore) {
+          const response = await apiService.getTransactions({
+            startDate: dateFrom,
+            endDate: dateTo,
+            limit: limit,
+            page: page,
+          });
+          
+          if (response && response.data && response.data.length > 0) {
+            // Filter only DEBIT transactions (expenses)
+            const expenses = response.data.filter(
+              (txn: BankAccountTransaction) => txn.transactionType === 'DEBIT'
+            );
+            allExpenses = [...allExpenses, ...expenses];
+            
+            // Check if there are more pages
+            if (response.data.length < limit || (response.totalCount && allExpenses.length >= response.totalCount)) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        console.log('Total expenses fetched:', allExpenses.length);
+        
+        if (allExpenses.length > 0) {
+          // Group by category and sum amounts
+          const categoryMap = new Map<string, number>();
+          allExpenses.forEach((expense: BankAccountTransaction) => {
+            const category = expense.category || 'Uncategorized';
+            const currentAmount = categoryMap.get(category) || 0;
+            categoryMap.set(category, currentAmount + Math.abs(expense.amount));
+          });
+          
+          // Convert to array and sort by amount (descending)
+          const categoryArray = Array.from(categoryMap.entries())
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 10); // Get top 10
+          
+          console.log('Expense data loaded (year):', {
+            totalExpenses: allExpenses.length,
+            categories: categoryArray.length,
+            categoryArray
+          });
+          
+          setExpenseData(categoryArray);
+        } else {
+          console.log('No expense data found for the year');
+          setExpenseData([]);
+        }
+      } catch (error) {
+        console.error('Failed to load expense data:', error);
+        setExpenseData([]);
+      } finally {
+        setExpenseLoading(false);
+      }
+    };
+    
+    loadExpenseData();
+  }, [isAuthenticated, selectedYear]);
 
   // Fetch recent activity on page load
   useEffect(() => {
@@ -476,7 +752,7 @@ const Dashboard: React.FC = () => {
 
   const handleCreateProfile = async () => {
     try {
-      setProfileLoading(true);
+      setProfileFormLoading(true);
       setProfileError('');
       setProfileSuccess('');
 
@@ -579,7 +855,7 @@ const Dashboard: React.FC = () => {
         setProfileError(error.message || 'Failed to create profile');
       }
     } finally {
-      setProfileLoading(false);
+      setProfileFormLoading(false);
     }
   };
 
@@ -699,6 +975,23 @@ const Dashboard: React.FC = () => {
         .reduce((sum: number, acc: any) => sum + (acc?.initialBalance || 0), 0)
     : 0;
 
+  // Main balance (non-credit) and credit balance for Current Balance card
+  const { mainBalance } = useMemo(() => {
+    const total = financialData?.currentBalance ?? currentBalance ?? 0;
+    if (!Array.isArray(financialData?.accounts) || financialData.accounts.length === 0) {
+      return { mainBalance: total };
+    }
+    let main = 0;
+    (financialData.accounts as any[]).forEach((acc: any) => {
+      const bal = acc?.currentBalance ?? acc?.initialBalance ?? 0;
+      if (acc?.accountType?.toLowerCase() !== 'credit_card') {
+        main += bal;
+      }
+    });
+    if (main === 0) return { mainBalance: total };
+    return { mainBalance: main };
+  }, [financialData?.accounts, financialData?.currentBalance, currentBalance]);
+
   // Extract Total Loan Payment from spendingByCategory
   const totalLoanPayment = financialData?.spendingByCategory?.LOAN_PAYMENT || 0;
 
@@ -748,6 +1041,130 @@ const Dashboard: React.FC = () => {
   };
 
   const cashFlowChartData = prepareCashFlowChartData();
+
+  // Prepare Expense Line Chart data (top 10 categories)
+  const expenseChartData = useMemo(() => {
+    if (!expenseData || expenseData.length === 0) {
+      console.log('Expense chart: No expense data available');
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
+
+    const labels = expenseData.map(item => item.category);
+    const amounts = expenseData.map(item => item.amount);
+
+    console.log('Expense chart data:', { labels, amounts, expenseData });
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Expense Amount',
+          data: amounts,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointHoverBackgroundColor: '#dc2626',
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 3,
+        },
+      ],
+    };
+  }, [expenseData]);
+
+  // Recharts: cash flow data for Monthly Cash Flow (expense, net, income)
+  const rechartsCashFlowData = useMemo(() => {
+    if (!cashFlowChartData || cashFlowChartData.length === 0) return [];
+    return cashFlowChartData.map((item: { month: string; incoming?: number; outgoing?: number; net?: number }) => ({
+      month: item.month,
+      expense: Math.abs(item.outgoing || 0),
+      net: item.net || 0,
+      income: Math.abs(item.incoming || 0),
+    }));
+  }, [cashFlowChartData]);
+
+  // Recharts: expense analysis data (already { category, amount }[])
+  const rechartsExpenseData = useMemo(() => {
+    if (!expenseData || expenseData.length === 0) return [];
+    return expenseData.map((item) => ({ category: item.category, amount: item.amount }));
+  }, [expenseData]);
+
+  // Expense Line Chart options
+  const expenseChartOptions: ChartOptions<'line'> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          padding: 15,
+          font: {
+            size: 12,
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: 'bold',
+        },
+        bodyFont: {
+          size: 13,
+        },
+        callbacks: {
+          label: function(context) {
+            const value = context.parsed.y;
+            return `Amount: ${value !== null && value !== undefined ? formatCurrency(value) : '$0.00'}`;
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return formatCurrency(Number(value));
+          },
+          font: {
+            size: 11,
+          },
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+        },
+      },
+      x: {
+        ticks: {
+          font: {
+            size: 11,
+          },
+          maxRotation: 45,
+          minRotation: 45,
+        },
+        grid: {
+          display: false,
+        },
+      },
+    },
+  }), [formatCurrency]);
 
   // Prepare Donut Chart data for account transaction counts
   const donutChartData = useMemo(() => {
@@ -906,8 +1323,8 @@ const Dashboard: React.FC = () => {
             const minOffset = total < 0 ? Math.abs(total) : 0;
             return outgoing + minOffset; // Add offset to ensure outgoing starts at 0
           }),
-          backgroundColor: '#f44336', // Red
-          borderColor: '#c62828',
+          backgroundColor: '#287cbb', // Red (updated color)
+          borderColor: '#287cbb',
           borderWidth: 2,
           stack: 'stack1', // Group with Net
         },
@@ -922,8 +1339,8 @@ const Dashboard: React.FC = () => {
             // Adjust net by adding the same offset (so total stays the same)
             return net + minOffset;
           }),
-          backgroundColor: '#4caf50', // Green
-          borderColor: '#2e7d32',
+          backgroundColor: '#43acff', // Green (updated color)
+          borderColor: '#43acff',
           borderWidth: 2,
           stack: 'stack1', // Group with Expense
         },
@@ -934,8 +1351,8 @@ const Dashboard: React.FC = () => {
             console.log(`Chart data - Month: ${item.month}, Incoming: ${incoming}`);
             return Math.abs(incoming); // Ensure positive value for display
           }),
-          backgroundColor: '#2196f3', // Blue
-          borderColor: '#1565c0',
+          backgroundColor: '#88d2eb', // Blue (updated color)
+          borderColor: '#88d2eb',
           borderWidth: 2,
           stack: 'stack2', // Separate stack - appears side by side with stack1
         },
@@ -1061,398 +1478,635 @@ const Dashboard: React.FC = () => {
 
   const stats = [
     {
-      title: 'Current Balance',
-      value: formatCurrency(currentBalance || 0),
-      change: 'Total across all accounts',
-      icon: <AccountBalance sx={{ fontSize: 40, color: 'secondary.main' }} />,
-      color: 'secondary.main',
-    },
-    {
-      title: 'Total Monthly Income',
+      icon: MoneyIcon,
+      label: 'Monthly Income',
       value: formatCurrency(totalMonthlyIncome || 0),
-      change: 'From income sources',
-      icon: <TrendingUp sx={{ fontSize: 40, color: 'primary.main' }} />,
-      color: 'primary.main',
+      change: '+12.5%',
+      trend: 'up' as const,
+      color: '#b3ee9a',
+      onClick: undefined,
     },
     {
-      title: 'Monthly Expense',
+      icon: CreditCardIcon,
+      label: 'Monthly Expenses',
       value: formatCurrency(monthlyExpense || 0),
-      change: 'Fixed expenses',
-      icon: <Receipt sx={{ fontSize: 40, color: 'success.main' }} />,
-      color: 'success.main',
+      change: '-8.3%',
+      trend: 'down' as const,
+      color: '#8b7fd6',
+      onClick: undefined,
     },
     {
-      title: 'Net Cash Flow (This Month)',
+      icon: AccountBalance,
+      label: 'Net Cash Flow',
       value: formatCurrency(disposableIncome || 0),
-      change: 'Available to spend',
-      icon: <People sx={{ fontSize: 40, color: 'info.main' }} />,
-      color: 'info.main',
+      change: '+18.9%',
+      trend: 'up' as const,
+      color: '#10b981',
+      onClick: handleDisposableCardClick,
     },
     {
-      title: 'Total Monthly Payment for Savings',
-      value: formatCurrency(totalMonthlySavingsPayment || 0),
-      change: 'Monthly savings target',
-      icon: <SavingsIcon sx={{ fontSize: 40, color: 'success.main' }} />,
-      color: 'success.main',
+      icon: SavingsIcon,
+      label: 'Monthly Savings',
+      value: totalMonthlyIncome
+        ? `${Math.round((totalMonthlySavingsPayment / totalMonthlyIncome) * 100)}%`
+        : formatCurrency(totalMonthlySavingsPayment || 0),
+      change: '+5.2%',
+      trend: 'up' as const,
+      color: '#ef4444',
+      onClick: undefined,
     },
   ];
-
   return (
     <Box sx={{ pl: { md: 1.5 } }}>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1a1a1a', mb: 3 }}>
-        Dashboard
-      </Typography>
       
-      {/* Profile Status Section */}
-      {isAuthenticated && (
-        <Box mb={3}>
-          {(hasProfile || (userProfile && userProfile.id)) ? (
-            <Alert 
-              severity="success" 
-              icon={<CheckCircle />}
-              sx={{ mb: 2 }}
-            >
-              <Box display="flex" alignItems="center" gap={2}>
-                <Typography variant="h6">
-                  Profile Complete
-                </Typography>
-                <Chip 
-                  label="Active" 
-                  color="success" 
-                  size="small"
-                />
-                {userProfile && (
-                  <Typography variant="body2" color="text.secondary">
-                    {userProfile.incomeSources?.length || 0} income source(s) configured
-                  </Typography>
-                )}
-              </Box>
-            </Alert>
-          ) : (
-            <Alert severity="warning">
-              <Typography variant="h6">
-                Profile Setup Required
-              </Typography>
-              <Typography variant="body2">
-                Please complete your profile setup to access all features.
-              </Typography>
-            </Alert>
-          )}
-        </Box>
-      )}
-      
+      <br/>
       <Grid container spacing={3}>
-        {/* Stats Cards */}
-        {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2.4} xl={2.4} key={index}>
-            <Card 
-              sx={{ 
-                cursor: (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? 'pointer' : 'default',
-                height: '100%',
-                border: '1px solid #e5e5e5',
-                '&:hover': (stat.title === 'Net Cash Flow (This Month)' || stat.title === 'Current Balance') ? {
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.3s ease'
-                } : {}
-              }}
-              onClick={
-                stat.title === 'Net Cash Flow (This Month)' ? handleDisposableCardClick : 
-                stat.title === 'Current Balance' ? handleBalanceCardClick : 
-                undefined
-              }
-            >
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Box sx={{ flex: 1 }}>
-                    <Typography 
-                      color="textSecondary" 
-                      gutterBottom 
-                      variant="body2"
-                      sx={{ 
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                        color: '#666666',
-                        mb: 1
-                      }}
-                    >
-                      {stat.title}
-                    </Typography>
-                    <Typography 
-                      variant="h4" 
-                      component="h2"
-                      sx={{ 
-                        fontWeight: 700,
-                        color: '#1a1a1a',
-                        mb: 1
-                      }}
-                    >
-                      {stat.value}
-                    </Typography>
-                    <Typography 
-                      color="textSecondary"
-                      variant="body2"
-                      sx={{ 
-                        fontSize: '0.75rem',
-                        color: '#666666'
-                      }}
-                    >
-                      {stat.change}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      p: 1,
-                      borderRadius: 1,
-                      backgroundColor: 'rgba(179, 238, 154, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {stat.icon}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+        
 
         {/* Main Content Area and Sidebar */}
         <Grid container item xs={12} spacing={3}>
           {/* Main Content Area */}
-          <Grid item xs={12} md={8}>
-            <Grid container spacing={3}>
-              {/* Financial Overview */}
-              <Grid item xs={12} md={8}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-                    Financial Overview - Monthly Cash Flow
-                  </Typography>
-                  {cashFlowLoading || loading ? (
-                    <Box>
-                      <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
-                    </Box>
-                  ) : cashFlowChartData.length > 0 ? (
-                    <Box sx={{ height: '338px', width: '100%' }}>
-                      <Bar 
-                        key="monthly-cashflow-chart"
-                        data={chartData} 
-                        options={chartOptions}
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No cash flow data available
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Transactions by Account */}
-              <Grid item xs={12} md={4}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
-                    Transactions by Account
-                  </Typography>
-                  {loading ? (
-                    <Box>
-                      <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
-                    </Box>
-                  ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
-                    <Box sx={{ height: '338px', width: '100%' }}>
-                      <Doughnut 
-                        data={donutChartData} 
-                        options={donutChartOptions}
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 338 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No accounts available
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Recent Transactions */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                      Recent Transactions
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Receipt />}
-                      href="/transactions"
+          <Grid item xs={12} md={9}>
+           
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+              {stats.map((stat, index) => {
+                const StatIcon = stat.icon;
+                return (
+                  <Grid item xs={12} sm={6} md={3} key={index}>
+                    <Paper
+                      elevation={0}
+                      onClick={stat.onClick}
+                      sx={{
+                        cursor: stat.onClick ? 'pointer' : 'default',
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'grey.200',
+                        height: '100%',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          borderColor: 'grey.300',
+                          boxShadow: 4,
+                        },
+                      }}
                     >
-                      View All
-                    </Button>
-                  </Box>
-                  {transactionsLoading ? (
-                    <Grid container spacing={2}>
-                      {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <Grid item xs={12} sm={6} md={4} key={i}>
-                          <Card>
-                            <CardContent>
-                              <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
-                              <Skeleton variant="text" width="50%" height={20} sx={{ mb: 2 }} />
-                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
-                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                                <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : recentTransactions.length > 0 ? (
-                    <Grid container spacing={2}>
-                      {recentTransactions.map((transaction) => (
-                        <Grid item xs={12} sm={6} md={4} key={transaction.id}>
-                          <TransactionCard 
-                            transaction={transaction} 
-                            onViewDetails={() => {
-                              // You could add a dialog here or navigate to transactions page
-                              console.log('View transaction details:', transaction);
-                            }}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No recent transactions found
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: `${stat.color}20`,
+                            transition: 'transform 0.2s',
+                            '&:hover': { transform: 'scale(1.1)' },
+                          }}
+                        >
+                          <StatIcon style={{ fontSize: 20, color: stat.color }} />
+                        </Box>
+                        <Chip
+                          size="small"
+                          icon={stat.trend === 'up' ? <TrendingUpIcon style={{ fontSize: 12 }} /> : <TrendingDownIcon style={{ fontSize: 12 }} />}
+                          label={stat.change}
+                          sx={{
+                            height: 22,
+                            fontSize: '0.75rem',
+                            bgcolor: stat.trend === 'up'
+                              ? '#E6FFE6'
+                              : (stat.trend === 'down'
+                                ? '#ef444420'
+                                : 'error.light'),
+                            color: stat.trend === 'up' ? '#006400' : 'error.dark', // Use dark green if trend is up
+                            '& .MuiChip-icon': { color: 'inherit' },
+                            border: 'none', // Remove border
+                          }}
+                          variant="filled" // Use filled variant to avoid default outlined border
+                        />
+                      </Box>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: 'grey.900', mb: 0.5 }}>
+                        {stat.value}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Your recent transactions will appear here
+                      <Typography variant="caption" sx={{ color: 'grey.500' }}>
+                        {stat.label}
                       </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
+                      {stat.label === 'Net Cash Flow' && (
+                        <Tooltip
+                          title={
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                What is "Disposable Income"?
+                              </Typography>
+                              <Typography variant="body2">
+                                This is the money you have left after paying all your bills and loans. You can use this for savings or other expenses.
+                              </Typography>
+                            </Box>
+                          }
+                          arrow
+                        >
+                          <Box component="span" sx={{ ml: 0.5, cursor: 'help', verticalAlign: 'middle' }}>
+                            <HelpOutlineIcon sx={{ fontSize: 14, color: 'grey.500' }} />
+                          </Box>
+                        </Tooltip>
+                      )}
+                    </Paper>
+                  </Grid>
+                );
+              })}
+            </Grid>
 
-              {/* Account Summary */}
-              <Grid item xs={12} md={9}>
-                <Paper sx={{ p: 2, border: '1px solid #e5e5e5' }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 1 }}>
-                    Account Summary
+
+
+            <Grid container spacing={3} alignItems="flex-start" sx={{ mb: 3 }}>
+              {/* Dashboard Title & Subtitle */}
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: { xs: 0, sm: 1 }, pt: { xs: 2, sm: 1 } }}>
+                  <Typography
+                    variant="h4"
+                    gutterBottom
+                    sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0 }}
+                  >
+                    Dashboard
                   </Typography>
-            {/* Clear description explaining where amounts come from */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-              This summary shows your total account balances from all bank accounts, savings accounts, and investment accounts. The amounts below represent your current financial position.
-            </Typography>
-            {/* Debug: Show current currency */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Debug: Current currency is {currency}
-            </Typography>
-            {loading ? (
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Skeleton variant="text" width="60%" height={24} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="40%" height={20} sx={{ mb: 0.5 }} />
-                  <Skeleton variant="text" width="50%" height={24} />
-                </Grid>
+                  <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{ mb: 0 }}
+                  >
+                    Manage your payments and transactions in one click
+                  </Typography>
+                </Box>
               </Grid>
-            ) : financialData ? (
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Balance</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Sum of all your account balances
-                    </Typography>
-                    <Typography variant="h6">{formatCurrency(financialData.totalBalance || 0)}</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Credit limit</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Combined credit limit from all credit card accounts
-                    </Typography>
-                    <Typography variant="h6">
-                      {formatCurrency((Array.isArray(financialData.accounts) ? financialData.accounts
-                        .filter((acc: any) => acc?.accountType?.toLowerCase() === 'credit_card')
-                        .reduce((sum: number, acc: any) => sum + (acc?.currentBalance || 0), 0) : 0))}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Active Accounts</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Number of accounts you have set up
-                    </Typography>
-                    <Typography variant="h6">{financialData.activeAccounts || 0}</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box mb={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Income</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Total money received from all income sources
-                    </Typography>
-                    <Typography variant="h6" color="success.main">{formatCurrency(financialData.totalIncoming || 0)}</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>Total Expense</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25, fontSize: '0.7rem' }}>
-                      Total money spent on all expenses
-                    </Typography>
-                    <Typography variant="h6" color="error.main">{formatCurrency(financialData.totalOutgoing || 0)}</Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            ) : (
-              <Typography>No financial data available</Typography>
-            )}
-              </Paper>
+              {/* Profile Status Section */}
+              <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, alignItems: 'center', pr: { xs: 0, sm: 1 }, pt: { xs: 1, sm: 2 } }}>
+                {isAuthenticated && (
+                  (hasProfile || (userProfile && userProfile.id)) ? (
+                    <Alert
+                      severity="success"
+                      icon={<CheckCircle />}
+                      sx={{
+                        pr: 2,
+                        py: 1,
+                        alignItems: 'center',
+                        minWidth: 230,
+                        width: { xs: '100%', sm: 'auto' },
+                        m: 0,
+                        '& .MuiAlert-message': { width: '100%', p: 0 },
+                        display: 'flex'
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 600, mr: 0.5 }}>
+                          Profile Complete
+                        </Typography>
+                        <Chip
+                          label="Active"
+                          color="success"
+                          size="small"
+                          sx={{ height: 24, fontSize: 13, fontWeight: 500, px: 1.5 }}
+                        />
+                        {userProfile && (
+                          <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                            {userProfile.incomeSources?.length || 0} income source(s) configured
+                          </Typography>
+                        )}
+                      </Box>
+                    </Alert>
+                  ) : (
+                    <Alert
+                      severity="warning"
+                      onClick={() => setShowOnboarding(true)}
+                      sx={{
+                        pr: 2,
+                        py: 1,
+                        alignItems: 'center',
+                        minWidth: 230,
+                        width: { xs: '100%', sm: 'auto' },
+                        m: 0,
+                        cursor: 'pointer',
+                        '& .MuiAlert-message': { width: '100%', p: 0 },
+                        display: 'flex',
+                        '&:hover': { opacity: 0.95 }
+                      }}
+                    >
+                      <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 600 }}>
+                        Profile Setup Required
+                      </Typography>
+                      <Typography variant="body2" sx={{ ml: 1 }}>
+                        Please complete your profile setup to access all features. Click to start.
+                      </Typography>
+                    </Alert>
+                  )
+                )}
               </Grid>
             </Grid>
-          </Grid>
 
-          {/* Right Sidebar */}
-          <Grid item xs={12} md={4}>
-            <Grid container spacing={3} direction="column">
-              {/* Savings Card */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2 }}>
+
+  
+      
+
+
+            <Grid container spacing={3}>
+
+            <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Paper
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  border: '1px solid #e5e5e5',
+                  bgcolor: 'background.paper',
+                  boxShadow: 1,
+                  height: '100%',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+                  '&:hover': { boxShadow: 2, borderColor: 'grey.300' },
+                }}
+                onClick={handleBalanceCardClick}
+              >
+                {/* Top: Total balance label, amount, +5% pill */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 400, color: 'grey.600', display: 'block' }}>
+                      Total balance
+                    </Typography>
+                    <Typography sx={{ fontSize: '2.25rem', fontWeight: 700, color: '#1a1a1a', mt: 1.25, lineHeight: 1.2 }}>
+                      {formatCurrency(financialData?.currentBalance ?? currentBalance ?? 0)}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    icon={<TrendingUpIcon sx={{ fontSize: 14, color: 'success.main' }} />}
+                    label="+5%"
+                    size="small"
+                    variant="filled"
+                    sx={{
+                      fontSize: 13,
+                      fontWeight: 400,
+                      bgcolor: '#E6FFE6',
+                      color: '#006400',
+                      border: 'none',
+                      boxShadow: 'none',
+                      '& .MuiChip-icon': { color: 'inherit' },
+                    }}
+                  />
+                </Box>
+                {/* Action buttons: Deposit, Transfer */}
+                <Box sx={{ display: 'flex', gap: 1.5, mb: 3 }}>
+                  <Button
+                    variant="outlined"
+                    size="medium"
+                    endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 18 }} />}
+                    onClick={(e) => { e.stopPropagation(); navigate('/transactions?addTransaction=true'); }}
+                    sx={{
+                      flex: 1,
+                      textTransform: 'none',
+                      fontSize: 16,
+                      fontWeight: 400,
+                      py: 1.25,
+                      borderColor: 'grey.300',
+                      color: 'grey.800',
+                      bgcolor: 'background.paper',
+                    }}
+                  >
+                    Deposit
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="medium"
+                    color="success"
+                    endIcon={<CallMadeIcon sx={{ fontSize: 18 }} />}
+                    onClick={(e) => { e.stopPropagation(); navigate('/transactions'); }}
+                    sx={{
+                      flex: 1,
+                      textTransform: 'none',
+                      fontSize: 16,
+                      fontWeight: 400,
+                      py: 1.25,
+                      color: 'grey.900',
+                    }}
+                  >
+                    Transfer
+                  </Button>
+                </Box>
+                {/* Main balance / Credit balance */}
+                <Box sx={{ display: 'flex', gap: 4, mb: 2 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 400, color: 'grey.600', display: 'block', mb: 0.75 }}>
+                      Main balance
+                    </Typography>
+                    <Typography sx={{ fontSize: '1.35rem', fontWeight: 700, color: '#1a1a1a' }}>
+                      {formatCurrency(mainBalance)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 14, fontWeight: 400, color: 'grey.600', display: 'block', mb: 0.75 }}>
+                      Credit balance
+                    </Typography>
+                    <Typography sx={{ fontSize: '1.35rem', fontWeight: 700, color: '#1a1a1a' }}>
+                      {formatCurrency(totalCreditCardBalance)}
+                    </Typography>
+                  </Box>
+                </Box>
+                {/* Credit progress bar */}
+                <Box sx={{ mt: 2 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={0}
+                    sx={{
+                      height: 6,
+                      borderRadius: 1,
+                      bgcolor: 'grey.200',
+                      '& .MuiLinearProgress-bar': { bgcolor: 'success.main', borderRadius: 1 },
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, gap: 2 }}>
+                    <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 400, color: 'grey.600' }}>
+                      0 credit spent
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 400, color: 'grey.600' }}>
+                      0%
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            </Grid>
+
+              {/* Financial Overview */}
+              <Grid item xs={12} md={8} sx={{ display: 'flex' }}>
+                <Paper
+                  sx={{
+                    p: 3,
+                    border: '1px solid',
+                    borderColor: 'grey.200',
+                    borderRadius: 2,
+                    height: '100%',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                    '&:hover': { borderColor: 'grey.300', boxShadow: 3 },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <InputLabel>Year</InputLabel>
+                      <Select
+                        value={selectedYear}
+                        label="Year"
+                        onChange={(e) => setSelectedYear(e.target.value as number)}
+                        sx={{
+                          bgcolor: 'grey.50',
+                          borderRadius: 1,
+                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.200' },
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'grey.300' },
+                        }}
+                      >
+                        {availableYears.map((year) => (
+                          <MenuItem key={year} value={year}>
+                            {year}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Box sx={{ display: 'flex', gap: 0.5, bgcolor: 'grey.100', p: 0.5, borderRadius: 1 }}>
+                      <Button
+                        size="small"
+                        onClick={() => setFinancialOverviewTab(0)}
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          textTransform: 'none',
+                          borderRadius: 1,
+                          ...(financialOverviewTab === 0
+                            ? { bgcolor: 'background.paper', color: 'grey.900', boxShadow: 1 }
+                            : { color: 'grey.600', '&:hover': { color: 'grey.900' } }),
+                        }}
+                      >
+                        Monthly Cash Flow
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => setFinancialOverviewTab(1)}
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          textTransform: 'none',
+                          borderRadius: 1,
+                          ...(financialOverviewTab === 1
+                            ? { bgcolor: 'background.paper', color: 'primary.main', boxShadow: 1 }
+                            : { color: 'grey.600', '&:hover': { color: 'grey.900' } }),
+                        }}
+                      >
+                        Expense Analysis (Top 10 - Year)
+                      </Button>
+                    </Box>
+                  </Box>
+
+                  {/* Cash Flow Tab */}
+                  {financialOverviewTab === 0 && (
+                    <>
+                      {cashFlowLoading || loading ? (
+                        <Box>
+                          <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                        </Box>
+                      ) : rechartsCashFlowData.length > 0 ? (
+                        <>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#1e3a8a' }} />
+                              <Typography variant="caption" color="text.secondary">Expense</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#3b82f6' }} />
+                              <Typography variant="caption" color="text.secondary">Net</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#93c5fd' }} />
+                              <Typography variant="caption" color="text.secondary">Income</Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ width: '100%', height: 280 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RechartsBarChart data={rechartsCashFlowData} barGap={8} barCategoryGap="20%">
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                <XAxis
+                                  dataKey="month"
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                                />
+                                <YAxis
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                                />
+                                <RechartsTooltip
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const data = payload[0].payload;
+                                    const total = data.expense + data.net;
+                                    const isBalanced = total === data.income;
+                                    return (
+                                      <Box
+                                        sx={{
+                                          bgcolor: 'background.paper',
+                                          border: '1px solid',
+                                          borderColor: 'grey.200',
+                                          borderRadius: 1,
+                                          p: 1.5,
+                                          boxShadow: 3,
+                                        }}
+                                      >
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                          {data.month}
+                                        </Typography>
+                                        <Box sx={{ '& > *': { mb: 0.5 } }}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#1e3a8a' }} />
+                                            <Typography variant="body2">Expense: {formatCurrency(data.expense)}</Typography>
+                                          </Box>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#3b82f6' }} />
+                                            <Typography variant="body2">Net: {formatCurrency(data.net)}</Typography>
+                                          </Box>
+                                          <Box sx={{ borderTop: 1, borderColor: 'grey.200', pt: 1, mt: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#93c5fd' }} />
+                                              <Typography variant="body2">Income: {formatCurrency(data.income)}</Typography>
+                                            </Box>
+                                            <Typography variant="caption" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                              <Typography component="span" variant="caption" color="text.secondary">Total (Exp+Net):</Typography>
+                                              <Typography component="span" variant="caption" sx={{ color: isBalanced ? 'success.main' : 'warning.main', fontWeight: 500 }}>
+                                                {formatCurrency(total)}
+                                              </Typography>
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: isBalanced ? 'success.main' : 'warning.main' }}>
+                                              {isBalanced ? '✓ Balanced' : total > data.income ? '⚠ Overspent' : '⚠ Underspent'}
+                                            </Typography>
+                                          </Box>
+                                        </Box>
+                                      </Box>
+                                    );
+                                  }}
+                                  cursor={{ fill: 'rgba(179, 238, 154, 0.1)' }}
+                                />
+                                <RechartsBar dataKey="expense" stackId="a" fill="#1e3a8a" radius={[0, 0, 0, 0]} maxBarSize={40} />
+                                <RechartsBar dataKey="net" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                <RechartsBar dataKey="income" fill="#93c5fd" radius={[4, 4, 0, 0]} maxBarSize={40} fillOpacity={0.6} />
+                              </RechartsBarChart>
+                            </ResponsiveContainer>
+                          </Box>
+                        </>
+                      ) : (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 280 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No cash flow data available
+                          </Typography>
+                        </Box>
+                      )}
+                    </>
+                  )}
+
+                  {/* Expense Analysis Tab */}
+                  {financialOverviewTab === 1 && (
+                    <>
+                      {expenseLoading ? (
+                        <Box>
+                          <Skeleton variant="rectangular" width="100%" height={338} sx={{ borderRadius: 1 }} />
+                        </Box>
+                      ) : rechartsExpenseData.length > 0 ? (
+                        <>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'error.main' }} />
+                              <Typography variant="caption" color="text.secondary">Expense Amount</Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ width: '100%', height: 280 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RechartsLineChart data={rechartsExpenseData} margin={{ top: 5, right: 30, left: 20, bottom: 50 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                                <XAxis
+                                  dataKey="category"
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 10 }}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={80}
+                                />
+                                <YAxis
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                                  tickFormatter={(value) => `${(value / 1000).toFixed(2)}`}
+                                />
+                                <RechartsTooltip
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const data = payload[0].payload;
+                                    return (
+                                      <Box
+                                        sx={{
+                                          bgcolor: 'background.paper',
+                                          border: '1px solid',
+                                          borderColor: 'grey.200',
+                                          borderRadius: 1,
+                                          p: 1.5,
+                                          boxShadow: 3,
+                                        }}
+                                      >
+                                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500 }}>
+                                          {data.category}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 600 }}>
+                                          {formatCurrency(data.amount)}
+                                        </Typography>
+                                      </Box>
+                                    );
+                                  }}
+                                />
+                                <RechartsLine
+                                  type="monotone"
+                                  dataKey="amount"
+                                  stroke="#ef4444"
+                                  strokeWidth={2}
+                                  dot={{ fill: '#ef4444', r: 4 }}
+                                  activeDot={{ r: 6 }}
+                                />
+                              </RechartsLineChart>
+                            </ResponsiveContainer>
+                          </Box>
+                        </>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: 280 }}>
+                          <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            No expense data available for this year
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Add transactions to see your spending by category
+                          </Typography>
+                        </Box>
+                      )}
+                    </>
+                  )}
+                </Paper>
+              </Grid>
+
+                {/* Savings Card */}
+                <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                      Savings
+                      Savings Goals
                     </Typography>
                     <Button
-                      variant="outlined"
+                      variant="contained"
+                      color="success"
                       size="small"
                       startIcon={<SavingsIcon />}
                       href="/savings"
@@ -1462,142 +2116,135 @@ const Dashboard: React.FC = () => {
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
                   {savingsLoading ? (
-                    <Box>
+                    <Box sx={{ flex: 1 }}>
                       <Skeleton variant="rectangular" width="100%" height={12} sx={{ mb: 3, borderRadius: 1 }} />
                       <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
                       <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
                       <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
                     </Box>
                   ) : savingsAccounts.length > 0 ? (
-                    <Box>
-                      {/* Calculate total and percentages for progress bar */}
+                    <Box sx={{ flex: 1 }}>
                       {(() => {
-                        const totalBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
-                        
-                        // Color palette for diverging stacked bar chart (matching the image style)
+                        // Color palette for savings goals (green, purple, red like reference)
                         const getAccountColor = (idx: number) => {
                           const colors = [
+                            '#22c55e', // Green
+                            '#8b5cf6', // Purple
                             '#ef4444', // Red
-                            '#f87171', // Light red/pink
-                            '#fef08a', // Light yellow
-                            '#fbbf24', // Yellow
-                            '#f59e0b', // Orange/golden yellow
-                            '#fb923c', // Orange
-                            '#f97316', // Dark orange
-                            '#ea580c', // Deep orange
+                            '#f59e0b', // Amber
+                            '#06b6d4', // Cyan
+                            '#ec4899', // Pink
                           ];
                           return colors[idx % colors.length];
                         };
                         
                         return (
                           <>
-                            {/* Diverging Stacked Bar Chart with Percentage Labels */}
-                            <Box 
-                              sx={{ 
-                                position: 'relative',
-                                display: 'flex', 
-                                width: '100%', 
-                                height: '32px', 
-                                borderRadius: '16px',
-                                overflow: 'hidden',
-                                mb: 3,
-                                backgroundColor: '#f0f0f0'
-                              }}
-                            >
-                              {savingsAccounts.map((account, index) => {
-                                const percentage = totalBalance > 0 ? ((account.currentBalance || 0) / totalBalance) * 100 : 0;
-                                const accountColor = getAccountColor(index);
-                                const isFirst = index === 0;
-                                const isLast = index === savingsAccounts.length - 1;
-                                
-                                return (
-                                  <Box
-                                    key={account.id}
-                                    sx={{
-                                      position: 'relative',
-                                      width: `${percentage}%`,
-                                      backgroundColor: accountColor,
-                                      transition: 'width 0.3s ease',
-                                      minWidth: percentage > 2 ? '0' : '0',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      ...(isFirst && {
-                                        borderTopLeftRadius: '16px',
-                                        borderBottomLeftRadius: '16px',
-                                      }),
-                                      ...(isLast && {
-                                        borderTopRightRadius: '16px',
-                                        borderBottomRightRadius: '16px',
-                                      }),
-                                    }}
-                                  >
-                                    {percentage > 5 && (
+                            {savingsAccounts.map((account, index) => {
+                              const accountColor = getAccountColor(index);
+                              const progressPercentage = account.targetAmount > 0 
+                                ? Math.min((account.currentBalance / account.targetAmount) * 100, 100) 
+                                : 0;
+                              const deadlineStr = account.targetDate
+                                ? new Date(account.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                : null;
+                              
+                              return (
+                                <Box 
+                                  key={account.id}
+                                  sx={{ 
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    mb: 2.5,
+                                    pb: 2.5,
+                                    borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
+                                  }}
+                                >
+                                  {/* Circular progress with percentage in center */}
+                                  <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                                    {/* Grey track (full circle) */}
+                                    <CircularProgress
+                                      variant="determinate"
+                                      value={100}
+                                      size={56}
+                                      thickness={4}
+                                      sx={{
+                                        position: 'absolute',
+                                        color: '#e5e5e5',
+                                      }}
+                                    />
+                                    <CircularProgress
+                                      variant="determinate"
+                                      value={progressPercentage}
+                                      size={56}
+                                      thickness={4}
+                                      sx={{
+                                        color: accountColor,
+                                        '& .MuiCircularProgress-circle': {
+                                          strokeLinecap: 'round',
+                                        },
+                                      }}
+                                    />
+                                    <Box
+                                      sx={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        bottom: 0,
+                                        right: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                      }}
+                                    >
                                       <Typography
-                                        variant="caption"
-                                        sx={{
-                                          color: '#fff',
-                                          fontWeight: 600,
-                                          fontSize: '0.75rem',
-                                          textShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                                          whiteSpace: 'nowrap',
-                                        }}
+                                        variant="body2"
+                                        component="span"
+                                        sx={{ fontWeight: 600, color: '#1a1a1a' }}
                                       >
-                                        {percentage.toFixed(0)}%
+                                        {progressPercentage.toFixed(0)}%
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                  {/* Track ring (unfilled) - rendered behind so we need a grey circle behind the colored one. MUI CircularProgress with determinate already shows grey for the remaining part, so we're good. */}
+                                  
+                                  {/* Goal details (middle) */}
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography 
+                                      variant="body1" 
+                                      sx={{ fontWeight: 500, color: '#1a1a1a' }}
+                                    >
+                                      {account.accountName}
+                                    </Typography>
+                                    {deadlineStr && (
+                                      <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>
+                                        Deadline: {deadlineStr}
+                                      </Typography>
+                                    )}
+                                    {account.monthlyTarget > 0 && (
+                                      <Typography variant="caption" sx={{ color: '#22c55e', display: 'block', mt: 0.25 }}>
+                                        {formatCurrency(account.monthlyTarget || 0)}/mo target
                                       </Typography>
                                     )}
                                   </Box>
-                                );
-                              })}
-                            </Box>
-
-                            {/* Savings List */}
-                            {savingsAccounts.map((account, index) => {
-                              const accountColor = getAccountColor(index);
-                              
-                              return (
-                                <Box key={account.id}>
-                                  <Box 
-                                    sx={{ 
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      mb: 2,
-                                      pb: 2,
-                                      borderBottom: index !== savingsAccounts.length - 1 ? '1px solid #e5e5e5' : 'none'
-                                    }}
-                                  >
-                                    {/* Colored Vertical Bar */}
-                                    <Box
-                                      sx={{
-                                        width: '4px',
-                                        height: '48px',
-                                        backgroundColor: accountColor,
-                                        borderRadius: '2px',
-                                        mr: 2,
-                                        flexShrink: 0,
-                                      }}
-                                    />
-                                    
-                                    {/* Account Info */}
-                                    <Box sx={{ flex: 1 }}>
-                                      <Typography 
-                                        variant="body1" 
-                                        sx={{ 
-                                          fontWeight: 500,
-                                          color: '#1a1a1a',
-                                          mb: 0.5
-                                        }}
-                                      >
-                                        {account.accountName}
+                                  
+                                  {/* Save Up | Goal (right, two columns) */}
+                                  <Box sx={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                                    <Box sx={{ textAlign: 'left', minWidth: 72 }}>
+                                      <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>
+                                        Save Up
                                       </Typography>
-                                      <Typography 
-                                        variant="h6" 
-                                        sx={{ 
-                                          fontWeight: 700,
-                                          color: '#1a1a1a'
-                                        }}
-                                      >
+                                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
                                         {formatCurrency(account.currentBalance || 0)}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ textAlign: 'left', minWidth: 72 }}>
+                                      <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>
+                                        Goal
+                                      </Typography>
+                                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                                        {formatCurrency(account.targetAmount || 0)}
                                       </Typography>
                                     </Box>
                                   </Box>
@@ -1609,7 +2256,7 @@ const Dashboard: React.FC = () => {
                       })()}
                     </Box>
                   ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Box sx={{ flex: 1, textAlign: 'center', py: 4, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <SavingsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                       <Typography variant="body2" color="text.secondary">
                         No savings accounts yet
@@ -1622,40 +2269,61 @@ const Dashboard: React.FC = () => {
                 </Paper>
               </Grid>
 
-              {/* Unpaid Bills & Utilities */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-                      Unpaid Bills & Utilities
+              {/* Transactions by Account */}
+              <Grid item xs={12} md={6} sx={{ display: 'flex' }}>
+                <Paper sx={{ p: 2, border: '1px solid #e5e5e5', height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexShrink: 0 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Transactions by Account
                     </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Receipt />}
-                      href="/bills"
-                    >
-                      View All Bills
-                    </Button>
+                    {!loading && financialData?.accounts?.length > 0 && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate('/transactions?addTransaction=true')}
+                      >
+                        Add Transaction
+                      </Button>
+                    )}
                   </Box>
-                  {unpaidBillsLoading ? (
-                    <Box>
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
-                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                  {loading ? (
+                    <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Skeleton variant="rectangular" width={280} height={280} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : financialData && financialData.accounts && financialData.accounts.length > 0 ? (
+                    <Box 
+                      sx={{ 
+                        height: 280, 
+                        width: '100%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        flex: 1 
+                      }}
+                    >
+                     
+                        <Doughnut 
+                          data={donutChartData} 
+                          options={donutChartOptions}
+                        />
+                      
                     </Box>
                   ) : (
-                    <UnpaidBillsCard
-                      bills={filteredUnpaidBills}
-                      onViewBill={(billId) => navigate(`/bills/${billId}`)}
-                      onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
-                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 280, width: '100%' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                        No accounts available
+                      </Typography>
+                    </Box>
                   )}
                 </Paper>
               </Grid>
 
-              {/* Recent Activity */}
-              <Grid item xs={12}>
+             
+
+              
+               {/* Recent Activity */}
+               <Grid item xs={12} md={6}>
                 <Card sx={{ border: '1px solid #e5e5e5', height: '100%' }}>
                   <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
@@ -1827,31 +2495,482 @@ const Dashboard: React.FC = () => {
                           </Card>
                         </Grid>
                       </Grid>
-                    ) : (
-                      <Alert 
-                        severity="info" 
-                        icon={<InfoIcon />}
-                        sx={{ 
-                          background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
-                          border: '1px solid',
-                          borderColor: 'info.light'
-                        }}
-                      >
-                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                          Profile Setup Required
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary" component="div">
-                          <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                            <li>Complete your profile to see financial data</li>
-                            <li>Add income sources to get started</li>
-                            <li>Set up financial goals</li>
+                    ) : (() => {
+                      // Check if user has income sources (even without profile)
+                      const hasIncomeSources = incomeSourcesSummary?.incomeSources?.length > 0 || 
+                                              incomeSourcesSummary?.totalSources > 0;
+                      
+                      // If profile exists in localStorage, we definitely have a profile (just loading from AuthContext)
+                      // Never show "Profile Setup Required" if profile exists in localStorage OR if user has income sources
+                      const hasProfileData = hasProfile || (userProfile && userProfile.id) || profileInSessionStorage || hasIncomeSources;
+                      const isLoading = profileLoading || checkingProfile || (profileInSessionStorage && !hasProfile);
+                      
+                      if (isLoading) {
+                        return (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Loading profile data...
+                            </Typography>
                           </Box>
-                        </Typography>
-                      </Alert>
-                    )}
+                        );
+                      } else if (recentActivity) {
+                        // TypeScript type guard - recentActivity is not null here
+                        const activity: {
+                          incomeSourcesCount: number;
+                          totalMonthlyIncome: number;
+                          totalMonthlyGoals: number;
+                          disposableAmount: number;
+                          hasProfile: boolean;
+                          profileStatus: string;
+                        } = recentActivity;
+                        return (
+                          <Grid container spacing={2}>
+                        {/* Profile Status */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: activity.hasProfile 
+                                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                                : 'linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%)',
+                              borderColor: activity.hasProfile ? 'success.light' : 'warning.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <AccountCircle 
+                                  sx={{ 
+                                    fontSize: 24, 
+                                    color: activity.hasProfile ? 'success.main' : 'warning.main',
+                                    mr: 1 
+                                  }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Profile Status
+                                </Typography>
+                              </Box>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontWeight: 600,
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {activity.profileStatus}
+                              </Typography>
+                              <Chip
+                                label={`${activity.incomeSourcesCount} income source${activity.incomeSourcesCount !== 1 ? 's' : ''}`}
+                                size="small"
+                                color={activity.hasProfile ? 'success' : 'warning'}
+                                variant="outlined"
+                                sx={{ 
+                                  color: '#1a1a1a',
+                                  '& .MuiChip-label': { color: '#1a1a1a' }
+                                }}
+                              />
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Monthly Income */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                              borderColor: 'primary.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <TrendingUpIcon 
+                                  sx={{ fontSize: 24, color: 'primary.main', mr: 1 }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Monthly Income
+                                </Typography>
+                              </Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                {formatCurrency(activity.totalMonthlyIncome)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                From {activity.incomeSourcesCount} source{activity.incomeSourcesCount !== 1 ? 's' : ''}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Monthly Goals */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: 'linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(156, 39, 176, 0.05) 100%)',
+                              borderColor: 'secondary.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <TrackChanges 
+                                  sx={{ fontSize: 24, color: 'secondary.main', mr: 1 }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Monthly Goals
+                                </Typography>
+                              </Box>
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1a1a1a', mb: 0.5 }}>
+                                {formatCurrency(activity.totalMonthlyGoals)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                Savings, Investment & Emergency
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+
+                        {/* Disposable Amount */}
+                        <Grid item xs={12}>
+                          <Card 
+                            variant="outlined" 
+                            sx={{ 
+                              background: activity.disposableAmount >= 0
+                                ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%)'
+                                : 'linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(244, 67, 54, 0.05) 100%)',
+                              borderColor: activity.disposableAmount >= 0 ? 'success.light' : 'error.light'
+                            }}
+                          >
+                            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                              <Box display="flex" alignItems="center" mb={0.5}>
+                                <MoneyIcon 
+                                  sx={{ 
+                                    fontSize: 24, 
+                                    color: activity.disposableAmount >= 0 ? 'success.main' : 'error.main',
+                                    mr: 1 
+                                  }} 
+                                />
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1a1a1a' }}>
+                                  Disposable Amount
+                                </Typography>
+                              </Box>
+                              <Typography 
+                                variant="h6" 
+                                sx={{ 
+                                  fontWeight: 700, 
+                                  color: '#1a1a1a',
+                                  mb: 0.5
+                                }}
+                              >
+                                {formatCurrency(activity.disposableAmount)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#1a1a1a' }}>
+                                Available this month
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      </Grid>
+                        );
+                      } else if (hasProfileData) {
+                        // Has profile or income sources but no recent activity data yet
+                        return (
+                          <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              No recent activity data available
+                            </Typography>
+                          </Box>
+                        );
+                      } else {
+                        // No profile and no income sources - show setup required
+                        return (
+                          <Alert 
+                            severity="info" 
+                            icon={<InfoIcon />}
+                            onClick={() => setShowOnboarding(true)}
+                            sx={{ 
+                              cursor: 'pointer',
+                              background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                              border: '1px solid',
+                              borderColor: 'info.light',
+                              '&:hover': { opacity: 0.95 }
+                            }}
+                          >
+                            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                              Profile Setup Required
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" component="div">
+                              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                                <li>Complete your profile to see financial data</li>
+                                <li>Add income sources to get started</li>
+                                <li>Set up financial goals</li>
+                              </Box>
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+                              Click here to open setup wizard
+                            </Typography>
+                          </Alert>
+                        );
+                      }
+                    })()}
                   </CardContent>
                 </Card>
               </Grid>
+
+                {/* Loan Payment Schedule Calendar */}
+                <Grid item xs={12} md={6}>
+                <LoanScheduleCalendar />
+              </Grid>
+
+            
+
+             
+            </Grid>
+          </Grid>
+
+          {/* Right Sidebar */}
+          <Grid item xs={12} md={3} sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+            <Grid container spacing={3} direction="column" sx={{ width: '100%', maxWidth: '100%' }}>
+             
+              {/* Bank Account Card */}
+              <Grid item xs={12} md={9}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Bank Accounts
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      size="small"
+                      startIcon={<AccountBalance />}
+                      href="/bank-accounts"
+                    >
+                      Manage Accounts
+                    </Button>
+                  </Box>
+                  <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
+                  
+                  {bankAccountCardLoading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={220} sx={{ mb: 2, borderRadius: 3 }} />
+                    </Box>
+                  ) : dashboardBankAccounts.length > 0 ? (
+                    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+                      {/* Bank Account Card Slider */}
+                      <Box sx={{ mb: 3, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+                        <BankAccountCardSlider
+                          accounts={dashboardBankAccounts}
+                          selectedAccountId={selectedBankAccountId}
+                          onSelectAccount={setSelectedBankAccountId}
+                        />
+                      </Box>
+
+                      {/* Transactions for Selected Account */}
+                      {selectedBankAccountId && (
+                        <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+                          <Divider sx={{ mb: 2, borderColor: '#e5e5e5' }} />
+                          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a', mb: 2 }}>
+                            Transactions - {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                          </Typography>
+                          
+                          {bankAccountTransactionsLoading ? (
+                            <Box>
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 1, borderRadius: 1 }} />
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 1, borderRadius: 1 }} />
+                              <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                            </Box>
+                          ) : bankAccountTransactions.length > 0 ? (
+                            <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+                              {bankAccountTransactions.map((transaction) => {
+                                const transactionDate = new Date(transaction.transactionDate);
+                                const formattedDate = transactionDate.toLocaleDateString('en-US', {
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  year: 'numeric'
+                                });
+                                const formattedTime = transactionDate.toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                });
+                                
+                                return (
+                                  <Box
+                                    key={transaction.id}
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      mb: 2,
+                                      pb: 2,
+                                      borderBottom: '1px solid #e5e5e5',
+                                      width: '100%',
+                                      maxWidth: '100%',
+                                      overflow: 'hidden',
+                                      '&:last-child': {
+                                        borderBottom: 'none',
+                                        mb: 0,
+                                        pb: 0,
+                                      },
+                                    }}
+                                  >
+                                    {/* Category Chip */}
+                                    <Box sx={{ mr: 1.5, mt: 0.5, flexShrink: 0 }}>
+                                      <Chip
+                                        label={transaction.category || 'Uncategorized'}
+                                        size="small"
+                                        sx={{
+                                          fontSize: '0.7rem',
+                                          height: 20,
+                                          minWidth: 60,
+                                          maxWidth: 80,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                        }}
+                                      />
+                                    </Box>
+                                    
+                                    {/* Transaction Details */}
+                                    <Box sx={{ flex: 1, minWidth: 0, maxWidth: 'calc(100% - 100px)', overflow: 'hidden' }}>
+                                      {/* Title and Amount Row */}
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'flex-start',
+                                          gap: 1,
+                                          mb: 0.5,
+                                          width: '100%',
+                                          minWidth: 0,
+                                        }}
+                                      >
+                                        <Box
+                                          component="div"
+                                          sx={{
+                                            flex: '1 1 auto',
+                                            minWidth: 0,
+                                            maxWidth: '100%',
+                                            overflow: 'hidden',
+                                            display: 'flex',
+                                          }}
+                                        >
+                                          <Typography
+                                            variant="body2"
+                                            component="span"
+                                            sx={{
+                                              fontWeight: 500,
+                                              color: '#1a1a1a',
+                                              minWidth: 0,
+                                              maxWidth: '100%',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap',
+                                              display: 'inline-block',
+                                            }}
+                                            title={transaction.description || 'Transaction'}
+                                          >
+                                            {truncateTransactionDescription(transaction.description || 'Transaction')}
+                                          </Typography>
+                                        </Box>
+                                        <Typography
+                                          variant="body2"
+                                          component="div"
+                                          sx={{
+                                            fontWeight: 600,
+                                            color: transaction.transactionType === 'CREDIT' ? 'success.main' : 'error.main',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0,
+                                            ml: 'auto',
+                                          }}
+                                        >
+                                          {transaction.transactionType === 'CREDIT' ? '+' : '-'}
+                                          {formatCurrency(Math.abs(transaction.amount))}
+                                        </Typography>
+                                      </Box>
+                                      
+                                      {/* Date and Time Row */}
+                                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            color: 'text.secondary',
+                                            fontSize: '0.75rem',
+                                          }}
+                                        >
+                                          {formattedDate} {formattedTime}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          ) : (
+                            <Box sx={{ textAlign: 'center', py: 4 }}>
+                              <Receipt sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                              <Typography variant="body2" color="text.secondary">
+                                No transactions found for this month
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <AccountBalance sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No bank accounts found
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        Add a bank account to get started
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate('/bank-accounts')}
+                        sx={{ mt: 2 }}
+                      >
+                        Add Bank Account
+                      </Button>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+ {/* Unpaid Bills & Utilities */}
+ <Grid item xs={12}>
+                <Paper sx={{ p: 3, border: '1px solid #e5e5e5' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1a1a1a' }}>
+                      Unpaid Bills & Utilities
+                    </Typography>
+                    <Button
+                       variant="contained"
+                       color="success"
+                       size="small"
+                      startIcon={<Receipt />}
+                      href="/bills"
+                    >
+                      View All Bills
+                    </Button>
+                  </Box>
+                  {unpaidBillsLoading ? (
+                    <Box>
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ mb: 2, borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={60} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  ) : (
+                    <UnpaidBillsCard
+                      bills={filteredUnpaidBills}
+                      onViewBill={(billId) => navigate(`/bills/${billId}`)}
+                      onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
+                    />
+                  )}
+                </Paper>
+              </Grid>
+
+         
+             
             </Grid>
           </Grid>
         </Grid>

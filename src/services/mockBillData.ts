@@ -274,7 +274,11 @@ export const mockBillDataService = {
     if (updateData.status === BillStatus.PAID && !mockBills[billIndex].paidAt) {
       updatedBill.paidAt = new Date().toISOString();
     }
-    
+    // If status is being updated to PENDING (unpaid), clear paidAt
+    if (updateData.status === BillStatus.PENDING) {
+      updatedBill.paidAt = undefined;
+    }
+
     mockBills[billIndex] = updatedBill;
     return updatedBill;
   },

@@ -14,6 +14,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Close as CloseIcon,
+  AccountBalance as AccountBalanceIcon,
 } from '@mui/icons-material';
 import { BankAccount, CreateBankAccountRequest, UpdateBankAccountRequest } from '../../types/bankAccount';
 import { apiService } from '../../services/api';
@@ -76,7 +77,7 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
       setFormData({
         accountName: account.accountName,
         accountType: account.accountType,
-        initialBalance: account.initialBalance,
+        initialBalance: account.currentBalance,
         currency: account.currency,
         description: account.description || '',
         financialInstitution: account.financialInstitution || '',
@@ -400,7 +401,7 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
                 fullWidth
                 required
                 inputProps={{ maxLength: 255 }}
-                helperText="Example: 'My Checking Account' or 'Chase Savings'"
+                helperText="Give your account a name you'll remember, like 'Main Checking' or 'Savings for Vacation'"
                 placeholder="Enter a descriptive name"
               />
             </Grid>
@@ -470,7 +471,26 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
                 fullWidth
                 required
                 inputProps={{ step: "0.01", min: "0" }}
-                helperText={account ? "Update to match your bank statement" : "Enter 0 if starting with no balance"}
+                helperText="Enter how much money is currently in this account"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <InputLabel>Card Number</InputLabel>
+                <Tooltip title="Your debit or credit card number. Enter the last 4 digits for privacy, or the full card number if you want to enable Transaction Analyzer features. This helps identify transactions automatically." arrow>
+                  <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                </Tooltip>
+              </Box>
+              <TextField
+                name="iban"
+                label="Card Number"
+                value={formatIban(formData.iban)}
+                onChange={handleIbanChange}
+                fullWidth
+                inputProps={{ maxLength: 19 }}
+                placeholder="1234 or full Card Number"
+                helperText="Last 4 digits for privacy, or full number for Transaction Analyzer"
               />
             </Grid>
             
@@ -496,272 +516,287 @@ const BankAccountForm: React.FC<BankAccountFormProps> = ({ open, onClose, accoun
             </Grid>
 
             {!account && (
-              <>
-                {/* Bank Information */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    Bank Information
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Financial Institution</InputLabel>
-                    <Tooltip title="The name of your bank or financial institution (e.g., 'Chase Bank', 'Bank of America'). This helps identify where the account is held." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <TextField
-                    name="financialInstitution"
-                    label="Financial Institution"
-                    value={formData.financialInstitution}
-                    onChange={handleChange}
-                    fullWidth
-                    inputProps={{ maxLength: 100 }}
-                    helperText="Example: 'Chase Bank', 'Wells Fargo'"
-                    placeholder="Enter bank name"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Account Number</InputLabel>
-                    <Tooltip title="Your bank account number. For privacy, you can enter just the last 4 digits. The system will securely store this information." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <TextField
-                    name="accountNumber"
-                    label="Account Number"
-                    value={formatAccountNumber(formData.accountNumber)}
-                    onChange={handleAccountNumberChange}
-                    fullWidth
-                    inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
-                    placeholder="1234 or full account number"
-                    helperText="Enter last 4 digits for privacy, or full account number. Found on your checks or bank statement."
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Routing Number</InputLabel>
-                    <Tooltip title="A 9-digit number that identifies your bank. You can find this on the bottom left of your checks or on your bank statement. Used for ACH transfers and direct deposits." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <TextField
-                    name="routingNumber"
-                    label="Routing Number"
-                    value={formData.routingNumber}
-                    onChange={handleChange}
-                    fullWidth
-                    inputProps={{ maxLength: 9, pattern: '[0-9]*' }}
-                    helperText="9-digit number found on checks (bottom left) or bank statement"
-                    placeholder="123456789"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Sync Frequency</InputLabel>
-                    <Tooltip title="How often the system should automatically sync transactions with your bank. Daily sync keeps your data most up-to-date, while Manual requires you to sync when needed. Note: Automatic syncing requires bank connection." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <FormControl fullWidth>
-                    <InputLabel>Sync Frequency</InputLabel>
-                    <Select
-                      name="syncFrequency"
-                      value={formData.syncFrequency}
-                      label="Sync Frequency"
-                      onChange={handleSelectChange}
-                    >
-                      <MenuItem value="DAILY">
-                        <Box>
-                          <Typography variant="body2">Daily</Typography>
-                          <Typography variant="caption" color="text.secondary">Sync every day (most up-to-date)</Typography>
+              <Grid item xs={12} sx={{ mt: 2 }}>
+                <Accordion defaultExpanded={false}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AccountBalanceIcon color="action" />
+                      <Typography variant="h6">Bank Information</Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Financial Institution</InputLabel>
+                          <Tooltip title="The name of your bank or financial institution (e.g., 'Chase Bank', 'Bank of America'). This helps identify where the account is held." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                      <MenuItem value="WEEKLY">
-                        <Box>
-                          <Typography variant="body2">Weekly</Typography>
-                          <Typography variant="caption" color="text.secondary">Sync once per week</Typography>
+                        <TextField
+                          name="financialInstitution"
+                          label="Financial Institution"
+                          value={formData.financialInstitution}
+                          onChange={handleChange}
+                          fullWidth
+                          inputProps={{ maxLength: 100 }}
+                          helperText="Example: 'Chase Bank', 'Wells Fargo'"
+                          placeholder="Enter bank name"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Account Number</InputLabel>
+                          <Tooltip title="Your bank account number. For privacy, you can enter just the last 4 digits. The system will securely store this information." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                      <MenuItem value="MONTHLY">
-                        <Box>
-                          <Typography variant="body2">Monthly</Typography>
-                          <Typography variant="caption" color="text.secondary">Sync once per month</Typography>
+                        <TextField
+                          name="accountNumber"
+                          label="Account Number"
+                          value={formatAccountNumber(formData.accountNumber)}
+                          onChange={handleAccountNumberChange}
+                          fullWidth
+                          inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
+                          placeholder="1234 or full account number"
+                          helperText="Enter last 4 digits for privacy, or full account number. Found on your checks or bank statement."
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Routing Number</InputLabel>
+                          <Tooltip title="A 9-digit number that identifies your bank. You can find this on the bottom left of your checks or on your bank statement. Used for ACH transfers and direct deposits." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                      <MenuItem value="MANUAL">
-                        <Box>
-                          <Typography variant="body2">Manual</Typography>
-                          <Typography variant="caption" color="text.secondary">You control when to sync</Typography>
+                        <TextField
+                          name="routingNumber"
+                          label="Routing Number"
+                          value={formData.routingNumber}
+                          onChange={handleChange}
+                          fullWidth
+                          inputProps={{ maxLength: 9, pattern: '[0-9]*' }}
+                          helperText="9-digit number found on checks (bottom left) or bank statement"
+                          placeholder="123456789"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Sync Frequency</InputLabel>
+                          <Tooltip title="How often the system should automatically sync transactions with your bank. Daily sync keeps your data most up-to-date, while Manual requires you to sync when needed. Note: Automatic syncing requires bank connection." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
+                        <FormControl fullWidth>
+                          <InputLabel>Sync Frequency</InputLabel>
+                          <Select
+                            name="syncFrequency"
+                            value={formData.syncFrequency}
+                            label="Sync Frequency"
+                            onChange={handleSelectChange}
+                          >
+                            <MenuItem value="DAILY">
+                              <Box>
+                                <Typography variant="body2">Daily</Typography>
+                                <Typography variant="caption" color="text.secondary">Sync every day (most up-to-date)</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="WEEKLY">
+                              <Box>
+                                <Typography variant="body2">Weekly</Typography>
+                                <Typography variant="caption" color="text.secondary">Sync once per week</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="MONTHLY">
+                              <Box>
+                                <Typography variant="body2">Monthly</Typography>
+                                <Typography variant="caption" color="text.secondary">Sync once per month</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="MANUAL">
+                              <Box>
+                                <Typography variant="body2">Manual</Typography>
+                                <Typography variant="caption" color="text.secondary">You control when to sync</Typography>
+                              </Box>
+                            </MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      
+                      {/* International Information (Optional) */}
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
+                          International Information (Optional)
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>SWIFT Code</InputLabel>
+                          <Tooltip title="SWIFT (Society for Worldwide Interbank Financial Telecommunication) code is an 8-11 character code that identifies your bank for international transfers. Only needed if you make or receive international wire transfers. Example: CHASUS33 for Chase Bank USA." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
+                        </Box>
+                        <TextField
+                          name="swiftCode"
+                          label="SWIFT Code"
+                          value={formData.swiftCode}
+                          onChange={handleChange}
+                          fullWidth
+                          inputProps={{ maxLength: 11 }}
+                          placeholder="CHASUS33"
+                          helperText="8-11 characters. Only needed for international transfers"
+                        />
+                      </Grid>
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              </Grid>
             )}
 
             {/* Bank Information section for editing existing accounts */}
             {account && (
-              <>
-                {/* Bank Information */}
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    Bank Information
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Financial Institution</InputLabel>
-                    <Tooltip title="The name of your bank or financial institution (e.g., 'Chase Bank', 'Bank of America'). This helps identify where the account is held." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <TextField
-                    name="financialInstitution"
-                    label="Financial Institution"
-                    value={formData.financialInstitution}
-                    onChange={handleChange}
-                    fullWidth
-                    inputProps={{ maxLength: 100 }}
-                    helperText="Example: 'Chase Bank', 'Wells Fargo'"
-                    placeholder="Enter bank name"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Account Number</InputLabel>
-                    <Tooltip title="Your bank account number. For privacy, you can enter just the last 4 digits. The system will securely store this information." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <TextField
-                    name="accountNumber"
-                    label="Account Number"
-                    value={formatAccountNumber(formData.accountNumber)}
-                    onChange={handleAccountNumberChange}
-                    fullWidth
-                    inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
-                    placeholder="1234 or full account number"
-                    helperText="Enter last 4 digits for privacy, or full account number. Found on your checks or bank statement."
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Routing Number</InputLabel>
-                    <Tooltip title="A 9-digit number that identifies your bank. You can find this on the bottom left of your checks or on your bank statement. Used for ACH transfers and direct deposits." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <TextField
-                    name="routingNumber"
-                    label="Routing Number"
-                    value={formData.routingNumber}
-                    onChange={handleChange}
-                    fullWidth
-                    inputProps={{ maxLength: 9, pattern: '[0-9]*' }}
-                    helperText="9-digit number found on checks (bottom left) or bank statement"
-                    placeholder="123456789"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InputLabel>Sync Frequency</InputLabel>
-                    <Tooltip title="How often the system should automatically sync transactions with your bank. Daily sync keeps your data most up-to-date, while Manual requires you to sync when needed. Note: Automatic syncing requires bank connection." arrow>
-                      <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Box>
-                  <FormControl fullWidth>
-                    <InputLabel>Sync Frequency</InputLabel>
-                    <Select
-                      name="syncFrequency"
-                      value={formData.syncFrequency}
-                      label="Sync Frequency"
-                      onChange={handleSelectChange}
-                    >
-                      <MenuItem value="DAILY">
-                        <Box>
-                          <Typography variant="body2">Daily</Typography>
-                          <Typography variant="caption" color="text.secondary">Sync every day (most up-to-date)</Typography>
+              <Grid item xs={12} sx={{ mt: 2 }}>
+                <Accordion defaultExpanded={false}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AccountBalanceIcon color="action" />
+                      <Typography variant="h6">Bank Information</Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Financial Institution</InputLabel>
+                          <Tooltip title="The name of your bank or financial institution (e.g., 'Chase Bank', 'Bank of America'). This helps identify where the account is held." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                      <MenuItem value="WEEKLY">
-                        <Box>
-                          <Typography variant="body2">Weekly</Typography>
-                          <Typography variant="caption" color="text.secondary">Sync once per week</Typography>
+                        <TextField
+                          name="financialInstitution"
+                          label="Financial Institution"
+                          value={formData.financialInstitution}
+                          onChange={handleChange}
+                          fullWidth
+                          inputProps={{ maxLength: 100 }}
+                          helperText="Example: 'Chase Bank', 'Wells Fargo'"
+                          placeholder="Enter bank name"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Account Number</InputLabel>
+                          <Tooltip title="Your bank account number. For privacy, you can enter just the last 4 digits. The system will securely store this information." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                      <MenuItem value="MONTHLY">
-                        <Box>
-                          <Typography variant="body2">Monthly</Typography>
-                          <Typography variant="caption" color="text.secondary">Sync once per month</Typography>
+                        <TextField
+                          name="accountNumber"
+                          label="Account Number"
+                          value={formatAccountNumber(formData.accountNumber)}
+                          onChange={handleAccountNumberChange}
+                          fullWidth
+                          inputProps={{ maxLength: 19 }} // 16 digits + 3 spaces
+                          placeholder="1234 or full account number"
+                          helperText="Enter last 4 digits for privacy, or full account number. Found on your checks or bank statement."
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Routing Number</InputLabel>
+                          <Tooltip title="A 9-digit number that identifies your bank. You can find this on the bottom left of your checks or on your bank statement. Used for ACH transfers and direct deposits." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                      <MenuItem value="MANUAL">
-                        <Box>
-                          <Typography variant="body2">Manual</Typography>
-                          <Typography variant="caption" color="text.secondary">You control when to sync</Typography>
+                        <TextField
+                          name="routingNumber"
+                          label="Routing Number"
+                          value={formData.routingNumber}
+                          onChange={handleChange}
+                          fullWidth
+                          inputProps={{ maxLength: 9, pattern: '[0-9]*' }}
+                          helperText="9-digit number found on checks (bottom left) or bank statement"
+                          placeholder="123456789"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>Sync Frequency</InputLabel>
+                          <Tooltip title="How often the system should automatically sync transactions with your bank. Daily sync keeps your data most up-to-date, while Manual requires you to sync when needed. Note: Automatic syncing requires bank connection." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
                         </Box>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
+                        <FormControl fullWidth>
+                          <InputLabel>Sync Frequency</InputLabel>
+                          <Select
+                            name="syncFrequency"
+                            value={formData.syncFrequency}
+                            label="Sync Frequency"
+                            onChange={handleSelectChange}
+                          >
+                            <MenuItem value="DAILY">
+                              <Box>
+                                <Typography variant="body2">Daily</Typography>
+                                <Typography variant="caption" color="text.secondary">Sync every day (most up-to-date)</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="WEEKLY">
+                              <Box>
+                                <Typography variant="body2">Weekly</Typography>
+                                <Typography variant="caption" color="text.secondary">Sync once per week</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="MONTHLY">
+                              <Box>
+                                <Typography variant="body2">Monthly</Typography>
+                                <Typography variant="caption" color="text.secondary">Sync once per month</Typography>
+                              </Box>
+                            </MenuItem>
+                            <MenuItem value="MANUAL">
+                              <Box>
+                                <Typography variant="body2">Manual</Typography>
+                                <Typography variant="caption" color="text.secondary">You control when to sync</Typography>
+                              </Box>
+                            </MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      
+                      {/* International Information (Optional) */}
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
+                          International Information (Optional)
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <InputLabel>SWIFT Code</InputLabel>
+                          <Tooltip title="SWIFT (Society for Worldwide Interbank Financial Telecommunication) code is an 8-11 character code that identifies your bank for international transfers. Only needed if you make or receive international wire transfers. Example: CHASUS33 for Chase Bank USA." arrow>
+                            <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          </Tooltip>
+                        </Box>
+                        <TextField
+                          name="swiftCode"
+                          label="SWIFT Code"
+                          value={formData.swiftCode}
+                          onChange={handleChange}
+                          fullWidth
+                          inputProps={{ maxLength: 11 }}
+                          placeholder="CHASUS33"
+                          helperText="8-11 characters. Only needed for international transfers"
+                        />
+                      </Grid>
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              </Grid>
             )}
-
-            {/* International Information */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                International Information (Optional)
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <InputLabel>Card Number</InputLabel>
-                <Tooltip title="Your debit or credit card number. Enter the last 4 digits for privacy, or the full card number if you want to enable Transaction Analyzer features. This helps identify transactions automatically." arrow>
-                  <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                </Tooltip>
-              </Box>
-              <TextField
-                name="iban"
-                label="Card Number"
-                value={formatIban(formData.iban)}
-                onChange={handleIbanChange}
-                fullWidth
-                inputProps={{ maxLength: 19 }} // 16 characters + 3 dashes
-                placeholder="1234 or full Card Number"
-                helperText="Last 4 digits for privacy, or full number for Transaction Analyzer"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <InputLabel>SWIFT Code</InputLabel>
-                <Tooltip title="SWIFT (Society for Worldwide Interbank Financial Telecommunication) code is an 8-11 character code that identifies your bank for international transfers. Only needed if you make or receive international wire transfers. Example: CHASUS33 for Chase Bank USA." arrow>
-                  <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                </Tooltip>
-              </Box>
-              <TextField
-                name="swiftCode"
-                label="SWIFT Code"
-                value={formData.swiftCode}
-                onChange={handleChange}
-                fullWidth
-                inputProps={{ maxLength: 11 }}
-                placeholder="CHASUS33"
-                helperText="8-11 characters. Only needed for international transfers"
-              />
-            </Grid>
 
             {/* Status Controls (only for editing) */}
             {account && (

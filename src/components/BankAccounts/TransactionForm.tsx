@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -35,6 +35,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
+  CallSplit as CallSplitIcon,
 } from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { BankAccount } from '../../types/bankAccount';
@@ -46,11 +47,16 @@ import {
   isBillCategory,
   isSavingsCategory,
   isLoanCategory,
+  isInvestmentCategory,
   isTransferCategory,
   validateTransactionForm,
   generateEnhancedDescription
 } from '../../utils/categoryLogic';
-import { BillStatus } from '../../types/bill';
+import { Bill, BillStatus } from '../../types/bill';
+import { Investment } from '../../types/investment';
+import SplitTransactionDialog from '../Reconciliation/SplitTransactionDialog';
+import { TransactionSplit } from '../../types/reconciliation';
+import { getLatestBillsByName } from '../../utils/billUtils';
 
 interface TransactionFormProps {
   open: boolean;
@@ -80,16 +86,10 @@ interface BankAccountTransaction {
   billId?: string;
   savingsAccountId?: string;
   loanId?: string;
+  investmentId?: string;
   transactionPurpose?: string;
 }
 
-interface Bill {
-  id: string;
-  billName: string;
-  amount: number;
-  status: string;
-  billType?: string;
-}
 
 interface Loan {
   id: string;
@@ -113,6 +113,7 @@ const ALL_CATEGORIES = [
   ...categorySuggestions.transfer,
   ...categorySuggestions.bill,
   ...categorySuggestions.savings,
+  ...categorySuggestions.investment,
   ...categorySuggestions.loan,
   ...categorySuggestions.other
 ];
@@ -153,8 +154,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     billId: '',
     savingsAccountId: '',
     loanId: '',
+    investmentId: '',
     toBankAccountId: '', // For bank transfers
-    transactionPurpose: '', // BILL, UTILITY, SAVINGS, LOAN, OTHER
+    transactionPurpose: '', // BILL, UTILITY, SAVINGS, LOAN, INVESTMENT, OTHER
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -164,6 +166,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [bills, setBills] = useState<Bill[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [savingsAccounts, setSavingsAccounts] = useState<SavingsAccount[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
   const [finalCategories, setFinalCategories] = useState<Array<{ id: string; name: string; type: string; icon?: string; color?: string }>>([]);
   
@@ -172,14 +175,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [loadingBills, setLoadingBills] = useState(false);
   const [loadingLoans, setLoadingLoans] = useState(false);
   const [loadingSavingsAccounts, setLoadingSavingsAccounts] = useState(false);
+  const [loadingInvestments, setLoadingInvestments] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   
   // State for dynamic form fields
   const [showBillSelector, setShowBillSelector] = useState(false);
   const [showSavingsSelector, setShowSavingsSelector] = useState(false);
   const [showLoanSelector, setShowLoanSelector] = useState(false);
+  const [showInvestmentSelector, setShowInvestmentSelector] = useState(false);
   const [showTransferSelector, setShowTransferSelector] = useState(false);
   const [showHelpSection, setShowHelpSection] = useState(false);
+  
+  // State for split transaction
+  const [splits, setSplits] = useState<TransactionSplit[]>([]);
+  const [isSplit, setIsSplit] = useState(false);
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -205,6 +215,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           billId: initialTransaction.billId || '',
           savingsAccountId: initialTransaction.savingsAccountId || '',
           loanId: initialTransaction.loanId || '',
+          investmentId: (initialTransaction as any).investmentId || '',
           toBankAccountId: '',
           transactionPurpose: (initialTransaction as any).transactionPurpose || '',
         });
@@ -215,13 +226,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           setShowBillSelector(transactionPurpose === 'BILL' || transactionPurpose === 'UTILITY');
           setShowSavingsSelector(transactionPurpose === 'SAVINGS');
           setShowLoanSelector(transactionPurpose === 'LOAN');
+          setShowInvestmentSelector(transactionPurpose === 'INVESTMENT');
         } else {
-          // Fallback to showing selectors if linked to bill/savings/loan
+          // Fallback to showing selectors if linked to bill/savings/loan/investment
           setShowBillSelector(!!initialTransaction.billId);
           setShowSavingsSelector(!!initialTransaction.savingsAccountId);
           setShowLoanSelector(!!initialTransaction.loanId);
+          setShowInvestmentSelector(!!(initialTransaction as any).investmentId);
         }
         setShowTransferSelector(false); // Don't show transfer selector in edit mode
+        
+        // Load existing splits if transaction has them
+        const transactionWithSplits = initialTransaction as any;
+        if (transactionWithSplits.splits && Array.isArray(transactionWithSplits.splits) && transactionWithSplits.splits.length > 0) {
+          setSplits(transactionWithSplits.splits);
+          setIsSplit(true);
+        } else {
+          // Reset split state if no splits exist
+          setSplits([]);
+          setIsSplit(false);
+        }
       } else {
         // Reset form when dialog opens for new transaction - use smart defaults
         const accountId = defaultAccountId || (bankAccounts.length > 0 ? bankAccounts[0].id : '');
@@ -242,6 +266,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           billId: '',
           savingsAccountId: '',
           loanId: '',
+          investmentId: '',
           toBankAccountId: '',
           transactionPurpose: '',
         });
@@ -249,7 +274,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         setShowBillSelector(false);
         setShowSavingsSelector(false);
         setShowLoanSelector(false);
+        setShowInvestmentSelector(false);
         setShowTransferSelector(false);
+        // Reset split state
+        setSplits([]);
+        setIsSplit(false);
       }
       setError('');
     }
@@ -284,6 +313,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setLoadingBills(false);
     }
   }, []);
+
+  // Filter bills to show only the latest due date for each bill name (remove duplicates)
+  const filteredBills = useMemo(() => getLatestBillsByName(bills), [bills]);
 
   const loadLoans = useCallback(async () => {
     setLoadingLoans(true);
@@ -356,6 +388,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [bankAccounts]);
 
+  const loadInvestments = useCallback(async () => {
+    setLoadingInvestments(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Investment API may not be available if user doesn't have access
+      const investmentsData = await apiService.getInvestments().catch((error) => {
+        console.log('Investments API not available or user does not have access:', error);
+        return [];
+      });
+      
+      const activeInvestments = Array.isArray(investmentsData) 
+        ? investmentsData.filter((inv: Investment) => inv.isActive !== false)
+        : [];
+      
+      setInvestments(activeInvestments);
+    } catch (error) {
+      console.error('Failed to load investments:', error);
+      setInvestments([]);
+    } finally {
+      setLoadingInvestments(false);
+    }
+  }, []);
+
   const loadBankAccounts = useCallback(async () => {
     setLoadingBankAccounts(true);
     // Bank accounts are passed as props, but we simulate loading to show skeleton
@@ -372,31 +428,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       
       let finalCategories: Array<{ id: string; name: string; type: string; icon?: string; color?: string }> = [];
       
-      // If no categories exist, provide default "Expense" category
+      // Default categories to add if they don't exist
+      const defaultExpense = {
+        id: 'default-expense',
+        name: 'Expense',
+        type: 'EXPENSE',
+        icon: undefined,
+        color: undefined
+      };
+      const defaultTransfer = {
+        id: 'default-transfer',
+        name: 'Bank Transfer',
+        type: 'TRANSFER',
+        icon: 'swap_horiz',
+        color: '#95E1D3'
+      };
+      
+      // If no categories exist, provide default categories
       if (categoriesData.length === 0) {
-        finalCategories = [{
-          id: 'default-expense',
-          name: 'Expense',
-          type: 'EXPENSE',
-          icon: undefined,
-          color: undefined
-        }];
+        finalCategories = [defaultExpense, defaultTransfer];
       } else {
+        finalCategories = [...categoriesData];
+        
         // Ensure "Expense" category is available as default if it doesn't exist
         const expenseCategory = categoriesData.find((cat: any) => 
-          cat.name === 'Expense' || cat.name === 'Expenses'
+          cat.name === 'Expense' || cat.name === 'Expenses' || cat.name === 'EXPENSE'
         );
         if (!expenseCategory) {
-          // Add "Expense" as a default category if it doesn't exist
-          finalCategories = [{
-            id: 'default-expense',
-            name: 'Expense',
-            type: 'EXPENSE',
-            icon: undefined,
-            color: undefined
-          }, ...categoriesData];
-        } else {
-          finalCategories = categoriesData;
+          finalCategories.unshift(defaultExpense);
+        }
+        
+        // Ensure "Transfer" category is available as default if it doesn't exist
+        const transferCategory = categoriesData.find((cat: any) => 
+          cat.name.toLowerCase().includes('transfer') || cat.type === 'TRANSFER'
+        );
+        if (!transferCategory) {
+          finalCategories.push(defaultTransfer);
         }
       }
       
@@ -417,15 +484,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       });
     } catch (error) {
       console.error('Failed to load categories:', error);
-      // Even on error, provide "Expense" as a fallback
-      const fallbackCategories = [{
-        id: 'default-expense',
-        name: 'Expense',
-        type: 'EXPENSE',
-        icon: undefined,
-        color: undefined
-      }];
+      // Even on error, provide default categories as fallback
+      const fallbackCategories = [
+        {
+          id: 'default-expense',
+          name: 'Expense',
+          type: 'EXPENSE',
+          icon: undefined,
+          color: undefined
+        },
+        {
+          id: 'default-transfer',
+          name: 'Bank Transfer',
+          type: 'TRANSFER',
+          icon: 'swap_horiz',
+          color: '#95E1D3'
+        }
+      ];
       setCategories(fallbackCategories);
+      setFinalCategories(fallbackCategories);
       
       // Set default "Expense" category if no category is selected
       setFormData(prev => {
@@ -447,9 +524,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       loadBills();
       loadLoans();
       loadSavingsAccounts();
+      loadInvestments();
       loadCategories();
     }
-  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts, loadCategories]);
+  }, [open, loadBankAccounts, loadBills, loadLoans, loadSavingsAccounts, loadInvestments, loadCategories]);
 
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -476,12 +554,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: '',
         savingsAccountId: '',
         loanId: '',
+        investmentId: '',
       }));
       
       // Don't show separate selectors anymore - they're in Category dropdown
       setShowBillSelector(false);
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
+      setShowInvestmentSelector(false);
       setShowTransferSelector(false);
     }
 
@@ -493,12 +573,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: '',
         savingsAccountId: '',
         loanId: '',
+        investmentId: '',
         toBankAccountId: '',
         transactionPurpose: '',
       }));
       setShowBillSelector(false);
       setShowSavingsSelector(false);
       setShowLoanSelector(false);
+      setShowInvestmentSelector(false);
       setShowTransferSelector(false);
     }
     // If transaction type changes to DEBIT and category is empty, set default to "Expense"
@@ -517,12 +599,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setShowBillSelector(isBillCategory(category));
     setShowSavingsSelector(isSavingsCategory(category));
     setShowLoanSelector(isLoanCategory(category));
+    setShowInvestmentSelector(isInvestmentCategory(category));
     setShowTransferSelector(isTransferCategory(category));
     
     // Clear other references when category changes
     if (!isBillCategory(category)) setFormData(prev => ({ ...prev, billId: '' }));
     if (!isSavingsCategory(category)) setFormData(prev => ({ ...prev, savingsAccountId: '' }));
     if (!isLoanCategory(category)) setFormData(prev => ({ ...prev, loanId: '' }));
+    if (!isInvestmentCategory(category)) setFormData(prev => ({ ...prev, investmentId: '' }));
     if (!isTransferCategory(category)) setFormData(prev => ({ ...prev, toBankAccountId: '' }));
   };
 
@@ -538,6 +622,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setError('');
 
     // Enhanced validation using category logic with double-entry accounting validation
+    // Skip category/bill requirement on main form when split mode is on (bills/categories are on splits)
     const validationErrors = validateTransactionWithDoubleEntry({
       bankAccountId: formData.bankAccountId,
       amount: parseFloat(formData.amount),
@@ -546,9 +631,51 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       billId: formData.billId,
       savingsAccountId: formData.savingsAccountId,
       loanId: formData.loanId,
+      investmentId: formData.investmentId,
       toBankAccountId: formData.toBankAccountId,
       transactionType: formData.transactionType,
+      isSplit: isSplit,
     });
+
+    // Debug logging
+    console.log('Transaction validation debug:', {
+      isEditMode,
+      category: formData.category,
+      transactionPurpose: formData.transactionPurpose,
+      initialTransactionPurpose: initialTransaction?.transactionPurpose,
+      savingsAccountId: formData.savingsAccountId,
+      initialSavingsAccountId: initialTransaction?.savingsAccountId,
+      validationErrors: validationErrors,
+      allFormData: formData,
+      initialTransaction: initialTransaction
+    });
+
+    // Skip category-specific validations for edit mode - be more aggressive
+    if (isEditMode && initialTransaction) {
+      console.log('EDIT MODE: Skipping category validations for existing transaction');
+      // For edit mode, skip all category-specific validations since the transaction was already validated when created
+      const basicErrors = validationErrors.filter(error =>
+        !error.includes('account selection') &&
+        !error.includes('bill selection') &&
+        !error.includes('loan selection') &&
+        !error.includes('Target bank account')
+      );
+      validationErrors.length = 0; // Clear all errors
+      validationErrors.push(...basicErrors); // Add back only basic errors
+      console.log('Filtered errors for edit mode:', basicErrors);
+    }
+
+    // Validate splits if transaction is split
+    if (isSplit && splits.length > 0) {
+      const totalSplitAmount = splits.reduce((sum, split) => sum + (split.amount || 0), 0);
+      const transactionAmount = parseFloat(formData.amount);
+      if (Math.abs(totalSplitAmount - transactionAmount) > 0.01) {
+        validationErrors.push(`Split amounts (${totalSplitAmount.toFixed(2)}) must equal transaction amount (${transactionAmount.toFixed(2)})`);
+      }
+      if (splits.some(split => !split.billId && !split.category)) {
+        validationErrors.push('Each split must have either a bill or category selected');
+      }
+    }
 
     if (validationErrors.length > 0) {
       setError(validationErrors.join('. '));
@@ -569,9 +696,36 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       // For bank transfers, use TRANSFER category and include toBankAccountId
       const isTransfer = isTransferCategory(formData.category);
-      const finalCategory = isTransfer ? 'TRANSFER' : (formData.transactionType === 'CREDIT' ? 'CREDIT' : formData.category);
+      // Use the user's selected category - don't override for CREDIT transactions
+      const finalCategory = isTransfer ? 'TRANSFER' : formData.category;
       
-      const transactionData = {
+      // Auto-create TRANSFER category if it doesn't exist (for bank transfers)
+      if (isTransfer) {
+        try {
+          // Check if TRANSFER category exists
+          const existingCategories = await apiService.getAllCategories();
+          const transferCategoryExists = existingCategories.some((cat: any) => 
+            cat.name === 'TRANSFER' || cat.name.toLowerCase().includes('transfer') || cat.type === 'TRANSFER'
+          );
+          
+          if (!transferCategoryExists) {
+            // Create TRANSFER category automatically
+            await apiService.createCategory({
+              name: 'TRANSFER',
+              type: 'TRANSFER',
+              description: 'Bank transfer between accounts',
+              icon: 'swap_horiz',
+              color: '#95E1D3',
+            });
+            console.log('TRANSFER category created automatically');
+          }
+        } catch (categoryError) {
+          console.log('Category check/creation skipped:', categoryError);
+          // Continue anyway - backend might create it
+        }
+      }
+      
+      const transactionData: any = {
         bankAccountId: formData.bankAccountId,
         amount: parseFloat(formData.amount),
         transactionType: formData.transactionType,
@@ -579,7 +733,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         category: finalCategory,
         merchant: isTransfer ? undefined : (formData.merchant.trim() || undefined),
         location: isTransfer ? undefined : (formData.location.trim() || undefined),
-        transactionDate: isTransfer ? new Date().toISOString() : new Date(formData.transactionDate).toISOString(),
+        transactionDate: new Date(formData.transactionDate).toISOString(),
         notes: isTransfer ? undefined : (formData.notes.trim() || undefined),
         isRecurring: isTransfer ? false : formData.isRecurring,
         recurringFrequency: isTransfer ? undefined : (formData.isRecurring ? formData.recurringFrequency : undefined),
@@ -589,8 +743,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         billId: formData.billId || undefined,
         savingsAccountId: formData.savingsAccountId || undefined,
         loanId: formData.loanId || undefined,
+        investmentId: formData.investmentId || undefined,
         toBankAccountId: formData.toBankAccountId || undefined,
         transactionPurpose: formData.transactionPurpose || undefined,
+        // Split transaction support
+        splits: isSplit && splits.length > 0 ? splits : undefined,
+        isSplit: isSplit && splits.length > 0,
       };
 
       if (isEditMode && initialTransaction) {
@@ -599,6 +757,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       } else {
         // Create new transaction
         await apiService.createBankTransaction(transactionData);
+      }
+
+      // Mark bills as paid for any splits that have a billId
+      const splitsWithBills = (isSplit && splits.length > 0 ? splits : []).filter(
+        (s): s is typeof s & { billId: string } => !!s.billId
+      );
+      const uniqueBillIds = Array.from(new Set(splitsWithBills.map((s) => s.billId)));
+      if (uniqueBillIds.length > 0) {
+        const markPaidResults = await Promise.allSettled(
+          uniqueBillIds.map((billId) =>
+            apiService.markBillAsPaid(billId, {
+              bankAccountId: formData.bankAccountId || undefined,
+              notes: formData.description?.trim() || undefined,
+            })
+          )
+        );
+        const failed = markPaidResults.filter((r) => r.status === 'rejected');
+        if (failed.length > 0) {
+          console.warn('Some bills could not be marked as paid:', failed);
+        }
       }
 
       onSuccess(formData.bankAccountId, formData.category);
@@ -647,8 +825,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       </DialogTitle>
       <DialogContent>
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 2 }}
             action={
               <IconButton
@@ -661,10 +839,49 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </IconButton>
             }
           >
-            <Typography variant="body2" fontWeight="medium" gutterBottom>
-              {error}
-            </Typography>
-            {error.includes('Category') && (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+              <Typography variant="body2" fontWeight="medium" gutterBottom sx={{ flex: 1 }}>
+                {error}
+              </Typography>
+              {error.includes('Savings account selection is required') && (
+                <Tooltip
+                  title={
+                    <Box sx={{ p: 1 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" color="inherit" gutterBottom>
+                        Why this error occurs:
+                      </Typography>
+                      <Typography variant="body2" color="inherit" paragraph>
+                        This error appears when you select a savings-related category (like "savings", "deposit", "investment", "goal", or "fund") but don't specify which savings account the transaction should be linked to.
+                      </Typography>
+                      <Typography variant="subtitle2" fontWeight="bold" color="inherit" gutterBottom>
+                        How to fix it:
+                      </Typography>
+                      <Typography variant="body2" color="inherit">
+                        • Select a savings account from the dropdown that appears when you choose a savings-related category<br/>
+                        • If no savings accounts are available, create one first in the Savings page<br/>
+                        • Make sure the savings account is active and available for transactions
+                      </Typography>
+                    </Box>
+                  }
+                  placement="top"
+                  arrow
+                  sx={{
+                    '& .MuiTooltip-tooltip': {
+                      maxWidth: 400,
+                      bgcolor: 'error.main',
+                      '& .MuiTooltip-arrow': {
+                        color: 'error.main',
+                      },
+                    },
+                  }}
+                >
+                  <IconButton size="small" sx={{ color: 'error.main', p: 0.5 }}>
+                    <HelpIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+            {error.includes('Category') && !error.includes('Savings account') && (
               <Typography variant="caption" component="div" sx={{ mt: 1 }}>
                 <strong>Solution:</strong> Go to Categories page to create the category first, or select an existing category from the dropdown.
               </Typography>
@@ -699,8 +916,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <Typography variant="body2" component="div">
                 <strong>Transaction Types:</strong>
                 <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                  <li><strong>DEBIT:</strong> Money going out (expenses, payments, transfers out)</li>
-                  <li><strong>CREDIT:</strong> Money coming in (income, deposits, transfers in)</li>
+                  <li><strong>Money Out:</strong> Money going out (expenses, payments, transfers out)</li>
+                  <li><strong>Money In:</strong> Money coming in (income, deposits, transfers in)</li>
                 </ul>
                 <strong>Category Selection:</strong>
                 <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
@@ -718,13 +935,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     <strong>Example: Paying a $150 utility bill</strong>
                   </Typography>
                   <Typography variant="caption" component="div" sx={{ mt: 0.5, display: 'block' }}>
-                    Debit: Utility Expense → $150 (expense increases)
+                    Money Out: Utility Expense → $150 (expense increases)
                   </Typography>
                   <Typography variant="caption" component="div">
-                    Credit: Bank Account → $150 (asset decreases)
+                    Money In: Bank Account → $150 (asset decreases)
                   </Typography>
                   <Typography variant="caption" component="div" sx={{ mt: 0.5, color: 'success.main', fontWeight: 'bold' }}>
-                    ✓ Total Debits = Total Credits
+                    ✓ All transactions are automatically balanced
                   </Typography>
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
@@ -733,9 +950,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <Divider sx={{ my: 2 }} />
                 <strong>Common Examples:</strong>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
-                  <Chip label="DEBIT: Grocery shopping → Category: GROCERIES" size="small" variant="outlined" />
-                  <Chip label="DEBIT: Paying electric bill → Category: UTILITIES (select bill)" size="small" variant="outlined" />
-                  <Chip label="CREDIT: Salary deposit → Category: Automatically set to CREDIT" size="small" variant="outlined" />
+                  <Chip label="Money Out: Grocery shopping → Category: GROCERIES" size="small" variant="outlined" />
+                  <Chip label="Money Out: Paying electric bill → Category: UTILITIES (select bill)" size="small" variant="outlined" />
+                  <Chip label="Money In: Salary deposit → Category: Automatically set to Income" size="small" variant="outlined" />
                 </Box>
               </Typography>
             </AccordionDetails>
@@ -776,8 +993,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   onChange={handleSelectChange('transactionType')}
                   label="Transaction Type"
                 >
-                  <MenuItem value="DEBIT">Debit (Money Out)</MenuItem>
-                  <MenuItem value="CREDIT">Credit (Money In)</MenuItem>
+                  <MenuItem value="DEBIT">Money Out (Expenses or Debit)</MenuItem>
+                  <MenuItem value="CREDIT">Money In (Income or Credit)</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -803,33 +1020,69 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                required
-                label="Amount"
-                type="number"
-                value={formData.amount}
-                onChange={handleInputChange('amount')}
-                inputProps={{ min: 0.01, step: 0.01 }}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Amount"
+                  type="number"
+                  value={formData.amount}
+                  onChange={handleInputChange('amount')}
+                  inputProps={{ min: 0.01, step: 0.01 }}
+                  disabled={false}
+                  helperText={isSplit && splits.length > 0 ? `${splits.length} split${splits.length > 1 ? 's' : ''} configured. Adjust splits to match new amount.` : undefined}
+                />
+                {formData.transactionType === 'DEBIT' && (
+                  <Tooltip title="Split this transaction across multiple bills or categories">
+                    <IconButton
+                      onClick={() => {
+                        if (!formData.amount || parseFloat(formData.amount) <= 0) {
+                          setError('Please enter an amount first');
+                          return;
+                        }
+                        setShowSplitDialog(true);
+                      }}
+                      color={isSplit ? 'primary' : 'default'}
+                      sx={{ mt: 1 }}
+                    >
+                      <CallSplitIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+              {isSplit && splits.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Chip
+                    label={`Split into ${splits.length} allocation${splits.length > 1 ? 's' : ''}`}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                    onDelete={() => {
+                      setSplits([]);
+                      setIsSplit(false);
+                    }}
+                  />
+                </Box>
+              )}
             </Grid>
 
-            {formData.transactionType !== 'CREDIT' && (
-              <Grid item xs={12} sm={6}>
-                {loadingCategories && !formData.transactionPurpose ? (
-                  <Skeleton variant="rectangular" height={56} />
-                ) : (
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                      <InputLabel required>
-                        {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
-                          ? 'Select Bill' 
-                          : formData.transactionPurpose === 'LOAN' 
-                          ? 'Select Loan' 
-                          : formData.transactionPurpose === 'SAVINGS' 
-                          ? 'Select Savings Account' 
-                          : 'Category'}
-                      </InputLabel>
+            <Grid item xs={12} sm={6}>
+              {loadingCategories && !formData.transactionPurpose ? (
+                <Skeleton variant="rectangular" height={56} />
+              ) : (
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <InputLabel required>
+                      {formData.transactionType === 'CREDIT' 
+                        ? 'Category'
+                        : formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
+                        ? 'Select Bill' 
+                        : formData.transactionPurpose === 'LOAN' 
+                        ? 'Select Loan' 
+                        : formData.transactionPurpose === 'SAVINGS' 
+                        ? 'Select Savings Account' 
+                        : 'Category'}
+                    </InputLabel>
                       <Tooltip title={
                         formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY'
                           ? "Select a bill to link this transaction to"
@@ -842,8 +1095,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                       </Tooltip>
                     </Box>
-                    {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' || 
-                     formData.transactionPurpose === 'LOAN' || formData.transactionPurpose === 'SAVINGS' ? (
+                    {formData.transactionType !== 'CREDIT' && (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' || 
+                     formData.transactionPurpose === 'LOAN' || formData.transactionPurpose === 'SAVINGS') ? (
                       <FormControl fullWidth required>
                         <InputLabel>
                           {formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY' 
@@ -870,25 +1123,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                           onChange={(e) => {
                             const value = e.target.value;
                             if (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') {
-                              const selectedBill = bills.find(b => b.id === value);
+                              const selectedBill = filteredBills.find(b => b.id === value);
                               setFormData(prev => ({
                                 ...prev,
                                 billId: value,
-                                category: selectedBill ? `Bill: ${selectedBill.billName}` : prev.category,
+                                // Don't set a fake category - leave it empty when bill is selected
+                                // The backend will handle categorization based on billId
+                                category: prev.category, // Keep existing category or leave empty
                               }));
                             } else if (formData.transactionPurpose === 'LOAN') {
                               const selectedLoan = loans.find(l => l.id === value);
                               setFormData(prev => ({
                                 ...prev,
                                 loanId: value,
-                                category: selectedLoan ? `Loan: ${selectedLoan.purpose}` : prev.category,
+                                // Don't set a fake category - leave it empty when loan is selected
+                                // The backend will handle categorization based on loanId
+                                category: prev.category, // Keep existing category or leave empty
                               }));
                             } else if (formData.transactionPurpose === 'SAVINGS') {
                               const selectedSavings = savingsAccounts.find(s => s.id === value);
                               setFormData(prev => ({
                                 ...prev,
                                 savingsAccountId: value,
-                                category: selectedSavings ? `Savings: ${selectedSavings.name}` : prev.category,
+                                // Don't set a fake category - leave it empty when savings is selected
+                                // The backend will handle categorization based on savingsAccountId
+                                category: prev.category, // Keep existing category or leave empty
                               }));
                             }
                           }}
@@ -897,8 +1156,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         {formData.transactionType === 'DEBIT' && (formData.transactionPurpose === 'BILL' || formData.transactionPurpose === 'UTILITY') ? (
                           loadingBills ? (
                             <MenuItem disabled>Loading bills...</MenuItem>
-                          ) : bills.length > 0 ? (
-                            bills
+                          ) : filteredBills.length > 0 ? (
+                            filteredBills
                               .filter(bill => {
                                 // For UTILITY, only show utility bills
                                 if (formData.transactionPurpose === 'UTILITY') {
@@ -953,10 +1212,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         size="small"
                         options={finalCategories
                           .filter((cat) => {
-                            if (formData.transactionType === 'DEBIT') {
-                              return cat.type !== 'INCOME';
+                            if (formData.transactionType === 'CREDIT') {
+                              // For Money In (CREDIT): Only show INCOME, SAVINGS, TRANSFER categories
+                              const allowedTypes = ['INCOME', 'SAVINGS', 'TRANSFER'];
+                              return allowedTypes.includes(cat.type?.toUpperCase() || '');
+                            } else {
+                              // For Money Out (DEBIT): Exclude INCOME categories
+                              return cat.type?.toUpperCase() !== 'INCOME';
                             }
-                            return true;
                           })
                           .sort((a, b) => a.name.localeCompare(b.name))
                           .map(cat => cat.name)}
@@ -1016,7 +1279,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   </Box>
                 )}
               </Grid>
-            )}
 
             {/* Reference Number Field - Hide if Bank transfer is selected */}
             {!showTransferSelector && (
@@ -1052,8 +1314,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                       onChange={handleSelectChange('billId')}
                       label="Select Bill"
                     >
-                      {bills.length > 0 ? (
-                        bills.map((bill) => (
+                      {filteredBills.length > 0 ? (
+                        filteredBills.map((bill) => (
                           <MenuItem key={bill.id} value={bill.id}>
                             {bill.billName} - ${bill.amount.toFixed(2)} ({bill.status})
                           </MenuItem>
@@ -1137,33 +1399,89 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </Grid>
             )}
 
-            {showTransferSelector && (
+            {showInvestmentSelector && !formData.transactionPurpose && (
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }}>
                   <Typography variant="subtitle2" color="primary">
-                    Bank Transfer
+                    Investment Account
                   </Typography>
                 </Divider>
-                <FormControl fullWidth required>
-                  <InputLabel>To Bank Account</InputLabel>
-                  <Select
-                    value={formData.toBankAccountId}
-                    onChange={handleSelectChange('toBankAccountId')}
-                    label="To Bank Account"
-                  >
-                    {bankAccounts
-                      .filter(account => account.id !== formData.bankAccountId)
-                      .map((account) => (
-                        <MenuItem key={account.id} value={account.id}>
-                          {account.accountName} - {formatCurrency(account.currentBalance)}
-                        </MenuItem>
-                      ))}
-                    {bankAccounts.length === 1 && (
-                      <MenuItem disabled>No other bank accounts available</MenuItem>
-                    )}
-                  </Select>
-                </FormControl>
+                {loadingInvestments ? (
+                  <Box>
+                    <Skeleton variant="text" width="30%" height={24} sx={{ mb: 1 }} />
+                    <Skeleton variant="rectangular" width="100%" height={56} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth required>
+                    <InputLabel>Select Investment Account</InputLabel>
+                    <Select
+                      value={formData.investmentId}
+                      onChange={handleSelectChange('investmentId')}
+                      label="Select Investment Account"
+                    >
+                      {investments.length > 0 ? (
+                        investments.map((investment) => (
+                          <MenuItem key={investment.id} value={investment.id}>
+                            {investment.accountName} {investment.brokerName ? `(${investment.brokerName})` : ''} - ${investment.currentValue.toFixed(2)}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>No investment accounts available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                )}
               </Grid>
+            )}
+
+            {showTransferSelector && (
+              <>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }}>
+                    <Typography variant="subtitle2" color="primary">
+                      Bank Transfer
+                    </Typography>
+                  </Divider>
+                  <FormControl fullWidth required>
+                    <InputLabel>To Bank Account</InputLabel>
+                    <Select
+                      value={formData.toBankAccountId}
+                      onChange={handleSelectChange('toBankAccountId')}
+                      label="To Bank Account"
+                    >
+                      {bankAccounts
+                        .filter(account => account.id !== formData.bankAccountId)
+                        .map((account) => (
+                          <MenuItem key={account.id} value={account.id}>
+                            {account.accountName} - {formatCurrency(account.currentBalance)}
+                          </MenuItem>
+                        ))}
+                      {bankAccounts.length === 1 && (
+                        <MenuItem disabled>No other bank accounts available</MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Transfer Date"
+                    type="datetime-local"
+                    value={formData.transactionDate}
+                    onChange={handleInputChange('transactionDate')}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Description (Optional)"
+                    value={formData.description}
+                    onChange={handleInputChange('description')}
+                    placeholder="e.g., Transfer to savings"
+                  />
+                </Grid>
+              </>
             )}
 
             {/* Hide these fields if Bank transfer is selected */}
@@ -1278,6 +1596,44 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </>
         )}
       </DialogActions>
+
+      <SplitTransactionDialog
+        open={showSplitDialog}
+        onClose={() => {
+          setShowSplitDialog(false);
+        }}
+        transaction={
+          formData.amount && parseFloat(formData.amount) > 0
+            ? {
+                id: 'temp-transaction',
+                uploadId: '',
+                transactionDate: new Date(formData.transactionDate).toISOString(),
+                amount: parseFloat(formData.amount),
+                transactionType: formData.transactionType,
+                description: formData.description,
+                referenceNumber: formData.referenceNumber,
+                merchant: formData.merchant,
+                category: formData.category,
+                balanceAfterTransaction: 0,
+                splits: splits,
+                isSplit: isSplit,
+              }
+            : null
+        }
+        bills={bills}
+        categories={categories}
+        onSave={(transaction, newSplits) => {
+          if (newSplits.length === 0) {
+            // If no splits remain, convert back to regular transaction
+            setSplits([]);
+            setIsSplit(false);
+          } else {
+            setSplits(newSplits);
+            setIsSplit(true);
+          }
+          setShowSplitDialog(false);
+        }}
+      />
     </Dialog>
   );
 };

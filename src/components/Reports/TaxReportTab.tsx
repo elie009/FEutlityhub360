@@ -26,6 +26,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Button,
 } from '@mui/material';
 import {
   Receipt,
@@ -125,7 +126,7 @@ const TaxReportTab: React.FC<TaxReportTabProps> = ({
               </Typography>
             </Box>
           </Box>
-          <Box display="flex" gap={1}>
+          <Box display="flex" gap={1} alignItems="center">
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Tax Year</InputLabel>
               <Select
@@ -138,8 +139,16 @@ const TaxReportTab: React.FC<TaxReportTabProps> = ({
                 ))}
               </Select>
             </FormControl>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={fetchTaxReport}
+              size="small"
+            >
+              Apply
+            </Button>
             <Tooltip title="Refresh">
-              <IconButton onClick={handleRefresh}>
+              <IconButton onClick={handleRefresh} size="small">
                 <Refresh />
               </IconButton>
             </Tooltip>

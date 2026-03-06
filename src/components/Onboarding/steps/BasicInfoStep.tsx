@@ -23,6 +23,7 @@ interface BasicInfoStepProps {
   onDataUpdate: (data: Partial<OnboardingData>) => void;
   data: OnboardingData;
   onComplete: () => void;
+  userEmail?: string;
 }
 
 const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
@@ -31,6 +32,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
   onDataUpdate,
   data,
   onComplete,
+  userEmail,
 }) => {
   const [errors, setErrors] = React.useState<{[key: string]: string}>({});
 
@@ -41,9 +43,11 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
       case 'lastName':
         return value.trim().length >= 2 ? '' : 'Last name must be at least 2 characters';
       case 'phone':
-        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-        return value.trim().length >= 10 && phoneRegex.test(value.replace(/[\s\-\(\)]/g, '')) 
-          ? '' : 'Please enter a valid phone number';
+        const cleanedPhone = value.trim();
+        const digitsOnlyRegex = /^\d+$/;
+        // Phone must contain only digits and have more than 5 digits
+        return cleanedPhone === '' || (digitsOnlyRegex.test(cleanedPhone) && cleanedPhone.length > 5)
+          ? '' : 'Phone number must contain only digits and be more than 5 digits';
       default:
         return '';
     }
@@ -175,7 +179,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
               <TextField
                 fullWidth
                 label="Email Address"
-                value={data.firstName && data.lastName ? `${data.firstName.toLowerCase()}.${data.lastName.toLowerCase()}@example.com` : ''}
+                value={userEmail || ''}
                 disabled
                 helperText="This is your registered email address"
                 InputProps={{

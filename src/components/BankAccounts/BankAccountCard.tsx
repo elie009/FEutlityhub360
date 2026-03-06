@@ -19,7 +19,7 @@ interface BankAccountCardProps {
   account: BankAccount;
   onEdit: (account: BankAccount) => void;
   onDelete: (accountId: string) => void;
-  onConnect?: (accountId: string) => void;
+  onConnect?: (account: BankAccount) => void;
   onDisconnect?: (accountId: string) => void;
   onSync?: (accountId: string) => void;
   onViewTransactions?: (account: BankAccount) => void;
@@ -117,7 +117,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
   };
 
   const handleConnect = () => {
-    onConnect?.(account.id);
+    onConnect?.(account);
     handleMenuClose();
   };
 
@@ -212,7 +212,11 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
           }}>
             {formatCurrency(account.currentBalance, { currencyCode: account.currency })}
           </Typography>
-          {hasBalanceChange && (
+          {account.accountType === 'credit_card' ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Credit limit: {formatCurrency(account.initialBalance, { currencyCode: account.currency })}
+            </Typography>
+          ) : hasBalanceChange ? (
             <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
               {balanceChange > 0 ? (
                 <TrendingUp sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
@@ -226,7 +230,7 @@ const BankAccountCard: React.FC<BankAccountCardProps> = ({
                 {balanceChange > 0 ? '+' : ''}{formatCurrency(balanceChange, { currencyCode: account.currency })} from initial
               </Typography>
             </Box>
-          )}
+          ) : null}
         </Box>
 
         <Grid container spacing={1}>

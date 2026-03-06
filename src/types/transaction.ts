@@ -22,13 +22,26 @@ export interface BankAccountTransaction {
   billId?: string;           // For bill-related transactions
   savingsAccountId?: string; // For savings-related transactions
   loanId?: string;           // For loan-related transactions
-  transactionPurpose?: string; // BILL, UTILITY, SAVINGS, LOAN, OTHER
+  investmentId?: string;     // For investment-related transactions
+  transactionPurpose?: string; // BILL, UTILITY, SAVINGS, LOAN, INVESTMENT, OTHER
   accountName?: string;      // Account name for display
   // Soft delete fields
   isDeleted?: boolean;
   deletedAt?: string;
   deletedBy?: string;
   deleteReason?: string;
+  // Split transaction support
+  splits?: TransactionSplit[];
+  isSplit?: boolean;
+  splitCount?: number;
+}
+
+export interface TransactionSplit {
+  id: string;
+  amount: number;
+  billId?: string;
+  category?: string;
+  description?: string;
 }
 
 export interface TransactionFilters {
@@ -39,6 +52,8 @@ export interface TransactionFilters {
   endDate?: string;
   limit?: number;
   page?: number;
+  /** When set, return only transactions linked to this bill (main billId or any split.billId). Excludes soft-deleted. */
+  billId?: string;
 }
 
 export interface PaginatedTransactionsResponse {

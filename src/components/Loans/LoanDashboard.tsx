@@ -36,6 +36,8 @@ import {
   useTheme,
   useMediaQuery,
   Skeleton,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -116,6 +118,12 @@ const LoanDashboard: React.FC = () => {
   const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
   const [loanForHistory, setLoanForHistory] = useState<Loan | null>(null);
   const [loanForDisbursement, setLoanForDisbursement] = useState<Loan | null>(null);
+  
+  // Tab state - check URL params or location state for initial tab
+  const [activeTab, setActiveTab] = useState(() => {
+    const state = locationState as { tab?: number } | null;
+    return state?.tab ?? 0;
+  });
   
   // View mode and filter states
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
@@ -645,7 +653,7 @@ const LoanDashboard: React.FC = () => {
                     onChange={(e) => setSortField(e.target.value as SortField)}
                   >
                     <MenuItem value="appliedAt">Applied Date</MenuItem>
-                    <MenuItem value="principal">Principal Amount</MenuItem>
+                    <MenuItem value="principal">Loan Amount</MenuItem>
                     <MenuItem value="remainingBalance">Remaining Balance</MenuItem>
                     <MenuItem value="monthlyPayment">Monthly Payment</MenuItem>
                     <MenuItem value="term">Terms (Months)</MenuItem>
@@ -688,6 +696,41 @@ const LoanDashboard: React.FC = () => {
         </Card>
       )}
 
+      {/* Tabs */}
+      <Card sx={{ mb: 3 }}>
+        <Tabs 
+          value={activeTab} 
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab 
+            label="Active Loans" 
+            icon={<AccountBalance />} 
+            iconPosition="start" 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Payment Schedule
+                {upcomingPayments.length > 0 && (
+                  <Chip
+                    label={upcomingPayments.length}
+                    size="small"
+                    color="primary"
+                    sx={{ height: 20, minWidth: 20, fontSize: '0.7rem' }}
+                  />
+                )}
+              </Box>
+            }
+            icon={<Schedule />} 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Card>
+
+      {/* Tab 1: Active Loans */}
+      {activeTab === 0 && (
+        <>
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={2.4}>
@@ -872,7 +915,7 @@ const LoanDashboard: React.FC = () => {
                     }}
                     onClick={() => handleSortChange('principal')}
                   >
-                    Principal
+                    Loan Amount
                     {sortField === 'principal' && (
                       sortOrder === 'asc' ? <ArrowUpward fontSize="small" sx={{ ml: 0.5 }} /> : <ArrowDownward fontSize="small" sx={{ ml: 0.5 }} />
                     )}
@@ -1046,6 +1089,131 @@ const LoanDashboard: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+        </>
+      )}
+
+      {/* Tab 2: Payment Schedule */}
+      {activeTab === 1 && (
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6">
+                Payment Schedule
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => loadDueDateTracking()}
+                startIcon={<Schedule />}
+              >
+                Refresh
+              </Button>
+            </Box>
+
+            {upcomingPayments.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Schedule sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  No Upcoming Payments
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  You don't have any upcoming payments in the next 30 days.
+                </Typography>
+              </Box>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Loan</strong></TableCell>
+                      <TableCell><strong>Due Date</strong></TableCell>
+                      <TableCell align="right"><strong>Amount</strong></TableCell>
+                      <TableCell align="center"><strong>Days Until Due</strong></TableCell>
+                      <TableCell align="center"><strong>Installment</strong></TableCell>
+                      <TableCell align="center"><strong>Actions</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {upcomingPayments
+                      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                      .map((payment, index) => {
+                        const daysUntilDue = payment.daysUntilDue;
+                        const isDueToday = daysUntilDue === 0;
+                        const isOverdue = daysUntilDue < 0;
+                        const isDueSoon = daysUntilDue > 0 && daysUntilDue <= 7;
+                        
+                        return (
+                          <TableRow 
+                            key={index}
+                            sx={{
+                              backgroundColor: isDueToday ? 'warning.light' : isOverdue ? 'error.light' : isDueSoon ? 'info.light' : 'transparent',
+                              '&:hover': { backgroundColor: 'action.hover' }
+                            }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="medium">
+                                {payment.loanPurpose}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {formatDate(payment.dueDate)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="body2" fontWeight="bold">
+                                {formatCurrency(payment.amount)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={
+                                  isOverdue 
+                                    ? `${Math.abs(daysUntilDue)} days overdue`
+                                    : isDueToday
+                                    ? 'Due Today'
+                                    : `${daysUntilDue} days`
+                                }
+                                color={
+                                  isOverdue 
+                                    ? 'error' 
+                                    : isDueToday 
+                                    ? 'warning' 
+                                    : isDueSoon 
+                                    ? 'info' 
+                                    : 'default'
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" color="text.secondary">
+                                #{payment.installmentNumber}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<Payment />}
+                                onClick={() => {
+                                  setSelectedLoanId(payment.loanId);
+                                  setShowPaymentForm(true);
+                                }}
+                              >
+                                Pay
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Actions Menu */}

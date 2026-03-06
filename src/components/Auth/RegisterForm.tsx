@@ -13,6 +13,18 @@ import {
   InputAdornment,
   IconButton,
   Divider,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  SelectChangeEvent,
+  Checkbox,
+  FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Link,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -23,13 +35,35 @@ import {
   Email,
   Lock,
   Person,
-  Phone,
   CheckCircle,
+  Public,
+  Description,
 } from '@mui/icons-material';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterData } from '../../types/loan';
 import { validateEmail, validatePassword, validateRequired, getErrorMessage } from '../../utils/validation';
+
+const COUNTRIES = [
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Italy', 'Spain',
+  'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Norway', 'Denmark', 'Finland',
+  'Poland', 'Portugal', 'Greece', 'Ireland', 'Czech Republic', 'Hungary', 'Romania', 'Bulgaria',
+  'Croatia', 'Slovakia', 'Slovenia', 'Lithuania', 'Latvia', 'Estonia', 'Luxembourg', 'Malta',
+  'Cyprus', 'Japan', 'South Korea', 'China', 'India', 'Singapore', 'Malaysia', 'Thailand',
+  'Indonesia', 'Philippines', 'Vietnam', 'Taiwan', 'Hong Kong', 'New Zealand', 'South Africa',
+  'Brazil', 'Argentina', 'Mexico', 'Chile', 'Colombia', 'Peru', 'Venezuela', 'Ecuador',
+  'Uruguay', 'Paraguay', 'Bolivia', 'Panama', 'Costa Rica', 'Guatemala', 'Honduras',
+  'El Salvador', 'Nicaragua', 'Dominican Republic', 'Jamaica', 'Trinidad and Tobago', 'Bahamas',
+  'Barbados', 'Belize', 'Guyana', 'Suriname', 'Egypt', 'Nigeria', 'Kenya', 'Ghana',
+  'Tanzania', 'Uganda', 'Ethiopia', 'Morocco', 'Algeria', 'Tunisia', 'Libya', 'Sudan',
+  'Saudi Arabia', 'United Arab Emirates', 'Israel', 'Turkey', 'Lebanon', 'Jordan', 'Kuwait',
+  'Qatar', 'Oman', 'Bahrain', 'Iraq', 'Iran', 'Pakistan', 'Bangladesh', 'Sri Lanka',
+  'Nepal', 'Myanmar', 'Cambodia', 'Laos', 'Mongolia', 'Kazakhstan', 'Uzbekistan', 'Ukraine',
+  'Russia', 'Belarus', 'Moldova', 'Georgia', 'Armenia', 'Azerbaijan', 'Kyrgyzstan',
+  'Tajikistan', 'Turkmenistan', 'Afghanistan', 'Iceland', 'Liechtenstein', 'Monaco',
+  'San Marino', 'Vatican City', 'Andorra', 'Albania', 'Bosnia and Herzegovina',
+  'North Macedonia', 'Serbia', 'Montenegro', 'Kosovo', 'Other'
+];
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -40,7 +74,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState<RegisterData>({
     name: '',
     email: '',
-    phone: '',
+    country: '',
     password: '',
     confirmPassword: '',
   });
@@ -48,6 +82,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
   const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,10 +103,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
-    // Validate phone number - just check if it contains enough digits
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (phoneDigits.length < 7) {
-      setError('Phone number must contain at least 7 digits');
+    // Validate country
+    if (!formData.country || !formData.country.trim()) {
+      setError('Country is required');
       return;
     }
 
@@ -87,12 +122,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
+    // Validate terms acceptance
+    if (!acceptedTerms) {
+      setError('You must accept the Terms and Conditions to proceed');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       await register(formData);
-      // Registration successful - redirect to home page
-      navigate('/');
+      // Registration successful - redirect to email verification page
+      navigate('/verify-email', { 
+        state: { 
+          email: formData.email,
+          message: 'Registration successful! Please check your email to verify your account.' 
+        } 
+      });
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Registration failed'));
     } finally {
@@ -102,6 +148,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
   const handleChange = (field: keyof RegisterData) => (
     e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: e.target.value,
+    }));
+  };
+
+  const handleSelectChange = (field: keyof RegisterData) => (
+    e: SelectChangeEvent<string>
   ) => {
     setFormData(prev => ({
       ...prev,
@@ -142,7 +197,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               }}
             >
               <Box
-                component={Link}
+                component={RouterLink}
                 to="/"
                 sx={{
                   display: 'inline-flex',
@@ -489,15 +544,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     }}
                   />
 
-                  <TextField
-                    fullWidth
-                    required
-                    id="phone"
-                    label="Phone Number"
-                    name="phone"
-                    autoComplete="tel"
-                    value={formData.phone}
-                    onChange={handleChange('phone')}
+                  <FormControl 
+                    fullWidth 
+                    required 
                     disabled={isLoading}
                     sx={{ 
                       mb: 2.5,
@@ -527,27 +576,29 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                       '& .MuiInputLabel-root.Mui-focused': {
                         color: '#5F9B8C',
                       },
-                      '& input:-webkit-autofill': {
-                        WebkitBoxShadow: '0 0 0 1000px #f8fafc inset',
-                        WebkitTextFillColor: '#1e293b',
-                        caretColor: '#1e293b',
-                        borderRadius: '8px',
-                      },
-                      '& input:-webkit-autofill:hover': {
-                        WebkitBoxShadow: '0 0 0 1000px #f1f5f9 inset',
-                      },
-                      '& input:-webkit-autofill:focus': {
-                        WebkitBoxShadow: '0 0 0 1000px #ffffff inset',
-                      },
                     }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Phone sx={{ color: '#94a3b8' }} />
+                  >
+                    <InputLabel id="country-label">Country</InputLabel>
+                    <Select
+                      labelId="country-label"
+                      id="country"
+                      name="country"
+                      value={formData.country}
+                      label="Country"
+                      onChange={handleSelectChange('country')}
+                      startAdornment={
+                        <InputAdornment position="start" sx={{ ml: 1 }}>
+                          <Public sx={{ color: '#94a3b8' }} />
                         </InputAdornment>
-                      ),
-                    }}
-                  />
+                      }
+                    >
+                      {COUNTRIES.map((country) => (
+                        <MenuItem key={country} value={country}>
+                          {country}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
                   <TextField
                     fullWidth
@@ -704,12 +755,52 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                     }}
                   />
 
+                  <Box sx={{ mb: 2.5 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={acceptedTerms}
+                          onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          disabled={isLoading}
+                          sx={{
+                            color: '#5F9B8C',
+                            '&.Mui-checked': {
+                              color: '#5F9B8C',
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', color: '#475569' }}>
+                          I agree to the{' '}
+                          <Link
+                            component="button"
+                            type="button"
+                            onClick={() => setShowTermsDialog(true)}
+                            sx={{
+                              color: '#5F9B8C',
+                              textDecoration: 'none',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              '&:hover': {
+                                textDecoration: 'underline',
+                              },
+                            }}
+                          >
+                            Terms and Conditions
+                          </Link>
+                          {' '}regarding international policy for financial systems
+                        </Typography>
+                      }
+                    />
+                  </Box>
+
                   <Button
                     type="submit"
                     fullWidth
                     variant="contained"
                     size="large"
-                    disabled={isLoading}
+                    disabled={isLoading || !acceptedTerms}
                     sx={{
                       mb: 3,
                       py: 1.75,
@@ -786,6 +877,156 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
           </Grid>
         </Grid>
       </Container>
+
+      {/* Terms and Conditions Dialog */}
+      <Dialog
+        open={showTermsDialog}
+        onClose={() => setShowTermsDialog(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            maxHeight: '90vh',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            pb: 2,
+            borderBottom: '1px solid #e2e8f0',
+          }}
+        >
+          <Description sx={{ color: '#5F9B8C' }} />
+          <Typography variant="h5" component="div" sx={{ fontWeight: 700, color: '#1a2d3a' }}>
+            Terms and Conditions - International Financial Policy
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Box sx={{ maxHeight: '60vh', overflowY: 'auto', pr: 1 }}>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              1. International Financial Services Policy
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              By using UtilityHub360, you acknowledge and agree that our financial services platform operates 
+              in compliance with international financial regulations and policies. This includes adherence to 
+              anti-money laundering (AML) regulations, know your customer (KYC) requirements, and cross-border 
+              financial transaction standards as established by international financial regulatory bodies.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              2. Cross-Border Transactions
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              Users engaging in cross-border financial transactions through UtilityHub360 must comply with all 
+              applicable international trade and financial regulations, including but not limited to sanctions 
+              compliance, export control laws, and currency exchange regulations. You are responsible for ensuring 
+              that your use of our services complies with the laws of your jurisdiction and any jurisdictions 
+              involved in your transactions.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              3. Data Protection and Privacy
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              Your financial data may be processed and stored in accordance with international data protection 
+              standards, including GDPR (General Data Protection Regulation) for European users and other 
+              applicable regional data protection laws. We implement appropriate technical and organizational 
+              measures to protect your personal and financial information in compliance with international 
+              standards.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              4. Regulatory Compliance
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              UtilityHub360 operates in compliance with international financial regulatory frameworks, including 
+              those established by the Financial Action Task Force (FATF), Basel Committee on Banking Supervision, 
+              and other relevant international financial regulatory bodies. Users must ensure their activities 
+              comply with all applicable regulations in their country of residence and operation.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              5. Currency and Exchange Rates
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              When using multi-currency features, exchange rates are provided for informational purposes and may 
+              not reflect real-time market rates. Currency conversions are subject to international exchange 
+              rate fluctuations and applicable fees. Users are responsible for understanding the implications 
+              of currency exchange on their financial transactions.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              6. Prohibited Activities
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              Users are prohibited from using UtilityHub360 for any illegal activities, including but not limited 
+              to money laundering, terrorist financing, tax evasion, or any activities that violate international 
+              financial regulations or sanctions. Violation of these terms may result in immediate account 
+              termination and reporting to relevant authorities.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              7. Jurisdiction and Dispute Resolution
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, lineHeight: 1.8, color: '#475569' }}>
+              These terms are governed by applicable international law and the laws of the jurisdiction in which 
+              UtilityHub360 operates. Any disputes arising from the use of our services will be resolved in 
+              accordance with international dispute resolution mechanisms and applicable legal frameworks.
+            </Typography>
+
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2d3a' }}>
+              8. Changes to Terms
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.8, color: '#475569' }}>
+              We reserve the right to update these terms and conditions to reflect changes in international 
+              financial regulations or our service offerings. Users will be notified of significant changes, 
+              and continued use of the service constitutes acceptance of the updated terms.
+            </Typography>
+
+            <Alert severity="info" sx={{ mt: 3, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                By accepting these terms, you confirm that you have read, understood, and agree to comply with 
+                all international financial policies and regulations applicable to your use of UtilityHub360.
+              </Typography>
+            </Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e2e8f0' }}>
+          <Button
+            onClick={() => {
+              setShowTermsDialog(false);
+              setAcceptedTerms(true);
+            }}
+            variant="contained"
+            sx={{
+              bgcolor: '#5F9B8C',
+              '&:hover': {
+                bgcolor: '#4a7c6f',
+              },
+            }}
+          >
+            Accept and Close
+          </Button>
+          <Button
+            onClick={() => setShowTermsDialog(false)}
+            variant="outlined"
+            sx={{
+              borderColor: '#e2e8f0',
+              color: '#475569',
+              '&:hover': {
+                borderColor: '#cbd5e1',
+                bgcolor: '#f8fafc',
+              },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
