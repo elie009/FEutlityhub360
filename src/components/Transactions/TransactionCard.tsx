@@ -245,7 +245,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             <Chip
-              label={transaction.transactionType}
+              label={transaction.transactionType === 'credit' || transaction.transactionType === 'CREDIT' ? 'Money In' : transaction.transactionType === 'debit' || transaction.transactionType === 'DEBIT' ? 'Money Out' : transaction.transactionType}
               icon={getTransactionTypeIcon(transaction.transactionType)}
               color={getTransactionTypeColor(transaction.transactionType)}
               size="small"
@@ -253,7 +253,6 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
             />
             <Chip
               label={transaction.category || 'Uncategorized'}
-              icon={getCategoryIcon(transaction.category || 'default')}
               color={getCategoryColor(transaction.category || 'default')}
               size="small"
               sx={{ fontSize: '0.7rem', height: 20 }}
@@ -261,7 +260,6 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
             {transaction.isRecurring && (
               <Chip
                 label="Recurring"
-                icon={<Schedule sx={{ fontSize: 12 }} />}
                 color="info"
                 size="small"
                 sx={{ fontSize: '0.7rem', height: 20 }}
@@ -391,6 +389,15 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction, onViewDe
           <Receipt sx={{ mr: 1, fontSize: 16 }} />
           View Details
         </MenuItem>
+        {onEdit && (
+          <MenuItem onClick={() => {
+            onEdit(transaction);
+            handleMenuClose();
+          }}>
+            <Edit sx={{ mr: 1, fontSize: 16 }} />
+            Edit Transaction
+          </MenuItem>
+        )}
       </Menu>
       </Card>
     </Box>

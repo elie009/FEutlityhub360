@@ -558,17 +558,6 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
           >
             Update
           </Button>
-          {isSelectedBillPending && (
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleMarkAsPaid}
-              color="success"
-              fullWidth
-            >
-              Mark Paid
-            </Button>
-          )}
           <Button
             variant="outlined"
             size="small"
@@ -613,12 +602,6 @@ const BillCard: React.FC<BillCardProps> = ({ bill, alerts = [], historicalCount 
           }}>
             <Assessment sx={{ mr: 1, fontSize: 16 }} />
             View Provider Analytics
-          </MenuItem>
-        )}
-        {isSelectedBillPending && (
-          <MenuItem onClick={handleMarkAsPaid}>
-            <CheckCircle sx={{ mr: 1, fontSize: 16 }} />
-            Mark as Paid
           </MenuItem>
         )}
         <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>

@@ -56,7 +56,7 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
       const monthName = date.toLocaleString('default', { month: 'long' });
       const year = date.getFullYear();
       setFormData({
-        reconciliationName: `${monthName} ${year} Reconciliation`,
+        reconciliationName: `${monthName} ${year} Bank Statement Match`,
         reconciliationDate: date.toISOString().split('T')[0],
         bankStatementId: bankStatements.length > 0 ? bankStatements[0].id : '',
         notes: '',
@@ -68,8 +68,8 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
   const handleSubmit = async () => {
     setError('');
     
-    if (!formData.reconciliationName.trim()) {
-      setError('Reconciliation name is required');
+      if (!formData.reconciliationName.trim()) {
+      setError('Match session name is required');
       return;
     }
 
@@ -94,7 +94,7 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Create Reconciliation</Typography>
+          <Typography variant="h6">Create Match Session</Typography>
           <IconButton onClick={onClose} size="small">
             <Close />
           </IconButton>
@@ -111,17 +111,19 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Reconciliation Name"
+              label="Match Session Name"
               value={formData.reconciliationName}
               onChange={(e) => setFormData({ ...formData, reconciliationName: e.target.value })}
               required
-              placeholder="e.g., January 2024 Reconciliation"
+              placeholder="e.g., January 2024 Bank Statement Match"
+              helperText="Give this matching session a name you'll remember"
             />
           </Grid>
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Reconciliation Date"
+              label="Match Date"
+              helperText="The date you're matching transactions for"
               type="date"
               value={formData.reconciliationDate}
               onChange={(e) => setFormData({ ...formData, reconciliationDate: e.target.value })}
@@ -137,7 +139,7 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
                 onChange={(e) => setFormData({ ...formData, bankStatementId: e.target.value })}
                 label="Bank Statement (Optional)"
               >
-                <MenuItem value="">None - Manual Reconciliation</MenuItem>
+                <MenuItem value="">None - Manual Matching</MenuItem>
                 {bankStatements.map((statement) => (
                   <MenuItem key={statement.id} value={statement.id}>
                     {statement.statementName} ({new Date(statement.statementEndDate).toLocaleDateString()})
@@ -154,7 +156,7 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               multiline
               rows={3}
-              placeholder="Add any notes about this reconciliation..."
+              placeholder="Add any notes about this matching session..."
             />
           </Grid>
         </Grid>
@@ -169,7 +171,7 @@ const ReconciliationDialog: React.FC<ReconciliationDialogProps> = ({
           disabled={isLoading}
           startIcon={isLoading ? <CircularProgress size={20} /> : <Save />}
         >
-          {isLoading ? 'Creating...' : 'Create Reconciliation'}
+          {isLoading ? 'Creating...' : 'Create Match Session'}
         </Button>
       </DialogActions>
     </Dialog>

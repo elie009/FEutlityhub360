@@ -24,6 +24,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Collapse,
 } from '@mui/material';
 import {
   Close,
@@ -32,6 +33,9 @@ import {
   Add,
   CloudUpload,
   PictureAsPdf,
+  ExpandMore,
+  ExpandLess,
+  Save,
 } from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { BankStatementItemImport, ExtractBankStatementResponse } from '../../types/reconciliation';
@@ -74,6 +78,200 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>(initialBankAccountId || '');
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+  const [showCsvSection, setShowCsvSection] = useState(false);
+  const [showPdfSection, setShowPdfSection] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [previousStatementInfo, setPreviousStatementInfo] = useState<string>('');
+  const [previousClosingBalance, setPreviousClosingBalance] = useState<number | null>(null);
+  const [balanceMismatch, setBalanceMismatch] = useState<{show: boolean, calculatedBalance: number, specifiedBalance: number}>({
+    show: false,
+    calculatedBalance: 0,
+    specifiedBalance: 0
+  });
+  const [openingBalanceMismatch, setOpeningBalanceMismatch] = useState<{show: boolean, previousClosing: number, currentOpening: number}>({
+    show: false,
+    previousClosing: 0,
+    currentOpening: 0
+  });
+
+  // Compute closing balance in real-time and check for mismatches
+  useEffect(() => {
+    if (formData.openingBalance && statementItems.length > 0) {
+      const openingBal = parseFloat(formData.openingBalance) || 0;
+      
+      // Calculate net change from all transactions
+      const netChange = statementItems.reduce((sum, item) => {
+        const amount = parseFloat(item.amount.toString()) || 0;
+        // CREDIT adds to balance, DEBIT subtracts from balance
+        if (item.transactionType === 'CREDIT') {
+          return sum + amount;
+        } else if (item.transactionType === 'DEBIT') {
+          return sum - amount;
+        }
+        return sum;
+      }, 0);
+      
+      const computedClosingBalance = openingBal + netChange;
+      
+      // Update closing balance if it's different
+      setFormData(prev => ({
+        ...prev,
+        closingBalance: computedClosingBalance.toFixed(2)
+      }));
+      
+      // Check for balance mismatch (will be used when user manually changes closing balance)
+      setBalanceMismatch({
+        show: false,
+        calculatedBalance: computedClosingBalance,
+        specifiedBalance: computedClosingBalance
+      });
+    } else {
+      // If no items, keep closing balance empty
+      setFormData(prev => ({
+        ...prev,
+        closingBalance: ''
+      }));
+      setBalanceMismatch({
+        show: false,
+        calculatedBalance: 0,
+        specifiedBalance: 0
+      });
+    }
+  }, [formData.openingBalance, statementItems]);
+
+  // Check if opening balance matches previous closing balance (with debouncing)
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      // Only validate if we have a previous statement (indicated by previousStatementInfo)
+      if (previousStatementInfo && previousClosingBalance !== null && formData.openingBalance) {
+        const currentOpeningBal = parseFloat(formData.openingBalance) || 0;
+        const difference = Math.abs(previousClosingBalance - currentOpeningBal);
+        
+        // Check if there's a mismatch (allow small rounding differences)
+        if (difference > 0.01) {
+          setOpeningBalanceMismatch({
+            show: true,
+            previousClosing: previousClosingBalance,
+            currentOpening: currentOpeningBal
+          });
+        } else {
+          setOpeningBalanceMismatch({
+            show: false,
+            previousClosing: previousClosingBalance,
+            currentOpening: currentOpeningBal
+          });
+        }
+      } else {
+        setOpeningBalanceMismatch({
+          show: false,
+          previousClosing: 0,
+          currentOpening: 0
+        });
+      }
+    }, 2000); // 2 second debounce
+
+    return () => clearTimeout(debounceTimer);
+  }, [formData.openingBalance, previousClosingBalance, previousStatementInfo]);
+
+  // Check for balance mismatch when user manually changes closing balance (with debouncing)
+  useEffect(() => {
+    // Debounce the balance mismatch check by 2 seconds
+    const debounceTimer = setTimeout(() => {
+      if (statementItems.length > 0 && formData.openingBalance && formData.closingBalance) {
+        const openingBal = parseFloat(formData.openingBalance) || 0;
+        const specifiedClosingBal = parseFloat(formData.closingBalance) || 0;
+        
+        // Calculate what the closing balance should be
+        const netChange = statementItems.reduce((sum, item) => {
+          const amount = parseFloat(item.amount.toString()) || 0;
+          if (item.transactionType === 'CREDIT') {
+            return sum + amount;
+          } else if (item.transactionType === 'DEBIT') {
+            return sum - amount;
+          }
+          return sum;
+        }, 0);
+        
+        const calculatedClosingBalance = openingBal + netChange;
+        
+        // Check if there's a mismatch (allow small rounding differences)
+        const difference = Math.abs(calculatedClosingBalance - specifiedClosingBal);
+        if (difference > 0.01) {
+          setBalanceMismatch({
+            show: true,
+            calculatedBalance: calculatedClosingBalance,
+            specifiedBalance: specifiedClosingBal
+          });
+        } else {
+          setBalanceMismatch({
+            show: false,
+            calculatedBalance: calculatedClosingBalance,
+            specifiedBalance: specifiedClosingBal
+          });
+        }
+      }
+    }, 2000); // 2 second debounce
+
+    // Cleanup function to clear the timeout if dependencies change
+    return () => clearTimeout(debounceTimer);
+  }, [formData.closingBalance, formData.openingBalance, statementItems]);
+
+  // Fetch previous statement's closing balance when bank account changes
+  useEffect(() => {
+    if (open && selectedBankAccountId) {
+      const fetchPreviousStatement = async () => {
+        try {
+          const statements = await apiService.getBankStatements(selectedBankAccountId);
+          if (statements.length > 0) {
+            // Get most recent statement by end date
+            const sortedStatements = statements.sort((a, b) => 
+              new Date(b.statementEndDate).getTime() - new Date(a.statementEndDate).getTime()
+            );
+            const previousStatement = sortedStatements[0];
+            
+            // Get the last closing balance from the most recent statement
+            const lastClosingBalance = previousStatement.closingBalance || 0;
+            
+            // Store previous closing balance for validation
+            setPreviousClosingBalance(lastClosingBalance);
+            
+            // Set opening balance from previous closing balance
+            setFormData(prev => ({
+              ...prev,
+              openingBalance: lastClosingBalance.toFixed(2)
+            }));
+            
+            // Set info message
+            setPreviousStatementInfo(
+              `Auto-filled from "${previousStatement.statementName}" (${new Date(previousStatement.statementEndDate).toLocaleDateString()})`
+            );
+          } else {
+            // No previous statements, set closing balance to 0
+            const lastClosingBalance = 0;
+            setPreviousClosingBalance(lastClosingBalance);
+            setFormData(prev => ({
+              ...prev,
+              openingBalance: lastClosingBalance.toFixed(2)
+            }));
+            setPreviousStatementInfo('');
+          }
+        } catch (err) {
+          console.error('Failed to fetch previous statement:', err);
+          // On error, set closing balance to 0
+          const lastClosingBalance = 0;
+          setPreviousClosingBalance(lastClosingBalance);
+          setFormData(prev => ({
+            ...prev,
+            openingBalance: lastClosingBalance.toFixed(2)
+          }));
+          setPreviousStatementInfo('');
+        }
+      };
+      
+      fetchPreviousStatement();
+    }
+  }, [open, selectedBankAccountId]);
 
   // Fetch bank accounts when dialog opens
   useEffect(() => {
@@ -113,6 +311,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
       setPdfFile(null);
       setShowReview(false);
       setExtractedData(null);
+      setPreviousStatementInfo('');
     }
   }, [open, initialBankAccountId]);
 
@@ -345,14 +544,12 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
     });
   };
 
-  // Handle file upload with AI extraction
-  const handleFileUploadWithAI = async (file: File, isCSV: boolean) => {
+  // Handle file upload with AI extraction (Asynchronous)
+  const handleFileUploadAsync = async (file: File) => {
     setIsExtracting(true);
     setError('');
     
     try {
-      let extracted: ExtractBankStatementResponse;
-      
       // Validate bank account is selected
       if (!selectedBankAccountId) {
         setError('Please select a target bank account before uploading the file');
@@ -360,49 +557,13 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
         return;
       }
 
-      // Use analyze-pdf endpoint for PDF files, extract endpoint for CSV files
-      if (!isCSV && file.name.toLowerCase().endsWith('.pdf')) {
-        // Use AI-powered PDF analysis endpoint
-        extracted = await apiService.analyzePDFWithAI(file, selectedBankAccountId);
-      } else {
-        // Use general extraction endpoint for CSV files
-        extracted = await apiService.extractBankStatement(file, selectedBankAccountId);
-      }
+      await apiService.uploadBankStatementAsync(file, selectedBankAccountId);
       
-      // Populate form with extracted data
-      if (extracted.statementName) {
-        setFormData(prev => ({
-          ...prev,
-          statementName: extracted.statementName,
-          statementStartDate: extracted.statementStartDate || prev.statementStartDate,
-          statementEndDate: extracted.statementEndDate || prev.statementEndDate,
-          openingBalance: extracted.openingBalance?.toString() || prev.openingBalance,
-          closingBalance: extracted.closingBalance?.toString() || prev.closingBalance,
-          importFormat: extracted.importFormat || (isCSV ? 'CSV' : 'PDF'),
-          importSource: extracted.importSource || file.name,
-        }));
-      }
-      
-      // Set extracted items
-      if (extracted.statementItems && extracted.statementItems.length > 0) {
-        setStatementItems(extracted.statementItems);
-        setExtractedData(extracted);
-        setShowReview(true);
-      } else {
-        setError('No transactions found in the file. Please check the file format.');
-      }
-      
-      if (isCSV) {
-        setCsvFile(file);
-        setPdfFile(null);
-      } else {
-        setPdfFile(file);
-        setCsvFile(null);
-      }
+      // Success! The file is uploaded and will be processed by the utility
+      onSuccess();
+      onClose(); // Close dialog as processing is now backgrounded
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to extract transactions from file. Please try manual entry.'));
-      // Fallback to manual entry
-      setShowReview(false);
+      setError(getErrorMessage(err, 'Failed to upload bank statement for processing.'));
     } finally {
       setIsExtracting(false);
     }
@@ -418,8 +579,11 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
       return;
     }
     
-    // Use AI extraction instead of local parsing
-    await handleFileUploadWithAI(file, true);
+    // Use new async upload flow
+    await handleFileUploadAsync(file);
+    
+    // Reset input
+    event.target.value = '';
   };
 
   // Extract text from PDF file
@@ -619,11 +783,43 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
       return;
     }
     
-    // Use AI extraction instead of local parsing
-    await handleFileUploadWithAI(file, false);
+    // Use new async upload flow
+    await handleFileUploadAsync(file);
     
     // Reset input
     event.target.value = '';
+  };
+
+  const handleSave = () => {
+    setError('');
+    setSaveSuccess(false);
+    
+    // Validation
+    if (!selectedBankAccountId) {
+      setError('Please select a target bank account');
+      return;
+    }
+    if (!formData.statementName.trim()) {
+      setError('Statement name is required');
+      return;
+    }
+    if (!formData.statementStartDate || !formData.statementEndDate) {
+      setError('Start date and end date are required');
+      return;
+    }
+    if (statementItems.length === 0) {
+      setError('At least one statement item is required');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    // Simulate saving (just validation and local state update)
+    setTimeout(() => {
+      setSaveSuccess(true);
+      setIsSaving(false);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }, 500);
   };
 
   const handleSubmit = async () => {
@@ -666,6 +862,7 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
         })),
       });
       onSuccess();
+      onClose();
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to import bank statement'));
     } finally {
@@ -674,7 +871,19 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={(event, reason) => {
+        // Only close when user clicks close button, not when clicking backdrop or pressing ESC
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+          return;
+        }
+        onClose();
+      }} 
+      maxWidth="lg" 
+      fullWidth
+      disableEscapeKeyDown
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">Import Bank Statement</Typography>
@@ -691,7 +900,8 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
         )}
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12}>
+          {/* First Row: Target Bank Account and Statement Name */}
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth required>
               <InputLabel>Target Bank Account</InputLabel>
               <Select
@@ -727,6 +937,50 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
               required
             />
           </Grid>
+
+          {/* Second Row: Opening Balance, Closing Balance, Start Date, End Date */}
+          <Grid item xs={12} sm={3}>
+            <TextField
+              fullWidth
+              label="Opening Balance"
+              type="number"
+              value={formData.openingBalance}
+              onChange={(e) => {
+                setFormData({ ...formData, openingBalance: e.target.value });
+                // Clear the info message when user manually edits
+                if (previousStatementInfo) {
+                  setPreviousStatementInfo('');
+                }
+              }}
+              required
+              helperText={previousStatementInfo}
+              sx={{
+                '& .MuiFormHelperText-root': {
+                  color: 'success.main',
+                  fontSize: '0.7rem'
+                }
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              fullWidth
+              label="Closing Balance"
+              type="number"
+              value={formData.closingBalance}
+              onChange={(e) => setFormData({ ...formData, closingBalance: e.target.value })}
+              required
+              InputProps={{
+                readOnly: statementItems.length > 0 && formData.openingBalance !== '',
+              }}
+              helperText={statementItems.length > 0 && formData.openingBalance !== '' ? 'Auto-calculated' : ''}
+              sx={{
+                '& .MuiInputBase-input': {
+                  backgroundColor: statementItems.length > 0 && formData.openingBalance !== '' ? 'action.hover' : 'transparent'
+                }
+              }}
+            />
+          </Grid>
           <Grid item xs={12} sm={3}>
             <TextField
               fullWidth
@@ -749,137 +1003,210 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
               required
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Opening Balance"
-              type="number"
-              value={formData.openingBalance}
-              onChange={(e) => setFormData({ ...formData, openingBalance: e.target.value })}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Closing Balance"
-              type="number"
-              value={formData.closingBalance}
-              onChange={(e) => setFormData({ ...formData, closingBalance: e.target.value })}
-              required
-            />
-          </Grid>
         </Grid>
 
-        {/* CSV File Upload Section */}
-        <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
-          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'medium' }}>
-            Import from CSV File
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mt: 1 }}>
-            <input
-              accept=".csv"
-              style={{ display: 'none' }}
-              id="csv-upload-input"
-              type="file"
-              onChange={handleFileUpload}
-              disabled={isParsing}
-            />
-            <label htmlFor="csv-upload-input">
-              <Button
-                variant="outlined"
-                component="span"
-                startIcon={isExtracting ? <CircularProgress size={16} /> : <CloudUpload />}
-                disabled={isExtracting || isParsing}
-                sx={{ textTransform: 'none' }}
-              >
-                {isExtracting ? 'AI Extracting...' : isParsing ? 'Parsing CSV...' : 'Upload CSV File (AI)'}
-              </Button>
-            </label>
-            {csvFile && (
-              <Chip
-                label={`${csvFile.name} (${statementItems.length} transaction${statementItems.length !== 1 ? 's' : ''})`}
-                onDelete={() => {
-                  setCsvFile(null);
-                  setPdfFile(null);
-                  setStatementItems([]);
-                  setFormData(prev => ({
-                    ...prev,
-                    importSource: '',
-                  }));
-                }}
-                color="success"
-                variant="outlined"
-              />
-            )}
-          </Box>
-          <Alert severity="info" sx={{ mt: 2 }}>
-            <Typography variant="caption" component="div">
-              <strong>CSV Format Requirements:</strong>
-              <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem' }}>
-                <li>Must include <strong>Date</strong> and <strong>Amount</strong> columns</li>
-                <li>Optional: Type (Debit/Credit), Description, Reference, Balance</li>
-                <li>Date formats: MM/DD/YYYY, YYYY-MM-DD, or MM-DD-YYYY</li>
-                <li>Amount can be positive or negative (negative = Debit, positive = Credit)</li>
-              </ul>
+        {/* Opening Balance Mismatch Warning */}
+        {openingBalanceMismatch.show && (
+          <Alert severity="error" sx={{ mb: 2, mt: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              🚨 Opening Balance Mismatch
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              The opening balance (<strong>{formatCurrency(openingBalanceMismatch.currentOpening)}</strong>) doesn't match the previous statement's closing balance (<strong>{formatCurrency(openingBalanceMismatch.previousClosing)}</strong>).
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Difference:</strong> {formatCurrency(Math.abs(openingBalanceMismatch.currentOpening - openingBalanceMismatch.previousClosing))}
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+              ⚠️ <strong>Warning:</strong> Your opening balance should match the closing balance from your previous statement to maintain accurate records. Please verify your opening balance before proceeding.
             </Typography>
           </Alert>
-        </Box>
+        )}
+
+        {/* Balance Mismatch Warning */}
+        {balanceMismatch.show && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              ⚠️ Balance Mismatch Detected
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              The running balance (<strong>{formatCurrency(balanceMismatch.calculatedBalance)}</strong>) doesn't match the specified ending balance (<strong>{formatCurrency(balanceMismatch.specifiedBalance)}</strong>).
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <strong>Difference:</strong> {formatCurrency(Math.abs(balanceMismatch.calculatedBalance - balanceMismatch.specifiedBalance))}
+            </Typography>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+              <Typography variant="caption" component="div" sx={{ fontWeight: 'bold', mb: 1 }}>
+                How the system works:
+              </Typography>
+              <ol style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem', lineHeight: '1.6' }}>
+                <li><strong>Starting Balance:</strong> Begins with the opening balance</li>
+                <li><strong>Transaction Entries:</strong> All transactions (CREDIT/DEBIT) are entered</li>
+                <li><strong>Running Balance:</strong> System calculates: Opening + Credits - Debits</li>
+                <li><strong>Ending Balance:</strong> You specify what it should be from bank records</li>
+                <li><strong>Reconciliation:</strong> System compares calculated vs specified balance</li>
+              </ol>
+              <Typography variant="caption" component="div" sx={{ fontWeight: 'bold', mt: 2, mb: 1 }}>
+                Possible causes for this error:
+              </Typography>
+              <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem', lineHeight: '1.6' }}>
+                <li><strong>Missing Transactions:</strong> Not all transactions have been entered</li>
+                <li><strong>Incorrect Starting Balance:</strong> The opening balance may be wrong</li>
+                <li><strong>Data Entry Errors:</strong> Check transaction amounts or types (DEBIT/CREDIT)</li>
+                <li><strong>Unreconciled Items:</strong> Transactions not matched with bank records</li>
+              </ul>
+            </Box>
+            <Typography variant="caption" sx={{ mt: 2, display: 'block', fontStyle: 'italic', color: 'warning.dark' }}>
+              💡 Please review your transactions to ensure all entries are accurate before importing.
+            </Typography>
+          </Alert>
+        )}
 
         {/* PDF File Upload Section */}
-        <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
-          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'medium' }}>
-            Import from PDF File
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mt: 1 }}>
-            <input
-              accept=".pdf"
-              style={{ display: 'none' }}
-              id="pdf-upload-input"
-              type="file"
-              onChange={handlePDFUpload}
-              disabled={isParsing}
-            />
-            <label htmlFor="pdf-upload-input">
-              <Button
-                variant="outlined"
-                component="span"
-                startIcon={isExtracting ? <CircularProgress size={16} /> : <PictureAsPdf />}
-                disabled={isExtracting || isParsing}
-                sx={{ textTransform: 'none' }}
-                color="error"
-              >
-                {isExtracting ? 'AI Extracting...' : isParsing ? 'Parsing PDF...' : 'Upload PDF File (AI)'}
-              </Button>
-            </label>
-            {pdfFile && (
-              <Chip
-                label={`${pdfFile.name} (${statementItems.length} transaction${statementItems.length !== 1 ? 's' : ''})`}
-                onDelete={() => {
-                  setPdfFile(null);
-                  setStatementItems([]);
-                  setFormData(prev => ({
-                    ...prev,
-                    importSource: '',
-                  }));
-                }}
-                color="error"
-                variant="outlined"
-              />
-            )}
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'primary.50', borderRadius: 1, border: '2px solid', borderColor: 'primary.main' }}>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              cursor: 'pointer',
+              mb: showPdfSection ? 2 : 0
+            }}
+            onClick={() => setShowPdfSection(!showPdfSection)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PictureAsPdf color="primary" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                Import from PDF File (Recommended)
+              </Typography>
+            </Box>
+            <IconButton size="small" color="primary">
+              {showPdfSection ? <ExpandLess /> : <ExpandMore />}
+            </IconButton>
           </Box>
-          <Alert severity="info" sx={{ mt: 2 }}>
-            <Typography variant="caption" component="div">
-              <strong>AI-Powered Extraction:</strong>
-              <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem' }}>
-                <li>AI automatically extracts all transactions from your statement</li>
-                <li>Works with both text-based and scanned PDFs</li>
-                <li>Review and edit extracted data before importing</li>
-                <li>Supports all common bank statement formats</li>
-                <li>Accurately identifies dates, amounts, descriptions, and transaction types</li>
-              </ul>
-            </Typography>
-          </Alert>
+          <Collapse in={showPdfSection}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+              <input
+                accept=".pdf"
+                style={{ display: 'none' }}
+                id="pdf-upload-input"
+                type="file"
+                onChange={handlePDFUpload}
+                disabled={isParsing || isExtracting}
+              />
+              <label htmlFor="pdf-upload-input">
+                <Button
+                  variant="contained"
+                  component="span"
+                  startIcon={isExtracting ? <CircularProgress size={16} /> : <PictureAsPdf />}
+                  disabled={isExtracting || isParsing}
+                  color="primary"
+                  size="large"
+                >
+                  {isExtracting ? 'Uploading...' : 'Upload PDF for AI Processing'}
+                </Button>
+              </label>
+              {pdfFile && (
+                <Chip
+                  label={`${pdfFile.name} (${statementItems.length} transaction${statementItems.length !== 1 ? 's' : ''})`}
+                  onDelete={() => {
+                    setPdfFile(null);
+                    setStatementItems([]);
+                    setFormData(prev => ({
+                      ...prev,
+                      importSource: '',
+                    }));
+                  }}
+                  color="primary"
+                  variant="outlined"
+                />
+              )}
+            </Box>
+            <Alert severity="info">
+              <Typography variant="caption" component="div">
+                <strong>AI-Powered Extraction:</strong>
+                <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem' }}>
+                  <li>Upload your PDF bank statement for automated processing</li>
+                  <li>AI extracts transactions, dates, amounts, and descriptions</li>
+                  <li>Processing happens in the background - track status in the table</li>
+                  <li>Review and confirm extracted data once status shows "DONE"</li>
+                </ul>
+              </Typography>
+            </Alert>
+          </Collapse>
+        </Box>
+
+        {/* CSV File Upload Section */}
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              cursor: 'pointer',
+              mb: showCsvSection ? 2 : 0
+            }}
+            onClick={() => setShowCsvSection(!showCsvSection)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CloudUpload color="primary" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                Import from CSV File (Alternative)
+              </Typography>
+            </Box>
+            <IconButton size="small">
+              {showCsvSection ? <ExpandLess /> : <ExpandMore />}
+            </IconButton>
+          </Box>
+          <Collapse in={showCsvSection}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+              <input
+                accept=".csv"
+                style={{ display: 'none' }}
+                id="csv-upload-input"
+                type="file"
+                onChange={handleFileUpload}
+                disabled={isParsing || isExtracting}
+              />
+              <label htmlFor="csv-upload-input">
+                <Button
+                  variant="outlined"
+                  component="span"
+                  startIcon={isExtracting ? <CircularProgress size={16} /> : <CloudUpload />}
+                  disabled={isExtracting || isParsing}
+                >
+                  {isExtracting ? 'Uploading...' : 'Upload CSV for Processing'}
+                </Button>
+              </label>
+              {csvFile && (
+                <Chip
+                  label={`${csvFile.name} (${statementItems.length} transaction${statementItems.length !== 1 ? 's' : ''})`}
+                  onDelete={() => {
+                    setCsvFile(null);
+                    setPdfFile(null);
+                    setStatementItems([]);
+                    setFormData(prev => ({
+                      ...prev,
+                      importSource: '',
+                    }));
+                  }}
+                  color="success"
+                  variant="outlined"
+                />
+              )}
+            </Box>
+            <Alert severity="info">
+              <Typography variant="caption" component="div">
+                <strong>CSV Format Requirements:</strong>
+                <ul style={{ margin: '4px 0', paddingLeft: 20, fontSize: '0.75rem' }}>
+                  <li>Must include <strong>Date</strong> and <strong>Amount</strong> columns</li>
+                  <li>Optional: Type (Money Out/Money In), Description, Reference, Balance</li>
+                  <li>Date formats: MM/DD/YYYY, YYYY-MM-DD, or MM-DD-YYYY</li>
+                  <li>Amount can be positive or negative (negative = Money Out, positive = Money In)</li>
+                </ul>
+              </Typography>
+            </Alert>
+          </Collapse>
         </Box>
 
         {showReview && extractedData && (
@@ -891,19 +1218,39 @@ const BankStatementImportDialog: React.FC<BankStatementImportDialogProps> = ({
           </Alert>
         )}
 
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="h6">
             Statement Items {showReview && <Chip label="AI Extracted" color="success" size="small" sx={{ ml: 1 }} />}
           </Typography>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Add />}
-            onClick={handleAddItem}
-          >
-            Add Item Manually
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Add />}
+              onClick={handleAddItem}
+            >
+              Add Item Manually
+            </Button>
+            {statementItems.length > 0 && (
+              <Button
+                variant="contained"
+                size="small"
+                color="success"
+                startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : <Save />}
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Items'}
+              </Button>
+            )}
+          </Box>
         </Box>
+
+        {saveSuccess && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveSuccess(false)}>
+            Statement items saved successfully!
+          </Alert>
+        )}
 
         {statementItems.length === 0 ? (
           <Alert severity="info">

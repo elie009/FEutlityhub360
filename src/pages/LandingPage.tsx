@@ -25,6 +25,7 @@ import {
   Fade,
   Slide,
   Zoom,
+  CircularProgress,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -58,24 +59,62 @@ import {
   CameraAlt,
   Smartphone,
   SmartToy,
-  Sms,
   CloudUpload,
+  AutoAwesome,
+  FlashOn,
+  KeyboardArrowRight,
+  PieChart,
+  Lightbulb,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../contexts/CurrencyContext';
-import AnimatedParticlesBackground from '../components/Auth/AnimatedParticlesBackground';
+import { useAuth } from '../contexts/AuthContext';
 
 const LandingPage: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { formatCurrency } = useCurrency();
+  const { isAuthenticated, isLoading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
   const servicesRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
 
+  // Quick check: if authenticated or token exists, redirect immediately
+  // (Wrapper should handle this, but this is a safety check)
   useEffect(() => {
-    setIsVisible(true);
+    if (!isLoading) {
+      if (isAuthenticated) {
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+      
+      // If there's a token, the wrapper should have handled it, but just in case
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        // Quick redirect - wrapper already validated
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+      
+      // No token and not authenticated - show landing page
+      setCheckingSession(false);
+      setIsVisible(true);
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  useEffect(() => {
+    if (!checkingSession && !isLoading) {
+      setIsVisible(true);
+    }
+  }, [checkingSession, isLoading]);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleGetStarted = () => {
@@ -100,976 +139,750 @@ const LandingPage: React.FC = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const accentGreen = '#B3EE9A';
+  const accentGreenHover = '#8FD968';
+  const aboutCardSx = {
+    bgcolor: 'rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(8px)',
+    borderRadius: 2,
+    p: 3,
+    border: '1px solid rgba(255,255,255,0.2)',
+    '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+  };
+
   const services = [
     {
-      icon: <AccountBalance sx={{ fontSize: 50, color: 'primary.main' }} />,
-      title: 'Bank Account Management',
-      description: 'Connect and manage multiple bank accounts with real-time balance tracking and transaction history.',
-      features: ['Multi-account support', 'Real-time updates', 'Transaction categorization']
+      icon: AccountBalance,
+      title: 'Real Account Management',
+      description: 'Smart portfolio management with personalized strategies for your financial goals.',
+      features: ['Portfolio insights', 'Risk tracking', 'Performance reports', 'Real-time monitoring'],
     },
     {
-      icon: <Receipt sx={{ fontSize: 50, color: 'success.main' }} />,
-      title: 'Smart Bill Management',
-      description: 'Automate your bill payments with intelligent scheduling and reminder systems.',
-      features: ['Auto-pay setup', 'Due date reminders', 'Payment tracking']
+      icon: PieChart,
+      title: 'Smart Risk Management',
+      description: 'AI-powered analytics to protect your investments and minimize risks.',
+      features: ['Live alerts', 'Risk scores', 'Market trends', 'Smart recommendations'],
     },
     {
-      icon: <TrendingUp sx={{ fontSize: 50, color: 'info.main' }} />,
+      icon: TrendingUp,
       title: 'Financial Analytics',
-      description: 'Get comprehensive insights into your spending patterns and financial health.',
-      features: ['Spending analysis', 'Budget tracking', 'Financial reports']
+      description: 'Clear insights and data-driven recommendations for better decisions.',
+      features: ['Market insights', 'Growth tracking', 'Custom reports', 'Trend predictions'],
     },
     {
-      icon: <Savings sx={{ fontSize: 50, color: 'warning.main' }} />,
+      icon: AttachMoney,
       title: 'Savings & Investment',
-      description: 'Set and achieve your financial goals with automated savings and investment tracking.',
-      features: ['Goal setting', 'Progress tracking', 'Investment monitoring']
+      description: 'Build wealth with automated saving and smart investment tools.',
+      features: ['Auto-save', 'Goal tracking', 'Tax tips', 'Future planning'],
     },
     {
-      icon: <Assessment sx={{ fontSize: 50, color: 'secondary.main' }} />,
+      icon: Shield,
       title: 'Loan Management',
-      description: 'Manage all your loans with payment optimization and debt reduction strategies.',
-      features: ['Payment scheduling', 'Interest tracking', 'Debt optimization']
+      description: 'Simple loan solutions with transparent terms and flexible options.',
+      features: ['Quick approval', 'Fair rates', 'Flexible terms', 'Easy payments'],
     },
     {
-      icon: <Security sx={{ fontSize: 50, color: 'error.main' }} />,
+      icon: Lightbulb,
       title: 'Bank-Level Security',
-      description: 'Your financial data is protected with enterprise-grade security and encryption.',
-      features: ['End-to-end encryption', 'Secure authentication', 'Data privacy']
+      description: 'Your money is protected with top-tier security and encryption.',
+      features: ['256-bit encryption', '2FA protection', 'Fraud detection', 'Secure backup'],
     },
   ];
 
   const stats = [
-    { number: '10K+', label: 'Active Users' },
-    { number: '50M+', label: 'Assets Managed' },
-    { number: '99.9%', label: 'Uptime' },
-    { number: '4.9/5', label: 'User Rating' },
+    { value: '10K+', label: 'Active Users', icon: People },
+    { value: '15K+', label: 'Goals Achieved', icon: TrendingUp },
+    { value: '99.9%', label: 'Uptime', icon: Shield },
+    { value: '24/7', label: 'Support', icon: FlashOn },
   ];
 
   const testimonials = [
     {
       name: 'Sarah Johnson',
-      role: 'Financial Advisor',
-      content: 'UtilityHub360 has revolutionized how I manage my finances. The analytics are incredibly insightful.',
-      avatar: 'SJ'
+      role: 'Small Business Owner',
+      content: 'UtilityHub360 made managing my finances so simple! The insights helped me save 30% more in just 6 months.',
+      rating: 5,
+      image: 'https://images.unsplash.com/photo-1551989745-347c28b620e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     },
     {
       name: 'Michael Chen',
-      role: 'Business Owner',
-      content: 'The bill management feature saved me hours every month. Highly recommended!',
-      avatar: 'MC'
+      role: 'Freelance Developer',
+      content: 'Finally, a financial app that actually makes sense! The auto-invest feature is a game-changer for me.',
+      rating: 5,
+      image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     },
     {
-      name: 'Emily Davis',
-      role: 'Investment Manager',
-      content: 'The investment tracking and goal setting features are exactly what I needed.',
-      avatar: 'ED'
+      name: 'Emma Davis',
+      role: 'Content Creator',
+      content: 'Love how easy it is to track everything! Clean interface and awesome customer support.',
+      rating: 5,
+      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     },
   ];
 
-  return (
-    <Box sx={{ fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
-      {/* Navigation Bar */}
-      <AppBar position="fixed" sx={{ bgcolor: 'white', color: 'text.primary', boxShadow: 1, fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-            <Box
-              component="img"
-              src="/logo.png"
-              alt="UtilityHub360 Logo"
-              sx={{
-                height: 40,
-                width: 'auto',
-              }}
-            />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: 'black' }}>
-              UtilityHub360
-            </Typography>
-          </Box>
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 3 }}>
-            <Button color="inherit" onClick={handleServicesClick}>Services</Button>
-            <Button color="inherit" onClick={handleAboutClick}>About</Button>
-            <Button color="inherit" onClick={handleContactClick}>Contact</Button>
-            <Button variant="contained" onClick={handleGetStarted}>
-              Login/Signup
-            </Button>
-          </Box>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ display: { md: 'none' } }}
-          >
-            <Menu />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+  const coreValues = [
+    { icon: Shield, title: 'Security First', description: 'Bank-grade protection for your peace of mind' },
+    { icon: AutoAwesome, title: 'Simple & Clean', description: 'Beautiful design that just makes sense' },
+    { icon: FlashOn, title: 'Lightning Fast', description: 'Get insights and answers in seconds' },
+    { icon: TrendingUp, title: 'Growth Focused', description: 'Tools designed to help your wealth grow' },
+  ];
 
-      {/* Mobile Drawer */}
-      <Drawer
-        variant="temporary"
-        anchor="right"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{ keepMounted: true }}
+  // Show loading spinner while checking session
+  if (checkingSession || isLoading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif'
+        }}
       >
-        <Box sx={{ width: 250, p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: 'white', fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
+      {/* Navigation */}
+      <Box
+        component="nav"
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1100,
+          transition: 'all 0.3s',
+          ...(scrolled ? { bgcolor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', boxShadow: 1 } : { bgcolor: 'transparent' }),
+        }}
+      >
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: { xs: 56, lg: 72 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box
-                component="img"
-                src="/logo.png"
-                alt="UtilityHub360 Logo"
-                sx={{
-                  height: 30,
-                  width: 'auto',
-                }}
-              />
-              <Typography variant="h6" fontWeight="bold" color="black">
+              <Box component="img" src="/logo.png" alt="UtilityHub360 Logo" sx={{ height: 36, width: 'auto' }} />
+              <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.900', fontSize: '1.25rem' }}>
                 UtilityHub360
               </Typography>
             </Box>
-            <IconButton onClick={handleDrawerToggle}>
-              <Close />
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 4 }}>
+              <Button onClick={handleServicesClick} sx={{ color: 'grey.700', fontWeight: 500, '&:hover': { color: accentGreenHover } }}>Services</Button>
+              <Button onClick={handleAboutClick} sx={{ color: 'grey.700', fontWeight: 500, '&:hover': { color: accentGreenHover } }}>About</Button>
+              <Button onClick={handleContactClick} sx={{ color: 'grey.700', fontWeight: 500, '&:hover': { color: accentGreenHover } }}>Contact</Button>
+              <Button onClick={handleGetStarted} sx={{ bgcolor: accentGreen, color: 'grey.900', px: 3, fontWeight: 600, borderRadius: 9999, boxShadow: 2, '&:hover': { bgcolor: accentGreenHover, boxShadow: 3 } }}>
+                Login/Signup
+              </Button>
+            </Box>
+            <IconButton sx={{ display: { md: 'none' }, color: 'grey.900' }} onClick={handleDrawerToggle} aria-label="menu">
+              {mobileOpen ? <Close /> : <Menu />}
             </IconButton>
           </Box>
-          <List>
-            <ListItem button onClick={handleServicesClick}>
-              <ListItemText primary="Services" />
-            </ListItem>
-            <ListItem button onClick={handleAboutClick}>
-              <ListItemText primary="About" />
-            </ListItem>
-            <ListItem button onClick={handleContactClick}>
-              <ListItemText primary="Contact" />
-            </ListItem>
-            <ListItem>
-              <Button variant="contained" fullWidth onClick={handleGetStarted}>
-                Get Started
-              </Button>
-            </ListItem>
-          </List>
-        </Box>
-      </Drawer>
+        </Container>
+        {mobileOpen && (
+          <Fade in={mobileOpen}>
+            <Box sx={{ display: { md: 'none' }, bgcolor: 'white', borderTop: 1, borderColor: 'divider', boxShadow: 3, px: 2, py: 2 }}>
+              <Stack spacing={1}>
+                <Button fullWidth onClick={handleServicesClick} sx={{ justifyContent: 'flex-start', color: 'grey.700' }}>Services</Button>
+                <Button fullWidth onClick={handleAboutClick} sx={{ justifyContent: 'flex-start', color: 'grey.700' }}>About</Button>
+                <Button fullWidth onClick={handleContactClick} sx={{ justifyContent: 'flex-start', color: 'grey.700' }}>Contact</Button>
+                <Button fullWidth onClick={handleGetStarted} sx={{ bgcolor: accentGreen, color: 'grey.900', fontWeight: 600, borderRadius: 9999 }}>Login/Signup</Button>
+              </Stack>
+            </Box>
+          </Fade>
+        )}
+      </Box>
 
       {/* Hero Section */}
-      <Box
-        sx={{
-          color: 'white',
-          pt: 12,
-          pb: 0,
-          position: 'relative',
-          overflow: 'hidden',
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        {/* Animated Particles Background */}
-        <AnimatedParticlesBackground />
-        
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Fade in={isVisible} timeout={1000}>
-            <Grid container spacing={6} alignItems="center">
-              <Grid item xs={12} md={6}>
-                <Typography variant="h1" color="primary.main" component="h1" gutterBottom fontWeight="bold" sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
-                  Your Financial
-                  <br />
-                  <Box component="span" sx={{ color: 'warning.main', fontFamily: '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif' }}>
-                    Future Starts Here
+      <Box id="home" sx={{ position: 'relative', pt: 14, pb: { xs: 6, lg: 8 }, overflow: 'hidden' }}>
+        <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom right, #f0fdf4, #f7fee7, #ecfdf5)', opacity: 1 }} />
+        <Box sx={{ position: 'absolute', inset: 0, opacity: 0.4 }}>
+          <Box sx={{ position: 'absolute', top: 80, left: 80, width: 384, height: 384, borderRadius: '50%', bgcolor: accentGreen, mixBlendMode: 'multiply', filter: 'blur(80px)', animation: 'blob 7s infinite' }} />
+          <Box sx={{ position: 'absolute', top: 160, right: 80, width: 384, height: 384, borderRadius: '50%', bgcolor: '#bef264', mixBlendMode: 'multiply', filter: 'blur(80px)', animation: 'blob 7s infinite', animationDelay: '2s' }} />
+          <Box sx={{ position: 'absolute', bottom: -32, left: 160, width: 384, height: 384, borderRadius: '50%', bgcolor: '#a7f3d0', mixBlendMode: 'multiply', filter: 'blur(80px)', animation: 'blob 7s infinite', animationDelay: '4s' }} />
+        </Box>
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1, px: { xs: 2, sm: 3 } }}>
+          <Grid container spacing={6} alignItems="center">
+            <Grid item xs={12} lg={6}>
+              <Fade in={isVisible} timeout={600}>
+                <Stack spacing={4} sx={{ textAlign: { xs: 'center', lg: 'left' } }}>
+                  <Chip icon={<AutoAwesome sx={{ fontSize: 18 }} />} label="Smart Finance Made Simple" sx={{ bgcolor: `${accentGreen}66`, color: 'grey.900', fontWeight: 600, alignSelf: { xs: 'center', lg: 'flex-start' } }} />
+                  <Box>
+                    <Typography component="h1" variant="h3" sx={{ fontWeight: 700, color: 'grey.900', fontSize: { xs: '2.25rem', sm: '3rem', lg: '3.75rem' }, lineHeight: 1.2 }}>
+                      Manage Money
+                      <Box component="span" sx={{ display: 'block', color: accentGreenHover }}>Like a Pro ✨</Box>
+                    </Typography>
                   </Box>
-                </Typography>
-                <Typography variant="h5" sx={{ mb: 4, opacity: 0.9, fontWeight: 300, color: 'white' }}>
-                  Comprehensive financial management platform powered by AI. Upload receipts and let AI track your 
-                  expenses automatically. Get instant SMS notifications for all transactions via mobile app integration.
-                </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={handleGetStarted}
-                    endIcon={<ArrowForward />}
-                    sx={{
-                      borderColor: 'white',
-                      color: 'white',
-                      bgcolor: 'transparent',
-                      px: 4,
-                      py: 1.5,
-                      '&:hover': {
-                        borderColor: 'white',
-                        bgcolor: alpha(theme.palette.common.white, 0.1),
-                      },
-                    }}
-                  >
-                    Get Started Free
-                  </Button>
+                  <Typography sx={{ fontSize: '1.125rem', color: 'grey.600', maxWidth: 480, mx: { xs: 'auto', lg: 0 } }}>
+                    Join thousands building wealth with our simple, secure platform. Track spending, invest smart, and reach your goals faster.
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: { xs: 'center', lg: 'flex-start' } }}>
+                    <Button size="large" onClick={handleGetStarted} endIcon={<ArrowForward />} sx={{ bgcolor: accentGreen, color: 'grey.900', px: 4, fontWeight: 600, borderRadius: 9999, boxShadow: 2, '&:hover': { bgcolor: accentGreenHover, boxShadow: 4 } }}>
+                      Start Free Today
+                    </Button>
+                  </Box>
+                  <Stack direction="row" alignItems="center" spacing={3} sx={{ pt: 1, justifyContent: { xs: 'center', lg: 'flex-start' } }}>
+                    <Stack direction="row" sx={{ '& > *': { ml: -1.5, width: 44, height: 44, borderRadius: '50%', border: '3px solid white', boxShadow: 2, bgcolor: 'grey.200' } }}>
+                      {[1, 2, 3, 4].map((i) => <Box key={i} />)}
+                    </Stack>
+                    <Box>
+                      <Stack direction="row" spacing={0.25}>
+                        {[1, 2, 3, 4, 5].map((i) => <Star key={i} sx={{ fontSize: 18, color: 'warning.main' }} />)}
+                      </Stack>
+                      <Typography variant="body2" sx={{ color: 'grey.600', fontWeight: 500, mt: 0.5 }}>Loved by 5,000+ users</Typography>
+                    </Box>
+                  </Stack>
                 </Stack>
-              </Grid>
-              <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'stretch' }}>
-                <Zoom in={isVisible} timeout={1500} style={{ width: '100%', height: '100%' }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      width: '100%',
-                      position: 'relative',
-                      py: { xs: 4, md: 0 },
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src="/financialCards.png.png"
-                      alt="Financial Management - Credit Cards with AI Technology"
-                      sx={{
-                        width: '130%',
-                        height: 'auto',
-                        maxHeight: '130%',
-                        objectFit: 'contain',
-                        filter: 'drop-shadow(0px 10px 30px rgba(0, 0, 0, 0.3))',
-                      }}
-                    />
-                  </Box>
-                </Zoom>
-              </Grid>
+              </Fade>
             </Grid>
-          </Fade>
+            <Grid item xs={12} lg={6}>
+              <Zoom in={isVisible} timeout={600} style={{ transitionDelay: '200ms' }}>
+                <Box sx={{ position: 'relative' }}>
+                  <Box sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 6, position: 'relative' }}>
+                    <Box component="img" src="/financialCards.png" alt="Financial management" sx={{ width: '100%', height: 450, objectFit: 'cover', display: 'block' }} onError={(e: React.SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.3), transparent)' }} />
+                  </Box>
+                  <Fade in={isVisible} timeout={800} style={{ transitionDelay: '800ms' }}>
+                    <Paper elevation={6} sx={{ position: 'absolute', bottom: -16, left: -16, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'grey.100', display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: accentGreen, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrendingUp sx={{ fontSize: 28, color: 'grey.900' }} /></Box>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.900' }}>+32%</Typography>
+                        <Typography variant="body2" color="text.secondary">Avg. Growth</Typography>
+                      </Box>
+                    </Paper>
+                  </Fade>
+                  <Fade in={isVisible} timeout={1000} style={{ transitionDelay: '1s' }}>
+                    <Paper elevation={6} sx={{ position: 'absolute', top: -16, right: -16, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'grey.100', display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: accentGreen, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Shield sx={{ fontSize: 28, color: 'grey.900' }} /></Box>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.900' }}>100%</Typography>
+                        <Typography variant="body2" color="text.secondary">Secure</Typography>
+                      </Box>
+                    </Paper>
+                  </Fade>
+                </Box>
+              </Zoom>
+            </Grid>
+          </Grid>
         </Container>
       </Box>
 
       {/* Stats Section */}
-      <Box sx={{ bgcolor: 'grey.50', py: 6 }}>
-        <Container maxWidth="lg">
-          <Slide in={isVisible} timeout={1000} direction="up">
-            <Grid container spacing={4}>
-              {stats.map((stat, index) => (
-                <Grid item xs={6} md={3} key={index}>
-                  <Box textAlign="center">
-                    <Typography variant="h3" component="div" fontWeight="bold" color="primary.main">
-                      {stat.number}
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                      {stat.label}
-                    </Typography>
+      <Box sx={{ py: 8, bgcolor: 'white' }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Grid container spacing={6} justifyContent="center">
+            {stats.map((stat, index) => {
+              const StatIcon = stat.icon;
+              return (
+              <Grid item xs={6} lg={3} key={index}>
+                <Fade in={isVisible} timeout={600} style={{ transitionDelay: `${index * 100}ms` }}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 2, background: `linear-gradient(to bottom right, ${accentGreen}, ${accentGreenHover})`, mb: 1.5, boxShadow: 2 }}>
+                      {React.createElement(StatIcon, { sx: { fontSize: 28, color: 'grey.900' } })}
+                    </Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'grey.900' }}>{stat.value}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{stat.label}</Typography>
                   </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </Slide>
+                </Fade>
+              </Grid>
+            );
+            })}
+          </Grid>
         </Container>
       </Box>
 
-      {/* AI-Powered Features Section - HIGHLIGHTED */}
-      <Box sx={{ 
-        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-        py: 10,
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        <Container maxWidth="lg">
-          <Box textAlign="center" mb={6}>
-            <Chip 
-            label="🚀 AI-POWERED INNOVATION" 
-              color="primary" 
-              sx={{ 
-                mb: 2, 
-                fontWeight: 'bold',
-                fontSize: '0.9rem',
-                py: 3,
-                px: 2,
-              }} 
-            />
-            <Typography variant="h2" component="h2" gutterBottom fontWeight="bold" color="primary.main">
-              Next-Generation Smart Features
-            </Typography>
-            <Typography variant="h6" color="White" sx={{ maxWidth: 700, mx: 'auto' }}>
-              Powered by cutting-edge AI technology and mobile integration
-            </Typography>
-          </Box>
-
-          <Grid container spacing={4}>
-            {/* AI Receipt Scanner */}
-            <Grid item xs={12} md={6}>
-              <Zoom in={isVisible} timeout={1200}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    backgroundColor: 'White',
-                    border: `3px solid ${theme.palette.success.main}`,
-                    transition: 'all 0.4s ease-in-out',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: `0 20px 60px ${alpha(theme.palette.success.main, 0.3)}`,
-                    },
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: -50,
-                      right: -50,
-                      width: 200,
-                      height: 200,
-                      background: `radial-gradient(circle, ${alpha(theme.palette.success.main, 0.2)} 0%, transparent 70%)`,
-                      borderRadius: '50%',
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                      <Box
-                        sx={{
-                          bgcolor: 'success.main',
-                          color: 'white',
-                          borderRadius: '50%',
-                          width: 70,
-                          height: 70,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          mr: 2,
-                          boxShadow: 3,
-                        }}
-                      >
-                        <CameraAlt sx={{ fontSize: 35 }} />
-                      </Box>
-                      <Box>
-                        <Chip 
-                          icon={<SmartToy />} 
-                          label="AI-POWERED" 
-                          color="success" 
-                          size="small" 
-                          sx={{ mb: 1, fontWeight: 'bold' }}
-                        />
-                        <Typography variant="h4" component="h3" fontWeight="bold" color="black">
-                          Smart Receipt Scanner
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
-                      Upload receipts and let AI do the work! 📸✨
-                    </Typography>
-
-                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
-                      Simply snap a photo or upload your receipt, and our advanced AI will automatically 
-                      read, extract, and add all transaction details to your records. No more manual entry!
-                    </Typography>
-
-                    <Box sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="black" gutterBottom>
-                        ✓ How it works:
-                      </Typography>
-                      <Stack spacing={1}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <CloudUpload sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Upload or capture receipt photo</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <SmartToy sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">AI extracts amount, date, merchant & category</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <CheckCircle sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Auto-adds to your transaction records</Typography>
-                        </Box>
-                      </Stack>
-                    </Box>
-
-                    <Chip 
-                      label="Save Time • Reduce Errors • Stay Organized" 
-                      variant="outlined" 
-                      color="success"
-                      sx={{ fontWeight: 'bold', color: 'black' }}
-                    />
-                  </CardContent>
-                </Card>
-              </Zoom>
-            </Grid>
-
-            {/* SMS Integration */}
-            <Grid item xs={12} md={6}>
-              <Zoom in={isVisible} timeout={1400}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    backgroundColor: 'White',
-                    border: `3px solid ${theme.palette.info.main}`,
-                    transition: 'all 0.4s ease-in-out',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: `0 20px 60px ${alpha(theme.palette.info.main, 0.3)}`,
-                    },
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: -50,
-                      right: -50,
-                      width: 200,
-                      height: 200,
-                      background: `radial-gradient(circle, ${alpha(theme.palette.info.main, 0.2)} 0%, transparent 70%)`,
-                      borderRadius: '50%',
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                      <Box
-                        sx={{
-                          bgcolor: 'info.main',
-                          color: 'white',
-                          borderRadius: '50%',
-                          width: 70,
-                          height: 70,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          mr: 2,
-                          boxShadow: 3,
-                        }}
-                      >
-                        <Smartphone sx={{ fontSize: 35 }} />
-                      </Box>
-                      <Box>
-                        <Chip 
-                          icon={<Sms />} 
-                          label="MOBILE INTEGRATED" 
-                          color="info" 
-                          size="small" 
-                          sx={{ mb: 1, fontWeight: 'bold' }}
-                        />
-                        <Typography variant="h4" component="h3" fontWeight="bold" color="black">
-                          SMS Transaction Alerts
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
-                      Stay updated on-the-go with real-time SMS notifications! 📱💬
-                    </Typography>
-
-                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
-                      Our mobile app integration sends instant SMS notifications for every transaction, 
-                      keeping you informed wherever you are. Never miss a payment or suspicious activity!
-                    </Typography>
-
-                    <Box sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), p: 2, borderRadius: 2, mb: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="black" gutterBottom>
-                        ✓ Key Benefits:
-                      </Typography>
-                      <Stack spacing={1}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Sms sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Instant SMS alerts for all transactions</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Smartphone sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Seamless mobile app integration</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Security sx={{ color: 'info.main', mr: 1, fontSize: 18 }} />
-                          <Typography variant="body2">Enhanced security with real-time monitoring</Typography>
-                        </Box>
-                      </Stack>
-                    </Box>
-
-                    <Chip 
-                      label="Real-Time • Secure • Always Connected" 
-                      variant="outlined" 
-                      color="info"
-                      sx={{ fontWeight: 'bold', color: 'black' }}
-                    />
-                  </CardContent>
-                </Card>
-              </Zoom>
-            </Grid>
-          </Grid>
-
-          {/* Additional Feature Highlight Banner */}
-          <Box sx={{ mt: 6, textAlign: 'center' }}>
-            <Paper
-              elevation={0}
-              sx={{
-                bgcolor: '#e8f5e9',
-                color: 'text.primary',
-                p: 3,
-                borderRadius: 3,
-              }}
-            >
-              <Typography variant="h5" fontWeight="bold" gutterBottom>
-                🎯 Experience the Future of Financial Management
+      {/* Dashboard screenshot - See what's inside */}
+      <Box id="dashboard-preview" sx={{ py: { xs: 8, lg: 12 }, bgcolor: '#f8faf8' }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Fade in={isVisible}>
+            <Box sx={{ textAlign: 'center', mb: 5 }}>
+              <Chip icon={<Dashboard sx={{ fontSize: 18 }} />} label="See what's inside" sx={{ bgcolor: `${accentGreen}4D`, color: 'grey.900', fontWeight: 600, mb: 2 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, mt: 2, mb: 1.5, fontSize: { xs: '1.5rem', lg: '2rem' } }}>
+                Your financial dashboard
               </Typography>
-              <Typography variant="body1" sx={{ color: 'text.primary', opacity: 1 }}>
-                These AI-powered features are designed to save you time, reduce errors, and keep you connected to your finances 24/7
+              <Typography sx={{ color: 'grey.600', fontSize: '1rem', maxWidth: 520, mx: 'auto' }}>
+                Manage payments, transactions, goals, and bills in one place.
               </Typography>
+            </Box>
+          </Fade>
+          <Fade in={isVisible} timeout={400}>
+            <Paper elevation={4} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'grey.200', maxWidth: 1000, mx: 'auto' }}>
+              <Box
+                component="img"
+                src="/dashboard_screenshot.png"
+                alt="UtilityHub360 dashboard - manage your finances in one place"
+                sx={{ width: '100%', height: 'auto', display: 'block', verticalAlign: 'middle' }}
+              />
             </Paper>
+          </Fade>
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Button onClick={handleGetStarted} variant="contained" size="large" endIcon={<ArrowForward />} sx={{ bgcolor: accentGreen, color: 'grey.900', px: 4, fontWeight: 600, borderRadius: 2, '&:hover': { bgcolor: accentGreenHover } }}>
+              Get started to see your dashboard
+            </Button>
           </Box>
         </Container>
       </Box>
 
       {/* Services Section */}
-      <Box sx={{ bgcolor: 'White', py: 10, position: 'relative' }} ref={servicesRef}>
-        <Container maxWidth="lg">
-          <Box textAlign="center" mb={8}>
-            <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" sx={{ color: 'Black' }}>
-              Comprehensive Financial Services
-            </Typography>
-            <Typography variant="h6" sx={{ maxWidth: 600, mx: 'auto', color: 'Black', opacity: 0.9 }}>
-              Everything you need to manage your finances effectively, all in one secure platform
-            </Typography>
-          </Box>
-
-        <Grid container spacing={4}>
-          {services.map((service, index) => (
-            <Grid item xs={12} md={6} lg={4} key={index}>
-              <Fade in={isVisible} timeout={1000 + index * 200}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'all 0.3s ease-in-out',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: theme.shadows[12],
-                    },
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1, p: 4 }}>
-                    <Box sx={{ mb: 3, textAlign: 'center' }}>
-                      {service.icon}
-                    </Box>
-                    <Typography variant="h5" component="h3" gutterBottom fontWeight="bold" textAlign="center">
-                      {service.title}
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
-                      {service.description}
-                    </Typography>
-                    <Box>
-                      {service.features.map((feature, featureIndex) => (
-                        <Box key={featureIndex} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <CheckCircle sx={{ color: 'success.main', mr: 1, fontSize: 16 }} />
-                          <Typography variant="body2">{feature}</Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Fade>
-            </Grid>
-          ))}
-        </Grid>
+      <Box id="services" ref={servicesRef} sx={{ py: { xs: 10, lg: 14 }, bgcolor: 'grey.50' }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Fade in={isVisible}>
+            <Box sx={{ textAlign: 'center', mb: 8 }}>
+              <Chip icon={<AutoAwesome sx={{ fontSize: 18 }} />} label="What We Offer" sx={{ bgcolor: `${accentGreen}4D`, color: 'grey.900', fontWeight: 600, mb: 2 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, mt: 2, mb: 2, fontSize: { xs: '1.875rem', lg: '3rem' } }}>
+                Everything You Need to Succeed
+              </Typography>
+              <Typography sx={{ color: 'grey.600', fontSize: '1.125rem', maxWidth: 672, mx: 'auto' }}>
+                Simple, powerful tools to help you take control of your finances and build real wealth.
+              </Typography>
+            </Box>
+          </Fade>
+          <Grid container spacing={3}>
+            {services.map((service, index) => {
+              const ServiceIcon = service.icon;
+              return (
+              <Grid item xs={12} md={6} lg={4} key={index}>
+                <Fade in={isVisible} timeout={400} style={{ transitionDelay: `${index * 100}ms` }}>
+                  <Card sx={{ height: '100%', border: '2px solid', borderColor: accentGreen, borderRadius: 2, boxShadow: 2, overflow: 'hidden', '&:hover': { boxShadow: 6, '& .service-icon': { transform: 'scale(1.1)' }, '& .service-title': { color: accentGreenHover } } }}>
+                    <CardContent sx={{ p: 3, position: 'relative' }}>
+                      <Box className="service-icon" sx={{ width: 56, height: 56, borderRadius: 2, bgcolor: accentGreen, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, boxShadow: 2, transition: 'transform 0.3s' }}>
+                        {React.createElement(ServiceIcon, { sx: { fontSize: 28, color: 'grey.900' } })}
+                      </Box>
+                      <Typography className="service-title" variant="h6" sx={{ fontWeight: 700, mb: 1, transition: 'color 0.3s' }}>{service.title}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>{service.description}</Typography>
+                      <Stack component="ul" spacing={1} sx={{ listStyle: 'none', pl: 0, m: 0 }}>
+                        {service.features.map((f, i) => (
+                          <Box key={i} component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CheckCircle sx={{ fontSize: 16, color: accentGreenHover, flexShrink: 0 }} />
+                            <Typography variant="body2" color="text.secondary">{f}</Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                      <Button size="small" endIcon={<KeyboardArrowRight />} sx={{ mt: 2, color: accentGreenHover, fontWeight: 600, p: 0, minWidth: 0 }}>Explore</Button>
+                    </CardContent>
+                  </Card>
+                </Fade>
+              </Grid>
+            );
+            })}
+          </Grid>
         </Container>
       </Box>
 
       {/* Testimonials Section */}
-      <Box sx={{ bgcolor: 'transparent', py: 10, }} >
-        <Container maxWidth="lg">
-          <Box textAlign="center" mb={8} >
-            <Typography variant="h3" component="h2" color="primary.main" gutterBottom fontWeight="bold">
-              What Our Users Say
-            </Typography>
-            <Typography variant="h6"  color="White">
-              Join thousands of satisfied customers who trust UtilityHub360
-            </Typography>
-          </Box>
-
-          <Grid container spacing={4}>
+      {/* <Box sx={{ py: { xs: 10, lg: 14 }, bgcolor: 'white' }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Fade in={isVisible}>
+            <Box sx={{ textAlign: 'center', mb: 8 }}>
+              <Chip icon={<Star sx={{ fontSize: 18 }} />} label="User Love" sx={{ bgcolor: `${accentGreen}4D`, color: 'grey.900', fontWeight: 600, mb: 2 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, mt: 2, mb: 2, fontSize: { xs: '1.875rem', lg: '3rem' } }}>
+                Real People, Real Results
+              </Typography>
+              <Typography sx={{ color: 'grey.600', fontSize: '1.125rem', maxWidth: 672, mx: 'auto' }}>
+                See how UtilityHub360 is helping people achieve their financial dreams.
+              </Typography>
+            </Box>
+          </Fade>
+          <Grid container spacing={3}>
             {testimonials.map((testimonial, index) => (
-              <Grid item xs={12} md={4} key={index} >
-                <Fade in={isVisible} timeout={1000 + index * 300}>
-                  <Card sx={{ height: '100%', p: 3, border: `1px solid ${theme.palette.primary.main}` }} >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                        {testimonial.avatar}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {testimonial.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {testimonial.role}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
-                      "{testimonial.content}"
-                    </Typography>
-                    <Box sx={{ display: 'flex', mt: 2 }}>
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} sx={{ color: 'warning.main', fontSize: 20 }} />
-                      ))}
-                    </Box>
+              <Grid item xs={12} md={4} key={index}>
+                <Fade in={isVisible} timeout={400} style={{ transitionDelay: `${index * 100}ms` }}>
+                  <Card sx={{ height: '100%', boxShadow: 2, borderRadius: 2, background: 'linear-gradient(to bottom right, #fff, #fafafa)' }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Stack direction="row" spacing={0.5} sx={{ mb: 2 }}>
+                        {[...Array(testimonial.rating)].map((_, i) => <Star key={i} sx={{ fontSize: 20, color: 'warning.main' }} />)}
+                      </Stack>
+                      <Typography sx={{ color: 'grey.700', mb: 3, lineHeight: 1.6 }}>&quot;{testimonial.content}&quot;</Typography>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar src={testimonial.image} alt={testimonial.name} sx={{ width: 48, height: 48 }} />
+                        <Box>
+                          <Typography fontWeight={600} color="grey.900">{testimonial.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">{testimonial.role}</Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
                   </Card>
                 </Fade>
               </Grid>
             ))}
-        </Grid>
-      </Container>
-    </Box>
+          </Grid>
+        </Container>
+      </Box> */}
 
-    {/* About Us Section */}
-    <Container maxWidth="lg" sx={{ py: 10 }} ref={aboutRef}>
-      <Box textAlign="center" mb={8}>
-        <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" color="primary.main" >
-          About Us
-        </Typography>
-        <Typography variant="h6" color="White" sx={{ maxWidth: 800, mx: 'auto' }} >
-          Empowering individuals and businesses to take control of their financial future
-        </Typography>
+      {/* About Section */}
+      <Box ref={aboutRef} id="about" sx={{ py: { xs: 10, lg: 14 }, background: 'linear-gradient(to bottom right, #111827, #1f2937, #111827)', color: 'white' }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Grid container spacing={6} alignItems="center">
+            <Grid item xs={12} lg={6}>
+              <Fade in={isVisible}>
+                <Stack spacing={3}>
+                  <Chip icon={<AutoAwesome sx={{ fontSize: 18 }} />} label="Our Story" sx={{ bgcolor: `${accentGreen}33`, color: accentGreen, fontWeight: 600, alignSelf: 'flex-start' }} />
+                  <Typography variant="h4" sx={{ fontWeight: 700, fontSize: { xs: '1.875rem', lg: '3rem' }, color: 'white' }}>
+                    Building the Future of Personal Finance
+                  </Typography>
+                  <Typography sx={{ color: 'grey.300', fontSize: '1.125rem', lineHeight: 1.7 }}>
+                    We started UtilityHub360 because managing money shouldn&apos;t be complicated. Our mission is simple: give everyone access to powerful financial tools that were once only available to the wealthy.
+                  </Typography>
+                  <Typography sx={{ color: 'grey.300', fontSize: '1.125rem', lineHeight: 1.7 }}>
+                    Today, we&apos;re a small but mighty team helping thousands of people take control of their finances. We&apos;re growing fast, but we&apos;ll never lose sight of what matters most: making your financial life easier.
+                  </Typography>
+                  <Stack direction="row" spacing={2} sx={{ pt: 2 }}>
+                    <Button onClick={handleGetStarted} sx={{ bgcolor: accentGreen, color: 'grey.900', fontWeight: 600, borderRadius: 9999, '&:hover': { bgcolor: accentGreenHover } }}>Join Us</Button>
+                    <Button variant="outlined" sx={{ border: '2px solid', borderColor: accentGreen, color: accentGreen, borderRadius: 9999, '&:hover': { borderColor: accentGreen, bgcolor: `${accentGreen}1A` } }}>Learn More</Button>
+                  </Stack>
+                </Stack>
+              </Fade>
+            </Grid>
+            <Grid item xs={12} lg={6}>
+              <Fade in={isVisible}>
+                <Grid container spacing={2}>
+                  {coreValues.map((value, index) => {
+                    const IconComponent = value.icon;
+                    return (
+                      <Grid item xs={12} sm={6} key={index}>
+                        <Box sx={aboutCardSx}>
+                          {React.createElement(IconComponent, { sx: { fontSize: 40, color: accentGreen, mb: 1.5 } })}
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>{value.title}</Typography>
+                          <Typography variant="body2" sx={{ color: 'grey.300' }}>{value.description}</Typography>
+                        </Box>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Fade>
+            </Grid>
+          </Grid>
+        </Container>
       </Box>
 
-      <Grid container spacing={6} alignItems="center">
-        {/* About Content */}
-        <Grid item xs={12} md={6}>
-          <Fade in={isVisible} timeout={1000}>
-            <Box>
-              <Typography variant="h4" gutterBottom fontWeight="bold" color="primary.main">
-                Our Mission
-              </Typography>
-              <Typography variant="body1" color="White" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
-                At UtilityHub360, we believe that everyone deserves access to powerful financial management 
-                tools. Our mission is to simplify complex financial processes and make them accessible to all, 
-                helping you make informed decisions about your money.
-              </Typography>
-              
-              <Typography variant="h4" gutterBottom fontWeight="bold" color="primary.main" sx={{ mt: 4 }}>
-                Why Choose Us?
-              </Typography>
-              <Typography variant="body1" color="White" paragraph sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
-                We combine cutting-edge AI technology with intuitive design to deliver a financial management 
-                platform that works for you. From automated expense tracking to smart bill payments and 
-                comprehensive analytics, we've got you covered.
-              </Typography>
-            </Box>
-          </Fade>
-        </Grid>
-
-        {/* About Stats/Features */}
-        <Grid item xs={12} md={6}>
-          <Fade in={isVisible} timeout={1200}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <Card sx={{ p: 3, background: 'White', border: `1px solid ${theme.palette.primary.main}` }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Shield sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
-                    <Typography variant="h6" fontWeight="bold">
-                      Security First
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Bank-level encryption and security protocols protect your sensitive financial data 24/7.
-                  </Typography>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12}>
-              <Card sx={{ p: 3, background: 'White', border: `1px solid ${theme.palette.primary.main}` }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <SmartToy sx={{ fontSize: 40, color: 'success.main', mr: 2 }} />
-                    <Typography variant="h6" fontWeight="bold">
-                      AI-Powered Intelligence
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Advanced AI automatically categorizes expenses, detects patterns, and provides actionable insights.
-                  </Typography>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12}>
-              <Card sx={{ p: 3, background: 'White', border: `1px solid ${theme.palette.primary.main}` }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <People sx={{ fontSize: 40, color: 'info.main', mr: 2 }} />
-                    <Typography variant="h6" fontWeight="bold">
-                      Community Driven
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Built with feedback from thousands of users to ensure we meet your real-world needs.
-                  </Typography>
-                </Card>
-              </Grid>
-            </Grid>
-          </Fade>
-        </Grid>
-
-        {/* Company Values */}
-        <Grid item xs={12}>
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h4" gutterBottom fontWeight="bold" textAlign="center" sx={{ mb: 4, color: 'primary.main' }}>
-              Our Core Values
-            </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <Box
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      bgcolor: alpha(theme.palette.primary.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mx: 'auto',
-                      mb: 2,
-                    }}
-                  >
-                    <CheckCircle sx={{ fontSize: 40, color: 'primary.main' }} />
-                  </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
-                    Transparency
-                  </Typography>
-                  <Typography variant="body2" color="White">
-                    No hidden fees, clear pricing, honest communication
-                  </Typography>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <Box
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      bgcolor: alpha(theme.palette.success.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mx: 'auto',
-                      mb: 2,
-                    }}
-                  >
-                    <Speed sx={{ fontSize: 40, color: 'success.main' }} />
-                  </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
-                    Innovation
-                  </Typography>
-                  <Typography variant="body2" color="White">
-                    Constantly evolving with latest technology
-                  </Typography>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <Box
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      bgcolor: alpha(theme.palette.info.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mx: 'auto',
-                      mb: 2,
-                    }}
-                  >
-                    <Support sx={{ fontSize: 40, color: 'info.main' }} />
-                  </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
-                    Support
-                  </Typography>
-                  <Typography variant="body2" color="White">
-                    Dedicated team ready to help you succeed
-                  </Typography>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <Box
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      bgcolor: alpha(theme.palette.warning.main, 0.1),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mx: 'auto',
-                      mb: 2,
-                    }}
-                  >
-                    <Star sx={{ fontSize: 40, color: 'warning.main' }} />
-                  </Box>
-                  <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">
-                    Excellence
-                  </Typography>
-                  <Typography variant="body2" color="White">
-                    Committed to delivering the best experience
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        </Grid>
-      </Grid>
-    </Container>
-
-    {/* CTA Section */}
-    <Box sx={{ py: 10, textAlign: 'center', bgcolor: '#e8f5e9', color: 'text.primary' }}>
-        <Container maxWidth="md">
-          <Fade in={isVisible} timeout={1000}>
-            <Box>
-              <Typography variant="h3" component="h2" gutterBottom fontWeight="bold" sx={{ color: 'text.primary' }}>
-                Ready to Transform Your Financial Life?
-              </Typography>
-              <Typography variant="h6" sx={{ mb: 4, opacity: 0.9, color: 'text.primary' }}>
-                Join thousands of users who have already taken control of their finances
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={handleGetStarted}
-                  endIcon={<ArrowForward />}
-                  sx={{
-                    borderColor: 'black',
-                    color: 'black',
-                    bgcolor: 'transparent',
-                    px: 4,
-                    py: 1.5,
-                    '&:hover': {
-                      borderColor: 'black',
-                      bgcolor: alpha(theme.palette.common.black, 0.1),
-                    },
-                  }}
-                >
-                  Start Free Trial
+      {/* CTA Section */}
+      <Box sx={{ py: { xs: 10, lg: 14 }, background: 'linear-gradient(to bottom right, #f9fafb, #fff, #f0fdf4)', textAlign: 'center' }}>
+        <Container maxWidth="md" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Fade in={isVisible}>
+            <Stack spacing={4}>
+              <Chip icon={<FlashOn sx={{ fontSize: 18 }} />} label="Ready When You Are" sx={{ bgcolor: `${accentGreen}4D`, color: 'grey.900', fontWeight: 600, alignSelf: 'center' }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: 'grey.900', fontSize: { xs: '1.875rem', lg: '3rem' } }}>
+                  Start Your Financial
+                  <Box component="span" sx={{ display: 'block', color: accentGreenHover }}>Journey Today 🚀</Box>
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Typography sx={{ fontSize: '1.125rem', color: 'grey.600', maxWidth: 672, textAlign: 'center' }}>
+                  Join 5,000+ people already building wealth with UtilityHub360. No credit card needed. Get started in under 60 seconds.
+                </Typography>
+              </Box>
+              <Box>
+                <Button size="large" onClick={handleGetStarted} endIcon={<ArrowForward />} sx={{ bgcolor: accentGreen, color: 'grey.900', px: 4, fontWeight: 600, borderRadius: 9999, boxShadow: 2, '&:hover': { bgcolor: accentGreenHover, boxShadow: 4 } }}>
+                  Get Started
                 </Button>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={handleContactClick}
-                  sx={{
-                    borderColor: 'black',
-                    color: 'black',
-                    px: 4,
-                    py: 1.5,
-                    '&:hover': {
-                      borderColor: 'black',
-                      bgcolor: alpha(theme.palette.common.black, 0.1),
-                    },
-                  }}
-                >
-                  Contact Sales
-                </Button>
-              </Stack>
-            </Box>
+              </Box>
+            </Stack>
           </Fade>
         </Container>
       </Box>
 
       {/* Footer */}
-      <Box sx={{ bgcolor: 'grey.900', color: 'white', py: 6 }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={4}>
-              <Typography variant="h5" gutterBottom fontWeight="bold" color="primary.main">
-                UtilityHub360
+      <Box
+        component="footer"
+        sx={{
+          bgcolor: 'grey.900',
+          color: 'grey.300',
+          py: 6,
+        }}
+      >
+        <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Grid
+            container
+            spacing={6}
+            sx={{
+              mb: 4,
+              justifyContent: { md: 'space-between', xs: 'center' },
+              textAlign: { xs: 'center', md: 'left' },
+            }}
+          >
+            <Grid
+              item
+              xs={12}
+              md={4}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                sx={{ mb: 2, justifyContent: { xs: 'center', md: 'flex-start' }, width: '100%' }}
+              >
+                <Box
+                  component="img"
+                  src="/logo.png"
+                  alt="UtilityHub360 Logo"
+                  sx={{ height: 36, width: 'auto', mr: 1 }}
+                />
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 700, color: 'white', textAlign: { xs: 'center', md: 'left' } }}
+                >
+                  UtilityHub360
+                </Typography>
+              </Stack>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'grey.400',
+                  lineHeight: 1.6,
+                  textAlign: { xs: 'center', md: 'left' },
+                }}
+              >
+                Making financial management simple, smart, and secure for everyone.
               </Typography>
-              <Typography variant="body2" sx={{ mb: 3, opacity: 0.8 }}>
-                Your trusted partner in financial management. Secure, reliable, and designed 
-                to help you achieve your financial goals.
+            </Grid>
+            <Grid
+              item
+              xs={12}
+              md={2}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: 'white', mb: 2 }}>
+                Product
               </Typography>
-              <Stack direction="row" spacing={2}>
-                <IconButton sx={{ color: 'white' }}>
-                  <Facebook />
-                </IconButton>
-                <IconButton sx={{ color: 'white' }}>
-                  <Twitter />
-                </IconButton>
-                <IconButton sx={{ color: 'white' }}>
-                  <LinkedIn />
-                </IconButton>
-                <IconButton sx={{ color: 'white' }}>
-                  <Instagram />
-                </IconButton>
+              <Stack spacing={1} sx={{ alignItems: { xs: 'center', md: 'flex-start' } }}>
+                {/* <Button
+                  size="small"
+                  onClick={handleServicesClick}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    color: 'grey.400',
+                    textTransform: 'none',
+                    '&:hover': { color: accentGreen },
+                    width: { xs: 'auto', md: '100%' },
+                  }}
+                >
+                  Features
+                </Button>  */}
+                <Typography
+                  component="a"
+                  href="#services"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Features
+                </Typography>
+                <Typography
+                  component="a"
+                  href="#about"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Security
+                </Typography>
+                <Typography
+                  component="a"
+                  href="#about"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Updates
+                </Typography>
               </Stack>
             </Grid>
-            <Grid item xs={12} md={2}>
-              <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
-                Services
-              </Typography>
-              <Stack spacing={1}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Banking</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Bill Management</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Analytics</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Savings</Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
+            <Grid
+              item
+              xs={12}
+              md={2}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: 'white', mb: 2 }}>
                 Company
               </Typography>
-              <Stack spacing={1}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>About Us</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Careers</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Press</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Blog</Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
-                Support
-              </Typography>
-              <Stack spacing={1}>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Help Center</Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    opacity: 0.8, 
+              <Stack spacing={1} sx={{ alignItems: { xs: 'center', md: 'flex-start' } }}>
+              <Typography
+                  component="a"
+                  href="#about"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  About
+                </Typography>
+          
+
+                <Typography
+                  component="a"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
                     cursor: 'pointer',
-                    '&:hover': { opacity: 1 }
+                    '&:hover': { color: accentGreen },
                   }}
                   onClick={handleContactClick}
                 >
                   Contact
                 </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Privacy</Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>Terms</Typography>
+              
               </Stack>
             </Grid>
-            <Grid item xs={12} md={2}>
-              <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
-                Contact
+            <Grid
+              item
+              xs={12}
+              md={2}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: 'white', mb: 2 }}>
+                Legal
               </Typography>
-              <Stack spacing={1}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Phone sx={{ fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ opacity: 0.8 }}>+1 (555) 123-4567</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Email sx={{ fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ opacity: 0.8 }}>support@utilityhub360.com</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LocationOn sx={{ fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ opacity: 0.8 }}>New York, NY</Typography>
-                </Box>
+              <Stack spacing={1} sx={{ alignItems: { xs: 'center', md: 'flex-start' } }}>
+                <Typography
+                  component="a"
+                  href="#"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Privacy
+                </Typography>
+                <Typography
+                  component="a"
+                  href="#"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Terms
+                </Typography>
+                <Typography
+                  component="a"
+                  href="#"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Cookies
+                </Typography>
+                <Typography
+                  component="a"
+                  href="#"
+                  sx={{
+                    color: 'grey.400',
+                    textDecoration: 'none',
+                    '&:hover': { color: accentGreen },
+                  }}
+                >
+                  Licenses
+                </Typography>
               </Stack>
             </Grid>
           </Grid>
-          <Divider sx={{ my: 4, bgcolor: 'grey.700' }} />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              © 2024 UtilityHub360. All rights reserved.
+          <Divider sx={{ borderColor: 'grey.800', my: 4 }} />
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            justifyContent="space-between"
+            alignItems="center"
+            spacing={2}
+            sx={{
+              textAlign: { xs: 'center', md: 'left' },
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'grey.400',
+                mb: { xs: 2, md: 0 },
+                width: { xs: '100%', md: 'auto' },
+                textAlign: { xs: 'center', md: 'left' },
+              }}
+            >
+              © 2026 UtilityHub360. Built with ❤️ for better finance.
             </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>Privacy Policy</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>Terms of Service</Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>Cookie Policy</Typography>
-            </Box>
-          </Box>
+            <Stack direction="row" spacing={1.5}>
+              <IconButton
+                sx={{
+                  width: 40,
+                  height: 40,
+                  bgcolor: 'grey.800',
+                  color: 'white',
+                  '&:hover': { bgcolor: accentGreen, color: 'grey.900' },
+                }}
+                aria-label="Twitter"
+              >
+                <Twitter />
+              </IconButton>
+              <IconButton
+                sx={{
+                  width: 40,
+                  height: 40,
+                  bgcolor: 'grey.800',
+                  color: 'white',
+                  '&:hover': { bgcolor: accentGreen, color: 'grey.900' },
+                }}
+                aria-label="LinkedIn"
+              >
+                <LinkedIn />
+              </IconButton>
+              <IconButton
+                component="a"
+                href="https://www.facebook.com/profile.php?id=61586127790436"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  width: 40,
+                  height: 40,
+                  bgcolor: 'grey.800',
+                  color: 'white',
+                  '&:hover': { bgcolor: accentGreen, color: 'grey.900' },
+                }}
+                aria-label="Facebook"
+              >
+                <Facebook sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Stack>
+          </Stack>
         </Container>
       </Box>
+
+      <style>{`
+        @keyframes blob {
+          0% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
+      `}</style>
     </Box>
   );
 };

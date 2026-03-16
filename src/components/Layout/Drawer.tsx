@@ -101,6 +101,11 @@ const menuItems: MenuItem[] = [
         path: '/income-sources'
       },
       { 
+        text: 'Categories', 
+        icon: <CategoryIcon />, 
+        path: '/categories'
+      },
+      { 
         text: 'Receivables', 
         icon: <ReceivablesIcon />, 
         path: '/receivables'
@@ -124,11 +129,6 @@ const menuItems: MenuItem[] = [
         text: 'Expenses', 
         icon: <ExpensesIcon />, 
         path: '/expenses'
-      },
-      { 
-        text: 'Categories', 
-        icon: <CategoryIcon />, 
-        path: '/categories'
       },
       { 
         text: 'Bills', 

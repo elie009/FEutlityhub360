@@ -252,7 +252,7 @@ const PaymentScheduleManager: React.FC<PaymentScheduleManagerProps> = ({
                   <TableCell>#</TableCell>
                   <TableCell>Due Date</TableCell>
                   <TableCell align="right">Amount</TableCell>
-                  <TableCell align="right">Principal</TableCell>
+                  <TableCell align="right">Loan Amount</TableCell>
                   <TableCell align="right">Interest</TableCell>
                   <TableCell align="center">Status</TableCell>
                   <TableCell>Payment Method</TableCell>

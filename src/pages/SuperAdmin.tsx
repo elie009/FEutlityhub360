@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -39,6 +39,7 @@ import {
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelCircleIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import apiService from '../services/api';
@@ -138,6 +139,24 @@ const SuperAdmin: React.FC = () => {
   const [ticketFilterPriority, setTicketFilterPriority] = useState<string>('');
   const [ticketFilterCategory, setTicketFilterCategory] = useState<string>('');
   const [userSubscriptionMap, setUserSubscriptionMap] = useState<Record<string, string>>({});
+  // Users with Subscription tab filters
+  const [usersWithSubFilterType, setUsersWithSubFilterType] = useState<string>('all'); // 'all' | 'with_subscription' | 'free_only'
+  const [usersWithSubFilterPlan, setUsersWithSubFilterPlan] = useState<string>(''); // '' = all plans, or plan name
+  const [usersWithSubFilterStatus, setUsersWithSubFilterStatus] = useState<string>(''); // '' = all, or ACTIVE, CANCELLED, etc.
+  
+  // Password View Dialog State
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<UserWithSubscription | null>(null);
+  const [passwordHash, setPasswordHash] = useState<string>('');
+  const [plainPassword, setPlainPassword] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [showPasswordSetForm, setShowPasswordSetForm] = useState(false);
+
+  // Ticket detail modal state (Support Center)
+  const [ticketDetailOpen, setTicketDetailOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [ticketDetailStatus, setTicketDetailStatus] = useState<string>('');
+  const [ticketDetailResolutionNotes, setTicketDetailResolutionNotes] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -156,31 +175,62 @@ const SuperAdmin: React.FC = () => {
         const subscriptions = await apiService.getAllUserSubscriptions(1, 100, filterStatus || undefined, filterPlanId || undefined);
         setUserSubscriptions(subscriptions);
       } else if (tabValue === 2) {
-        // Load users with subscriptions
-        // This would require a new endpoint or we can use the subscriptions data
-        const subscriptions = await apiService.getAllUserSubscriptions(1, 1000);
-        const uniqueUsers = subscriptions.reduce((acc: UserWithSubscription[], sub: UserSubscription) => {
-          if (!acc.find(u => u.id === sub.userId)) {
-            acc.push({
-              id: sub.userId,
-              name: sub.userName,
-              email: sub.userEmail,
-              phone: '',
-              role: 'USER',
-              isActive: true,
-              subscriptionPlanId: sub.subscriptionPlanId,
-              subscriptionPlanName: sub.planName,
-              subscriptionStatus: sub.status,
-              subscriptionBillingCycle: sub.billingCycle,
-              subscriptionStartDate: sub.startDate,
-              subscriptionEndDate: sub.endDate,
-              createdAt: sub.createdAt,
-              updatedAt: sub.updatedAt,
-            });
+        // Load all users with their subscription information
+        const [usersResponse, subscriptions] = await Promise.all([
+          apiService.getAllUsers(1, 10000), // Get all users
+          apiService.getAllUserSubscriptions(1, 10000) // Get all subscriptions
+        ]);
+
+        // Create a map of active subscriptions by userId
+        const subscriptionMap = new Map<string, UserSubscription>();
+        subscriptions.forEach((sub: UserSubscription) => {
+          // Only consider ACTIVE subscriptions, or if no active subscription exists, use the most recent one
+          if (sub.status === 'ACTIVE') {
+            subscriptionMap.set(sub.userId, sub);
+          } else if (!subscriptionMap.has(sub.userId)) {
+            // If no active subscription, store the most recent one (will be overwritten if we find a more recent one)
+            subscriptionMap.set(sub.userId, sub);
           }
-          return acc;
-        }, []);
-        setUsersWithSubscriptions(uniqueUsers);
+        });
+
+        // Map all users to UserWithSubscription format
+        const usersWithSubs: UserWithSubscription[] = usersResponse.data.map((user: any) => {
+          // Handle both camelCase and PascalCase field names
+          const userId = user.id || user.Id;
+          const subscription = subscriptionMap.get(userId);
+          let planName = 'Free';
+          
+          if (subscription) {
+            const planDisplayName = subscription.planDisplayName || subscription.planName || '';
+            // Check if plan is None, Free, or empty - display as "Free"
+            if (planDisplayName.toLowerCase() === 'none' || 
+                planDisplayName.toLowerCase() === 'free' || 
+                planDisplayName === '') {
+              planName = 'Free';
+            } else {
+              planName = planDisplayName;
+            }
+          }
+
+          return {
+            id: userId,
+            name: user.name || user.Name || '',
+            email: user.email || user.Email || '',
+            phone: user.phone || user.Phone || '',
+            role: user.role || user.Role || 'USER',
+            isActive: user.isActive !== undefined ? user.isActive : (user.IsActive !== undefined ? user.IsActive : true),
+            subscriptionPlanId: subscription?.subscriptionPlanId,
+            subscriptionPlanName: planName,
+            subscriptionStatus: subscription?.status,
+            subscriptionBillingCycle: subscription?.billingCycle,
+            subscriptionStartDate: subscription?.startDate,
+            subscriptionEndDate: subscription?.endDate,
+            createdAt: user.createdAt || user.CreatedAt || new Date().toISOString(),
+            updatedAt: user.updatedAt || user.UpdatedAt || new Date().toISOString(),
+          };
+        });
+
+        setUsersWithSubscriptions(usersWithSubs);
       } else if (tabValue === 3) {
         // Load all support tickets (admin can see all)
         const filters: any = {};
@@ -223,6 +273,93 @@ const SuperAdmin: React.FC = () => {
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
+
+  // Ticket detail modal: fetch full ticket when opened
+  useEffect(() => {
+    if (!ticketDetailOpen || !selectedTicket?.id) return;
+    apiService.getTicketById(selectedTicket.id)
+      .then((res: any) => {
+        const data = res?.data || res;
+        if (data) {
+          setSelectedTicket((prev) => (prev ? { ...prev, ...data } : null));
+          if (data.status) setTicketDetailStatus(data.status);
+          if (data.resolutionNotes !== undefined) setTicketDetailResolutionNotes(data.resolutionNotes || '');
+        }
+      })
+      .catch(() => {});
+  }, [ticketDetailOpen, selectedTicket?.id]);
+
+  const handleOpenTicketDetail = (row: Ticket) => {
+    setSelectedTicket(row);
+    setTicketDetailStatus(row.status || '');
+    setTicketDetailResolutionNotes(row.resolutionNotes || '');
+    setTicketDetailOpen(true);
+  };
+
+  const handleCloseTicketDetailModal = () => {
+    setTicketDetailOpen(false);
+    setSelectedTicket(null);
+    setTicketDetailStatus('');
+    setTicketDetailResolutionNotes('');
+  };
+
+  const handleUpdateTicketStatus = async () => {
+    if (!selectedTicket?.id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiService.updateTicketStatus(selectedTicket.id, ticketDetailStatus, ticketDetailResolutionNotes || undefined);
+      setSuccess('Ticket updated successfully');
+      handleCloseTicketDetailModal();
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update ticket');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    if (!selectedTicket?.id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await apiService.updateTicketStatus(selectedTicket.id, 'CLOSED', ticketDetailResolutionNotes || undefined);
+      setSuccess('Ticket closed successfully');
+      handleCloseTicketDetailModal();
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to close ticket');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filtered list for "Users with Subscription" tab
+  const filteredUsersWithSubscriptions = useMemo(() => {
+    let list = [...usersWithSubscriptions];
+    if (usersWithSubFilterType === 'with_subscription') {
+      list = list.filter((u) => (u.subscriptionPlanName || 'Free').toLowerCase() !== 'free');
+    } else if (usersWithSubFilterType === 'free_only') {
+      list = list.filter((u) => (u.subscriptionPlanName || 'Free').toLowerCase() === 'free');
+    }
+    if (usersWithSubFilterPlan) {
+      list = list.filter((u) => (u.subscriptionPlanName || '') === usersWithSubFilterPlan);
+    }
+    if (usersWithSubFilterStatus) {
+      list = list.filter((u) => (u.subscriptionStatus || '') === usersWithSubFilterStatus);
+    }
+    return list;
+  }, [usersWithSubscriptions, usersWithSubFilterType, usersWithSubFilterPlan, usersWithSubFilterStatus]);
+
+  const uniquePlanNames = useMemo(() => {
+    const names = new Set<string>();
+    usersWithSubscriptions.forEach((u) => {
+      const name = u.subscriptionPlanName || 'Free';
+      if (name) names.add(name);
+    });
+    return Array.from(names).sort();
+  }, [usersWithSubscriptions]);
 
   // Pricing Plans Handlers
   const handleOpenPlanDialog = (plan?: SubscriptionPlan) => {
@@ -470,13 +607,14 @@ const SuperAdmin: React.FC = () => {
 
   // Subscription columns for DataGrid
   const subscriptionColumns: GridColDef[] = [
-    { field: 'userName', headerName: 'User Name', width: 200 },
-    { field: 'userEmail', headerName: 'Email', width: 250 },
-    { field: 'planDisplayName', headerName: 'Plan', width: 200 },
+    { field: 'userName', headerName: 'User Name', flex: 1, minWidth: 150 },
+    { field: 'userEmail', headerName: 'Email', flex: 1.5, minWidth: 200 },
+    { field: 'planDisplayName', headerName: 'Plan', flex: 1.2, minWidth: 150 },
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      flex: 0.8,
+      minWidth: 120,
       renderCell: (params) => (
         <Chip
           label={params.value}
@@ -492,31 +630,36 @@ const SuperAdmin: React.FC = () => {
     {
       field: 'billingCycle',
       headerName: 'Billing',
-      width: 100,
+      flex: 0.7,
+      minWidth: 100,
     },
     {
       field: 'currentPrice',
       headerName: 'Price',
-      width: 100,
+      flex: 0.7,
+      minWidth: 100,
       renderCell: (params) => `$${params.value.toFixed(2)}`,
     },
     {
       field: 'startDate',
       headerName: 'Start Date',
-      width: 150,
+      flex: 1,
+      minWidth: 120,
       renderCell: (params) => new Date(params.value).toLocaleDateString(),
     },
     {
       field: 'nextBillingDate',
       headerName: 'Next Billing',
-      width: 150,
+      flex: 1,
+      minWidth: 120,
       renderCell: (params) => params.value ? new Date(params.value).toLocaleDateString() : 'N/A',
     },
     {
       field: 'actions',
       type: 'actions',
       headerName: 'Actions',
-      width: 200,
+      flex: 0.8,
+      minWidth: 120,
       getActions: (params) => [
         <GridActionsCellItem
           icon={<EditIcon />}
@@ -535,15 +678,69 @@ const SuperAdmin: React.FC = () => {
     },
   ];
 
+  // Password View Handlers
+  const handleViewPassword = async (user: UserWithSubscription) => {
+    setViewingUser(user);
+    setLoading(true);
+    setError(null);
+    setShowPasswordSetForm(true);
+    setPlainPassword('');
+    setNewPassword('');
+    try {
+      const passwordData = await apiService.getUserPassword(user.id);
+      setPasswordHash(passwordData.passwordHash);
+      setPasswordDialogOpen(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load user password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (!viewingUser || !newPassword.trim()) {
+      setError('Please enter a password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiService.setUserPassword(viewingUser.id, newPassword);
+      setPlainPassword(result.password);
+      setPasswordHash(''); // Clear hash since we have the plain password now
+      setSuccess(result.message);
+    } catch (err: any) {
+      setError(err.message || 'Failed to set user password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClosePasswordDialog = () => {
+    setPasswordDialogOpen(false);
+    setViewingUser(null);
+    setPasswordHash('');
+    setPlainPassword('');
+    setNewPassword('');
+    setShowPasswordSetForm(true);
+  };
+
   // User columns for DataGrid
   const userColumns: GridColDef[] = [
-    { field: 'name', headerName: 'Name', width: 200 },
-    { field: 'email', headerName: 'Email', width: 250 },
-    { field: 'role', headerName: 'Role', width: 100 },
+    { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
+    { field: 'email', headerName: 'Email', flex: 1.5, minWidth: 200 },
+    { field: 'role', headerName: 'Role', flex: 0.8, minWidth: 100 },
     {
       field: 'isActive',
       headerName: 'Status',
-      width: 100,
+      flex: 0.8, 
+      minWidth: 100,
       renderCell: (params) => (
         <Chip
           label={params.value ? 'Active' : 'Inactive'}
@@ -555,13 +752,22 @@ const SuperAdmin: React.FC = () => {
     {
       field: 'subscriptionPlanName',
       headerName: 'Subscription Plan',
-      width: 200,
-      renderCell: (params) => params.value || 'No Subscription',
+      flex: 1.2,
+      minWidth: 150,
+      renderCell: (params) => {
+        const planName = params.value || 'Free';
+        // Ensure None, empty, or Free values are displayed as "Free"
+        if (!planName || planName.toLowerCase() === 'none' || planName.toLowerCase() === 'free') {
+          return 'Free';
+        }
+        return planName;
+      },
     },
     {
       field: 'subscriptionStatus',
       headerName: 'Subscription Status',
-      width: 150,
+      flex: 1,
+      minWidth: 150,
       renderCell: (params) => {
         if (!params.value) return 'N/A';
         return (
@@ -580,8 +786,23 @@ const SuperAdmin: React.FC = () => {
     {
       field: 'subscriptionBillingCycle',
       headerName: 'Billing Cycle',
-      width: 120,
+      flex: 0.8,
+      minWidth: 120,
       renderCell: (params) => params.value || 'N/A',
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      flex: 0.8,
+      minWidth: 120,
+      getActions: (params) => [
+        <GridActionsCellItem
+          icon={<VisibilityIcon />}
+          label="Set/View Password"
+          onClick={() => handleViewPassword(params.row)}
+        />,
+      ],
     },
   ];
 
@@ -679,6 +900,20 @@ const SuperAdmin: React.FC = () => {
       headerName: 'Comments',
       width: 100,
       renderCell: (params) => params.value || 0,
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      width: 120,
+      getActions: (params) => [
+        <GridActionsCellItem
+          key="view"
+          icon={<VisibilityIcon />}
+          label="View details"
+          onClick={() => handleOpenTicketDetail(params.row as Ticket)}
+        />,
+      ],
     },
   ];
 
@@ -790,18 +1025,20 @@ const SuperAdmin: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <DataGrid
-              rows={userSubscriptions}
-              columns={subscriptionColumns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50]}
-              disableRowSelectionOnClick
-              autoHeight
-            />
+            <Box sx={{ width: '100%', height: 600 }}>
+              <DataGrid
+                rows={userSubscriptions}
+                columns={subscriptionColumns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page: 0, pageSize: 10 },
+                  },
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                disableRowSelectionOnClick
+                sx={{ width: '100%' }}
+              />
+            </Box>
           )}
         </TabPanel>
 
@@ -810,23 +1047,70 @@ const SuperAdmin: React.FC = () => {
             <Typography variant="h6">Users with Subscription Information</Typography>
           </Box>
 
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Subscription type</InputLabel>
+              <Select
+                value={usersWithSubFilterType}
+                label="Subscription type"
+                onChange={(e) => setUsersWithSubFilterType(e.target.value)}
+              >
+                <MenuItem value="all">All users</MenuItem>
+                <MenuItem value="with_subscription">With subscription (paid)</MenuItem>
+                <MenuItem value="free_only">Free only</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Plan</InputLabel>
+              <Select
+                value={usersWithSubFilterPlan}
+                label="Plan"
+                onChange={(e) => setUsersWithSubFilterPlan(e.target.value)}
+              >
+                <MenuItem value="">All plans</MenuItem>
+                {uniquePlanNames.map((name) => (
+                  <MenuItem key={name} value={name}>{name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={usersWithSubFilterStatus}
+                label="Status"
+                onChange={(e) => setUsersWithSubFilterStatus(e.target.value)}
+              >
+                <MenuItem value="">All statuses</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="CANCELLED">Cancelled</MenuItem>
+                <MenuItem value="EXPIRED">Expired</MenuItem>
+                <MenuItem value="PENDING">Pending</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography variant="body2" color="text.secondary">
+              Showing {filteredUsersWithSubscriptions.length} of {usersWithSubscriptions.length} users
+            </Typography>
+          </Box>
+
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <CircularProgress />
             </Box>
           ) : (
-            <DataGrid
-              rows={usersWithSubscriptions}
-              columns={userColumns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50]}
-              disableRowSelectionOnClick
-              autoHeight
-            />
+            <Box sx={{ width: '100%', height: 600 }}>
+              <DataGrid
+                rows={filteredUsersWithSubscriptions}
+                columns={userColumns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { page: 0, pageSize: 10 },
+                  },
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                disableRowSelectionOnClick
+                sx={{ width: '100%' }}
+              />
+            </Box>
           )}
         </TabPanel>
 
@@ -901,6 +1185,103 @@ const SuperAdmin: React.FC = () => {
           )}
         </TabPanel>
       </Paper>
+
+      {/* Ticket detail modal - View details & close ticket */}
+      <Dialog open={ticketDetailOpen} onClose={handleCloseTicketDetailModal} maxWidth="sm" fullWidth>
+        <DialogTitle>Ticket details</DialogTitle>
+        <DialogContent>
+          {selectedTicket && (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">Title</Typography>
+                <Typography variant="body1" fontWeight={600}>{selectedTicket.title}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">Description</Typography>
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{selectedTicket.description || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">User</Typography>
+                <Typography variant="body2">{selectedTicket.userName || selectedTicket.userId || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Email</Typography>
+                <Typography variant="body2">{selectedTicket.userEmail || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Category</Typography>
+                <Typography variant="body2">{selectedTicket.category || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Priority</Typography>
+                <Typography variant="body2">{selectedTicket.priority || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Created</Typography>
+                <Typography variant="body2">{selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleString() : '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Updated</Typography>
+                <Typography variant="body2">{selectedTicket.updatedAt ? new Date(selectedTicket.updatedAt).toLocaleString() : '—'}</Typography>
+              </Grid>
+              {selectedTicket.resolutionNotes && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">Resolution notes</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{selectedTicket.resolutionNotes}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={12}>
+                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={ticketDetailStatus}
+                    label="Status"
+                    onChange={(e) => setTicketDetailStatus(e.target.value)}
+                  >
+                    <MenuItem value="OPEN">Open</MenuItem>
+                    <MenuItem value="IN_PROGRESS">In progress</MenuItem>
+                    <MenuItem value="RESOLVED">Resolved</MenuItem>
+                    <MenuItem value="CLOSED">Closed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Resolution notes (optional)"
+                  placeholder="Add notes when resolving or closing..."
+                  value={ticketDetailResolutionNotes}
+                  onChange={(e) => setTicketDetailResolutionNotes(e.target.value)}
+                  multiline
+                  rows={3}
+                />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseTicketDetailModal} startIcon={<CancelIcon />}>
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={handleUpdateTicketStatus}
+            startIcon={<SaveIcon />}
+            disabled={!selectedTicket?.id || loading}
+          >
+            Update status
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCloseTicket}
+            disabled={!selectedTicket?.id || selectedTicket?.status === 'CLOSED' || loading}
+          >
+            Close ticket
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Plan Dialog */}
       <Dialog open={planDialogOpen} onClose={handleClosePlanDialog} maxWidth="md" fullWidth>
@@ -1115,6 +1496,112 @@ const SuperAdmin: React.FC = () => {
           <Button onClick={handleSaveSubscription} variant="contained" disabled={loading}>
             {loading ? <CircularProgress size={24} /> : 'Save'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Password View Dialog */}
+      <Dialog open={passwordDialogOpen} onClose={handleClosePasswordDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Set/View User Password</DialogTitle>
+        <DialogContent>
+          {viewingUser && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  User Information
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>User ID:</strong> {viewingUser.id}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Name:</strong> {viewingUser.name}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Email:</strong> {viewingUser.email}
+                </Typography>
+              </Grid>
+              
+              {plainPassword ? (
+                // Show plain text password after setting
+                <Grid item xs={12}>
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    Password has been set successfully!
+                  </Alert>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Login Password (Use this to login)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={plainPassword}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'monospace',
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        backgroundColor: '#f5f5f5',
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                    Copy this password and use it to login as this user.
+                  </Typography>
+                </Grid>
+              ) : showPasswordSetForm ? (
+                // Show form to set new password
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Set New Password
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    type="password"
+                    label="New Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    helperText="Minimum 6 characters. This password will be usable for login."
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+              ) : (
+                // Show password hash (old view)
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Password Hash
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={passwordHash}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                    Note: This is the hashed password. To set a new usable password, click "Set New Password" below.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePasswordDialog}>
+            {plainPassword ? 'Close' : 'Cancel'}
+          </Button>
+          {!plainPassword && showPasswordSetForm && (
+            <Button onClick={handleSetPassword} variant="contained" disabled={loading || !newPassword.trim()}>
+              {loading ? <CircularProgress size={24} /> : 'Set Password'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

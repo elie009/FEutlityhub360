@@ -172,7 +172,12 @@ export enum NotificationType {
   SYSTEM_UPDATE = 'SYSTEM_UPDATE',
   ACCOUNT_ALERT = 'ACCOUNT_ALERT',
   /** AI-driven financial goal analysis insight (automated or on-demand). */
-  AI_GOAL_INSIGHT = 'AI_GOAL_INSIGHT'
+  AI_GOAL_INSIGHT = 'AI_GOAL_INSIGHT',
+  // APP_UTILS analysis notification types
+  DATA_IMBALANCE = 'DATA_IMBALANCE',
+  MISLEADING_DATA = 'MISLEADING_DATA',
+  LOW_BALANCE = 'LOW_BALANCE'
+
 }
 
 export enum NotificationPriority {
@@ -316,7 +321,7 @@ export interface LoginCredentials {
 export interface RegisterData {
   name: string;
   email: string;
-  phone: string;
+  country: string;
   password: string;
   confirmPassword: string;
 }

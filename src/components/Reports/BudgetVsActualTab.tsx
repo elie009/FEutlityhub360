@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -24,6 +24,7 @@ import {
   Select,
   MenuItem,
   Button,
+  TextField,
 } from '@mui/material';
 import {
   AccountBalance,
@@ -57,28 +58,33 @@ const BudgetVsActualTab: React.FC<BudgetVsActualTabProps> = ({
   const [report, setReport] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentPeriod, setCurrentPeriod] = useState(period);
+  const [localStartDate, setLocalStartDate] = useState<string>(startDate ? startDate.toISOString().split('T')[0] : '');
+  const [localEndDate, setLocalEndDate] = useState<string>(endDate ? endDate.toISOString().split('T')[0] : '');
 
-  useEffect(() => {
-    fetchReport();
-  }, [startDate, endDate, currentPeriod]);
-
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      const start = localStartDate ? new Date(localStartDate) : undefined;
+      const end = localEndDate ? new Date(localEndDate) : undefined;
       const data = await apiService.getBudgetVsActualReport(
-        startDate?.toISOString(),
-        endDate?.toISOString(),
+        start?.toISOString(),
+        end?.toISOString(),
         currentPeriod
       );
       setReport(data);
-      if (onRefresh) onRefresh();
+      // Don't call onRefresh here as it causes infinite loop
+      // onRefresh should only be called on manual user actions
     } catch (err: any) {
       setError(err.message || 'Failed to load budget vs actual report');
     } finally {
       setLoading(false);
     }
-  };
+  }, [localStartDate, localEndDate, currentPeriod]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
 
   const handleRefresh = () => {
     fetchReport();
@@ -163,17 +169,45 @@ const BudgetVsActualTab: React.FC<BudgetVsActualTabProps> = ({
     <Box>
       {/* Header */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              Budget vs Actual Report
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Period: {new Date(report.periodStart).toLocaleDateString()} -{' '}
-              {new Date(report.periodEnd).toLocaleDateString()}
-            </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <AccountBalance color="primary" />
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Budget vs Actual Report
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Period: {new Date(report.periodStart).toLocaleDateString()} -{' '}
+                {new Date(report.periodEnd).toLocaleDateString()}
+              </Typography>
+            </Box>
           </Box>
-          <Box display="flex" gap={1}>
+          <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+            <TextField
+              label="Start Date"
+              type="date"
+              value={localStartDate}
+              onChange={(e) => setLocalStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              to
+            </Typography>
+            <TextField
+              label="End Date"
+              type="date"
+              value={localEndDate}
+              onChange={(e) => setLocalEndDate(e.target.value)}
+              size="small"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              sx={{ minWidth: 150 }}
+            />
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Period</InputLabel>
               <Select
@@ -188,23 +222,21 @@ const BudgetVsActualTab: React.FC<BudgetVsActualTabProps> = ({
                 <MenuItem value="YEARLY">Yearly</MenuItem>
               </Select>
             </FormControl>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={fetchReport}
+              size="small"
+            >
+              Apply
+            </Button>
             <Tooltip title="Export PDF">
-              <IconButton onClick={() => handleExport('PDF')} color="primary">
-                <Download />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export CSV">
-              <IconButton onClick={() => handleExport('CSV')} color="primary">
-                <Download />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export Excel">
-              <IconButton onClick={() => handleExport('EXCEL')} color="primary">
+              <IconButton onClick={() => handleExport('PDF')} color="primary" size="small">
                 <Download />
               </IconButton>
             </Tooltip>
             <Tooltip title="Refresh">
-              <IconButton onClick={handleRefresh}>
+              <IconButton onClick={handleRefresh} size="small">
                 <Refresh />
               </IconButton>
             </Tooltip>

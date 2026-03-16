@@ -249,10 +249,66 @@ export class ChatbotService {
         suggestedActions: response.data.suggestedActions,
         quickActions
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI chat error:', error);
+      
+      // Extract more specific error information
+      let errorMessage = 'I apologize, but I\'m having trouble connecting to the AI service right now.';
+      let errorDetails = '';
+      
+      // Handle timeout errors
+      if (error?.isTimeout || error?.status === 408 || error?.message?.includes('timed out') || error?.message?.includes('taking longer')) {
+        errorMessage = 'The AI service is taking longer than expected to respond. This might be due to high demand. Please try again in a moment.';
+        errorDetails = 'Request timeout - the server took too long to respond';
+      }
+      // Handle network errors
+      else if (error?.isNetworkError || error?.message?.includes('Network error') || error?.message?.includes('Failed to fetch')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+        errorDetails = 'Unable to connect to the server';
+      }
+      // Handle backend error messages
+      else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        errorDetails = error.response.data.message;
+      } 
+      // Handle frontend error messages
+      else if (error?.message) {
+        errorDetails = error.message;
+        if (error.message.includes('Premium') || error.message.includes('subscription')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('API key') || error.message.includes('configured')) {
+          errorMessage = 'The AI service is not properly configured. Please contact support.';
+        } else if (error.message.includes('limit')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('aborted') || error.message.includes('signal')) {
+          errorMessage = 'The request was cancelled or timed out. Please try again.';
+          errorDetails = 'Request was aborted';
+        }
+      } 
+      // Handle status codes
+      else if (error?.status === 401) {
+        errorMessage = 'You need to be logged in to use the AI assistant. Please log in and try again.';
+      } else if (error?.status === 403) {
+        errorMessage = 'You don\'t have access to the AI assistant. Please upgrade your subscription.';
+      } else if (error?.status === 400) {
+        errorMessage = error?.errorData?.message || 'Invalid request. Please check your message and try again.';
+      } else if (error?.status === 500) {
+        errorMessage = 'The AI service is experiencing technical difficulties. Please try again later.';
+      }
+      
+      // Log detailed error for debugging
+      console.error('Detailed AI chat error:', {
+        error,
+        message: error?.message,
+        status: error?.status,
+        response: error?.response,
+        errorData: error?.errorData,
+        isTimeout: error?.isTimeout,
+        isNetworkError: error?.isNetworkError
+      });
+      
       return {
-        message: 'I apologize, but I\'m having trouble connecting to the AI service right now. Let me help you with some basic guidance instead.',
+        message: errorMessage + (errorDetails && errorDetails !== errorMessage ? `\n\nDetails: ${errorDetails}` : ''),
         quickActions: [
           {
             id: 'retry',

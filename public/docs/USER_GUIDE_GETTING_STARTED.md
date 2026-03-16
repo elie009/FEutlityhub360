@@ -5,22 +5,24 @@ Welcome to UtilityHub360! This guide will help you get started with managing you
 ## 🎯 What is UtilityHub360?
 
 UtilityHub360 is a comprehensive financial management application that helps you:
-- Track your bills and utility payments
-- Manage multiple bank accounts
-- Monitor your transactions
-- Plan and track your savings goals
-- Manage loans and repayments
-- Analyze your financial health with detailed reports
+Track your bills and utility payments
+
+Manage multiple bank accounts
+
+Monitor your transactions
+
+Plan and track your savings goals
+
+Manage loans and repayments
+
+Analyze your financial health with detailed reports
 
 ## 🚀 Creating Your Account
 
 ### Step 1: Register
-1. Click on **"Register"** or **"Sign Up"** on the landing page
-2. Fill in your information:
-   - Email address
-   - Password (make it strong!)
-   - Confirm your password
-3. Click **"Create Account"**
+1. Click on "Register" or "Sign Up" on the landing page <br>
+2. Fill in your information: - Email address - Password (make it strong!) - Confirm your password <br>
+3. Click "Create Account"
 
 ### Step 2: Complete Your Profile
 After registration, you'll be asked to set up your profile:
@@ -57,26 +59,31 @@ The sidebar provides quick access to all features:
 Now that you're set up, here's what to do next:
 
 1. **Add Your Bank Accounts**
+   
    - Go to Finance → Bank Accounts
    - Click "Add Account"
    - Enter your account details
 
 2. **Add Your Bills**
+   
    - Go to Finance → Bills and Utility
    - Click "Add Bill"
    - Enter your recurring bills (utilities, subscriptions, etc.)
 
 3. **Explore Transactions**
+   
    - Go to Finance → Transactions
    - View all your financial transactions
    - Categorize and organize them
 
 4. **Set Up Savings Goals**
+   
    - Go to Finance → Savings
    - Create savings goals
    - Track your progress
 
 5. **Use the Apportioner**
+   
    - Go to Apportioner
    - Let the tool help you allocate your budget smartly
 

@@ -34,6 +34,7 @@ import {
   Close as CloseIcon,
   CalendarMonth,
   Lock as LockIcon,
+  Calculate as CalculateIcon,
 } from '@mui/icons-material';
 import { BankAccount } from '../../types/bankAccount';
 import { BankAccountTransaction } from '../../types/transaction';
@@ -44,6 +45,7 @@ interface BankAccountTransactionsModalProps {
   open: boolean;
   onClose: () => void;
   account: BankAccount | null;
+  onBalanceRecalculated?: () => void;
 }
 
 interface MonthlyTransactions {
@@ -59,6 +61,7 @@ const BankAccountTransactionsModal: React.FC<BankAccountTransactionsModalProps> 
   open,
   onClose,
   account,
+  onBalanceRecalculated,
 }) => {
   const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<BankAccountTransaction[]>([]);
@@ -67,6 +70,7 @@ const BankAccountTransactionsModal: React.FC<BankAccountTransactionsModalProps> 
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [closedMonths, setClosedMonths] = useState<Set<string>>(new Set()); // Set of "YYYY-MM" strings
+  const [recalculating, setRecalculating] = useState(false);
 
   // Fetch transactions and closed months when modal opens
   useEffect(() => {
@@ -236,6 +240,42 @@ const BankAccountTransactionsModal: React.FC<BankAccountTransactionsModalProps> 
     return type === 'CREDIT' ? <TrendingUp fontSize="small" /> : <TrendingDown fontSize="small" />;
   };
 
+  const handleRecalculateBalance = async () => {
+    if (!account) return;
+
+    if (!window.confirm('This will recalculate the account balance based on all transactions. Do you want to continue?')) {
+      return;
+    }
+
+    try {
+      setRecalculating(true);
+      setError('');
+      const newBalance = await apiService.recalculateBalance(account.id);
+      
+      // Update the account balance in the parent component by refreshing
+      // The parent component should reload the account data
+      if (account) {
+        account.currentBalance = newBalance;
+      }
+      
+      // Show success message
+      alert(`Balance recalculated successfully. New balance: ${formatCurrency(newBalance)}`);
+      
+      // Notify parent component to refresh account data
+      if (onBalanceRecalculated) {
+        onBalanceRecalculated();
+      }
+      
+      // Optionally refresh transactions to show updated balance
+      await fetchTransactions();
+    } catch (err: any) {
+      console.error('Failed to recalculate balance:', err);
+      setError(err.message || 'Failed to recalculate balance');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle>
@@ -248,9 +288,21 @@ const BankAccountTransactionsModal: React.FC<BankAccountTransactionsModalProps> 
               </Typography>
             )}
           </Box>
-          <Button onClick={onClose} color="inherit" size="small">
-            <CloseIcon />
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              onClick={handleRecalculateBalance}
+              variant="outlined"
+              size="small"
+              startIcon={<CalculateIcon />}
+              disabled={recalculating || !account}
+              sx={{ minWidth: 'auto' }}
+            >
+              {recalculating ? 'Recalculating...' : 'Recalculate Balance'}
+            </Button>
+            <Button onClick={onClose} color="inherit" size="small">
+              <CloseIcon />
+            </Button>
+          </Box>
         </Box>
       </DialogTitle>
       <DialogContent dividers>

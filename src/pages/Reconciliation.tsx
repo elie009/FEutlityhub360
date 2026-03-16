@@ -45,34 +45,42 @@ import {
   LinkOff,
   Download,
   Delete,
+  Visibility,
+  Cancel,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BankAccount } from '../types/bankAccount';
 import {
   BankStatement,
   Reconciliation,
   ReconciliationSummary,
   TransactionMatchSuggestion,
+  BankStatementUploadLimit,
+  BankStatementUpload,
 } from '../types/reconciliation';
 import { getErrorMessage } from '../utils/validation';
 import BankStatementImportDialog from '../components/Reconciliation/BankStatementImportDialog';
 import ReconciliationDialog from '../components/Reconciliation/ReconciliationDialog';
 import TransactionMatchingDialog from '../components/Reconciliation/TransactionMatchingDialog';
+import StagingTransactionsModal from '../components/Reconciliation/StagingTransactionsModal';
+import BankStatementTransactionsModal from '../components/Reconciliation/BankStatementTransactionsModal';
 
 const ReconciliationPage: React.FC = () => {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const location = useLocation();
+  const navigate = useNavigate();
   
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [reconciliations, setReconciliations] = useState<Reconciliation[]>([]);
   const [bankStatements, setBankStatements] = useState<BankStatement[]>([]);
+  const [bankUploads, setBankUploads] = useState<BankStatementUpload[]>([]);
   const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [activeTab, setActiveTab] = useState(0);
@@ -81,13 +89,19 @@ const ReconciliationPage: React.FC = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showReconciliationDialog, setShowReconciliationDialog] = useState(false);
   const [showMatchingDialog, setShowMatchingDialog] = useState(false);
+  const [showStagingModal, setShowStagingModal] = useState(false);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [selectedReconciliation, setSelectedReconciliation] = useState<Reconciliation | null>(null);
   const [selectedStatement, setSelectedStatement] = useState<BankStatement | null>(null);
+  const [selectedUpload, setSelectedUpload] = useState<BankStatementUpload | null>(null);
   
   // Delete confirmation state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<BankStatement | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Upload limit state
+  const [uploadLimit, setUploadLimit] = useState<BankStatementUploadLimit | null>(null);
 
   // Load bank accounts
   useEffect(() => {
@@ -100,8 +114,15 @@ const ReconciliationPage: React.FC = () => {
         const stateAccountId = (location.state as any)?.accountId;
         if (stateAccountId && accounts.find(acc => acc.id === stateAccountId)) {
           setSelectedAccountId(stateAccountId);
-        } else if (accounts.length > 0 && !selectedAccountId) {
-          setSelectedAccountId(accounts[0].id);
+        } else if (accounts.length > 0) {
+          // Always set the first account if no account is currently selected
+          setSelectedAccountId(prev => {
+            // Only set if no account is currently selected
+            if (!prev && accounts.length > 0) {
+              return accounts[0].id;
+            }
+            return prev;
+          });
         }
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to load bank accounts'));
@@ -110,27 +131,38 @@ const ReconciliationPage: React.FC = () => {
     loadBankAccounts();
   }, [location.state]);
 
-  // Load data when account changes
+  // Load upload limit
   useEffect(() => {
-    if (selectedAccountId) {
-      loadReconciliationData();
-    }
-  }, [selectedAccountId]);
+    const loadUploadLimit = async () => {
+      try {
+        const limitInfo = await apiService.getBankStatementUploadLimit();
+        setUploadLimit(limitInfo);
+      } catch (err) {
+        console.error('Failed to load upload limit:', err);
+      }
+    };
+    loadUploadLimit();
+  }, []);
 
   const loadReconciliationData = useCallback(async () => {
-    if (!selectedAccountId) return;
+    if (!selectedAccountId) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     setError('');
     try {
-      const [reconciliationsData, statementsData, summaryData] = await Promise.all([
+      const [reconciliationsData, statementsData, uploadsData, summaryData] = await Promise.all([
         apiService.getReconciliations(selectedAccountId),
         apiService.getBankStatements(selectedAccountId),
+        apiService.getUserUploads(selectedAccountId),
         apiService.getReconciliationSummary(selectedAccountId),
       ]);
       
       setReconciliations(reconciliationsData);
       setBankStatements(statementsData);
+      setBankUploads(uploadsData);
       setSummary(summaryData);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load reconciliation data'));
@@ -139,15 +171,62 @@ const ReconciliationPage: React.FC = () => {
     }
   }, [selectedAccountId]);
 
+  // Load data when account changes
+  useEffect(() => {
+    if (selectedAccountId) {
+      loadReconciliationData();
+    } else {
+      // Reset data when no account is selected
+      setReconciliations([]);
+      setBankStatements([]);
+      setBankUploads([]);
+      setSummary(null);
+      setIsLoading(false);
+    }
+  }, [selectedAccountId, loadReconciliationData]);
+
+  // Poll for upload status updates
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+    
+    const hasPendingUploads = bankUploads.some(u => 
+      u.status === 'PENDING' || u.status === 'PROCESSING'
+    );
+
+    if (hasPendingUploads && selectedAccountId) {
+      pollInterval = setInterval(async () => {
+        try {
+          const uploadsData = await apiService.getUserUploads(selectedAccountId);
+          setBankUploads(uploadsData);
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 5000);
+    }
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [bankUploads, selectedAccountId]);
+
   const handleAccountChange = (event: SelectChangeEvent<string>) => {
     setSelectedAccountId(event.target.value);
   };
 
-  const handleImportSuccess = () => {
-    setSuccess('Bank statement imported successfully!');
+  const handleImportSuccess = async () => {
+    setSuccess('Bank statement uploaded successfully! It is now being processed.');
     loadReconciliationData();
     setShowImportDialog(false);
+    setActiveTab(1); // Automatically switch to Bank Statements tab to show progress
     setTimeout(() => setSuccess(''), 3000);
+    
+    // Reload upload limit after successful import
+    try {
+      const limitInfo = await apiService.getBankStatementUploadLimit();
+      setUploadLimit(limitInfo);
+    } catch (err) {
+      console.error('Failed to reload upload limit:', err);
+    }
   };
 
   const handleReconciliationSuccess = () => {
@@ -168,6 +247,19 @@ const ReconciliationPage: React.FC = () => {
       setError(getErrorMessage(err, 'Failed to auto-match transactions'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCancelUpload = async (uploadId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this upload?')) return;
+    
+    try {
+      await apiService.cancelUpload(uploadId);
+      setSuccess('Upload cancelled.');
+      loadReconciliationData();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to cancel upload.'));
     }
   };
 
@@ -219,10 +311,10 @@ const ReconciliationPage: React.FC = () => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Account Reconciliation
+          Match with Bank Statement
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Import bank statements and reconcile transactions with your accounts
+          Import bank statements and match transactions with your accounts to keep everything accurate
         </Typography>
       </Box>
 
@@ -246,15 +338,22 @@ const ReconciliationPage: React.FC = () => {
               <FormControl fullWidth>
                 <InputLabel>Select Bank Account</InputLabel>
                 <Select
-                  value={selectedAccountId}
+                  value={selectedAccountId || ''}
                   onChange={handleAccountChange}
                   label="Select Bank Account"
+                  disabled={bankAccounts.length === 0}
                 >
-                  {bankAccounts.map((account) => (
-                    <MenuItem key={account.id} value={account.id}>
-                      {account.accountName} ({account.accountType})
+                  {bankAccounts.length === 0 ? (
+                    <MenuItem disabled value="">
+                      No bank accounts available
                     </MenuItem>
-                  ))}
+                  ) : (
+                    bankAccounts.map((account) => (
+                      <MenuItem key={account.id} value={account.id}>
+                        {account.accountName} ({account.accountType})
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
             </Grid>
@@ -281,8 +380,8 @@ const ReconciliationPage: React.FC = () => {
       {/* Summary Card */}
       {summary && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Book Balance
@@ -293,8 +392,8 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Statement Balance
@@ -305,8 +404,8 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Difference
@@ -320,8 +419,8 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Card>
+          <Grid item xs={12} sm={6} md={uploadLimit && uploadLimit.uploadLimit !== null ? 2.4 : 3}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Status
@@ -334,26 +433,63 @@ const ReconciliationPage: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
+          {/* Upload Limit Card */}
+          {uploadLimit && uploadLimit.uploadLimit !== null && (
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Card sx={{ bgcolor: uploadLimit.canUpload ? 'info.light' : 'error.light', height: '100%' }}>
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Monthly Upload Limit
+                  </Typography>
+                  <Typography variant="h6" sx={{ mb: 0.5 }}>
+                    {uploadLimit.currentUploads} / {uploadLimit.uploadLimit} upalod remaining
+                  </Typography>
+                 
+                  {!uploadLimit.canUpload && (
+                    <>
+                      <Typography variant="body2" color="error" sx={{ mt: 1, fontWeight: 'bold' }}>
+                        Limit reached
+                      </Typography>
+                      <Button 
+                        variant="contained" 
+                        color="primary"
+                        size="small"
+                        fullWidth
+                        sx={{ mt: 1 }}
+                        onClick={() => navigate('/settings#subscription')}
+                      >
+                        Upgrade
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
       )}
 
       {/* Action Buttons */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <Button
-          variant="contained"
-          startIcon={<Upload />}
-          onClick={() => setShowImportDialog(true)}
-          disabled={!selectedAccountId}
-        >
-          Import Bank Statement
-        </Button>
+        <Tooltip title={!selectedAccountId ? "Please select a bank account first" : ""}>
+          <span>
+            <Button
+              variant="contained"
+              startIcon={<Upload />}
+              onClick={() => setShowImportDialog(true)}
+              disabled={!selectedAccountId || bankAccounts.length === 0}
+            >
+              Import Bank Statement
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           variant="outlined"
           startIcon={<AccountBalance />}
           onClick={() => setShowReconciliationDialog(true)}
           disabled={!selectedAccountId}
         >
-          Create Reconciliation
+          Create Match Session
         </Button>
         <Button
           variant="outlined"
@@ -390,24 +526,16 @@ const ReconciliationPage: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Date</TableCell>
                       <TableCell>Book Balance</TableCell>
                       <TableCell>Statement Balance</TableCell>
                       <TableCell>Difference</TableCell>
-                      <TableCell>Matched</TableCell>
-                      <TableCell>Unmatched</TableCell>
                       <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
+                      <TableCell>Monthly Upload Limit</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {reconciliations.map((reconciliation) => (
                       <TableRow key={reconciliation.id}>
-                        <TableCell>{reconciliation.reconciliationName}</TableCell>
-                        <TableCell>
-                          {new Date(reconciliation.reconciliationDate).toLocaleDateString()}
-                        </TableCell>
                         <TableCell>{formatCurrency(reconciliation.bookBalance)}</TableCell>
                         <TableCell>{formatCurrency(reconciliation.statementBalance)}</TableCell>
                         <TableCell>
@@ -417,8 +545,6 @@ const ReconciliationPage: React.FC = () => {
                             {formatCurrency(reconciliation.difference)}
                           </Typography>
                         </TableCell>
-                        <TableCell>{reconciliation.matchedTransactions}</TableCell>
-                        <TableCell>{reconciliation.unmatchedTransactions}</TableCell>
                         <TableCell>
                           <Chip
                             label={reconciliation.status}
@@ -427,27 +553,19 @@ const ReconciliationPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleViewReconciliation(reconciliation)}
-                              >
-                                <Info />
-                              </IconButton>
-                            </Tooltip>
-                            {reconciliation.status !== 'COMPLETED' && (
-                              <Tooltip title="Auto-Match">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleAutoMatch(reconciliation.id)}
-                                  disabled={isLoading}
-                                >
-                                  <AutoFixHigh />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
+                          {uploadLimit ? (
+                            uploadLimit.uploadLimit !== null ? (
+                              <Typography variant="body2">
+                                {uploadLimit.currentUploads} / {uploadLimit.uploadLimit}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="success.main">
+                                Unlimited
+                              </Typography>
+                            )
+                          ) : (
+                            <Typography variant="body2">-</Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -465,7 +583,7 @@ const ReconciliationPage: React.FC = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
-            ) : bankStatements.length === 0 ? (
+            ) : (bankStatements.length === 0 && bankUploads.length === 0) ? (
               <Alert severity="info">
                 No bank statements found. Import a bank statement to get started.
               </Alert>
@@ -474,18 +592,88 @@ const ReconciliationPage: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Statement Name</TableCell>
-                      <TableCell>Period</TableCell>
-                      <TableCell>Opening Balance</TableCell>
-                      <TableCell>Closing Balance</TableCell>
+                      <TableCell>Name / File</TableCell>
+                      <TableCell>Period / Date</TableCell>
+                      <TableCell>Balance / Type</TableCell>
                       <TableCell>Transactions</TableCell>
-                      <TableCell>Matched</TableCell>
-                      <TableCell>Unmatched</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
+                    {/* First, show active uploads */}
+                    {bankUploads
+                      .filter(u => u.status !== 'COMPLETED')
+                      .map((upload) => (
+                      <TableRow key={upload.id} sx={{ bgcolor: 'action.hover' }}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            {upload.originalFileName}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            Upload in progress
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(upload.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={upload.fileType} size="small" variant="outlined" />
+                        </TableCell>
+                        <TableCell>-</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={upload.status}
+                            color={
+                              upload.status === 'DONE' ? 'info' : 
+                              upload.status === 'FAILED' ? 'error' : 
+                              'warning'
+                            }
+                            size="small"
+                            variant={upload.status === 'PROCESSING' ? 'outlined' : 'filled'}
+                            icon={upload.status === 'PROCESSING' ? <CircularProgress size={16} /> : undefined}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            {upload.status === 'DONE' && (
+                              <Tooltip title="View & Confirm Extracted Transactions">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => {
+                                    setSelectedUpload(upload);
+                                    setShowStagingModal(true);
+                                  }}
+                                >
+                                  <Visibility />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {upload.status === 'FAILED' && (
+                              <Tooltip title={upload.errorMessage || 'Processing failed'}>
+                                <IconButton size="small" color="error">
+                                  <Info />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {(upload.status === 'PENDING' || upload.status === 'PROCESSING') && (
+                              <Tooltip title="Cancel Upload">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleCancelUpload(upload.id)}
+                                >
+                                  <Cancel fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {/* Then, show finalized statements */}
                     {bankStatements.map((statement) => (
                       <TableRow key={statement.id}>
                         <TableCell>{statement.statementName}</TableCell>
@@ -493,15 +681,18 @@ const ReconciliationPage: React.FC = () => {
                           {new Date(statement.statementStartDate).toLocaleDateString()} -{' '}
                           {new Date(statement.statementEndDate).toLocaleDateString()}
                         </TableCell>
-                        <TableCell>{formatCurrency(statement.openingBalance)}</TableCell>
-                        <TableCell>{formatCurrency(statement.closingBalance)}</TableCell>
-                        <TableCell>{statement.totalTransactions}</TableCell>
-                        <TableCell>{statement.matchedTransactions}</TableCell>
-                        <TableCell>{statement.unmatchedTransactions}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2">Open: {formatCurrency(statement.openingBalance)}</Typography>
+                          <Typography variant="body2">Close: {formatCurrency(statement.closingBalance)}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{statement.totalTransactions} total</Typography>
+                          <Typography variant="caption" color="success.main">{statement.matchedTransactions} matched</Typography>
+                        </TableCell>
                         <TableCell>
                           <Chip
-                            label={statement.isReconciled ? 'Reconciled' : 'Pending'}
-                            color={statement.isReconciled ? 'success' : 'warning'}
+                            label={statement.isReconciled ? 'Reconciled' : 'Ready'}
+                            color={statement.isReconciled ? 'success' : 'info'}
                             size="small"
                           />
                         </TableCell>
@@ -512,10 +703,10 @@ const ReconciliationPage: React.FC = () => {
                                 size="small"
                                 onClick={() => {
                                   setSelectedStatement(statement);
-                                  setShowMatchingDialog(true);
+                                  setShowTransactionsModal(true);
                                 }}
                               >
-                                <Info />
+                                <Visibility />
                               </IconButton>
                             </Tooltip>
                             {!statement.isReconciled && (
@@ -570,6 +761,30 @@ const ReconciliationPage: React.FC = () => {
             reconciliation={selectedReconciliation}
             bankStatement={selectedStatement}
             onUpdate={loadReconciliationData}
+          />
+
+          <StagingTransactionsModal
+            open={showStagingModal}
+            onClose={() => {
+              setShowStagingModal(false);
+              setSelectedUpload(null);
+            }}
+            upload={selectedUpload}
+            onSuccess={() => {
+              setSuccess('Transactions confirmed and imported!');
+              loadReconciliationData();
+              setActiveTab(1); // Switch to Bank Statements tab
+              setTimeout(() => setSuccess(''), 3000);
+            }}
+          />
+
+          <BankStatementTransactionsModal
+            open={showTransactionsModal}
+            onClose={() => {
+              setShowTransactionsModal(false);
+              setSelectedStatement(null);
+            }}
+            statement={selectedStatement}
           />
         </>
       )}

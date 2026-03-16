@@ -206,7 +206,17 @@ const ProfileSetup: React.FC = () => {
     setError(null);
 
     try {
-      await apiService.createUserProfile(formData);
+      // Filter out empty income sources (those with no name or zero amount)
+      const validIncomeSources = formData.incomeSources.filter(source => 
+        source.name && source.name.trim() !== '' && source.amount > 0
+      );
+      
+      const profileDataWithValidIncomeSources = {
+        ...formData,
+        incomeSources: validIncomeSources,
+      };
+      
+      await apiService.createUserProfile(profileDataWithValidIncomeSources);
       setSuccessMessage('Profile created successfully! Redirecting to dashboard...');
       
       // Redirect to dashboard after a short delay

@@ -327,7 +327,7 @@ const RepaymentScheduleManager: React.FC<RepaymentScheduleManagerProps> = ({
             <TableRow>
               <TableCell>#</TableCell>
               <TableCell>Due Date</TableCell>
-              <TableCell align="right">Principal</TableCell>
+              <TableCell align="right">Loan Amount</TableCell>
               <TableCell align="right">Interest</TableCell>
               <TableCell align="right">Total</TableCell>
               <TableCell align="center">Status</TableCell>

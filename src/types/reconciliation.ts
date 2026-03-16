@@ -178,3 +178,53 @@ export interface ExtractBankStatementResponse {
   metadata?: Record<string, any>;
 }
 
+// Upload Limit Types
+export interface BankStatementUploadLimit {
+  canUpload: boolean;
+  currentUploads: number;
+  uploadLimit: number | null;
+  remainingUploads: number | null;
+  isFreeTier: boolean;
+}
+
+// Async Upload Types
+export interface BankStatementUpload {
+  id: string;
+  userId: string;
+  bankAccountId: string;
+  originalFileName: string;
+  fileType: string;
+  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'COMPLETED' | 'FAILED';
+  errorMessage?: string;
+  processedBankStatementId?: string;
+  retryCount: number;
+  createdAt: string;
+  processedAt?: string;
+  updatedAt: string;
+}export interface TransactionSplit {
+  id: string;
+  amount: number;
+  billId?: string;
+  category?: string;
+  description?: string;
+}export interface StagingTransaction {
+  id: string;
+  uploadId: string;
+  transactionDate: string;
+  amount: number;
+  transactionType: string;
+  description?: string;
+  referenceNumber?: string;
+  merchant?: string;
+  category?: string;
+  balanceAfterTransaction: number;
+  splits?: TransactionSplit[]; // Optional splits for this transaction
+  isSplit?: boolean; // Flag to indicate if this transaction is split
+}export interface ConfirmBankStatementUploadRequest {
+  statementName: string;
+  statementStartDate: string;
+  statementEndDate: string;
+  openingBalance: number;
+  closingBalance: number;
+  transactions: StagingTransaction[];
+}

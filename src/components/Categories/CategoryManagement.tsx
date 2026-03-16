@@ -36,7 +36,30 @@ import {
   Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Category as CategoryIcon
+  Category as CategoryIcon,
+  Restaurant as RestaurantIcon,
+  RestaurantMenu as RestaurantMenuIcon,
+  ShoppingCart as ShoppingCartIcon,
+  ShoppingBag as ShoppingBagIcon,
+  DirectionsCar as DirectionsCarIcon,
+  LocalGasStation as LocalGasStationIcon,
+  LocalHospital as LocalHospitalIcon,
+  Movie as MovieIcon,
+  Home as HomeIcon,
+  Savings as SavingsIcon,
+  School as SchoolIcon,
+  Work as WorkIcon,
+  Laptop as LaptopIcon,
+  TrendingUp as TrendingUpIcon,
+  AttachMoney as AttachMoneyIcon,
+  AccountBalance as AccountBalanceIcon,
+  SwapHoriz as SwapHorizIcon,
+  CardGiftcard as CardGiftcardIcon,
+  MoreHoriz as MoreHorizIcon,
+  Flight as FlightIcon,
+  Bolt as BoltIcon,
+  Security as SecurityIcon,
+  Subscriptions as SubscriptionsIcon,
 } from '@mui/icons-material';
 import apiService from '../../services/api';
 
@@ -106,6 +129,21 @@ const CategoryManagement: React.FC = () => {
       if (isMountedRef.current) {
         setCategories(data);
         setLoading(false);
+        
+        // If user has no categories and no filter is applied, automatically create default categories
+        if (data.length === 0 && !filterType) {
+          try {
+            await apiService.createDefaultCategories();
+            // Reload categories after creating defaults
+            const updatedData = await apiService.getAllCategories();
+            if (isMountedRef.current) {
+              setCategories(updatedData);
+            }
+          } catch (createErr: any) {
+            // Silently fail - user can manually create categories or use seed button
+            console.log('Auto-create default categories failed:', createErr);
+          }
+        }
       }
     } catch (err: any) {
       // Ignore abort errors (from canceled requests)
@@ -232,6 +270,42 @@ const CategoryManagement: React.FC = () => {
     ? categories.filter(c => c.type === filterType)
     : categories;
 
+  const getCategoryIcon = (iconName: string | undefined, color?: string) => {
+    if (!iconName) {
+      return <CategoryIcon sx={{ color: color || '#4ECDC4' }} />;
+    }
+
+    const iconProps = { sx: { color: color || '#4ECDC4' } };
+    
+    const iconMap: { [key: string]: React.ReactElement } = {
+      'restaurant': <RestaurantIcon {...iconProps} />,
+      'restaurant_menu': <RestaurantMenuIcon {...iconProps} />,
+      'shopping_cart': <ShoppingCartIcon {...iconProps} />,
+      'shopping_bag': <ShoppingBagIcon {...iconProps} />,
+      'directions_car': <DirectionsCarIcon {...iconProps} />,
+      'local_gas_station': <LocalGasStationIcon {...iconProps} />,
+      'local_hospital': <LocalHospitalIcon {...iconProps} />,
+      'movie': <MovieIcon {...iconProps} />,
+      'home': <HomeIcon {...iconProps} />,
+      'savings': <SavingsIcon {...iconProps} />,
+      'school': <SchoolIcon {...iconProps} />,
+      'work': <WorkIcon {...iconProps} />,
+      'laptop': <LaptopIcon {...iconProps} />,
+      'trending_up': <TrendingUpIcon {...iconProps} />,
+      'attach_money': <AttachMoneyIcon {...iconProps} />,
+      'account_balance': <AccountBalanceIcon {...iconProps} />,
+      'swap_horiz': <SwapHorizIcon {...iconProps} />,
+      'card_giftcard': <CardGiftcardIcon {...iconProps} />,
+      'more_horiz': <MoreHorizIcon {...iconProps} />,
+      'flight': <FlightIcon {...iconProps} />,
+      'bolt': <BoltIcon {...iconProps} />,
+      'security': <SecurityIcon {...iconProps} />,
+      'subscriptions': <SubscriptionsIcon {...iconProps} />,
+    };
+
+    return iconMap[iconName] || <CategoryIcon {...iconProps} />;
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -322,9 +396,7 @@ const CategoryManagement: React.FC = () => {
                       <TableRow key={category.id}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {category.icon && (
-                              <CategoryIcon sx={{ color: category.color }} />
-                            )}
+                            {getCategoryIcon(category.icon, category.color)}
                             <Typography variant="body2" fontWeight="medium">
                               {category.name}
                             </Typography>

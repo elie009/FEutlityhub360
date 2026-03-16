@@ -201,6 +201,30 @@ const CustomReportTab: React.FC = () => {
 
   return (
     <Box>
+      {/* Header */}
+      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box display="flex" alignItems="center" gap={2}>
+            <Settings color="primary" />
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Custom Report Builder
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Configure and generate custom financial reports
+              </Typography>
+            </Box>
+          </Box>
+          <Box display="flex" gap={1}>
+            <Tooltip title="Refresh Templates">
+              <IconButton onClick={loadTemplates} size="small">
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Paper>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}

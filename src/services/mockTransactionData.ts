@@ -255,6 +255,15 @@ export const mockTransactionDataService = {
         new Date(transaction.transactionDate) <= new Date(filters.endDate!)
       );
     }
+    if (filters?.billId) {
+      const bid = filters.billId;
+      filteredTransactions = filteredTransactions.filter(transaction => {
+        if (transaction.isDeleted === true) return false;
+        if (transaction.billId === bid) return true;
+        const splits = transaction.splits || [];
+        return splits.some(s => s.billId === bid);
+      });
+    }
 
     // Sort by transaction date (newest first)
     filteredTransactions.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());

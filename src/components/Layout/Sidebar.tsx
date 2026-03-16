@@ -35,6 +35,7 @@ import {
   TrendingUp as ApportionerIcon,
   TrendingUp,
   AccountBalance as BankAccountIcon,
+  AccountBalance as LoanIcon,
   Savings as SavingsIcon,
   MenuBook as DocumentationIcon,
   ChevronLeft,
@@ -67,6 +68,7 @@ interface MenuItem {
   path?: string;
   children?: MenuItem[];
   badge?: number;
+  state?: any;
 }
 
 // Menu items will be created dynamically with notification count and user
@@ -91,12 +93,13 @@ const createMenuItems = (
       path: '/'
     },
 
+
     // ============================================
-    // CATEGORY 2: ACCOUNT MANAGEMENT
+    // CATEGORY 3: MONEY OVERVIEW
     // ============================================
     {
-      text: 'Accounts',
-      icon: <AccountsIcon />,
+      text: 'Money Overview',
+      icon: <IncomeIcon />,
       children: [
         { 
           text: 'Bank Accounts', 
@@ -108,46 +111,10 @@ const createMenuItems = (
           icon: <TransactionsIcon />, 
           path: '/transactions'
         },
-        // Reconciliation (Bank Feeds) - Premium+ only
-        ...(hasBankFeed ? [{
-          text: 'Reconciliation', 
-          icon: <ReconciliationIcon />, 
-          path: '/reconciliation'
-        }] : []),
-      ],
-    },
-
-    // ============================================
-    // CATEGORY 3: INCOME MANAGEMENT
-    // ============================================
-    {
-      text: 'Income',
-      icon: <IncomeIcon />,
-      children: [
         { 
           text: 'Income Sources', 
           icon: <IncomeIcon />, 
           path: '/income-sources'
-        },
-        { 
-          text: 'Receivables', 
-          icon: <ReceivablesIcon />, 
-          path: '/receivables'
-        },
-      ],
-    },
-
-    // ============================================
-    // CATEGORY 4: PAYABLE MANAGEMENT
-    // ============================================
-    {
-      text: 'Payables',
-      icon: <PayablesIcon />,
-      children: [
-        { 
-          text: 'Expenses', 
-          icon: <ExpensesIcon />, 
-          path: '/expenses'
         },
         { 
           text: 'Categories', 
@@ -155,9 +122,35 @@ const createMenuItems = (
           path: '/categories'
         },
         { 
-          text: 'Bills', 
+          text: 'Money Owed to You', 
+          icon: <ReceivablesIcon />, 
+          path: '/receivables'
+        },
+        // Reconciliation - Available to all users (Free tier has 3 uploads/month limit)
+        { 
+          text: 'Reconciliation', 
+          icon: <ReconciliationIcon />, 
+          path: '/reconciliation'
+        },
+      ],
+    },
+
+    // ============================================
+    // CATEGORY 4: MY BILLS
+    // ============================================
+    {
+      text: 'My Bills',
+      icon: <PayablesIcon />,
+      children: [
+        { 
+          text: 'All Bills', 
           icon: <ReceiptIcon />, 
           path: '/bills'
+        },
+        { 
+          text: 'Expenses', 
+          icon: <ExpensesIcon />, 
+          path: '/expenses'
         },
         { 
           text: 'Utilities', 
@@ -168,42 +161,45 @@ const createMenuItems = (
     },
 
     // ============================================
-    // CATEGORY 5: FINANCIAL PLANNING
+    // CATEGORY 5: MY LOANS
     // ============================================
     {
-      text: 'Planning',
-      icon: <PlanningIcon />,
+      text: 'My Loans',
+      icon: <LoanIcon />,
+      path: '/loans'
+    },
+    // ============================================
+    // CATEGORY 6: MY SAVINGS
+    // ============================================
+    {
+      text: 'My Savings',
+      icon: <SavingsIcon />,
       children: [
+        { 
+          text: 'Savings Goals', 
+          icon: <SavingsIcon />, 
+          path: '/savings'
+        },
         { 
           text: 'Allocation Planner', 
           icon: <ApportionerIcon />, 
           path: '/apportioner'
         },
-        { 
-          text: 'Savings', 
-          icon: <SavingsIcon />, 
-          path: '/savings'
-        },
-        { 
-          text: 'Loans', 
-          icon: <CreditCardIcon />, 
-          path: '/loans'
-        },
       ],
     },
 
     // ============================================
-    // CATEGORY 6: REPORTING & ANALYTICS
+    // CATEGORY 7: REPORTS
     // ============================================
     // Reports & Analytics - Available to all, but Advanced Reports features are Premium+
     { 
-      text: 'Reports & Analytics', 
+      text: 'Reports', 
       icon: <AnalyticsIcon />, 
       path: '/analytics'
     },
 
     // ============================================
-    // CATEGORY 7: OPERATIONS
+    // CATEGORY 8: OPERATIONS
     // ============================================
     { 
       text: 'Notifications', 
@@ -213,10 +209,24 @@ const createMenuItems = (
     },
 
     // ============================================
-    // CATEGORY 8: ADMINISTRATIVE
+    // CATEGORY 9: SETTINGS
     // ============================================
     {
-      text: 'Administrative',
+      text: 'Settings',
+      icon: <SettingsIcon />,
+      path: '/settings#profile'
+    },
+    {
+      text: 'Help & Support',
+      icon: <SupportIcon />,
+      path: '/support'
+    },
+
+    // ============================================
+    // CATEGORY 10: ADVANCED (for power users)
+    // ============================================
+    {
+      text: 'Advanced',
       icon: <AdministrativeIcon />,
       children: [
         { 
@@ -228,16 +238,6 @@ const createMenuItems = (
           text: 'Audit Logs', 
           icon: <AuditLogsIcon />, 
           path: '/audit-logs'
-        },
-        { 
-          text: 'Settings', 
-          icon: <SettingsIcon />, 
-          path: '/settings'
-        },
-        { 
-          text: 'Support', 
-          icon: <SupportIcon />, 
-          path: '/support'
         },
         { 
           text: 'Documentation', 
@@ -397,10 +397,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     }
   }, [location.pathname]);
 
-  const handleNavigation = (path: string) => {
-    navigate(path);
-    // Find the parent menu for this path
-    const parentMenu = findParentMenu(path);
+  const handleNavigation = (path: string, state?: any) => {
+    // Extract hash from path if present
+    const [basePath, hash] = path.split('#');
+    if (hash) {
+      // Navigate to base path, then set hash
+      navigate(basePath, { state });
+      // Use setTimeout to ensure navigation completes before setting hash
+      setTimeout(() => {
+        window.location.hash = hash;
+      }, 0);
+    } else {
+      navigate(path, { state });
+    }
+    // Find the parent menu for this path (use base path for matching)
+    const parentMenu = findParentMenu(basePath);
     
     if (parentMenu) {
       // Keep the parent menu expanded when navigating to a child
@@ -427,7 +438,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   const isPathActive = (path: string) => {
-    return location.pathname === path;
+    // Strip hash fragment from path for comparison
+    const pathWithoutHash = path.split('#')[0];
+    return location.pathname === pathWithoutHash;
   };
 
   const isChildPathActive = (children: MenuItem[]) => {
@@ -444,22 +457,25 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     // Don't show children when collapsed
     if (!open && hasChildren && level === 0) {
       return (
-        <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+        <ListItem key={item.text} disablePadding sx={{ mb: 0.25 }}>
           <ListItemButton
+            component={item.path ? "a" : "div"}
+            href={item.path || undefined}
             selected={false}
-            onClick={() => {
+            onClick={(e: React.MouseEvent<HTMLElement>) => {
               if (item.path) {
-                handleNavigation(item.path);
+                e.preventDefault(); // Prevent default anchor navigation
+                handleNavigation(item.path, item.state);
               }
             }}
             sx={{
-              minHeight: 44,
+              minHeight: 36,
               pl: 1.5,
               pr: 1.5,
               justifyContent: 'center',
               backgroundColor: isItemActive ? '#B3EE9A' : 'transparent',
-              borderRadius: '8px',
-              mx: 1,
+              borderRadius: '6px',
+              mx: 0.75,
               '&:hover': {
                 backgroundColor: isItemActive ? '#C8F5B4' : 'rgba(179, 238, 154, 0.1)',
               },
@@ -467,6 +483,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
                 color: isItemActive ? '#1a1a1a' : '#666666',
                 minWidth: 0,
                 justifyContent: 'center',
+                '& svg': {
+                  fontSize: '1.1rem',
+                },
               },
             }}
             title={item.text}
@@ -492,31 +511,35 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
     return (
       <React.Fragment key={item.text}>
-        <ListItem disablePadding sx={{ mb: 0.5 }}>
+        <ListItem disablePadding sx={{ mb: 0.25 }}>
           <ListItemButton
+            component={!hasChildren && item.path ? "a" : "div"}
+            href={!hasChildren && item.path ? item.path : undefined}
             selected={false}
-            onClick={() => {
+            onClick={(e: React.MouseEvent<HTMLElement>) => {
               if (hasChildren) {
+                e.preventDefault();
                 handleSectionToggle(item.text);
               } else if (item.path) {
-                handleNavigation(item.path);
+                e.preventDefault(); // Prevent default anchor navigation
+                handleNavigation(item.path, item.state);
               }
             }}
             sx={{
-              minHeight: 44,
+              minHeight: 36,
               // When collapsed, center align all items
               ...(!open && level === 0 ? {
                 pl: 1.5,
                 pr: 1.5,
                 justifyContent: 'center',
               } : {
-                pl: level > 0 ? 3 : 2,
-                pr: 2,
+                pl: level > 0 ? 2.5 : 1.5,
+                pr: 1.5,
               }),
-              py: 0.5,
+              py: 0.25,
               backgroundColor: isItemActive ? '#B3EE9A' : 'transparent',
-              borderRadius: '8px',
-              mx: 1,
+              borderRadius: '6px',
+              mx: 0.75,
               '&:hover': {
                 backgroundColor: isItemActive ? '#C8F5B4' : 'rgba(179, 238, 154, 0.1)',
               },
@@ -527,13 +550,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
                   minWidth: 0,
                   justifyContent: 'center',
                 } : {
-                  minWidth: 36,
+                  minWidth: 32,
                 }),
+                '& svg': {
+                  fontSize: '1.1rem',
+                },
               },
               '& .MuiListItemText-primary': {
                 color: isItemActive ? '#1a1a1a' : '#333333',
                 fontWeight: isItemActive ? 600 : 400,
-                fontSize: '0.9375rem',
+                fontSize: '0.8125rem',
+                lineHeight: 1.4,
               },
             }}
             title={!open ? item.text : undefined}
@@ -550,7 +577,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             {open && <ListItemText primary={item.text} />}
             {open && hasChildren && (
               <Box sx={{ ml: 'auto' }}>
-                {isExpanded ? <ExpandLess sx={{ color: isItemActive ? '#1a1a1a' : '#666666' }} /> : <ExpandMore sx={{ color: isItemActive ? '#1a1a1a' : '#666666' }} />}
+                {isExpanded ? <ExpandLess sx={{ color: isItemActive ? '#1a1a1a' : '#666666', fontSize: '1.1rem' }} /> : <ExpandMore sx={{ color: isItemActive ? '#1a1a1a' : '#666666', fontSize: '1.1rem' }} />}
               </Box>
             )}
           </ListItemButton>
@@ -558,7 +585,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         {open && hasChildren && (
           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
             <List component="div" disablePadding>
-              {item.children!.map((child) => renderMenuItem(child, level + 1))}
+              {item.children!.map((child) => renderMenuItem({ ...child, state: child.state || item.state }, level + 1))}
             </List>
           </Collapse>
         )}
@@ -570,11 +597,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     <Box sx={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <Box sx={{ 
-        p: open ? 2 : 1.5, 
+        p: open ? 1.5 : 1, 
         display: 'flex',
         alignItems: 'center',
         justifyContent: open ? 'space-between' : 'center',
-        minHeight: 64,
+        minHeight: 48,
       }}>
         {open ? (
           <>
@@ -595,7 +622,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
                 sx={{ 
                   fontWeight: 700, 
                   color: '#1a1a1a',
-                  fontSize: '1.125rem',
+                  fontSize: '1rem',
                 }}
               >
                 UtilityHub360
@@ -637,16 +664,29 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       </Box>
       
       {/* Menu Items */}
-      <Box 
-        sx={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          overflowX: 'hidden', 
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
           pt: 1,
           pb: open ? 20 : 0, // Add padding bottom to make room for promotional card when open
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#B3EE9A',
+            borderRadius: '3px',
+            '&:hover': {
+              background: '#C8F5B4',
+            },
+          },
         }}
       >
-        <List sx={{ px: 0.5 }}>
+        <List sx={{ px: 0.5, py: 0.5 }}>
           {menuItems.map((item) => renderMenuItem(item))}
         </List>
       </Box>
@@ -723,7 +763,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             </Box>
 
             {/* Call to Action Button */}
-            <Button
+            {/* <Button
               variant="contained"
               onClick={() => setSubscriptionModalOpen(true)}
               sx={{
@@ -741,7 +781,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               }}
             >
               Upgrade Now
-            </Button>
+            </Button> */}
           </Card>
         </Box>
       )}
@@ -760,28 +800,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           width: open ? drawerWidth : collapsedWidth,
           overflowX: 'hidden',
           position: 'fixed',
-          top: 0, // Align to very top edge
-          height: '100vh', // Full viewport height
+          top: '12px', // Small margin from top edge
+          left: '12px', // Small margin from left edge
+          height: 'calc(100vh - 24px)', // Full viewport height minus top and bottom margins
           backgroundColor: '#ffffff',
           borderRight: '1px solid #e5e5e5',
+          borderRadius: '8px', // Add rounded corners for better appearance with margin
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)', // Light shadow for depth
           zIndex: (theme) => theme.zIndex.drawer - 1, // Below AppBar
           transition: (theme) => theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
-          '&::-webkit-scrollbar': {
-            width: '6px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'transparent',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: '#cccccc',
-            borderRadius: '3px',
-            '&:hover': {
-              background: '#999999',
-            },
-          },
         },
       }}
       open={true} // Always open, but with different widths
@@ -796,3 +826,4 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 };
 
 export default Sidebar;
+

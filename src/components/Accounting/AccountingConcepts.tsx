@@ -53,7 +53,7 @@ const accountingConcepts: AccountingConcept[] = [
       { module: 'Bank Accounts', accountType: 'Asset (Cash)' },
       { module: 'Savings Accounts', accountType: 'Asset (Savings)' },
       { module: 'Investment Accounts', accountType: 'Asset (Investments)' },
-      { module: 'Receivables', accountType: 'Asset (Accounts Receivable)' },
+      { module: 'Receivables', accountType: 'Asset (Money Owed to You)' },
     ],
     accountingRules: {
       increases: 'Debit',
@@ -89,7 +89,7 @@ const accountingConcepts: AccountingConcept[] = [
     moduleMappings: [
       { module: 'Loans', accountType: 'Liability (Loan Payable)' },
       { module: 'Credit Cards', accountType: 'Liability (Credit Card Payable)' },
-      { module: 'Bills (Unpaid)', accountType: 'Liability (Accounts Payable)' },
+      { module: 'Bills (Unpaid)', accountType: 'Liability (Bills to Pay)' },
     ],
     accountingRules: {
       increases: 'Credit',
@@ -112,12 +112,12 @@ const accountingConcepts: AccountingConcept[] = [
       {
         description: 'Receiving bill',
         debit: 'Expense',
-        credit: 'Accounts Payable',
+        credit: 'Bills to Pay',
         amount: '$150',
       },
       {
         description: 'Paying bill',
-        debit: 'Accounts Payable',
+        debit: 'Bills to Pay',
         credit: 'Cash',
         amount: '$150',
       },
