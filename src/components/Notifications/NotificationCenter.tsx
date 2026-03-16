@@ -288,6 +288,12 @@ const NotificationCenter: React.FC = () => {
           navigate('/loans', { state: { openLoanId: loanId } });
         }
         break;
+
+      case NotificationType.AI_GOAL_INSIGHT:
+        // Open dashboard and chat so user can read the insight and ask follow-ups
+        navigate('/dashboard', { state: { fromNotification: notification, openChatWithNotification: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
       
       default:
         // For other notification types, don't navigate

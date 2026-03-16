@@ -170,7 +170,9 @@ export enum NotificationType {
   LOAN_CLOSED = 'LOAN_CLOSED',
   UPCOMING_DUE = 'UPCOMING_DUE',
   SYSTEM_UPDATE = 'SYSTEM_UPDATE',
-  ACCOUNT_ALERT = 'ACCOUNT_ALERT'
+  ACCOUNT_ALERT = 'ACCOUNT_ALERT',
+  /** AI-driven financial goal analysis insight (automated or on-demand). */
+  AI_GOAL_INSIGHT = 'AI_GOAL_INSIGHT'
 }
 
 export enum NotificationPriority {

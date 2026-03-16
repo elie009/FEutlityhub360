@@ -180,6 +180,11 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
           navigate('/transactions');
         }
         break;
+
+      case NotificationType.AI_GOAL_INSIGHT:
+        navigate('/dashboard', { state: { fromNotification: notification, openChatWithNotification: true } });
+        window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
+        break;
       
       default:
         navigate('/notifications');

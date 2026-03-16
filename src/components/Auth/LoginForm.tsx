@@ -38,8 +38,8 @@ interface LoginFormProps {
 
 const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   const [credentials, setCredentials] = useState<LoginCredentials>({
-    email: 'demo@utilityhub360.com',
-    password: 'Demo123!',
+    email: '',
+    password: '',
   });
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -374,26 +374,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     Sign in to access your financial dashboard
                   </Typography>
                 </Box>
-
-                <Alert 
-                  severity="info" 
-                  sx={{ 
-                    mb: 3,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(95, 155, 140, 0.1)',
-                    border: '1px solid rgba(95, 155, 140, 0.2)',
-                    '& .MuiAlert-icon': {
-                      color: '#5F9B8C'
-                    },
-                    '& .MuiAlert-message': {
-                      color: '#1e293b',
-                    },
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    <strong>Demo Account:</strong> demo@utilityhub360.com / Demo123!
-                  </Typography>
-                </Alert>
 
                 {error && (
                   <Alert 
