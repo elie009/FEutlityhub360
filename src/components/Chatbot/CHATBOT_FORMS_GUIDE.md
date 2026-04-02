@@ -1,7 +1,7 @@
 # Chatbot Interactive Forms Guide
 
 ## Overview
-The UtilityHub360 Chatbot now supports interactive forms in **Basic Mode** (when AI is turned off), allowing users to manage their finances directly within the chat interface.
+The UtilityHub360 Chatbot uses an **AI-driven assistant** for replies (with financial context from the API). Interactive forms still appear inline for bills, loans, bank accounts, and savings when triggered from quick actions or the UI.
 
 ## Features
 

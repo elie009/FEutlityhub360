@@ -54,6 +54,9 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
   const [isLoading, setIsLoading] = useState(false);
   const [otherPurpose, setOtherPurpose] = useState<string>(''); // For custom purpose input
   
+  // Backend expects annual interest rate. If user enters monthly, we convert to annual on submit.
+  const [interestRatePeriod, setInterestRatePeriod] = useState<'ANNUAL' | 'MONTHLY'>('ANNUAL');
+
   // Real-time validation state
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
@@ -73,13 +76,23 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     }
     
     // Validate Step 2 fields (Interest Rate)
-    const interestRateValidation = validateInterestRate(formData.interestRate);
+    const maxRate = interestRatePeriod === 'ANNUAL'
+      ? 100
+      : Math.round((100 / 12) * 100) / 100; // so monthly * 12 <= 100%
+    const interestRateValidation = validateInterestRate(formData.interestRate, 0, maxRate);
     if (!interestRateValidation.isValid && formData.interestRate !== 0) {
       errors.interestRate = interestRateValidation.error || '';
     }
+
+    // Extra safety check: backend range is [0..100] annual.
+    const annualInterestRate =
+      interestRatePeriod === 'MONTHLY' ? formData.interestRate * 12 : formData.interestRate;
+    if (annualInterestRate > 100.0001) {
+      errors.interestRate = 'Annual interest rate after conversion must be <= 100%';
+    }
     
     setValidationErrors(errors);
-  }, [formData, otherPurpose]);
+  }, [formData, otherPurpose, interestRatePeriod]);
 
   const handleNext = () => {
     setActiveStep(prev => prev + 1);
@@ -115,12 +128,22 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
     setIsLoading(true);
 
     try {
+      const annualInterestRate =
+        interestRatePeriod === 'MONTHLY' ? formData.interestRate * 12 : formData.interestRate;
+      if (annualInterestRate > 100.0001) {
+        setError('Annual interest rate after conversion must be <= 100%');
+        setIsLoading(false);
+        return;
+      }
+
       // If "other" is selected, use the custom purpose
       const finalFormData = {
         ...formData,
         purpose: formData.purpose === 'other' ? otherPurpose : formData.purpose,
         // Use monthlyIncome as monthlyPayment estimate if not set
         monthlyPayment: formData.monthlyIncome > 0 ? formData.monthlyIncome : undefined,
+        // Convert monthly rate into annual rate for backend calculations
+        interestRate: annualInterestRate,
       };
       
       const loan = await apiService.applyForLoan(finalFormData);
@@ -146,7 +169,10 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
         const termValidation = formData.term > 0 && formData.term <= 360;
         return termValidation && paymentDueDay >= 1 && paymentDueDay <= 31;
       case 2: // Interest Rate
-        const interestRateValidation = validateInterestRate(formData.interestRate);
+        const maxRate = interestRatePeriod === 'ANNUAL'
+          ? 100
+          : Math.round((100 / 12) * 100) / 100;
+        const interestRateValidation = validateInterestRate(formData.interestRate, 0, maxRate);
         return interestRateValidation.isValid;
       case 3: // Review & Confirm
         return true;
@@ -241,7 +267,9 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
         // Calculate estimated monthly payment if we have principal, interest rate, and term
         const calculateMonthlyPayment = () => {
           if (formData.principal > 0 && formData.interestRate > 0 && formData.term > 0) {
-            const monthlyRate = formData.interestRate / 100 / 12;
+            const annualInterestRate =
+              interestRatePeriod === 'MONTHLY' ? formData.interestRate * 12 : formData.interestRate;
+            const monthlyRate = annualInterestRate / 100 / 12;
             const numerator = monthlyRate * Math.pow(1 + monthlyRate, formData.term);
             const denominator = Math.pow(1 + monthlyRate, formData.term) - 1;
             return formData.principal * (numerator / denominator);
@@ -312,6 +340,19 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
             </Typography>
             <Grid container spacing={3}>
               <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Interest Rate Type</InputLabel>
+                  <Select
+                    value={interestRatePeriod}
+                    onChange={(e) => setInterestRatePeriod(e.target.value as 'ANNUAL' | 'MONTHLY')}
+                    label="Interest Rate Type"
+                  >
+                    <MenuItem value="ANNUAL">Annual</MenuItem>
+                    <MenuItem value="MONTHLY">Monthly</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="What is your interest rate?"
@@ -321,7 +362,9 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                   helperText={
                     <Box>
                       <Typography variant="body2" component="span">
-                        {validationErrors.interestRate || fieldErrors.interestRate || "Enter your annual interest rate as a percentage (e.g., 6 for 6%)"}
+                        {validationErrors.interestRate || fieldErrors.interestRate || (interestRatePeriod === 'MONTHLY'
+                          ? 'Enter your monthly interest rate as a percentage (e.g., 0.5 for 0.5% per month)'
+                          : 'Enter your annual interest rate as a percentage (e.g., 6 for 6%)')}
                       </Typography>
                       <Box sx={{ mt: 1, p: 1.5, bgcolor: 'info.light', borderRadius: 1, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Lightbulb sx={{ color: 'info.main', mt: 0.5 }} />
@@ -333,9 +376,15 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                   }
                   error={!!validationErrors.interestRate || !!fieldErrors.interestRate}
                   required
-                  inputProps={{ min: 0, max: 50, step: 0.1 }}
+                  inputProps={{
+                    min: 0,
+                    max: interestRatePeriod === 'MONTHLY'
+                      ? Math.round((100 / 12) * 100) / 100
+                      : 100,
+                    step: 0.1
+                  }}
                   InputProps={{
-                    endAdornment: <Typography sx={{ ml: 1 }}>% per year</Typography>
+                    endAdornment: <Typography sx={{ ml: 1 }}>% per {interestRatePeriod === 'MONTHLY' ? 'month' : 'year'}</Typography>
                   }}
                 />
               </Grid>
@@ -400,8 +449,13 @@ const LoanApplicationForm: React.FC<LoanApplicationFormProps> = ({ onSuccess, on
                     Interest Rate:
                   </Typography>
                   <Typography variant="body1" fontWeight="medium">
-                    {formData.interestRate}% per year
+                    {formData.interestRate}% per {interestRatePeriod === 'MONTHLY' ? 'month' : 'year'}
                   </Typography>
+                  {interestRatePeriod === 'MONTHLY' && (
+                    <Typography variant="caption" color="text.secondary">
+                      Converted annual: ~{(formData.interestRate * 12).toFixed(2)}% per year
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">
