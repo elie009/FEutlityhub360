@@ -138,7 +138,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
       
       // Redirect to home page after successful login
       console.log('LoginForm: Redirecting to home page...');
-      navigate('/', { replace: true });
+      navigate('/systems', { replace: true });
     } catch (err: unknown) {
       console.error('Login error:', err);
       // Handle specific error messages from the backend

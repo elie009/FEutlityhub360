@@ -38,6 +38,7 @@ import { apiService } from '../../services/api';
 import { Notification, NotificationType, NotificationStatus, NotificationPriority, NotificationsResponse, GetNotificationsParams, NotificationPagination, NotificationSummary } from '../../types/loan';
 import { getErrorMessage } from '../../utils/validation';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../../config/appRoutes';
 
 const getNotificationIcon = (type: NotificationType | string) => {
   switch (type) {
@@ -264,14 +265,14 @@ const NotificationCenter: React.FC = () => {
       case NotificationType.PAYMENT_DUE:
       case NotificationType.UPCOMING_DUE:
         if (billId) {
-          navigate('/bills', { state: { openBillId: billId } });
+          navigate(fmsPath('/bills'), { state: { openBillId: billId } });
         } else if (loanId) {
-          navigate('/loans', { state: { openLoanId: loanId } });
+          navigate(fmsPath('/loans'), { state: { openLoanId: loanId } });
         } else {
           if (notifType === NotificationType.PAYMENT_OVERDUE || notifType === NotificationType.PAYMENT_DUE) {
-            navigate('/bills');
+            navigate(fmsPath('/bills'));
           } else {
-            navigate('/loans');
+            navigate(fmsPath('/loans'));
           }
         }
         break;
@@ -280,37 +281,37 @@ const NotificationCenter: React.FC = () => {
       case NotificationType.LOAN_REJECTED:
       case NotificationType.LOAN_CLOSED:
         if (loanId) {
-          navigate('/loans', { state: { openLoanId: loanId } });
+          navigate(fmsPath('/loans'), { state: { openLoanId: loanId } });
         } else {
-          navigate('/loans');
+          navigate(fmsPath('/loans'));
         }
         break;
       
       case NotificationType.PAYMENT_CONFIRMED:
         if (billId) {
-          navigate('/bills', { state: { openBillId: billId } });
+          navigate(fmsPath('/bills'), { state: { openBillId: billId } });
         } else if (loanId) {
-          navigate('/loans', { state: { openLoanId: loanId } });
+          navigate(fmsPath('/loans'), { state: { openLoanId: loanId } });
         }
         break;
 
 
       case NotificationType.AI_GOAL_INSIGHT:
         // Open dashboard and chat so user can read the insight and ask follow-ups
-        navigate('/dashboard', { state: { fromNotification: notification, openChatWithNotification: true } });
+        navigate(fmsPath('/dashboard'), { state: { fromNotification: notification, openChatWithNotification: true } });
         window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
         break;
       // APP_UTILS notification types: redirect to respective page and open chatbot with assist
       case NotificationType.DATA_IMBALANCE:
-        navigate('/bank-accounts', { state: { fromNotification: notification, openChatWithNotification: true } });
+        navigate(fmsPath('/bank-accounts'), { state: { fromNotification: notification, openChatWithNotification: true } });
         window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
         break;
       case NotificationType.MISLEADING_DATA:
-        navigate('/transactions', { state: { fromNotification: notification, openChatWithNotification: true, highlightUncategorized: true } });
+        navigate(fmsPath('/transactions'), { state: { fromNotification: notification, openChatWithNotification: true, highlightUncategorized: true } });
         window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
         break;
       case NotificationType.LOW_BALANCE:
-        navigate('/bank-accounts', { state: { fromNotification: notification, openChatWithNotification: true } });
+        navigate(fmsPath('/bank-accounts'), { state: { fromNotification: notification, openChatWithNotification: true } });
         window.dispatchEvent(new CustomEvent('openChatWithNotification', { detail: { notification } }));
         break;
       

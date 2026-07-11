@@ -104,6 +104,7 @@ import { Bill, BillStatus } from '../types/bill';
 import { SavingsAccount } from '../types/savings';
 import { BankAccount } from '../types/bankAccount';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 
 // Register Chart.js components
 ChartJS.register(
@@ -1758,7 +1759,7 @@ const Dashboard: React.FC = () => {
                     variant="outlined"
                     size="medium"
                     endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 18 }} />}
-                    onClick={(e) => { e.stopPropagation(); navigate('/transactions?addTransaction=true'); }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`${fmsPath('/transactions')}?addTransaction=true`); }}
                     sx={{
                       flex: 1,
                       textTransform: 'none',
@@ -1777,7 +1778,7 @@ const Dashboard: React.FC = () => {
                     size="medium"
                     color="success"
                     endIcon={<CallMadeIcon sx={{ fontSize: 18 }} />}
-                    onClick={(e) => { e.stopPropagation(); navigate('/transactions'); }}
+                    onClick={(e) => { e.stopPropagation(); navigate(fmsPath('/transactions')); }}
                     sx={{
                       flex: 1,
                       textTransform: 'none',
@@ -2281,7 +2282,7 @@ const Dashboard: React.FC = () => {
                         variant="contained"
                         size="small"
                         startIcon={<AddIcon />}
-                        onClick={() => navigate('/transactions?addTransaction=true')}
+                        onClick={() => navigate(`${fmsPath('/transactions')}?addTransaction=true`)}
                       >
                         Add Transaction
                       </Button>
@@ -2743,7 +2744,7 @@ const Dashboard: React.FC = () => {
                       color="success"
                       size="small"
                       startIcon={<AccountBalance />}
-                      href="/bank-accounts"
+                      href={fmsPath('/bank-accounts')}
                     >
                       Manage Accounts
                     </Button>
@@ -2927,7 +2928,7 @@ const Dashboard: React.FC = () => {
                       <Button
                         variant="contained"
                         startIcon={<AddIcon />}
-                        onClick={() => navigate('/bank-accounts')}
+                        onClick={() => navigate(fmsPath('/bank-accounts'))}
                         sx={{ mt: 2 }}
                       >
                         Add Bank Account
@@ -2948,7 +2949,7 @@ const Dashboard: React.FC = () => {
                        color="success"
                        size="small"
                       startIcon={<Receipt />}
-                      href="/bills"
+                      href={fmsPath('/bills')}
                     >
                       View All Bills
                     </Button>
@@ -2962,8 +2963,8 @@ const Dashboard: React.FC = () => {
                   ) : (
                     <UnpaidBillsCard
                       bills={filteredUnpaidBills}
-                      onViewBill={(billId) => navigate(`/bills/${billId}`)}
-                      onMarkPaid={(billId) => navigate(`/bills?markPaid=${billId}`)}
+                      onViewBill={(billId) => navigate(fmsPath(`/bills/${billId}`))}
+                      onMarkPaid={(billId) => navigate(`${fmsPath('/bills')}?markPaid=${billId}`)}
                     />
                   )}
                 </Paper>

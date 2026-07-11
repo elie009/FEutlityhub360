@@ -43,6 +43,7 @@ import {
   Payment as PayablesIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { FMS_BASE, SYSTEM_HUB_PATH } from '../../config/appRoutes';
 
 const drawerWidth = 240;
 
@@ -59,18 +60,11 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  // ============================================
-  // CATEGORY 1: OVERVIEW & DASHBOARD
-  // ============================================
   { 
     text: 'Dashboard', 
     icon: <DashboardIcon />, 
-    path: '/'
+    path: FMS_BASE
   },
-
-  // ============================================
-  // CATEGORY 2: ACCOUNT MANAGEMENT
-  // ============================================
   {
     text: 'Accounts',
     icon: <AccountsIcon />,
@@ -78,19 +72,15 @@ const menuItems: MenuItem[] = [
       { 
         text: 'Bank Accounts', 
         icon: <BankAccountIcon />, 
-        path: '/bank-accounts'
+        path: `${FMS_BASE}/bank-accounts`
       },
       { 
         text: 'Reconciliation', 
         icon: <ReconciliationIcon />, 
-        path: '/reconciliation'
+        path: `${FMS_BASE}/reconciliation`
       },
     ],
   },
-
-  // ============================================
-  // CATEGORY 3: INCOME MANAGEMENT
-  // ============================================
   {
     text: 'Income',
     icon: <IncomeIcon />,
@@ -98,24 +88,20 @@ const menuItems: MenuItem[] = [
       { 
         text: 'Income Sources', 
         icon: <IncomeIcon />, 
-        path: '/income-sources'
+        path: `${FMS_BASE}/income-sources`
       },
       { 
         text: 'Categories', 
         icon: <CategoryIcon />, 
-        path: '/categories'
+        path: `${FMS_BASE}/categories`
       },
       { 
         text: 'Receivables', 
         icon: <ReceivablesIcon />, 
-        path: '/receivables'
+        path: `${FMS_BASE}/receivables`
       },
     ],
   },
-
-  // ============================================
-  // CATEGORY 4: PAYABLE MANAGEMENT
-  // ============================================
   {
     text: 'Payables',
     icon: <PayablesIcon />,
@@ -123,29 +109,25 @@ const menuItems: MenuItem[] = [
       { 
         text: 'Transactions', 
         icon: <TransactionsIcon />, 
-        path: '/transactions'
+        path: `${FMS_BASE}/transactions`
       },
       { 
         text: 'Expenses', 
         icon: <ExpensesIcon />, 
-        path: '/expenses'
+        path: `${FMS_BASE}/expenses`
       },
       { 
         text: 'Bills', 
         icon: <ReceiptIcon />, 
-        path: '/bills'
+        path: `${FMS_BASE}/bills`
       },
       { 
         text: 'Utilities', 
         icon: <UtilitiesIcon />, 
-        path: '/utilities'
+        path: `${FMS_BASE}/utilities`
       },
     ],
   },
-
-  // ============================================
-  // CATEGORY 5: FINANCIAL PLANNING
-  // ============================================
   {
     text: 'Planning',
     icon: <PlanningIcon />,
@@ -153,42 +135,30 @@ const menuItems: MenuItem[] = [
       { 
         text: 'Allocation Planner', 
         icon: <ApportionerIcon />, 
-        path: '/apportioner'
+        path: `${FMS_BASE}/apportioner`
       },
       { 
         text: 'Savings', 
         icon: <SavingsIcon />, 
-        path: '/savings'
+        path: `${FMS_BASE}/savings`
       },
       { 
         text: 'Loans', 
         icon: <CreditCardIcon />, 
-        path: '/loans'
+        path: `${FMS_BASE}/loans`
       },
     ],
   },
-
-  // ============================================
-  // CATEGORY 6: REPORTING & ANALYTICS
-  // ============================================
   { 
     text: 'Reports & Analytics', 
     icon: <AnalyticsIcon />, 
-    path: '/analytics'
+    path: `${FMS_BASE}/analytics`
   },
-
-  // ============================================
-  // CATEGORY 7: OPERATIONS
-  // ============================================
   { 
     text: 'Notifications', 
     icon: <NotificationsIcon />, 
-    path: '/notifications'
+    path: `${FMS_BASE}/notifications`
   },
-
-  // ============================================
-  // CATEGORY 8: ADMINISTRATIVE
-  // ============================================
   {
     text: 'Administrative',
     icon: <AdministrativeIcon />,
@@ -196,27 +166,27 @@ const menuItems: MenuItem[] = [
       { 
         text: 'Accounting Guide', 
         icon: <AccountingGuideIcon />, 
-        path: '/accounting-guide'
+        path: `${FMS_BASE}/accounting-guide`
       },
       { 
         text: 'Audit Logs', 
         icon: <AuditLogsIcon />, 
-        path: '/audit-logs'
+        path: `${FMS_BASE}/audit-logs`
       },
       { 
         text: 'Settings', 
         icon: <SettingsIcon />, 
-        path: '/settings'
+        path: `${FMS_BASE}/settings`
       },
       { 
         text: 'Support', 
         icon: <SupportIcon />, 
-        path: '/support'
+        path: `${FMS_BASE}/support`
       },
       { 
         text: 'Documentation', 
         icon: <DocumentationIcon />, 
-        path: '/documentation'
+        path: `${FMS_BASE}/documentation`
       },
     ],
   },
@@ -243,7 +213,11 @@ const Drawer: React.FC<DrawerProps> = ({ open, onClose }) => {
   };
 
   const isPathActive = (path: string) => {
-    return location.pathname === path;
+    const p = location.pathname;
+    if (path === FMS_BASE) {
+      return p === FMS_BASE || p === `${FMS_BASE}/` || p === `${FMS_BASE}/dashboard`;
+    }
+    return p === path;
   };
 
   const isChildPathActive = (children: MenuItem[]) => {
@@ -314,7 +288,15 @@ const Drawer: React.FC<DrawerProps> = ({ open, onClose }) => {
 
   const drawerContent = (
     <Box>
-      <Box sx={{ p: 2 }}>
+      <Box
+        sx={{ p: 2, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
+        onClick={() => {
+          navigate(SYSTEM_HUB_PATH);
+          onClose();
+        }}
+        role="link"
+        aria-label="Back to workspace selection"
+      >
         <Typography variant="h6" noWrap component="div">
           UtilityHub360
         </Typography>

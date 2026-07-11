@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import {
   Box,
   Typography,
@@ -45,7 +46,7 @@ const SubscriptionCancel: React.FC = () => {
             </Button>
             <Button
               variant="contained"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(fmsPath('/dashboard'))}
               startIcon={<Home />}
             >
               Go to Dashboard

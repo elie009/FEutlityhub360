@@ -56,6 +56,7 @@ import {
   AttachFile as AttachmentIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../../config/appRoutes';
 import { useAuth } from '../../contexts/AuthContext';
 import { chatbotService, Conversation } from './ChatbotService';
 import { apiService } from '../../services/api';
@@ -1031,7 +1032,7 @@ const Chatbot: React.FC = () => {
         handleSendMessage('Download my financial report as a PDF');
         break;
       case 'open_reconciliation':
-        navigate('/reconciliation', { state: { accountId: uploadBankAccountId } });
+        navigate(fmsPath('/reconciliation'), { state: { accountId: uploadBankAccountId } });
         setIsOpen(false);
         break;
       case 'navigate':

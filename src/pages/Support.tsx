@@ -49,6 +49,7 @@ import TicketCard from '../components/Tickets/TicketCard';
 import TicketForm from '../components/Tickets/TicketForm';
 import TicketDetail from '../components/Tickets/TicketDetail';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 
 const Support: React.FC = () => {
   const { user } = useAuth();
@@ -206,7 +207,7 @@ const Support: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/tickets')}
+            onClick={() => navigate(fmsPath('/tickets'))}
           >
             View All Tickets
           </Button>
@@ -427,7 +428,7 @@ const Support: React.FC = () => {
               <Button
                 variant="outlined"
                 fullWidth
-                onClick={() => navigate('/tickets')}
+                onClick={() => navigate(fmsPath('/tickets'))}
               >
                 View All Tickets
               </Button>

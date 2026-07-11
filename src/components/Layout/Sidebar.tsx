@@ -58,6 +58,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
 import { useSubscription, usePremiumFeature } from '../../hooks/usePremiumFeature';
 import logo from '../../logo.png';
+import { FMS_BASE, SYSTEM_HUB_PATH } from '../../config/appRoutes';
 
 const drawerWidth = 240;
 const collapsedWidth = 64;
@@ -90,7 +91,7 @@ const createMenuItems = (
     { 
       text: 'Dashboard', 
       icon: <DashboardIcon />, 
-      path: '/'
+      path: FMS_BASE
     },
 
 
@@ -104,33 +105,33 @@ const createMenuItems = (
         { 
           text: 'Bank Accounts', 
           icon: <BankAccountIcon />, 
-          path: '/bank-accounts'
+          path: `${FMS_BASE}/bank-accounts`
         },
         { 
           text: 'Transactions', 
           icon: <TransactionsIcon />, 
-          path: '/transactions'
+          path: `${FMS_BASE}/transactions`
         },
         { 
           text: 'Income Sources', 
           icon: <IncomeIcon />, 
-          path: '/income-sources'
+          path: `${FMS_BASE}/income-sources`
         },
         { 
           text: 'Categories', 
           icon: <CategoryIcon />, 
-          path: '/categories'
+          path: `${FMS_BASE}/categories`
         },
         { 
           text: 'Money Owed to You', 
           icon: <ReceivablesIcon />, 
-          path: '/receivables'
+          path: `${FMS_BASE}/receivables`
         },
         // Reconciliation - Available to all users (Free tier has 3 uploads/month limit)
         { 
           text: 'Reconciliation', 
           icon: <ReconciliationIcon />, 
-          path: '/reconciliation'
+          path: `${FMS_BASE}/reconciliation`
         },
       ],
     },
@@ -145,17 +146,17 @@ const createMenuItems = (
         { 
           text: 'All Bills', 
           icon: <ReceiptIcon />, 
-          path: '/bills'
+          path: `${FMS_BASE}/bills`
         },
         { 
           text: 'Expenses', 
           icon: <ExpensesIcon />, 
-          path: '/expenses'
+          path: `${FMS_BASE}/expenses`
         },
         { 
           text: 'Utilities', 
           icon: <UtilitiesIcon />, 
-          path: '/utilities'
+          path: `${FMS_BASE}/utilities`
         },
       ],
     },
@@ -166,7 +167,7 @@ const createMenuItems = (
     {
       text: 'My Loans',
       icon: <LoanIcon />,
-      path: '/loans'
+      path: `${FMS_BASE}/loans`
     },
     // ============================================
     // CATEGORY 6: MY SAVINGS
@@ -178,12 +179,12 @@ const createMenuItems = (
         { 
           text: 'Savings Goals', 
           icon: <SavingsIcon />, 
-          path: '/savings'
+          path: `${FMS_BASE}/savings`
         },
         { 
           text: 'Allocation Planner', 
           icon: <ApportionerIcon />, 
-          path: '/apportioner'
+          path: `${FMS_BASE}/apportioner`
         },
       ],
     },
@@ -195,7 +196,7 @@ const createMenuItems = (
     { 
       text: 'Reports', 
       icon: <AnalyticsIcon />, 
-      path: '/analytics'
+      path: `${FMS_BASE}/analytics`
     },
 
     // ============================================
@@ -204,7 +205,7 @@ const createMenuItems = (
     { 
       text: 'Notifications', 
       icon: <NotificationsIcon />, 
-      path: '/notifications',
+      path: `${FMS_BASE}/notifications`,
       badge: notificationCount > 0 ? notificationCount : undefined,
     },
 
@@ -214,12 +215,12 @@ const createMenuItems = (
     {
       text: 'Settings',
       icon: <SettingsIcon />,
-      path: '/settings#profile'
+      path: `${FMS_BASE}/settings#profile`
     },
     {
       text: 'Help & Support',
       icon: <SupportIcon />,
-      path: '/support'
+      path: `${FMS_BASE}/support`
     },
 
     // ============================================
@@ -232,48 +233,48 @@ const createMenuItems = (
         { 
           text: 'Accounting Guide', 
           icon: <AccountingGuideIcon />, 
-          path: '/accounting-guide'
+          path: `${FMS_BASE}/accounting-guide`
         },
         { 
           text: 'Audit Logs', 
           icon: <AuditLogsIcon />, 
-          path: '/audit-logs'
+          path: `${FMS_BASE}/audit-logs`
         },
         { 
           text: 'Documentation', 
           icon: <DocumentationIcon />, 
-          path: '/documentation'
+          path: `${FMS_BASE}/documentation`
         },
         ...(user && user.role === 'ADMIN' ? [{
           text: 'Super Admin', 
           icon: <AdministrativeIcon />, 
-          path: '/super-admin'
+          path: `${FMS_BASE}/super-admin`
         }] : []),
         // Enterprise-only features
         ...(hasInvestmentTracking ? [{
           text: 'Investment Tracking', 
           icon: <TrendingUp />, 
-          path: '/investments'
+          path: `${FMS_BASE}/investments`
         }] : []),
         ...(hasTaxOptimization ? [{
           text: 'Tax Optimization', 
           icon: <AssessmentIcon />, 
-          path: '/tax-optimization'
+          path: `${FMS_BASE}/tax-optimization`
         }] : []),
         ...(hasMultiUser ? [{
           text: 'Team Management', 
           icon: <ManageAccounts />, 
-          path: '/team-management'
+          path: `${FMS_BASE}/team-management`
         }] : []),
         ...(hasApiAccess ? [{
           text: 'API Keys', 
           icon: <SettingsIcon />, 
-          path: '/api-keys'
+          path: `${FMS_BASE}/api-keys`
         }] : []),
         ...(hasWhiteLabel ? [{
           text: 'White-Label', 
           icon: <SettingsIcon />, 
-          path: '/white-label'
+          path: `${FMS_BASE}/white-label`
         }] : []),
       ],
     },
@@ -349,12 +350,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   // Refresh count when navigating to/from notifications page
   useEffect(() => {
-    if (location.pathname === '/notifications' || location.pathname !== '/notifications') {
-      if (user?.id) {
-        apiService.getUnreadNotificationCount(user.id)
-          .then(setUnreadNotificationCount)
-          .catch(console.error);
-      }
+    if (user?.id) {
+      apiService.getUnreadNotificationCount(user.id)
+        .then(setUnreadNotificationCount)
+        .catch(console.error);
     }
   }, [location.pathname, user?.id]);
 
@@ -438,9 +437,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   const isPathActive = (path: string) => {
-    // Strip hash fragment from path for comparison
     const pathWithoutHash = path.split('#')[0];
-    return location.pathname === pathWithoutHash;
+    const p = location.pathname;
+    if (pathWithoutHash === FMS_BASE) {
+      return p === FMS_BASE || p === `${FMS_BASE}/` || p === `${FMS_BASE}/dashboard`;
+    }
+    return p === pathWithoutHash;
   };
 
   const isChildPathActive = (children: MenuItem[]) => {
@@ -605,7 +607,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       }}>
         {open ? (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              onClick={() => navigate(SYSTEM_HUB_PATH)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                cursor: 'pointer',
+                borderRadius: 1,
+                pr: 0.5,
+                '&:hover': { opacity: 0.85 },
+              }}
+              role="link"
+              aria-label="Back to workspace selection"
+            >
               <img 
                 src={logo} 
                 alt="UtilityHub360 Logo" 

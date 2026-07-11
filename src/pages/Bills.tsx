@@ -51,6 +51,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import { apiService } from '../services/api';
 import { 
   Bill, 
@@ -295,7 +296,7 @@ const Bills: React.FC = () => {
   };
 
   const handleViewProviderDetails = (provider: string, billType: BillType) => {
-    navigate(`/bills/${encodeURIComponent(provider)}/${billType}`);
+    navigate(fmsPath(`/bills/${encodeURIComponent(provider)}/${billType}`));
   };
 
   const handleCreateBill = () => {
@@ -533,7 +534,7 @@ const Bills: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<Analytics />}
-            onClick={() => navigate('/variance-dashboard')}
+            onClick={() => navigate(fmsPath('/variance-dashboard'))}
             size="small"
             sx={{ mr: 1 }}
           >

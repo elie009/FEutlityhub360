@@ -80,6 +80,7 @@ import {
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import { apiService } from '../services/api';
 import {
   FinancialReportDto,
@@ -820,7 +821,7 @@ const Analytics: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<AnalyticsIcon />}
-            onClick={() => navigate('/variance-dashboard')}
+            onClick={() => navigate(fmsPath('/variance-dashboard'))}
             size="small"
           >
             Variance Dashboard

@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
+import { fmsPath } from '../config/appRoutes';
 import {
   BillHistoryAnalytics,
   BudgetStatus,
@@ -76,7 +77,7 @@ const BillDetails: React.FC = () => {
   };
 
   const handleBack = () => {
-    navigate('/bills');
+    navigate(fmsPath('/bills'));
   };
 
   const generatePDF = () => {

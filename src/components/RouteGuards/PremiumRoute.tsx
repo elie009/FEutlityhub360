@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { usePremiumFeature } from '../../hooks/usePremiumFeature';
+import { fmsPath } from '../../config/appRoutes';
 import { FinanceLoader } from '../Common';
 import SubscriptionModal from '../Subscription/SubscriptionModal';
 
@@ -37,12 +38,12 @@ const PremiumRoute: React.FC<PremiumRouteProps> = ({ children, feature, required
   if (!hasAccess) {
     return (
       <>
-        <Navigate to="/" replace />
+        <Navigate to={fmsPath('/')} replace />
         <SubscriptionModal
           open={subscriptionModalOpen}
           onClose={() => {
             setSubscriptionModalOpen(false);
-            navigate('/');
+            navigate(fmsPath('/'));
           }}
         />
       </>
