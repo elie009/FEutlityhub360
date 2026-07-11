@@ -87,7 +87,7 @@ const LandingPage: React.FC = () => {
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        navigate('/dashboard', { replace: true });
+        navigate('/systems', { replace: true });
         return;
       }
       
@@ -95,7 +95,7 @@ const LandingPage: React.FC = () => {
       const token = localStorage.getItem('authToken');
       if (token) {
         // Quick redirect - wrapper already validated
-        navigate('/dashboard', { replace: true });
+        navigate('/systems', { replace: true });
         return;
       }
       

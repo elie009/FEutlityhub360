@@ -3854,6 +3854,9 @@ class ApiService {
       suggestedActions: string[];
       tokensUsed: number;
       timestamp: string;
+      hasPdfAttachment?: boolean;
+      pdfAttachmentBase64?: string;
+      pdfFileName?: string;
     };
   }> {
     try {

@@ -28,6 +28,7 @@ import {
   Info,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import { VarianceDashboard, BillVariance } from '../types/bill';
@@ -104,7 +105,7 @@ const VarianceDashboardPage: React.FC = () => {
   };
 
   const handleBillClick = (billId: string) => {
-    navigate(`/bills/${billId}`);
+    navigate(fmsPath(`/bills/${billId}`));
   };
 
   if (loading) {

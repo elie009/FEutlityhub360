@@ -24,6 +24,7 @@ import { getErrorMessage } from '../utils/validation';
 import { Bill, BillStatus } from '../types/bill';
 import { Loan, LoanStatus } from '../types/loan';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 
 interface FinancialData {
   currentBalance: number;
@@ -266,7 +267,7 @@ const Apportioner: React.FC = () => {
   };
 
   const handleCardClick = (page: string) => {
-    navigate(page);
+    navigate(fmsPath(page));
   };
 
 

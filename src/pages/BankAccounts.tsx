@@ -19,6 +19,7 @@ import { apiService } from '../services/api';
 import { BankAccount, BankAccountFilters } from '../types/bankAccount';
 import { getErrorMessage } from '../utils/validation';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import BankAccountCard from '../components/BankAccounts/BankAccountCard';
 import BankAccountForm from '../components/BankAccounts/BankAccountForm';
 import TransactionForm from '../components/BankAccounts/TransactionForm';
@@ -158,7 +159,7 @@ const BankAccounts: React.FC = () => {
 
   const handleStartReconciliation = () => {
     if (accountForReconciliation) {
-      navigate('/reconciliation', { state: { accountId: accountForReconciliation.id } });
+      navigate(fmsPath('/reconciliation'), { state: { accountId: accountForReconciliation.id } });
     }
   };
 

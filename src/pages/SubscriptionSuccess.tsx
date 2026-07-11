@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import {
   Box,
   Typography,
@@ -83,7 +84,7 @@ const SubscriptionSuccess: React.FC = () => {
               </Alert>
               <Button
                 variant="contained"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(fmsPath('/dashboard'))}
                 startIcon={<Home />}
               >
                 Go to Dashboard
@@ -101,7 +102,7 @@ const SubscriptionSuccess: React.FC = () => {
               <Button
                 variant="contained"
                 size="large"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(fmsPath('/dashboard'))}
                 startIcon={<Home />}
                 sx={{ minWidth: 200 }}
               >

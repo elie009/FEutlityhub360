@@ -16,7 +16,6 @@ import {
   ListItemText,
   ListItemIcon,
   Button,
-  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -27,11 +26,11 @@ import {
   Payment,
   Warning,
   Info,
-  AccountBalance as WalletIcon,
-  AttachMoney as MoneyIcon,
+  Apartment as PropertyBrandIcon,
+  CalendarMonth as CalendarMonthIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { fmsPath } from '../../config/appRoutes';
+import { fmsPath, pmsPath, SYSTEM_HUB_PATH } from '../../config/appRoutes';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
 import { Notification, NotificationType } from '../../types/loan';
@@ -42,7 +41,7 @@ interface AppBarProps {
   sidebarWidth?: number;
 }
 
-const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sidebarWidth = 240 }) => {
+const PropertyAppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sidebarWidth = 240 }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = React.useState<null | HTMLElement>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -252,7 +251,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
 
   const handleSearchKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && searchQuery.trim()) {
-      navigate(`/documentation?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`${pmsPath('/analytics-reports')}?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
     }
   };
@@ -260,7 +259,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/documentation?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`${pmsPath('/analytics-reports')}?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
     }
   };
@@ -320,14 +319,14 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
               justifyContent: 'center',
             }}
           >
-            <MoneyIcon sx={{ fontSize: 20, color: 'grey.900' }} />
+            <PropertyBrandIcon sx={{ fontSize: 20, color: 'grey.900' }} />
           </Box>
           <Box>
             <Typography variant="h6" sx={{ fontSize: '1.25rem', fontWeight: 600, color: 'grey.900', lineHeight: 1.2 }}>
-              Personal Finance Hub
+              Property Management Hub
             </Typography>
             <Typography variant="caption" sx={{ color: 'grey.500', fontSize: '0.75rem' }}>
-              Financial Dashboard
+              Operations & Leasing
             </Typography>
           </Box>
         </Box>
@@ -372,7 +371,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
               }}
             />
             <InputBase
-              placeholder="Search transactions, bills, accounts..."
+              placeholder="Search properties, units, tenants..."
               value={searchQuery}
               onChange={handleSearchChange}
               onKeyPress={handleSearchKeyPress}
@@ -534,8 +533,8 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
           <Button
             variant="outlined"
             size="small"
-            startIcon={<WalletIcon sx={{ fontSize: 18 }} />}
-            onClick={() => navigate(fmsPath('/dashboard'))}
+            startIcon={<CalendarMonthIcon sx={{ fontSize: 18 }} />}
+            onClick={() => navigate(pmsPath('/reservations'))}
             sx={{
               height: 40,
               borderRadius: 9999,
@@ -547,7 +546,7 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
               '&:hover': { borderColor: 'grey.300', bgcolor: 'grey.100' },
             }}
           >
-            Wallet
+            Bookings
           </Button>
 
           <Box
@@ -598,6 +597,10 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
               </Typography>
             </Box>
           </MenuItem>
+          <MenuItem onClick={() => { navigate(SYSTEM_HUB_PATH); handleMenuClose(); }}>
+            <ListItemIcon><PropertyBrandIcon fontSize="small" /></ListItemIcon>
+            All systems
+          </MenuItem>
           <MenuItem onClick={() => { navigate(fmsPath('/settings')); handleMenuClose(); }}>
             <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
             Settings
@@ -611,4 +614,4 @@ const AppBar: React.FC<AppBarProps> = ({ onMenuClick, sidebarOpen = false, sideb
   );
 };
 
-export default AppBar;
+export default PropertyAppBar;

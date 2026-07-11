@@ -48,7 +48,7 @@ const ProfileProtectedRoute: React.FC<ProfileProtectedRouteProps> = ({ children 
     // Don't redirect if already on dashboard to avoid infinite loop
     if (location.pathname !== '/dashboard') {
       console.log('ProfileProtectedRoute: Redirecting to dashboard - no profile found');
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/fms/dashboard" replace />;
     }
   }
 

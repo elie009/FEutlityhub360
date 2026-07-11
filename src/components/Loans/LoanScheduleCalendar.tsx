@@ -26,6 +26,7 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { apiService } from '../../services/api';
 import { Loan, RepaymentSchedule, PaymentStatus } from '../../types/loan';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../../config/appRoutes';
 
 interface LoanPaymentDay {
   date: number;
@@ -219,7 +220,7 @@ const LoanScheduleCalendar: React.FC = () => {
             color="success"
             size="small"
               startIcon={<CreditCard />}
-              onClick={() => navigate('/loans')}
+              onClick={() => navigate(fmsPath('/loans'))}
             >
               View All Loans
             </Button>
@@ -444,7 +445,7 @@ const LoanScheduleCalendar: React.FC = () => {
                   variant="contained"
                   size="small"
                   startIcon={<CreditCard />}
-                  onClick={() => navigate('/loans')}
+                  onClick={() => navigate(fmsPath('/loans'))}
                 >
                   Apply for Loan
                 </Button>

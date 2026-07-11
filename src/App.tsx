@@ -1,19 +1,18 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, Box, Typography, CircularProgress } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { WhiteLabelProvider, useWhiteLabel } from './contexts/WhiteLabelContext';
 import Layout from './components/Layout/Layout';
-// import ProfileProtectedRoute from './components/ProfileProtectedRoute';
+import PropertyLayout from './components/Layout/PropertyLayout';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './components/Auth/AuthPage';
 import ForgotPasswordForm from './components/Auth/ForgotPasswordForm';
 import ResetPasswordForm from './components/Auth/ResetPasswordForm';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
-import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import SuperAdmin from './pages/SuperAdmin';
@@ -49,8 +48,22 @@ import SubscriptionCancel from './pages/SubscriptionCancel';
 import WhiteLabel from './pages/WhiteLabel';
 import TeamManagement from './pages/TeamManagement';
 import Investments from './pages/Investments';
+import SystemHubPage from './pages/SystemHubPage';
+import PropertyHomePage from './pages/PropertyHomePage';
+import {
+  PropertyDirectoryPage,
+  ReservationsCalendarPage,
+  ChannelManagerPage,
+  MaintenanceWorkOrdersPage,
+  InstallmentSchedulesPage,
+  OwnerInvestorPortalPage,
+  RentRollDelinquencyPage,
+  PmsUserManagementPage,
+  AnalyticsReportsBuilderPage,
+} from './pages/pms/pmsPages';
 import { FinanceLoader } from './components/Common';
 import PremiumRoute from './components/RouteGuards/PremiumRoute';
+import { SYSTEM_HUB_PATH, isLegacyFmsPath } from './config/appRoutes';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -70,7 +83,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
-// Component to normalize URLs with double slashes
 const UrlNormalizer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   React.useEffect(() => {
     const pathname = window.location.pathname;
@@ -87,7 +99,6 @@ const UrlNormalizer: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return <>{children}</>;
 };
 
-// Component to check session before showing landing page
 const LandingPageWrapper: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -95,31 +106,25 @@ const LandingPageWrapper: React.FC = () => {
 
   React.useEffect(() => {
     const checkTokenAndRedirect = async () => {
-      // Wait for auth context to finish loading
       if (isLoading) {
         return;
       }
 
-      // If authenticated, redirect to dashboard
       if (isAuthenticated) {
-        navigate('/dashboard', { replace: true });
+        navigate(SYSTEM_HUB_PATH, { replace: true });
         return;
       }
 
-      // Check if there's a token in localStorage
       const token = localStorage.getItem('authToken');
       if (token) {
-        // Token exists but user is not authenticated - validate it
         try {
           const { apiService } = await import('./services/api');
           await apiService.getCurrentUser();
-          // Token is valid - redirect to dashboard
-          navigate('/dashboard', { replace: true });
+          navigate(SYSTEM_HUB_PATH, { replace: true });
           return;
         } catch (error: any) {
-          // Token is invalid - clear it
-          const is401Error = error?.status === 401 || 
-                            error?.message?.includes('401') || 
+          const is401Error = error?.status === 401 ||
+                            error?.message?.includes('401') ||
                             error?.message?.includes('Unauthorized');
           if (is401Error) {
             localStorage.removeItem('authToken');
@@ -129,20 +134,18 @@ const LandingPageWrapper: React.FC = () => {
         }
       }
 
-      // No token or invalid token - show landing page
       setCheckingToken(false);
     };
 
     checkTokenAndRedirect();
   }, [isAuthenticated, isLoading, navigate]);
 
-  // Show loading while checking token
   if (checkingToken || isLoading) {
     return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
         minHeight="100vh"
       >
         <CircularProgress size={40} />
@@ -153,6 +156,19 @@ const LandingPageWrapper: React.FC = () => {
   return <LandingPage />;
 };
 
+/** Old bookmarks like /dashboard → /fms/dashboard */
+const LegacyFmsRedirect: React.FC = () => {
+  const location = useLocation();
+  const { pathname, search, hash } = location;
+  if (pathname === '/reports' || pathname.startsWith('/reports/')) {
+    return <Navigate to={`/fms/analytics${search}${hash}`} replace />;
+  }
+  if (isLegacyFmsPath(pathname)) {
+    return <Navigate to={`/fms${pathname}${search}${hash}`} replace />;
+  }
+  return <Navigate to={SYSTEM_HUB_PATH} replace />;
+};
+
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
@@ -160,7 +176,6 @@ const AppRoutes: React.FC = () => {
     <Router>
       <UrlNormalizer>
         <Routes>
-        {/* Public routes */}
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<Navigate to="/auth" replace />} />
         <Route path="/forgot-password" element={<ForgotPasswordForm />} />
@@ -170,18 +185,24 @@ const AppRoutes: React.FC = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/subscription/success" element={<SubscriptionSuccess />} />
         <Route path="/subscription/cancel" element={<SubscriptionCancel />} />
-        
-        {/* Landing page for unauthenticated users, Dashboard for authenticated */}
-        <Route path="/" element={
-          isAuthenticated ? (
+
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? <Navigate to={SYSTEM_HUB_PATH} replace /> : <LandingPageWrapper />
+          }
+        />
+
+        <Route
+          path={SYSTEM_HUB_PATH}
+          element={
             <ProtectedRoute>
-              <Layout />
+              <SystemHubPage />
             </ProtectedRoute>
-          ) : (
-            <LandingPageWrapper />
-          )
-        }>
-          {/* Protected routes - only accessible when authenticated */}
+          }
+        />
+
+        <Route path="fms" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={
@@ -317,9 +338,7 @@ const AppRoutes: React.FC = () => {
               <Tickets />
             </ProtectedRoute>
           } />
-          <Route path="reports" element={<Navigate to="/analytics" replace />} />
-          
-          {/* Enterprise-only routes */}
+          <Route path="reports" element={<Navigate to="/fms/analytics" replace />} />
           <Route path="investments" element={
             <ProtectedRoute>
               <PremiumRoute feature="INVESTMENT_TRACKING">
@@ -361,6 +380,21 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } />
         </Route>
+
+        <Route path="pms" element={<ProtectedRoute><PropertyLayout /></ProtectedRoute>}>
+          <Route index element={<PropertyHomePage />} />
+          <Route path="property-directory" element={<PropertyDirectoryPage />} />
+          <Route path="reservations" element={<ReservationsCalendarPage />} />
+          <Route path="channel-manager" element={<ChannelManagerPage />} />
+          <Route path="maintenance" element={<MaintenanceWorkOrdersPage />} />
+          <Route path="installments" element={<InstallmentSchedulesPage />} />
+          <Route path="owner-portal" element={<OwnerInvestorPortalPage />} />
+          <Route path="rent-roll" element={<RentRollDelinquencyPage />} />
+          <Route path="users" element={<PmsUserManagementPage />} />
+          <Route path="analytics-reports" element={<AnalyticsReportsBuilderPage />} />
+        </Route>
+
+        <Route path="*" element={<LegacyFmsRedirect />} />
       </Routes>
       </UrlNormalizer>
     </Router>
@@ -368,13 +402,14 @@ const AppRoutes: React.FC = () => {
 };
 
 const LoanDetailsWrapper: React.FC = () => {
-  const loanId = window.location.pathname.split('/').pop() || '';
-  return <LoanDetails loanId={loanId} onBack={() => window.history.back()} />;
+  const { loanId } = useParams<{ loanId: string }>();
+  const navigate = useNavigate();
+  return <LoanDetails loanId={loanId || ''} onBack={() => navigate(-1)} />;
 };
 
 const ThemedAppWrapper: React.FC = () => {
   const { theme, loading } = useWhiteLabel();
-  
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -382,7 +417,7 @@ const ThemedAppWrapper: React.FC = () => {
       </Box>
     );
   }
-  
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

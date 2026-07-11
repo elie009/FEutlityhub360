@@ -52,6 +52,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { apiService } from '../services/api';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { fmsPath } from '../config/appRoutes';
 import { BankAccount } from '../types/bankAccount';
 import {
   BankStatement,
@@ -456,7 +457,7 @@ const ReconciliationPage: React.FC = () => {
                         size="small"
                         fullWidth
                         sx={{ mt: 1 }}
-                        onClick={() => navigate('/settings#subscription')}
+                        onClick={() => navigate(`${fmsPath('/settings')}#subscription`)}
                       >
                         Upgrade
                       </Button>

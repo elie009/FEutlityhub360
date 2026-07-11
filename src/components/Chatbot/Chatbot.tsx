@@ -21,8 +21,6 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   Divider,
-  Switch,
-  FormControlLabel,
   Tooltip,
   Badge,
   MenuItem,
@@ -53,16 +51,41 @@ import {
   TrendingDown,
   History as HistoryIcon,
   Delete as DeleteIcon,
-  Psychology as PsychologyIcon,
   AutoAwesome as AutoAwesomeIcon,
+  PictureAsPdf,
+  AttachFile as AttachmentIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { fmsPath } from '../../config/appRoutes';
 import { useAuth } from '../../contexts/AuthContext';
 import { chatbotService, Conversation } from './ChatbotService';
 import { apiService } from '../../services/api';
 import { BillType, BillFrequency } from '../../types/bill';
 import { SavingsType } from '../../types/savings';
 import { Notification, NotificationType } from '../../types/loan';
+
+/** Trigger browser download of a PDF built from base64 (chat export). */
+function downloadPdfFromBase64(base64: string, fileName: string) {
+  try {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('Download PDF failed', e);
+  }
+}
 
 interface Message {
   id: string;
@@ -75,6 +98,8 @@ interface Message {
   formType?: 'bill' | 'loan' | 'bankAccount' | 'savings' | 'list';
   listData?: any[];
   listType?: 'bills' | 'loans' | 'bankAccounts' | 'savings';
+  /** Server-generated PDF (financial report) */
+  pdfAttachment?: { fileName: string; base64: string };
 }
 
 interface QuickAction {
@@ -216,6 +241,7 @@ const LoanForm: React.FC<{ onSubmit: (data: any) => void }> = ({ onSubmit }) => 
     purpose: '',
     principal: '',
     interestRate: '',
+    interestRatePeriod: 'ANNUAL' as 'ANNUAL' | 'MONTHLY',
     term: '',
     monthlyIncome: '',
     employmentStatus: '',
@@ -224,10 +250,14 @@ const LoanForm: React.FC<{ onSubmit: (data: any) => void }> = ({ onSubmit }) => 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const inputInterestRate = parseFloat(formData.interestRate);
+    const annualInterestRate =
+      formData.interestRatePeriod === 'MONTHLY' ? inputInterestRate * 12 : inputInterestRate;
     onSubmit({
       purpose: formData.purpose,
       principal: parseFloat(formData.principal),
-      interestRate: parseFloat(formData.interestRate),
+      interestRate: annualInterestRate,
       term: parseInt(formData.term),
       monthlyIncome: parseFloat(formData.monthlyIncome),
       employmentStatus: formData.employmentStatus,
@@ -261,9 +291,24 @@ const LoanForm: React.FC<{ onSubmit: (data: any) => void }> = ({ onSubmit }) => 
           />
         </Grid>
         <Grid item xs={12} sm={6}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Interest Rate Type</InputLabel>
+            <Select
+              value={formData.interestRatePeriod}
+              label="Interest Rate Type"
+              onChange={(e) =>
+                setFormData({ ...formData, interestRatePeriod: e.target.value as 'ANNUAL' | 'MONTHLY' })
+              }
+            >
+              <MenuItem value="ANNUAL">Annual</MenuItem>
+              <MenuItem value="MONTHLY">Monthly</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Interest Rate (%)"
+            label={`Interest Rate (%) per ${formData.interestRatePeriod === 'MONTHLY' ? 'month' : 'year'}`}
             type="number"
             value={formData.interestRate}
             onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
@@ -552,13 +597,17 @@ const Chatbot: React.FC = () => {
   const [financialSummary, setFinancialSummary] = useState<any>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showConversations, setShowConversations] = useState(false);
-  const [useAI, setUseAI] = useState(false);
-  const [aiEnabled] = useState(true);
   const [tokensUsed, setTokensUsed] = useState<number>(0);
   const [pendingNotificationContext, setPendingNotificationContext] = useState<Notification | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastUserMessageRef = useRef<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [bankAccountsForUpload, setBankAccountsForUpload] = useState<any[]>([]);
+  const [uploadBankAccountId, setUploadBankAccountId] = useState<string>('');
   const navigate = useNavigate();
-  const { user, isAuthenticated, hasProfile } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   // Listen for notification click: open chat and show assist message with "Guide me" / "Do it for me"
   useEffect(() => {
@@ -623,8 +672,11 @@ const Chatbot: React.FC = () => {
         loadFinancialSummary();
       }
       loadConversations();
+      if (!bankAccountsForUpload || bankAccountsForUpload.length === 0) {
+        loadBankAccountsForUpload();
+      }
     }
-  }, [isOpen, isAuthenticated, financialSummary]);
+  }, [isOpen, isAuthenticated, financialSummary, bankAccountsForUpload]);
 
   // Initialize with welcome message
   useEffect(() => {
@@ -632,7 +684,7 @@ const Chatbot: React.FC = () => {
       const welcomeMessage: Message = {
         id: '1',
         type: 'bot',
-        content: `Hello${user ? ` ${user.name}` : ''}! 👋 I'm your UtilityHub360 assistant. ${useAI ? 'I have AI capabilities to help you better!' : 'I can help you manage your finances!'}\n\nWhat would you like to do today?`,
+        content: `Hello${user ? ` ${user.name}` : ''}! 👋 I'm your **AI-powered UtilityHub360 assistant**. I use your financial context (when you chat) to give personalized, accurate answers about bills, budgets, loans, savings, bank accounts, and how to use the app.\n\nWhat would you like to do today?`,
         timestamp: new Date(),
         quickActions: [
           {
@@ -669,12 +721,19 @@ const Chatbot: React.FC = () => {
             action: 'show_reports',
             icon: <Assessment />,
             description: 'See your financial insights'
+          },
+          {
+            id: 'download_pdf_report',
+            label: 'Download PDF report',
+            action: 'chat_download_pdf',
+            icon: <PictureAsPdf />,
+            description: 'Export financial summary as PDF'
           }
         ]
       };
       setMessages([welcomeMessage]);
     }
-  }, [isOpen, user, messages, useAI]);
+  }, [isOpen, user, messages]);
 
   const loadFinancialSummary = async () => {
     try {
@@ -692,6 +751,21 @@ const Chatbot: React.FC = () => {
     } catch (error) {
       console.error('Error loading conversations:', error);
       setConversations([]); // Ensure conversations is always an array
+    }
+  };
+
+  const loadBankAccountsForUpload = async () => {
+    try {
+      const accounts = await apiService.getUserBankAccounts();
+      const safeAccounts = accounts || [];
+      setBankAccountsForUpload(safeAccounts);
+      if (!uploadBankAccountId && safeAccounts.length > 0) {
+        setUploadBankAccountId(safeAccounts[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading bank accounts for upload:', error);
+      setBankAccountsForUpload([]);
+      setUploadBankAccountId('');
     }
   };
 
@@ -731,6 +805,8 @@ const Chatbot: React.FC = () => {
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
+    lastUserMessageRef.current = content.trim();
+
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -743,34 +819,26 @@ const Chatbot: React.FC = () => {
     setIsTyping(true);
 
     try {
-      let botResponse: Message;
-      
-      if (useAI && aiEnabled) {
-        // Use AI chat
-        const aiResponse = await chatbotService.sendAIMessage(
-          content.trim(),
-          true,
-          user?.id || 'current-user'
-        );
-        
-        botResponse = {
-          id: (Date.now() + 1).toString(),
-          type: 'bot',
-          content: aiResponse.message,
-          timestamp: new Date(),
-          quickActions: aiResponse.quickActions?.map(action => ({
-            ...action,
-            icon: getIconComponent(action.icon)
-          }))
-        };
+      const aiResponse = await chatbotService.sendAIMessage(
+        content.trim(),
+        true,
+        user?.id || 'current-user'
+      );
 
-        // Update tokens used
-        if (aiResponse.tokensUsed) {
-          setTokensUsed(prev => prev + aiResponse.tokensUsed!);
-        }
-      } else {
-        // Use legacy response generation
-        botResponse = await generateBotResponse(content.trim());
+      const botResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: aiResponse.message,
+        timestamp: new Date(),
+        pdfAttachment: aiResponse.pdfAttachment,
+        quickActions: aiResponse.quickActions?.map(action => ({
+          ...action,
+          icon: getIconComponent(action.icon)
+        }))
+      };
+
+      if (aiResponse.tokensUsed) {
+        setTokensUsed(prev => prev + aiResponse.tokensUsed!);
       }
 
       setMessages(prev => [...prev, botResponse]);
@@ -797,85 +865,140 @@ const Chatbot: React.FC = () => {
     }
   };
 
-  const generateBotResponse = async (userInput: string): Promise<Message> => {
-    const messageId = (Date.now() + 1).toString();
-    
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const handleChatFilePicked = async (file: File | null) => {
+    if (!file) return;
+
+    // Only allow bank statement uploads for reconciliation (current chat upload scope)
+    const lowerName = file.name.toLowerCase();
+    const isPdf = lowerName.endsWith('.pdf') || file.type === 'application/pdf';
+    const isCsv =
+      lowerName.endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel';
+
+    if (!isPdf && !isCsv) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: 'Please upload a bank statement in PDF or CSV format.',
+          timestamp: new Date(),
+          quickActions: [
+            {
+              id: 'retry_upload',
+              label: 'Upload another file',
+              action: 'retry_upload',
+              icon: <AttachmentIcon />,
+              description: 'Choose another PDF/CSV'
+            }
+          ]
+        }
+      ]);
+      return;
+    }
+
+    if (!uploadBankAccountId) {
+      await showBankAccountsList();
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: 'I couldn’t find a bank account to attach this statement to. Please open Bank Accounts and select an account for reconciliation, or add a bank account first.',
+          timestamp: new Date()
+        }
+      ]);
+      return;
+    }
+
+    setIsTyping(true);
+    setIsUploadingFile(true);
     try {
-      const context = {
-        hasProfile,
-        financialSummary,
-        user
-      };
-      
-      const response = chatbotService.generateResponse(userInput, context);
-      
-      // Handle special actions that need API calls
-      if (userInput.toLowerCase().includes('bill analytics') || userInput.toLowerCase().includes('bill reports')) {
-        const billAnalytics = await chatbotService.getBillAnalytics();
-        return {
-          id: messageId,
-          type: 'bot',
-          content: response.message,
-          timestamp: new Date(),
-          reportData: {
-            type: 'analytics',
-            title: 'Bill Analytics',
-            data: billAnalytics || null // Ensure data is null if API call fails
-          },
-          quickActions: response.quickActions?.map(action => ({
-            ...action,
-            icon: getIconComponent(action.icon)
-          }))
-        };
+      const upload = await apiService.uploadBankStatementAsync(file, uploadBankAccountId);
+
+      // Poll until extraction is done
+      let status: string | undefined = upload?.status;
+      const uploadId = upload?.id;
+
+      if (!uploadId) throw new Error('Upload id missing');
+
+      const timeoutMs = 2 * 60 * 1000; // 2 minutes
+      const startedAt = Date.now();
+
+      while (Date.now() - startedAt < timeoutMs) {
+        const current = await apiService.getUploadStatus(uploadId);
+        status = current?.status;
+
+        if (status === 'DONE' || status === 'COMPLETED') break;
+        if (status === 'FAILED') break;
+        await sleep(2000);
       }
-      
-      if (userInput.toLowerCase().includes('monthly report')) {
-        const monthlyReport = await chatbotService.getMonthlyReport();
-        return {
-          id: messageId,
+
+      const doneOrFailed = status === 'DONE' || status === 'COMPLETED';
+      const failed = status === 'FAILED';
+
+      if (doneOrFailed) {
+        const fileLabel = file.name;
+        const doneMessage: Message = {
+          id: (Date.now() + 2).toString(),
           type: 'bot',
-          content: response.message,
+          content: `I uploaded and extracted your bank statement (${fileLabel}). Please review and confirm the extracted transactions in Reconciliation.`,
           timestamp: new Date(),
-          reportData: {
-            type: 'summary',
-            title: 'Monthly Report',
-            data: monthlyReport || null // Ensure data is null if API call fails
-          },
-          quickActions: response.quickActions?.map(action => ({
-            ...action,
-            icon: getIconComponent(action.icon)
-          }))
+          quickActions: [
+            {
+              id: 'open_reconciliation',
+              label: 'Open Reconciliation',
+              action: 'open_reconciliation',
+              icon: <AccountBalance />,
+              description: 'Review and finalize'
+            }
+          ]
         };
+        setMessages(prev => [...prev, doneMessage]);
+      } else if (failed) {
+        const errorMessage: Message = {
+          id: (Date.now() + 3).toString(),
+          type: 'bot',
+          content: 'Upload/extraction failed. Please try again with a different file format (PDF/CSV) or re-export the statement.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } else {
+        const pendingMessage: Message = {
+          id: (Date.now() + 4).toString(),
+          type: 'bot',
+          content: 'This is taking longer than expected. You can try again in a moment, or open Reconciliation to check uploads.',
+          timestamp: new Date(),
+          quickActions: [
+            {
+              id: 'open_reconciliation',
+              label: 'Open Reconciliation',
+              action: 'open_reconciliation',
+              icon: <AccountBalance />,
+              description: 'Check uploads'
+            }
+          ]
+        };
+        setMessages(prev => [...prev, pendingMessage]);
       }
-      
-      return {
-        id: messageId,
-        type: 'bot',
-        content: response.message,
-        timestamp: new Date(),
-        reportData: response.reportData,
-        quickActions: response.quickActions?.map(action => ({
-          ...action,
-          icon: getIconComponent(action.icon)
-        }))
-      };
     } catch (error) {
-      console.error('Error generating bot response:', error);
-      return {
-        id: messageId,
-        type: 'bot',
-        content: 'I apologize, but I encountered an error. Please try again.',
-        timestamp: new Date(),
-        quickActions: [
-          {
-            id: 'retry',
-            label: 'Try Again',
-            action: 'retry',
-            icon: <Help />,
-            description: 'Retry your request'
-          }
-        ]
-      };
+      console.error('Chat file upload error:', error);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 5).toString(),
+          type: 'bot',
+          content: 'Sorry, I couldn’t upload that file. Please try again.',
+          timestamp: new Date()
+        }
+      ]);
+    } finally {
+      setIsUploadingFile(false);
+      setIsTyping(false);
+
+      // Reset input so the same file can be picked again
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -900,6 +1023,18 @@ const Chatbot: React.FC = () => {
 
   const handleQuickAction = async (action: QuickAction) => {
     switch (action.action) {
+      case 'retry':
+        if (lastUserMessageRef.current) {
+          handleSendMessage(lastUserMessageRef.current);
+        }
+        break;
+      case 'chat_download_pdf':
+        handleSendMessage('Download my financial report as a PDF');
+        break;
+      case 'open_reconciliation':
+        navigate(fmsPath('/reconciliation'), { state: { accountId: uploadBankAccountId } });
+        setIsOpen(false);
+        break;
       case 'navigate':
         navigate(`/${action.id}`);
         setIsOpen(false);
@@ -1737,7 +1872,25 @@ const Chatbot: React.FC = () => {
           )}
           {message.reportData && renderReportData(message.reportData)}
           {message.formType && renderForm(message)}
-          {message.quickActions && (
+          {message.pdfAttachment && (
+            <Box sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<PictureAsPdf />}
+                onClick={() =>
+                  downloadPdfFromBase64(
+                    message.pdfAttachment!.base64,
+                    message.pdfAttachment!.fileName
+                  )
+                }
+                sx={{ borderRadius: 2, textTransform: 'none', bgcolor: '#075E54', '&:hover': { bgcolor: '#064E47' } }}
+              >
+                Download PDF
+              </Button>
+            </Box>
+          )}
+          {message.quickActions && message.quickActions.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
                 Quick Actions:
@@ -1844,12 +1997,10 @@ const Chatbot: React.FC = () => {
               <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
                 UtilityHub360 Assistant
               </Typography>
-              {aiEnabled && (
-                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.9 }}>
-                  <AutoAwesomeIcon sx={{ fontSize: 12 }} />
-                  AI Powered
-                </Typography>
-              )}
+              <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.9 }}>
+                <AutoAwesomeIcon sx={{ fontSize: 12 }} />
+                AI assistant · answers use your data when context is on
+              </Typography>
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1861,14 +2012,6 @@ const Chatbot: React.FC = () => {
                 <Badge badgeContent={conversations?.length || 0} color="secondary">
                   <HistoryIcon />
                 </Badge>
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Toggle AI Mode">
-              <IconButton 
-                onClick={() => setUseAI(!useAI)}
-                sx={{ color: useAI ? 'white' : 'rgba(255,255,255,0.5)' }}
-              >
-                <PsychologyIcon />
               </IconButton>
             </Tooltip>
             <IconButton 
@@ -1893,13 +2036,13 @@ const Chatbot: React.FC = () => {
         >
           {messages && messages.map(renderMessage)}
           {isTyping && (
-            <Box sx={{ display: 'flex', alignItems: 'flex-end', mb: 1.5, px: 0.5, gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, px: 0.5, gap: 0.5 }}>
               <Avatar
                 sx={{
                   bgcolor: '#075E54',
                   width: 28,
                   height: 28,
-                  mb: 0.5,
+                  flexShrink: 0,
                 }}
               >
                 <BotIcon sx={{ fontSize: 16 }} />
@@ -1913,16 +2056,19 @@ const Chatbot: React.FC = () => {
                   borderRadius: '0 7.5px 7.5px 7.5px',
                   boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                   position: 'relative',
+                  overflow: 'visible',
+                  // Left-pointing tail, vertically centered (avoids bottom-corner misalignment)
                   '&::before': {
                     content: '""',
                     position: 'absolute',
-                    left: -8,
-                    bottom: 0,
+                    left: -6,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
                     width: 0,
                     height: 0,
                     borderStyle: 'solid',
-                    borderWidth: '0 8px 8px 0',
-                    borderColor: 'transparent white transparent transparent',
+                    borderWidth: '6px 6px 6px 0',
+                    borderColor: 'transparent #fff transparent transparent',
                   },
                 }}
               >
@@ -1965,9 +2111,52 @@ const Chatbot: React.FC = () => {
           <div ref={messagesEndRef} />
         </Box>
 
-        {/* Input: text only (file attachment removed) */}
-        <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', backgroundColor: '#F0F0F0' }}>
+        {/* Input: text + attachment upload (+ drag & drop) */}
+        <Box
+          sx={{
+            p: 1.5,
+            borderTop: 1,
+            borderColor: 'divider',
+            backgroundColor: '#F0F0F0',
+            border: isDragOver ? '2px dashed #25D366' : 'none',
+            borderRadius: isDragOver ? 2 : 0,
+          }}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOver(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Required so the browser allows dropping
+            e.dataTransfer.dropEffect = 'copy';
+            setIsDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOver(false);
+            const file = e.dataTransfer.files?.[0] || null;
+            void handleChatFilePicked(file);
+          }}
+        >
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              accept=".pdf,.csv,text/csv,application/pdf"
+              onChange={(e) => {
+                const picked = e.target.files?.[0] || null;
+                void handleChatFilePicked(picked);
+              }}
+            />
             <TextField
               fullWidth
               multiline
@@ -2007,6 +2196,21 @@ const Chatbot: React.FC = () => {
               }}
             />
             <IconButton
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!isAuthenticated || isUploadingFile}
+              sx={{
+                backgroundColor: 'white',
+                color: '#075E54',
+                width: 40,
+                height: 40,
+                borderRadius: '12px',
+                '&:hover': { backgroundColor: 'rgba(7, 94, 84, 0.08)' },
+                '&.Mui-disabled': { backgroundColor: '#eee', color: '#999' }
+              }}
+            >
+              <AttachmentIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+            <IconButton
               onClick={() => handleSendMessage(inputValue)}
               disabled={!inputValue.trim()}
               sx={{
@@ -2025,34 +2229,6 @@ const Chatbot: React.FC = () => {
             >
               <SendIcon sx={{ fontSize: 20 }} />
             </IconButton>
-          </Box>
-          
-          {/* AI Status and Controls */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 1 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={useAI}
-                  onChange={(e) => setUseAI(e.target.checked)}
-                  size="small"
-                  sx={{
-                    '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#25D366',
-                    },
-                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#25D366',
-                    },
-                  }}
-                />
-              }
-              label={
-                <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem' }}>
-                  {useAI ? <AutoAwesomeIcon sx={{ fontSize: 12 }} /> : <BotIcon sx={{ fontSize: 12 }} />}
-                  {useAI ? 'AI Mode' : 'Basic Mode'}
-                </Typography>
-              }
-              sx={{ m: 0 }}
-            />
           </Box>
         </Box>
       </Box>

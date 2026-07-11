@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../services/api';
+import { fmsPath } from '../config/appRoutes';
 
 interface IncomeSource {
   name: string;
@@ -221,7 +222,7 @@ const ProfileSetup: React.FC = () => {
       
       // Redirect to dashboard after a short delay
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate(fmsPath('/dashboard'));
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to create profile. Please try again.');
